@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/capability.json",
+  "identifier": "default",
+  "description": "Default permissions for the ISSO 51 app",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file"
+  ]
+}

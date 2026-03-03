@@ -24,3 +24,12 @@ Thumbs.db
 
 # Environment
 .env
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Tauri
+src-tauri/icons/*.png
+src-tauri/icons/*.ico
+src-tauri/icons/*.icns

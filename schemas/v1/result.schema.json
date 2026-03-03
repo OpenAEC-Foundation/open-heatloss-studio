@@ -94,6 +94,15 @@
           "type": "number",
           "format": "double"
         },
+        "norm_refs": {
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "default": [],
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "phi_hu": {
           "description": "Heating-up allowance Φ_hu in W.",
           "type": "number",
@@ -114,6 +123,15 @@
           "description": "Specific heat loss by infiltration H_i in W/K.",
           "type": "number",
           "format": "double"
+        },
+        "norm_refs": {
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "default": [],
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "phi_i": {
           "description": "Infiltration heat loss Φ_i in W.",
@@ -224,6 +242,15 @@
         "phi_wall_loss"
       ],
       "properties": {
+        "norm_refs": {
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "default": [],
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "phi_ceiling_loss": {
           "description": "Ceiling heating loss to exterior/adjacent Φ_verlies3 in W.",
           "type": "number",
@@ -283,6 +310,15 @@
           "type": "number",
           "format": "double"
         },
+        "norm_refs": {
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "default": [],
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "phi_t": {
           "description": "Total transmission heat loss Φ_T in W.",
           "type": "number",
@@ -310,6 +346,15 @@
           "description": "Specific heat loss by ventilation H_v in W/K.",
           "type": "number",
           "format": "double"
+        },
+        "norm_refs": {
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "default": [],
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         },
         "phi_v": {
           "description": "Ventilation heat loss Φ_v in W.",

@@ -1,0 +1,30 @@
+export type {
+  BoundaryType,
+  Building,
+  BuildingType,
+  ConstructionElement,
+  DesignConditions,
+  FrostProtectionType,
+  GroundParameters,
+  HeatingSystem,
+  MaterialType,
+  Project,
+  ProjectInfo,
+  Room,
+  RoomFunction,
+  SecurityClass,
+  VerticalPosition,
+  VentilationConfig,
+  VentilationSystemType,
+} from "./project";
+
+export type {
+  BuildingSummary,
+  HeatingUpResult,
+  InfiltrationResult,
+  ProjectResult,
+  RoomResult,
+  SystemLossResult,
+  TransmissionResult,
+  VentilationResult,
+} from "./result";

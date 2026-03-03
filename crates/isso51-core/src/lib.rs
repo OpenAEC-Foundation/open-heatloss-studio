@@ -502,4 +502,96 @@ mod tests {
         let result_schema = result_schema();
         assert!(!result_schema.is_empty());
     }
+
+    #[test]
+    fn test_norm_refs_populated() {
+        let project = create_portiekwoning();
+        let result = calculate(&project).unwrap();
+        let r1 = &result.rooms[0];
+
+        // Transmission must reference formule 4.2 (Phi_T) and 4.3a (H_T,ie)
+        assert!(
+            r1.transmission.norm_refs.contains(&"ISSO_51_2023_formule4_2"),
+            "Transmission missing formule 4.2"
+        );
+        assert!(
+            r1.transmission.norm_refs.contains(&"ISSO_51_2023_formule4_3a"),
+            "Transmission missing formule 4.3a"
+        );
+
+        // Infiltration must reference erratum formules
+        assert!(
+            r1.infiltration
+                .norm_refs
+                .contains(&"ISSO_51_2023_formule4_1_erratum"),
+            "Infiltration missing formule 4.1 erratum"
+        );
+
+        // Ventilation: outside air → formule 4.3 erratum + 4.6a erratum
+        assert!(
+            r1.ventilation
+                .norm_refs
+                .contains(&"ISSO_51_2023_formule4_3_erratum"),
+            "Ventilation missing formule 4.3 erratum"
+        );
+        assert!(
+            r1.ventilation
+                .norm_refs
+                .contains(&"ISSO_51_2023_formule3_3_erratum"),
+            "Ventilation missing formule 3.3 erratum (phi_vent)"
+        );
+
+        // Heating-up must reference paragraaf 4.3 and tabel 4.6
+        assert!(
+            r1.heating_up
+                .norm_refs
+                .contains(&"ISSO_51_2023_parag4_3"),
+            "Heating-up missing parag 4.3"
+        );
+        assert!(
+            r1.heating_up
+                .norm_refs
+                .contains(&"ISSO_51_2023_tabel4_6"),
+            "Heating-up missing tabel 4.6"
+        );
+
+        // System losses: no embedded heating → empty
+        assert!(
+            r1.system_losses.norm_refs.is_empty(),
+            "System losses should have no norm_refs without embedded heating"
+        );
+    }
+
+    #[test]
+    fn test_norm_refs_in_json_output() {
+        let project = create_portiekwoning();
+        let json = serde_json::to_string_pretty(&project).unwrap();
+        let result_json = calculate_from_json(&json).unwrap();
+
+        // norm_refs must appear in serialized output
+        assert!(
+            result_json.contains("norm_refs"),
+            "JSON output must contain norm_refs field"
+        );
+        assert!(
+            result_json.contains("ISSO_51_2023_formule4_2"),
+            "JSON output must contain formule 4.2 reference"
+        );
+    }
+
+    #[test]
+    fn test_norm_refs_skipped_on_deserialize() {
+        let project = create_portiekwoning();
+        let result = calculate(&project).unwrap();
+        let json = serde_json::to_string(&result).unwrap();
+
+        // Deserialize back — norm_refs should default to empty
+        let deserialized: result::ProjectResult =
+            serde_json::from_str(&json).unwrap();
+        let r1 = &deserialized.rooms[0];
+        assert!(
+            r1.transmission.norm_refs.is_empty(),
+            "norm_refs should be empty after deserialization"
+        );
+    }
 }

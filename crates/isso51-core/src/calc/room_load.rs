@@ -11,6 +11,7 @@ use crate::result::{
     HeatingUpResult, InfiltrationResult, RoomResult, SystemLossResult, TransmissionResult,
     VentilationResult,
 };
+use crate::formulas;
 use crate::tables;
 
 use super::{heating_up, infiltration, quadratic_sum, transmission, ventilation};
@@ -82,35 +83,63 @@ pub fn calculate_room(
     // For simplicity, use delta_v_high (Ū > 0.5) as default
     let delta_v = dt.delta_v_high;
 
-    let (h_v, fv) = if room.fraction_outside_air < 1.0 && room.fraction_outside_air > 0.0 {
-        // Mixed air supply (formule 4.7)
-        let f_v1 = ventilation::f_v(theta_i, theta_e, theta_t, delta_v);
-        let theta_a = room.internal_air_temperature.unwrap_or(theta_i);
-        let f_v2 = ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
-        let h = ventilation::h_ventilation_mixed(
-            room.ventilation_rate,
-            room.fraction_outside_air,
-            f_v1,
-            f_v2,
-        );
-        let fv_eff = if room.ventilation_rate > 0.0 {
-            h / (1.2 * room.ventilation_rate)
+    let (h_v, fv, vent_norm_refs) =
+        if room.fraction_outside_air < 1.0 && room.fraction_outside_air > 0.0 {
+            // Mixed air supply (formule 4.7)
+            let f_v1 = ventilation::f_v(theta_i, theta_e, theta_t, delta_v);
+            let theta_a = room.internal_air_temperature.unwrap_or(theta_i);
+            let f_v2 =
+                ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
+            let h = ventilation::h_ventilation_mixed(
+                room.ventilation_rate,
+                room.fraction_outside_air,
+                f_v1,
+                f_v2,
+            );
+            let fv_eff = if room.ventilation_rate > 0.0 {
+                h / (1.2 * room.ventilation_rate)
+            } else {
+                0.0
+            };
+            (
+                h,
+                fv_eff,
+                vec![
+                    formulas::ISSO_51_2023_FORMULE4_7_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE4_6A_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE4_6B_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE3_3_ERRATUM,
+                ],
+            )
+        } else if room.fraction_outside_air == 0.0 {
+            // All air from internal source
+            let theta_a = room.internal_air_temperature.unwrap_or(theta_i);
+            let fv =
+                ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
+            let h = ventilation::h_ventilation(room.ventilation_rate, fv);
+            (
+                h,
+                fv,
+                vec![
+                    formulas::ISSO_51_2023_FORMULE4_3_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE4_6B_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE3_3_ERRATUM,
+                ],
+            )
         } else {
-            0.0
+            // All air from outside
+            let fv = ventilation::f_v(theta_i, theta_e, theta_t, delta_v);
+            let h = ventilation::h_ventilation(room.ventilation_rate, fv);
+            (
+                h,
+                fv,
+                vec![
+                    formulas::ISSO_51_2023_FORMULE4_3_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE4_6A_ERRATUM,
+                    formulas::ISSO_51_2023_FORMULE3_3_ERRATUM,
+                ],
+            )
         };
-        (h, fv_eff)
-    } else if room.fraction_outside_air == 0.0 {
-        // All air from internal source
-        let theta_a = room.internal_air_temperature.unwrap_or(theta_i);
-        let fv = ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
-        let h = ventilation::h_ventilation(room.ventilation_rate, fv);
-        (h, fv)
-    } else {
-        // All air from outside
-        let fv = ventilation::f_v(theta_i, theta_e, theta_t, delta_v);
-        let h = ventilation::h_ventilation(room.ventilation_rate, fv);
-        (h, fv)
-    };
 
     let phi_v = ventilation::phi_ventilation(h_v, theta_i, theta_e);
 
@@ -172,11 +201,22 @@ pub fn calculate_room(
             h_t_adjacent_buildings: h_t_ib,
             h_t_ground: h_t_ig,
             phi_t,
+            norm_refs: vec![
+                formulas::ISSO_51_2023_FORMULE4_2,
+                formulas::ISSO_51_2023_FORMULE4_3A,
+                formulas::ISSO_51_2023_FORMULE4_6,
+                formulas::ISSO_51_2023_FORMULE4_14,
+                formulas::ISSO_51_2023_FORMULE4_18,
+            ],
         },
         infiltration: InfiltrationResult {
             h_i,
             z_i,
             phi_i,
+            norm_refs: vec![
+                formulas::ISSO_51_2023_FORMULE4_1_ERRATUM,
+                formulas::ISSO_51_2023_FORMULE_E5_ERRATUM,
+            ],
         },
         ventilation: VentilationResult {
             h_v,
@@ -184,17 +224,23 @@ pub fn calculate_room(
             q_v: room.ventilation_rate,
             phi_v,
             phi_vent,
+            norm_refs: vent_norm_refs,
         },
         heating_up: HeatingUpResult {
             phi_hu,
             f_rh,
             accumulating_area,
+            norm_refs: vec![
+                formulas::ISSO_51_2023_PARAG4_3,
+                formulas::ISSO_51_2023_TABEL4_6,
+            ],
         },
         system_losses: SystemLossResult {
             phi_floor_loss: 0.0,
             phi_wall_loss: 0.0,
             phi_ceiling_loss: 0.0,
             phi_system_total: phi_system,
+            norm_refs: vec![],
         },
         total_heat_loss: total,
         basis_heat_loss: phi_basis,

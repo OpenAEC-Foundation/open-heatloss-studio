@@ -75,6 +75,11 @@ pub struct TransmissionResult {
 
     /// Total transmission heat loss Φ_T in W.
     pub phi_t: f64,
+
+    /// ISSO 51 normreferenties gebruikt bij deze berekening.
+    #[serde(skip_deserializing, default)]
+    #[schemars(with = "Vec<String>")]
+    pub norm_refs: Vec<&'static str>,
 }
 
 /// Infiltration heat loss result.
@@ -88,6 +93,11 @@ pub struct InfiltrationResult {
 
     /// Infiltration heat loss Φ_i in W.
     pub phi_i: f64,
+
+    /// ISSO 51 normreferenties gebruikt bij deze berekening.
+    #[serde(skip_deserializing, default)]
+    #[schemars(with = "Vec<String>")]
+    pub norm_refs: Vec<&'static str>,
 }
 
 /// Ventilation heat loss result.
@@ -107,6 +117,11 @@ pub struct VentilationResult {
 
     /// In-scope ventilation loss Φ_vent (after subtracting infiltration) in W.
     pub phi_vent: f64,
+
+    /// ISSO 51 normreferenties gebruikt bij deze berekening.
+    #[serde(skip_deserializing, default)]
+    #[schemars(with = "Vec<String>")]
+    pub norm_refs: Vec<&'static str>,
 }
 
 /// Heating-up allowance result.
@@ -120,6 +135,11 @@ pub struct HeatingUpResult {
 
     /// Accumulating surface area in m².
     pub accumulating_area: f64,
+
+    /// ISSO 51 normreferenties gebruikt bij deze berekening.
+    #[serde(skip_deserializing, default)]
+    #[schemars(with = "Vec<String>")]
+    pub norm_refs: Vec<&'static str>,
 }
 
 /// System loss result (embedded heating).
@@ -136,6 +156,11 @@ pub struct SystemLossResult {
 
     /// Total system losses in W.
     pub phi_system_total: f64,
+
+    /// ISSO 51 normreferenties gebruikt bij deze berekening.
+    #[serde(skip_deserializing, default)]
+    #[schemars(with = "Vec<String>")]
+    pub norm_refs: Vec<&'static str>,
 }
 
 /// Building-level summary of heat losses.

@@ -1,0 +1,310 @@
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
+import { PageHeader } from "../components/layout/PageHeader";
+import { useBackend } from "../hooks/useBackend";
+import { useProjectStore } from "../store/projectStore";
+import {
+  BUILDING_TYPE_LABELS,
+  SECURITY_CLASS_LABELS,
+  VENTILATION_SYSTEM_LABELS,
+} from "../lib/constants";
+import type { Building, DesignConditions, ProjectInfo, VentilationConfig } from "../types";
+
+function toOptions(labels: Record<string, string>) {
+  return Object.entries(labels).map(([value, label]) => ({ value, label }));
+}
+
+export function ProjectSetup() {
+  const navigate = useNavigate();
+  const backend = useBackend();
+  const { project, updateProject, isCalculating, setCalculating, setResult, setError } =
+    useProjectStore();
+
+  const { info, building, climate, ventilation } = project;
+
+  const updateInfo = useCallback(
+    (partial: Partial<ProjectInfo>) => {
+      updateProject({ info: { ...project.info, ...partial } });
+    },
+    [project.info, updateProject],
+  );
+
+  const updateBuilding = useCallback(
+    (partial: Partial<Building>) => {
+      updateProject({ building: { ...project.building, ...partial } });
+    },
+    [project.building, updateProject],
+  );
+
+  const updateClimate = useCallback(
+    (partial: Partial<DesignConditions>) => {
+      updateProject({ climate: { ...project.climate, ...partial } });
+    },
+    [project.climate, updateProject],
+  );
+
+  const updateVentilation = useCallback(
+    (partial: Partial<VentilationConfig>) => {
+      updateProject({ ventilation: { ...project.ventilation, ...partial } });
+    },
+    [project.ventilation, updateProject],
+  );
+
+  const handleCalculate = useCallback(async () => {
+    setCalculating(true);
+    try {
+      const result = await backend.calculate(project);
+      setResult(result);
+      navigate("/results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Berekening mislukt");
+    }
+  }, [backend, project, setCalculating, setResult, setError, navigate]);
+
+  const numVal = (v: string) => (v === "" ? 0 : Number(v));
+
+  return (
+    <div>
+      <PageHeader
+        title="Project"
+        subtitle="Gebouw- en installatie-instellingen"
+        actions={
+          <Button onClick={handleCalculate} disabled={isCalculating || project.rooms.length === 0}>
+            {isCalculating ? "Berekenen..." : "Berekenen"}
+          </Button>
+        }
+      />
+
+      <div className="space-y-6 p-6">
+        {/* Project info */}
+        <Card title="Projectgegevens">
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              id="name"
+              label="Projectnaam"
+              value={info.name}
+              onChange={(e) => updateInfo({ name: e.target.value })}
+            />
+            <Input
+              id="project_number"
+              label="Projectnummer"
+              value={info.project_number ?? ""}
+              onChange={(e) => updateInfo({ project_number: e.target.value || null })}
+            />
+            <Input
+              id="address"
+              label="Adres"
+              value={info.address ?? ""}
+              onChange={(e) => updateInfo({ address: e.target.value || null })}
+            />
+            <Input
+              id="client"
+              label="Opdrachtgever"
+              value={info.client ?? ""}
+              onChange={(e) => updateInfo({ client: e.target.value || null })}
+            />
+            <Input
+              id="engineer"
+              label="Berekend door"
+              value={info.engineer ?? ""}
+              onChange={(e) => updateInfo({ engineer: e.target.value || null })}
+            />
+            <Input
+              id="date"
+              label="Datum"
+              type="date"
+              value={info.date ?? ""}
+              onChange={(e) => updateInfo({ date: e.target.value || null })}
+            />
+          </div>
+        </Card>
+
+        {/* Building */}
+        <Card title="Gebouw">
+          <div className="grid grid-cols-3 gap-4">
+            <Select
+              id="building_type"
+              label="Gebouwtype"
+              value={building.building_type}
+              options={toOptions(BUILDING_TYPE_LABELS)}
+              onChange={(e) =>
+                updateBuilding({ building_type: e.target.value as Building["building_type"] })
+              }
+            />
+            <Input
+              id="qv10"
+              label="Luchtdichtheid qv10"
+              type="number"
+              unit="dm\u00B3/s"
+              value={building.qv10}
+              onChange={(e) => updateBuilding({ qv10: numVal(e.target.value) })}
+            />
+            <Input
+              id="total_floor_area"
+              label="Gebruiksoppervlak"
+              type="number"
+              unit="m\u00B2"
+              value={building.total_floor_area}
+              onChange={(e) => updateBuilding({ total_floor_area: numVal(e.target.value) })}
+            />
+            <Select
+              id="security_class"
+              label="Zekerheidsklasse"
+              value={building.security_class}
+              options={toOptions(SECURITY_CLASS_LABELS)}
+              onChange={(e) =>
+                updateBuilding({ security_class: e.target.value as Building["security_class"] })
+              }
+            />
+            <Input
+              id="num_floors"
+              label="Aantal verdiepingen"
+              type="number"
+              value={building.num_floors ?? 1}
+              onChange={(e) => updateBuilding({ num_floors: Math.max(1, numVal(e.target.value)) })}
+            />
+            <Input
+              id="warmup_time"
+              label="Opwarmtijd"
+              type="number"
+              unit="uur"
+              value={building.warmup_time ?? 2}
+              onChange={(e) => updateBuilding({ warmup_time: numVal(e.target.value) })}
+            />
+          </div>
+          <div className="mt-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={building.has_night_setback ?? false}
+                onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
+                className="rounded border-stone-300 text-primary focus:ring-primary"
+              />
+              Nachtreductie
+            </label>
+          </div>
+        </Card>
+
+        {/* Climate */}
+        <Card title="Klimaat (ontwerpcondities)">
+          <div className="grid grid-cols-4 gap-4">
+            <Input
+              id="theta_e"
+              label="Buitentemperatuur \u03B8_e"
+              type="number"
+              unit="\u00B0C"
+              value={climate.theta_e ?? -10}
+              onChange={(e) => updateClimate({ theta_e: numVal(e.target.value) })}
+            />
+            <Input
+              id="theta_b_res"
+              label="Buurwoning \u03B8_b (wonen)"
+              type="number"
+              unit="\u00B0C"
+              value={climate.theta_b_residential ?? 17}
+              onChange={(e) => updateClimate({ theta_b_residential: numVal(e.target.value) })}
+            />
+            <Input
+              id="theta_b_nonres"
+              label="Buurwoning \u03B8_b (overig)"
+              type="number"
+              unit="\u00B0C"
+              value={climate.theta_b_non_residential ?? 14}
+              onChange={(e) => updateClimate({ theta_b_non_residential: numVal(e.target.value) })}
+            />
+            <Input
+              id="wind_factor"
+              label="Windfactor"
+              type="number"
+              value={climate.wind_factor ?? 1.0}
+              onChange={(e) => updateClimate({ wind_factor: numVal(e.target.value) })}
+            />
+          </div>
+        </Card>
+
+        {/* Ventilation */}
+        <Card title="Ventilatie">
+          <div className="grid grid-cols-3 gap-4">
+            <Select
+              id="system_type"
+              label="Ventilatiesysteem"
+              value={ventilation.system_type}
+              options={toOptions(VENTILATION_SYSTEM_LABELS)}
+              onChange={(e) =>
+                updateVentilation({
+                  system_type: e.target.value as VentilationConfig["system_type"],
+                })
+              }
+            />
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 pb-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={ventilation.has_heat_recovery ?? false}
+                  onChange={(e) => updateVentilation({ has_heat_recovery: e.target.checked })}
+                  className="rounded border-stone-300 text-primary focus:ring-primary"
+                />
+                Warmteterugwinning (WTW)
+              </label>
+            </div>
+            {ventilation.has_heat_recovery && (
+              <Input
+                id="heat_recovery_efficiency"
+                label="WTW-rendement"
+                type="number"
+                unit="%"
+                value={
+                  ventilation.heat_recovery_efficiency != null
+                    ? ventilation.heat_recovery_efficiency * 100
+                    : 85
+                }
+                onChange={(e) =>
+                  updateVentilation({
+                    heat_recovery_efficiency: numVal(e.target.value) / 100,
+                  })
+                }
+              />
+            )}
+          </div>
+        </Card>
+
+        {/* Rooms hint */}
+        {project.rooms.length === 0 && (
+          <Card>
+            <p className="text-center text-sm text-stone-500">
+              Voeg vertrekken toe om de berekening te kunnen starten.
+              <br />
+              <span className="text-xs text-stone-400">
+                (Vertrek-editor volgt in een volgende versie)
+              </span>
+            </p>
+          </Card>
+        )}
+
+        {/* Room count summary */}
+        {project.rooms.length > 0 && (
+          <Card title={`Vertrekken (${project.rooms.length})`}>
+            <ul className="space-y-1">
+              {project.rooms.map((room) => (
+                <li
+                  key={room.id}
+                  className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-stone-50"
+                >
+                  <span className="font-medium">{room.name}</span>
+                  <span className="font-mono text-xs text-stone-400">
+                    {room.floor_area} m\u00B2
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}

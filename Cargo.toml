@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "crates/isso51-core",
+    "crates/isso51-api",
+    "src-tauri",
 ]
 
 [workspace.package]
