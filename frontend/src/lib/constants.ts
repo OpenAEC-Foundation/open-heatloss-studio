@@ -55,6 +55,31 @@ export const SECURITY_CLASS_LABELS: Record<string, string> = {
   c: "Klasse C (c_z = 1,0)",
 };
 
+/** Boundary type labels (NL). */
+export const BOUNDARY_TYPE_LABELS: Record<string, string> = {
+  exterior: "Buiten",
+  unheated_space: "Onverwarmd",
+  adjacent_room: "Aangrenzend",
+  adjacent_building: "Naburig gebouw",
+  ground: "Grond",
+};
+
+/** Boundary type color keys for Tailwind classes. */
+export const BOUNDARY_COLORS: Record<string, string> = {
+  exterior: "blue",
+  unheated_space: "purple",
+  adjacent_room: "green",
+  adjacent_building: "amber",
+  ground: "stone",
+};
+
+/** Vertical position labels (NL). */
+export const VERTICAL_POSITION_LABELS: Record<string, string> = {
+  wall: "Wand",
+  floor: "Vloer",
+  ceiling: "Plafond",
+};
+
 /** Heating system labels (NL). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",

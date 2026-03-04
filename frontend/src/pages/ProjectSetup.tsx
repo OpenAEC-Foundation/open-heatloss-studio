@@ -276,13 +276,14 @@ export function ProjectSetup() {
         {/* Rooms hint */}
         {project.rooms.length === 0 && (
           <Card>
-            <p className="text-center text-sm text-stone-500">
-              Voeg vertrekken toe om de berekening te kunnen starten.
-              <br />
-              <span className="text-xs text-stone-400">
-                (Vertrek-editor volgt in een volgende versie)
-              </span>
-            </p>
+            <div className="flex flex-col items-center gap-2 py-2">
+              <p className="text-sm text-stone-500">
+                Voeg vertrekken toe om de berekening te kunnen starten.
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => navigate("/rooms")}>
+                Vertrekken invoeren
+              </Button>
+            </div>
           </Card>
         )}
 

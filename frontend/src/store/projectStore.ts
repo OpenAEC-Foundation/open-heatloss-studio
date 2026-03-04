@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { Project, ProjectResult } from "../types";
+import type { ConstructionElement, Project, ProjectResult, Room } from "../types";
 
 /** Default project for a new calculation. */
 const DEFAULT_PROJECT: Project = {
@@ -53,6 +53,23 @@ interface ProjectStore {
   setCalculating: (isCalculating: boolean) => void;
   /** Reset to default state. */
   reset: () => void;
+
+  /** Add a room to the project. */
+  addRoom: (room: Room) => void;
+  /** Update a room by id (partial merge). */
+  updateRoom: (roomId: string, partial: Partial<Room>) => void;
+  /** Remove a room by id. */
+  removeRoom: (roomId: string) => void;
+  /** Add a construction to a room. */
+  addConstruction: (roomId: string, construction: ConstructionElement) => void;
+  /** Update a construction in a room (partial merge). */
+  updateConstruction: (
+    roomId: string,
+    constructionId: string,
+    partial: Partial<ConstructionElement>,
+  ) => void;
+  /** Remove a construction from a room. */
+  removeConstruction: (roomId: string, constructionId: string) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -89,4 +106,88 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       isCalculating: false,
       isDirty: true,
     }),
+
+  addRoom: (room) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: [...state.project.rooms, room],
+      },
+      isDirty: true,
+      error: null,
+    })),
+
+  updateRoom: (roomId, partial) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: state.project.rooms.map((r) =>
+          r.id === roomId ? { ...r, ...partial } : r,
+        ),
+      },
+      isDirty: true,
+      error: null,
+    })),
+
+  removeRoom: (roomId) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: state.project.rooms.filter((r) => r.id !== roomId),
+      },
+      isDirty: true,
+      error: null,
+    })),
+
+  addConstruction: (roomId, construction) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: state.project.rooms.map((r) =>
+          r.id === roomId
+            ? { ...r, constructions: [...r.constructions, construction] }
+            : r,
+        ),
+      },
+      isDirty: true,
+      error: null,
+    })),
+
+  updateConstruction: (roomId, constructionId, partial) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: state.project.rooms.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                constructions: r.constructions.map((c) =>
+                  c.id === constructionId ? { ...c, ...partial } : c,
+                ),
+              }
+            : r,
+        ),
+      },
+      isDirty: true,
+      error: null,
+    })),
+
+  removeConstruction: (roomId, constructionId) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        rooms: state.project.rooms.map((r) =>
+          r.id === roomId
+            ? {
+                ...r,
+                constructions: r.constructions.filter(
+                  (c) => c.id !== constructionId,
+                ),
+              }
+            : r,
+        ),
+      },
+      isDirty: true,
+      error: null,
+    })),
 }));
