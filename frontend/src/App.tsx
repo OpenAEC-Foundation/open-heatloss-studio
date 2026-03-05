@@ -8,41 +8,46 @@ import { ProjectSetup } from "./pages/ProjectSetup";
 import { RoomEditor } from "./pages/RoomEditor";
 import { Results } from "./pages/Results";
 import { isTauri } from "./lib/backend";
-import { OidcInitializationGate, bootstrapOidc } from "./lib/oidc";
 
-/** Wrapper that initializes OIDC for web builds (skipped in Tauri). */
+/** Whether OIDC env vars are baked in at build time. */
+const OIDC_CONFIGURED =
+  !!import.meta.env.VITE_OIDC_ISSUER && !!import.meta.env.VITE_OIDC_CLIENT_ID;
+
+/**
+ * Wrapper that initializes OIDC for web builds.
+ * Uses dynamic import so oidc-spa is never loaded when OIDC is not configured.
+ */
 function OidcBootstrap({ children }: { children: ReactNode }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  const [Gate, setGate] = useState<React.ComponentType<{ children: ReactNode }> | null>(null);
 
   useEffect(() => {
     const issuer = import.meta.env.VITE_OIDC_ISSUER;
     const clientId = import.meta.env.VITE_OIDC_CLIENT_ID;
 
-    if (!issuer || !clientId) {
-      console.warn("OIDC not configured (VITE_OIDC_ISSUER / VITE_OIDC_CLIENT_ID missing)");
-      setState("failed");
-      return;
-    }
+    import("./lib/oidc").then(({ bootstrapOidc, OidcInitializationGate }) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("OIDC bootstrap timed out")), 5000),
+      );
 
-    // Race: if bootstrapOidc hangs, time out after 5s and continue without auth.
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("OIDC bootstrap timed out")), 5000),
-    );
-
-    Promise.race([
-      bootstrapOidc({
-        implementation: "real",
-        issuerUri: issuer,
-        clientId,
-        scopes: ["openid", "email", "profile"],
-      }),
-      timeout,
-    ])
-      .then(() => setState("ready"))
-      .catch((err) => {
-        console.error("OIDC bootstrap failed, continuing without auth:", err);
-        setState("failed");
-      });
+      Promise.race([
+        bootstrapOidc({
+          implementation: "real",
+          issuerUri: issuer,
+          clientId,
+          scopes: ["openid", "email", "profile"],
+        }),
+        timeout,
+      ])
+        .then(() => {
+          setGate(() => OidcInitializationGate);
+          setState("ready");
+        })
+        .catch((err) => {
+          console.error("OIDC bootstrap failed, continuing without auth:", err);
+          setState("failed");
+        });
+    });
   }, []);
 
   if (state === "loading") {
@@ -53,12 +58,11 @@ function OidcBootstrap({ children }: { children: ReactNode }) {
     );
   }
 
-  // OIDC failed or not configured — render without auth gate.
-  if (state === "failed") {
-    return <>{children}</>;
+  if (state === "ready" && Gate) {
+    return <Gate>{children}</Gate>;
   }
 
-  return <OidcInitializationGate>{children}</OidcInitializationGate>;
+  return <>{children}</>;
 }
 
 export function App() {
@@ -77,11 +81,11 @@ export function App() {
     </BrowserRouter>
   );
 
-  // Tauri desktop: no OIDC, render directly.
-  if (isTauri()) {
+  // Tauri desktop or no OIDC: render directly without any oidc-spa involvement.
+  if (isTauri() || !OIDC_CONFIGURED) {
     return content;
   }
 
-  // Web: wrap with OIDC bootstrap.
+  // Web with OIDC configured: wrap with bootstrap.
   return <OidcBootstrap>{content}</OidcBootstrap>;
 }

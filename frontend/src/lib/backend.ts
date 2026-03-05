@@ -6,7 +6,6 @@ import type {
   ProjectResponse,
 } from "../types";
 import { API_PREFIX } from "./constants";
-import { getOidc } from "./oidc";
 
 /** Backend interface — same API for web (fetch) and Tauri (invoke). */
 export interface Backend {
@@ -78,6 +77,7 @@ async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   headers.set("Content-Type", "application/json");
 
   try {
+    const { getOidc } = await import("./oidc");
     const oidc = await getOidc();
     if (oidc.isUserLoggedIn) {
       const token = await oidc.getAccessToken();

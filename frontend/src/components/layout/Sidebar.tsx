@@ -1,19 +1,7 @@
-import { Component, type ReactNode } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 import { isTauri } from "../../lib/backend";
-import { useOidc } from "../../lib/oidc";
-
-/** Catches oidc-spa errors when OIDC is not bootstrapped. */
-class OidcGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
 
 const NAV_ITEMS = [
   { to: "/project", label: "Project", icon: "\u2302" },
@@ -43,10 +31,31 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: string 
   );
 }
 
-/** Projecten nav link — only shown when logged in. */
+/** Catches oidc-spa errors when OIDC is not bootstrapped. */
+class OidcGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/** Lazily loads oidc-spa and shows Projects nav link when logged in. */
 function ProjectsNavLink() {
-  const oidc = useOidc();
-  if (!oidc.isUserLoggedIn) return null;
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    import("../../lib/oidc")
+      .then(({ getOidc }) => getOidc())
+      .then((oidc) => {
+        if (oidc.isUserLoggedIn) setVisible(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!visible) return null;
   return (
     <>
       <li className="my-2 border-t border-zinc-800" />
@@ -55,25 +64,51 @@ function ProjectsNavLink() {
   );
 }
 
-/** Auth section in the sidebar footer. */
+/** Lazily loads oidc-spa for login/logout buttons. */
 function AuthSection() {
-  const oidc = useOidc();
+  const [oidcState, setOidcState] = useState<{
+    isLoggedIn: boolean;
+    name?: string;
+    login?: () => void;
+    logout?: () => void;
+  } | null>(null);
 
-  if (oidc.isUserLoggedIn) {
-    const name =
-      oidc.decodedIdToken.name ??
-      oidc.decodedIdToken.preferred_username ??
-      "Gebruiker";
+  useEffect(() => {
+    import("../../lib/oidc")
+      .then(({ getOidc }) => getOidc())
+      .then((oidc) => {
+        if (oidc.isUserLoggedIn) {
+          setOidcState({
+            isLoggedIn: true,
+            name:
+              oidc.decodedIdToken.name ??
+              oidc.decodedIdToken.preferred_username ??
+              "Gebruiker",
+            logout: () => oidc.logout({ redirectTo: "current page" }),
+          });
+        } else {
+          setOidcState({
+            isLoggedIn: false,
+            login: () => oidc.login({ redirectUrl: window.location.href }),
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!oidcState) return null;
+
+  if (oidcState.isLoggedIn) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
-            {name.charAt(0).toUpperCase()}
+            {oidcState.name!.charAt(0).toUpperCase()}
           </div>
-          <span className="truncate text-xs text-stone-300">{name}</span>
+          <span className="truncate text-xs text-stone-300">{oidcState.name}</span>
         </div>
         <button
-          onClick={() => oidc.logout({ redirectTo: "current page" })}
+          onClick={oidcState.logout}
           className="w-full rounded-md border border-zinc-700 px-2 py-1 text-xs text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
         >
           Uitloggen
@@ -84,7 +119,7 @@ function AuthSection() {
 
   return (
     <button
-      onClick={() => oidc.login({ redirectUrl: window.location.href })}
+      onClick={oidcState.login}
       className="w-full rounded-md bg-primary/20 px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/30"
     >
       Inloggen
