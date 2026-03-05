@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 import type { ConstructionElement, Project, ProjectResult, Room } from "../types";
 
@@ -72,122 +73,141 @@ interface ProjectStore {
   removeConstruction: (roomId: string, constructionId: string) => void;
 }
 
-export const useProjectStore = create<ProjectStore>((set) => ({
-  project: DEFAULT_PROJECT,
-  result: null,
-  error: null,
-  isCalculating: false,
-  isDirty: true,
-
-  updateProject: (partial) =>
-    set((state) => ({
-      project: { ...state.project, ...partial },
-      isDirty: true,
-      error: null,
-    })),
-
-  setProject: (project) =>
-    set({ project, isDirty: true, result: null, error: null }),
-
-  setResult: (result) =>
-    set({ result, isDirty: false, error: null, isCalculating: false }),
-
-  setError: (error) =>
-    set({ error, isCalculating: false }),
-
-  setCalculating: (isCalculating) =>
-    set({ isCalculating }),
-
-  reset: () =>
-    set({
+export const useProjectStore = create<ProjectStore>()(
+  persist(
+    (set) => ({
       project: DEFAULT_PROJECT,
       result: null,
       error: null,
       isCalculating: false,
       isDirty: true,
+
+      updateProject: (partial) =>
+        set((state) => ({
+          project: { ...state.project, ...partial },
+          isDirty: true,
+          error: null,
+        })),
+
+      setProject: (project) =>
+        set({ project, isDirty: true, result: null, error: null }),
+
+      setResult: (result) =>
+        set({ result, isDirty: false, error: null, isCalculating: false }),
+
+      setError: (error) =>
+        set({ error, isCalculating: false }),
+
+      setCalculating: (isCalculating) =>
+        set({ isCalculating }),
+
+      reset: () =>
+        set({
+          project: DEFAULT_PROJECT,
+          result: null,
+          error: null,
+          isCalculating: false,
+          isDirty: true,
+        }),
+
+      addRoom: (room) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: [...state.project.rooms, room],
+          },
+          isDirty: true,
+          error: null,
+        })),
+
+      updateRoom: (roomId, partial) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) =>
+              r.id === roomId ? { ...r, ...partial } : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+        })),
+
+      removeRoom: (roomId) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.filter((r) => r.id !== roomId),
+          },
+          isDirty: true,
+          error: null,
+        })),
+
+      addConstruction: (roomId, construction) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) =>
+              r.id === roomId
+                ? { ...r, constructions: [...r.constructions, construction] }
+                : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+        })),
+
+      updateConstruction: (roomId, constructionId, partial) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) =>
+              r.id === roomId
+                ? {
+                    ...r,
+                    constructions: r.constructions.map((c) =>
+                      c.id === constructionId ? { ...c, ...partial } : c,
+                    ),
+                  }
+                : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+        })),
+
+      removeConstruction: (roomId, constructionId) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) =>
+              r.id === roomId
+                ? {
+                    ...r,
+                    constructions: r.constructions.filter(
+                      (c) => c.id !== constructionId,
+                    ),
+                  }
+                : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+        })),
     }),
-
-  addRoom: (room) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: [...state.project.rooms, room],
-      },
-      isDirty: true,
-      error: null,
-    })),
-
-  updateRoom: (roomId, partial) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: state.project.rooms.map((r) =>
-          r.id === roomId ? { ...r, ...partial } : r,
-        ),
-      },
-      isDirty: true,
-      error: null,
-    })),
-
-  removeRoom: (roomId) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: state.project.rooms.filter((r) => r.id !== roomId),
-      },
-      isDirty: true,
-      error: null,
-    })),
-
-  addConstruction: (roomId, construction) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: state.project.rooms.map((r) =>
-          r.id === roomId
-            ? { ...r, constructions: [...r.constructions, construction] }
-            : r,
-        ),
-      },
-      isDirty: true,
-      error: null,
-    })),
-
-  updateConstruction: (roomId, constructionId, partial) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: state.project.rooms.map((r) =>
-          r.id === roomId
-            ? {
-                ...r,
-                constructions: r.constructions.map((c) =>
-                  c.id === constructionId ? { ...c, ...partial } : c,
-                ),
-              }
-            : r,
-        ),
-      },
-      isDirty: true,
-      error: null,
-    })),
-
-  removeConstruction: (roomId, constructionId) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        rooms: state.project.rooms.map((r) =>
-          r.id === roomId
-            ? {
-                ...r,
-                constructions: r.constructions.filter(
-                  (c) => c.id !== constructionId,
-                ),
-              }
-            : r,
-        ),
-      },
-      isDirty: true,
-      error: null,
-    })),
-}));
+    {
+      name: "isso51-project",
+      version: 1,
+      partialize: (state) => ({
+        project: state.project,
+        result: state.result,
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Pick<ProjectStore, "project" | "result">),
+        isDirty: false,
+        isCalculating: false,
+        error: null,
+      }),
+    },
+  ),
+);
