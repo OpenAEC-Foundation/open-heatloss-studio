@@ -1031,12 +1031,12 @@
         },
         {
           "id": "1.08-adj-20-floor",
-          "description": "Tussenvloer naar overloop 20°C (onverwarmd, incl. temp.grad -1K)",
+          "description": "Tussenvloer naar overloop 20°C (onverwarmd, temp.grad -3K: plafond overloop verwarmd door woonkamer)",
           "area": 1.31,
           "u_value": 2.91,
           "boundary_type": "unheated_space",
           "material_type": "masonry",
-          "temperature_factor": 0.0333,
+          "temperature_factor": -0.0333,
           "vertical_position": "floor",
           "use_forfaitaire_thermal_bridge": false,
           "has_embedded_heating": false
