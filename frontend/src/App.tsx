@@ -12,7 +12,7 @@ import { OidcInitializationGate, bootstrapOidc } from "./lib/oidc";
 
 /** Wrapper that initializes OIDC for web builds (skipped in Tauri). */
 function OidcBootstrap({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
 
   useEffect(() => {
     const issuer = import.meta.env.VITE_OIDC_ISSUER;
@@ -20,29 +20,42 @@ function OidcBootstrap({ children }: { children: ReactNode }) {
 
     if (!issuer || !clientId) {
       console.warn("OIDC not configured (VITE_OIDC_ISSUER / VITE_OIDC_CLIENT_ID missing)");
-      setReady(true);
+      setState("failed");
       return;
     }
 
-    bootstrapOidc({
-      implementation: "real",
-      issuerUri: issuer,
-      clientId,
-      scopes: ["openid", "email", "profile"],
-    })
-      .then(() => setReady(true))
+    // Race: if bootstrapOidc hangs, time out after 5s and continue without auth.
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("OIDC bootstrap timed out")), 5000),
+    );
+
+    Promise.race([
+      bootstrapOidc({
+        implementation: "real",
+        issuerUri: issuer,
+        clientId,
+        scopes: ["openid", "email", "profile"],
+      }),
+      timeout,
+    ])
+      .then(() => setState("ready"))
       .catch((err) => {
         console.error("OIDC bootstrap failed, continuing without auth:", err);
-        setReady(true);
+        setState("failed");
       });
   }, []);
 
-  if (!ready) {
+  if (state === "loading") {
     return (
       <div className="flex h-screen items-center justify-center text-stone-400">
         Laden...
       </div>
     );
+  }
+
+  // OIDC failed or not configured — render without auth gate.
+  if (state === "failed") {
+    return <>{children}</>;
   }
 
   return <OidcInitializationGate>{children}</OidcInitializationGate>;
