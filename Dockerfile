@@ -20,12 +20,15 @@ RUN mkdir -p crates/isso51-core/src && echo "pub fn dummy() {}" > crates/isso51-
 # Pre-build dependencies (cached unless Cargo.toml/Cargo.lock change)
 RUN cargo build --release -p isso51-api 2>/dev/null || true
 
-# Copy actual source code
+# Copy actual source code (invalidates cache — triggers real build below)
 COPY crates/ crates/
 COPY schemas/ schemas/
 
 # Ensure src-tauri is still excluded after full copy
 RUN sed -i '/"src-tauri"/d' Cargo.toml
+
+# Touch source files to bust the cargo cache from the dummy build
+RUN find crates/ -name '*.rs' -exec touch {} +
 
 # Build the real binary
 RUN cargo build --release -p isso51-api
