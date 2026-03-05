@@ -41,11 +41,15 @@ interface ProjectStore {
   isCalculating: boolean;
   /** Whether the project has unsaved changes since last calculation. */
   isDirty: boolean;
+  /** Server-side project ID (null for local-only projects). */
+  activeProjectId: string | null;
 
   /** Update project data (partial merge). */
   updateProject: (partial: Partial<Project>) => void;
   /** Replace the entire project. */
   setProject: (project: Project) => void;
+  /** Set the active server-side project ID. */
+  setActiveProjectId: (id: string | null) => void;
   /** Set the calculation result. */
   setResult: (result: ProjectResult) => void;
   /** Set an error from a failed calculation. */
@@ -81,6 +85,9 @@ export const useProjectStore = create<ProjectStore>()(
       error: null,
       isCalculating: false,
       isDirty: true,
+      activeProjectId: null,
+
+      setActiveProjectId: (id) => set({ activeProjectId: id }),
 
       updateProject: (partial) =>
         set((state) => ({
@@ -90,7 +97,7 @@ export const useProjectStore = create<ProjectStore>()(
         })),
 
       setProject: (project) =>
-        set({ project, isDirty: true, result: null, error: null }),
+        set({ project, isDirty: true, result: null, error: null, activeProjectId: null }),
 
       setResult: (result) =>
         set({ result, isDirty: false, error: null, isCalculating: false }),
@@ -108,6 +115,7 @@ export const useProjectStore = create<ProjectStore>()(
           error: null,
           isCalculating: false,
           isDirty: true,
+          activeProjectId: null,
         }),
 
       addRoom: (room) =>

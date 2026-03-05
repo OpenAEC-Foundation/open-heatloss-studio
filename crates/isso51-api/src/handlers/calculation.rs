@@ -1,4 +1,4 @@
-//! Request handlers for the ISSO 51 API.
+//! Calculation and schema handlers (public, no auth required).
 
 use axum::extract::Path;
 use axum::http::StatusCode;
@@ -40,7 +40,7 @@ pub async fn calculate(body: String) -> impl IntoResponse {
             json,
         )
             .into_response(),
-        Ok(Err(calc_err)) => error::into_response(calc_err),
+        Ok(Err(calc_err)) => error::into_calc_response(calc_err),
         Err(join_err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({

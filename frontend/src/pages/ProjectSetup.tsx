@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "../components/ui/Button";
@@ -6,8 +6,10 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/layout/PageHeader";
+import { useAuth } from "../hooks/useAuth";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
+import { createProject, updateProject as updateProjectApi } from "../lib/backend";
 import {
   BUILDING_TYPE_LABELS,
   SECURITY_CLASS_LABELS,
@@ -22,8 +24,12 @@ function toOptions(labels: Record<string, string>) {
 export function ProjectSetup() {
   const navigate = useNavigate();
   const backend = useBackend();
-  const { project, updateProject, isCalculating, setCalculating, setResult, setError } =
-    useProjectStore();
+  const auth = useAuth();
+  const {
+    project, updateProject, isCalculating, setCalculating,
+    setResult, setError, activeProjectId, setActiveProjectId,
+  } = useProjectStore();
+  const [isSaving, setIsSaving] = useState(false);
 
   const { info, building, climate, ventilation } = project;
 
@@ -66,6 +72,28 @@ export function ProjectSetup() {
     }
   }, [backend, project, setCalculating, setResult, setError, navigate]);
 
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      if (activeProjectId) {
+        // Update existing project.
+        await updateProjectApi(activeProjectId, {
+          name: project.info.name || undefined,
+          project_data: project,
+        });
+      } else {
+        // Create new project.
+        const name = project.info.name || "Naamloos project";
+        const result = await createProject(name, project);
+        setActiveProjectId(result.id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Opslaan mislukt");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [project, activeProjectId, setActiveProjectId, setError]);
+
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
   return (
@@ -74,9 +102,20 @@ export function ProjectSetup() {
         title="Project"
         subtitle="Gebouw- en installatie-instellingen"
         actions={
-          <Button onClick={handleCalculate} disabled={isCalculating || project.rooms.length === 0}>
-            {isCalculating ? "Berekenen..." : "Berekenen"}
-          </Button>
+          <div className="flex gap-2">
+            {auth.isLoggedIn && (
+              <Button variant="secondary" onClick={handleSave} disabled={isSaving}>
+                {isSaving
+                  ? "Opslaan..."
+                  : activeProjectId
+                    ? "Opslaan"
+                    : "Opslaan naar server"}
+              </Button>
+            )}
+            <Button onClick={handleCalculate} disabled={isCalculating || project.rooms.length === 0}>
+              {isCalculating ? "Berekenen..." : "Berekenen"}
+            </Button>
+          </div>
         }
       />
 

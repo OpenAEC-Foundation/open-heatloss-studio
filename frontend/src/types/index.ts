@@ -28,3 +28,5 @@ export type {
   TransmissionResult,
   VentilationResult,
 } from "./result";
+
+export type { UserProfile, ProjectSummary, ProjectResponse } from "./auth";
