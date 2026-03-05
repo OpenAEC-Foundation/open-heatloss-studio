@@ -1,7 +1,7 @@
 # =============================================================================
 # Stage 1: Build Rust API binary
 # =============================================================================
-FROM rust:1.85-bookworm AS rust-builder
+FROM rust:1-bookworm AS rust-builder
 
 WORKDIR /build
 
