@@ -1,7 +1,19 @@
+import { Component, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 import { isTauri } from "../../lib/backend";
 import { useOidc } from "../../lib/oidc";
+
+/** Catches oidc-spa errors when OIDC is not bootstrapped. */
+class OidcGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 const NAV_ITEMS = [
   { to: "/project", label: "Project", icon: "\u2302" },
@@ -100,13 +112,21 @@ export function Sidebar() {
           {NAV_ITEMS.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
-          {isWeb && <ProjectsNavLink />}
+          {isWeb && (
+            <OidcGuard>
+              <ProjectsNavLink />
+            </OidcGuard>
+          )}
         </ul>
       </nav>
 
       {/* Footer */}
       <div className="space-y-3 border-t border-zinc-800 px-4 py-3">
-        {isWeb && <AuthSection />}
+        {isWeb && (
+          <OidcGuard>
+            <AuthSection />
+          </OidcGuard>
+        )}
         <p className="text-2xs text-zinc-500">v0.1.0</p>
       </div>
     </aside>
