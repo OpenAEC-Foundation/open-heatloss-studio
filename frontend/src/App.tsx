@@ -29,7 +29,12 @@ function OidcBootstrap({ children }: { children: ReactNode }) {
       issuerUri: issuer,
       clientId,
       scopes: ["openid", "email", "profile"],
-    }).then(() => setReady(true));
+    })
+      .then(() => setReady(true))
+      .catch((err) => {
+        console.error("OIDC bootstrap failed, continuing without auth:", err);
+        setReady(true);
+      });
   }, []);
 
   if (!ready) {
