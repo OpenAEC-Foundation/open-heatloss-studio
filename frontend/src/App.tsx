@@ -6,6 +6,7 @@ import { Library } from "./pages/Library";
 import { Projects } from "./pages/Projects";
 import { ProjectSetup } from "./pages/ProjectSetup";
 import { RoomEditor } from "./pages/RoomEditor";
+import { RcCalculator } from "./pages/RcCalculator";
 import { Results } from "./pages/Results";
 import { isTauri } from "./lib/backend";
 
@@ -73,6 +74,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/project" replace />} />
           <Route path="/project" element={<ProjectSetup />} />
           <Route path="/rooms" element={<RoomEditor />} />
+          <Route path="/rc" element={<RcCalculator />} />
           <Route path="/library" element={<Library />} />
           <Route path="/results" element={<Results />} />
           <Route path="/projects" element={<Projects />} />
