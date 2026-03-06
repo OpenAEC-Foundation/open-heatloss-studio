@@ -2,12 +2,17 @@
  * SVG-diagram voor de Glaser-methode (dampspanningsverloop).
  *
  * Toont verzadigingsdampdruk (pSat) en werkelijke dampdruk (pActual)
- * door de constructie-opbouw heen. Condensatiezones worden rood gemarkeerd.
+ * door de constructie-opbouw heen. Materiaallagen worden getoond met
+ * categorie-specifieke kleuren en arceringen.
  */
 
 import { useMemo } from "react";
 
 import type { GlaserResult } from "../../lib/glaserCalculation";
+import {
+  MATERIAL_CATEGORY_VISUALS,
+  type MaterialCategory,
+} from "../../lib/materialsDatabase";
 
 interface GlaserDiagramProps {
   result: GlaserResult;
@@ -22,8 +27,6 @@ const HEIGHT = 340;
 const MARGIN = { top: 20, right: 25, bottom: 60, left: 58 };
 const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
-
-const BAND_COLORS = ["#fafaf9", "#f5f5f4"]; // stone-50, stone-100
 
 // ---------- Helpers ----------
 
@@ -46,17 +49,108 @@ function generateTicks(max: number, count: number): number[] {
   return ticks;
 }
 
-/** Kort materiaal-/laagnaam af tot max N tekens. */
 function truncate(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen - 1) + "\u2026";
 }
 
+function categoryColor(cat: MaterialCategory): string {
+  return MATERIAL_CATEGORY_VISUALS[cat]?.color ?? "#e5e7eb";
+}
+
+function categoryPattern(cat: MaterialCategory): string | undefined {
+  return MATERIAL_CATEGORY_VISUALS[cat]?.patternId;
+}
+
+// ---------- SVG Hatching Patterns ----------
+
+function HatchPatterns() {
+  return (
+    <defs>
+      {/* Metselwerk: diagonaal kruisarcering */}
+      <pattern
+        id="hatch-masonry"
+        width="8"
+        height="8"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(0,0,0,0.18)" strokeWidth="1" />
+        <line x1="4" y1="0" x2="4" y2="8" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" />
+      </pattern>
+
+      {/* Beton: stippen */}
+      <pattern
+        id="hatch-concrete"
+        width="6"
+        height="6"
+        patternUnits="userSpaceOnUse"
+      >
+        <circle cx="1.5" cy="1.5" r="0.7" fill="rgba(0,0,0,0.15)" />
+        <circle cx="4.5" cy="4.5" r="0.7" fill="rgba(0,0,0,0.15)" />
+      </pattern>
+
+      {/* Isolatie: zigzag */}
+      <pattern
+        id="hatch-insulation"
+        width="10"
+        height="8"
+        patternUnits="userSpaceOnUse"
+      >
+        <polyline
+          points="0,6 2.5,2 5,6 7.5,2 10,6"
+          fill="none"
+          stroke="rgba(0,0,0,0.15)"
+          strokeWidth="0.8"
+        />
+      </pattern>
+
+      {/* Hout: horizontale nerf */}
+      <pattern
+        id="hatch-wood"
+        width="12"
+        height="6"
+        patternUnits="userSpaceOnUse"
+      >
+        <line x1="0" y1="2" x2="12" y2="2" stroke="rgba(0,0,0,0.12)" strokeWidth="0.6" />
+        <line x1="0" y1="5" x2="12" y2="5" stroke="rgba(0,0,0,0.08)" strokeWidth="0.4" />
+      </pattern>
+
+      {/* Folie: dichte horizontale strepen */}
+      <pattern
+        id="hatch-foil"
+        width="4"
+        height="3"
+        patternUnits="userSpaceOnUse"
+      >
+        <line x1="0" y1="1.5" x2="4" y2="1.5" stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
+      </pattern>
+
+      {/* Metaal: dichte diagonaal */}
+      <pattern
+        id="hatch-metal"
+        width="4"
+        height="4"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <line x1="0" y1="0" x2="0" y2="4" stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
+      </pattern>
+    </defs>
+  );
+}
+
 // ---------- Component ----------
 
 export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
-  const { curvePoints, interfacePoints, layerThicknesses, layerNames, totalThickness } =
-    result;
+  const {
+    curvePoints,
+    interfacePoints,
+    layerThicknesses,
+    layerNames,
+    layerCategories,
+    totalThickness,
+  } = result;
 
   const hasLayers = curvePoints.length >= 2 && totalThickness > 0;
 
@@ -64,7 +158,6 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
   const { yTicks, toX, toY } = useMemo(() => {
     if (!hasLayers) {
       return {
-        maxP: 2500,
         yTicks: [0, 500, 1000, 1500, 2000, 2500],
         toX: () => MARGIN.left,
         toY: () => MARGIN.top + PLOT_H,
@@ -80,7 +173,6 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
     const ticks = generateTicks(nMax, 5);
 
     return {
-      maxP: nMax,
       yTicks: ticks,
       toX: (xMm: number) => MARGIN.left + (xMm / totalThickness) * PLOT_W,
       toY: (pPa: number) => MARGIN.top + PLOT_H - (pPa / nMax) * PLOT_H,
@@ -91,7 +183,10 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
   const pSatPath = useMemo(() => {
     if (!hasLayers) return "";
     return curvePoints
-      .map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toY(p.pSat).toFixed(1)}`)
+      .map(
+        (p, i) =>
+          `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toY(p.pSat).toFixed(1)}`,
+      )
       .join(" ");
   }, [curvePoints, hasLayers, toX, toY]);
 
@@ -99,7 +194,10 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
   const pActualPath = useMemo(() => {
     if (!hasLayers) return "";
     return interfacePoints
-      .map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toY(p.pActual).toFixed(1)}`)
+      .map(
+        (p, i) =>
+          `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toY(p.pActual).toFixed(1)}`,
+      )
       .join(" ");
   }, [interfacePoints, hasLayers, toX, toY]);
 
@@ -107,7 +205,6 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
   const condensationPath = useMemo(() => {
     if (!hasLayers) return "";
 
-    // Zoek segmenten waar pActual > pSat in curvePoints
     const zones: string[] = [];
     let inZone = false;
     let zoneStart = "";
@@ -126,24 +223,30 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
           zoneStart += ` L${x},${yActual}`;
         }
       } else if (inZone) {
-        // Sluit zone: ga terug via pSat-lijn
         const backPath = curvePoints
           .slice(0, i)
           .reverse()
           .filter((bp) => bp.pActual > bp.pSat + 0.5)
-          .map((bp) => `L${toX(bp.x).toFixed(1)},${toY(bp.pSat).toFixed(1)}`)
+          .map(
+            (bp) =>
+              `L${toX(bp.x).toFixed(1)},${toY(bp.pSat).toFixed(1)}`,
+          )
           .join(" ");
         zones.push(`${zoneStart} ${backPath} Z`);
         inZone = false;
       }
     }
 
-    // Sluit evt. openstaande zone
     if (inZone) {
-      const lastInZone = curvePoints.filter((p) => p.pActual > p.pSat + 0.5);
+      const lastInZone = curvePoints.filter(
+        (p) => p.pActual > p.pSat + 0.5,
+      );
       const backPath = [...lastInZone]
         .reverse()
-        .map((bp) => `L${toX(bp.x).toFixed(1)},${toY(bp.pSat).toFixed(1)}`)
+        .map(
+          (bp) =>
+            `L${toX(bp.x).toFixed(1)},${toY(bp.pSat).toFixed(1)}`,
+        )
         .join(" ");
       zones.push(`${zoneStart} ${backPath} Z`);
     }
@@ -151,23 +254,38 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
     return zones.join(" ");
   }, [curvePoints, hasLayers, toX, toY]);
 
-  // Laag-banden x-posities
+  // Laag-banden met categorie-kleuren
   const layerBands = useMemo(() => {
     if (!hasLayers) return [];
-    const bands: { x: number; w: number; name: string; color: string }[] = [];
+    const bands: {
+      x: number;
+      w: number;
+      name: string;
+      color: string;
+      pattern?: string;
+    }[] = [];
     let xCum = 0;
     for (let i = 0; i < layerThicknesses.length; i++) {
       const d = layerThicknesses[i]!;
+      const cat = layerCategories[i] as MaterialCategory | undefined;
       bands.push({
         x: toX(xCum),
         w: (d / totalThickness) * PLOT_W,
         name: layerNames[i] ?? "",
-        color: BAND_COLORS[i % 2]!,
+        color: cat ? categoryColor(cat) : "#e5e7eb",
+        pattern: cat ? categoryPattern(cat) : undefined,
       });
       xCum += d;
     }
     return bands;
-  }, [layerThicknesses, layerNames, totalThickness, hasLayers, toX]);
+  }, [
+    layerThicknesses,
+    layerNames,
+    layerCategories,
+    totalThickness,
+    hasLayers,
+    toX,
+  ]);
 
   if (!hasLayers) {
     return (
@@ -183,6 +301,8 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
       className="w-full"
       style={{ maxHeight: 380 }}
     >
+      <HatchPatterns />
+
       {/* Achtergrond */}
       <rect
         x={MARGIN.left}
@@ -194,16 +314,28 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
         strokeWidth={1}
       />
 
-      {/* Laag-banden */}
+      {/* Laag-banden met kleur en arcering */}
       {layerBands.map((band, i) => (
         <g key={i}>
+          {/* Kleurvulling */}
           <rect
             x={band.x}
             y={MARGIN.top}
             width={Math.max(band.w, 1)}
             height={PLOT_H}
             fill={band.color}
+            fillOpacity={0.55}
           />
+          {/* Arcering overlay */}
+          {band.pattern && (
+            <rect
+              x={band.x}
+              y={MARGIN.top}
+              width={Math.max(band.w, 1)}
+              height={PLOT_H}
+              fill={`url(#${band.pattern})`}
+            />
+          )}
           {/* Laag-scheidingslijn */}
           {i > 0 && (
             <line
@@ -211,19 +343,19 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
               y1={MARGIN.top}
               x2={band.x}
               y2={MARGIN.top + PLOT_H}
-              stroke="#d6d3d1"
+              stroke="#78716c"
               strokeWidth={0.5}
-              strokeDasharray="3,2"
             />
           )}
           {/* Laagnaam */}
-          {band.w > 12 && (
+          {band.w > 14 && (
             <text
               x={band.x + band.w / 2}
               y={MARGIN.top + PLOT_H + 14}
               textAnchor="middle"
               fontSize={9}
-              fill="#78716c"
+              fill="#57534e"
+              fontWeight={500}
               className="select-none"
             >
               {truncate(band.name, Math.max(4, Math.floor(band.w / 5.5)))}
@@ -243,8 +375,9 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
                 y1={y}
                 x2={MARGIN.left + PLOT_W}
                 y2={y}
-                stroke="#e7e5e4"
+                stroke="#d6d3d1"
                 strokeWidth={0.5}
+                strokeDasharray="3,3"
               />
             )}
             <text
@@ -274,15 +407,15 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
 
       {/* Condensatiezone */}
       {condensationPath && (
-        <path d={condensationPath} fill="#fca5a5" fillOpacity={0.4} />
+        <path d={condensationPath} fill="#fca5a5" fillOpacity={0.45} />
       )}
 
       {/* pSat curve (blauw) */}
       <path
         d={pSatPath}
         fill="none"
-        stroke="#3b82f6"
-        strokeWidth={2}
+        stroke="#2563eb"
+        strokeWidth={2.5}
         strokeLinejoin="round"
       />
 
@@ -290,23 +423,28 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
       <path
         d={pActualPath}
         fill="none"
-        stroke="#f59e0b"
-        strokeWidth={2}
+        stroke="#d97706"
+        strokeWidth={2.5}
         strokeLinejoin="round"
+        strokeDasharray="6,3"
       />
 
       {/* Punten op interfaces */}
       {interfacePoints.map((p, i) => (
         <g key={i}>
-          <circle cx={toX(p.x)} cy={toY(p.pSat)} r={2.5} fill="#3b82f6" />
-          <circle cx={toX(p.x)} cy={toY(p.pActual)} r={2.5} fill="#f59e0b" />
+          <circle cx={toX(p.x)} cy={toY(p.pSat)} r={3} fill="#2563eb" />
+          <circle
+            cx={toX(p.x)}
+            cy={toY(p.pActual)}
+            r={3}
+            fill="#d97706"
+          />
         </g>
       ))}
 
       {/* Temperatuurlabels bij interface-punten */}
       {interfacePoints.map((p, i) => {
         const x = toX(p.x);
-        // Alleen eerste en laatste tonen, of als er weinig punten zijn
         if (
           interfacePoints.length > 4 &&
           i !== 0 &&
@@ -349,25 +487,42 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
       </text>
 
       {/* Legenda */}
-      <g transform={`translate(${MARGIN.left + PLOT_W - 190}, ${MARGIN.top + 8})`}>
+      <g
+        transform={`translate(${MARGIN.left + PLOT_W - 200}, ${MARGIN.top + 8})`}
+      >
         <rect
           x={-6}
           y={-4}
-          width={196}
+          width={206}
           height={42}
           rx={4}
           fill="white"
-          fillOpacity={0.9}
-          stroke="#e7e5e4"
+          fillOpacity={0.92}
+          stroke="#d6d3d1"
           strokeWidth={0.5}
         />
-        <line x1={0} y1={8} x2={18} y2={8} stroke="#3b82f6" strokeWidth={2} />
-        <circle cx={9} cy={8} r={2.5} fill="#3b82f6" />
+        <line
+          x1={0}
+          y1={8}
+          x2={18}
+          y2={8}
+          stroke="#2563eb"
+          strokeWidth={2.5}
+        />
+        <circle cx={9} cy={8} r={3} fill="#2563eb" />
         <text x={24} y={11} fontSize={10} fill="#57534e">
           Verzadigingsdruk (p_sat)
         </text>
-        <line x1={0} y1={26} x2={18} y2={26} stroke="#f59e0b" strokeWidth={2} />
-        <circle cx={9} cy={26} r={2.5} fill="#f59e0b" />
+        <line
+          x1={0}
+          y1={26}
+          x2={18}
+          y2={26}
+          stroke="#d97706"
+          strokeWidth={2.5}
+          strokeDasharray="6,3"
+        />
+        <circle cx={9} cy={26} r={3} fill="#d97706" />
         <text x={24} y={29} fontSize={10} fill="#57534e">
           Werkelijke dampdruk (p)
         </text>

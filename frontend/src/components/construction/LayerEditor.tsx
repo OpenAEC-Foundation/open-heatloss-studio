@@ -249,21 +249,17 @@ export function LayerEditor({
 
                     {/* Dikte */}
                     <td className="py-1 text-right">
-                      {material?.rdFixed !== null && material?.rdFixed !== undefined ? (
-                        <span className="text-xs text-stone-400">n.v.t.</span>
-                      ) : (
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          value={layer.thickness || ""}
-                          onChange={(e) =>
-                            handleThicknessChange(index, e.target.value)
-                          }
-                          className="w-20 rounded border border-stone-200 px-2 py-1 text-right text-sm focus:border-blue-400 focus:outline-none"
-                          placeholder="0"
-                        />
-                      )}
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={layer.thickness || ""}
+                        onChange={(e) =>
+                          handleThicknessChange(index, e.target.value)
+                        }
+                        className="w-20 rounded border border-stone-200 px-2 py-1 text-right text-sm focus:border-blue-400 focus:outline-none"
+                        placeholder="0"
+                      />
                     </td>
 
                     {/* R-waarde */}

@@ -350,6 +350,36 @@ export const MATERIALS_DATABASE: Material[] = RAW_MATERIALS.map((raw) => {
 
 const MATERIAL_INDEX = new Map(MATERIALS_DATABASE.map((m) => [m.id, m]));
 
+// ---------- Visuele categorie-eigenschappen (voor Glaser-diagram) ----------
+
+export interface CategoryVisual {
+  /** Vulkleur voor laag-band in diagram. */
+  color: string;
+  /** SVG pattern-id voor arcering (optioneel). */
+  patternId?: string;
+}
+
+/** Kleuren en arceringen per materiaalcategorie. */
+export const MATERIAL_CATEGORY_VISUALS: Record<MaterialCategory, CategoryVisual> = {
+  metselwerk:         { color: "#d4736a", patternId: "hatch-masonry" },
+  beton:              { color: "#b0b0b0", patternId: "hatch-concrete" },
+  isolatie_mineraal:  { color: "#fde047", patternId: "hatch-insulation" },
+  isolatie_kunststof: { color: "#f9a8d4", patternId: "hatch-insulation" },
+  isolatie_natuurlijk:{ color: "#86efac", patternId: "hatch-insulation" },
+  hout:               { color: "#c68642", patternId: "hatch-wood" },
+  spouw:              { color: "#bfdbfe" },
+  folie:              { color: "#a5b4fc", patternId: "hatch-foil" },
+  afwerking:          { color: "#e7e5e4" },
+  plaatmateriaal:     { color: "#fbbf24", patternId: "hatch-wood" },
+  mortel:             { color: "#d6d3d1" },
+  natuursteen:        { color: "#9ca3af", patternId: "hatch-concrete" },
+  vloer:              { color: "#d1d5db" },
+  metaal:             { color: "#94a3b8", patternId: "hatch-metal" },
+  kunststof:          { color: "#c084fc" },
+  glas:               { color: "#67e8f9" },
+  overig:             { color: "#e5e7eb" },
+};
+
 // ---------- Query functies ----------
 
 /** Haal materiaal op basis van id. */

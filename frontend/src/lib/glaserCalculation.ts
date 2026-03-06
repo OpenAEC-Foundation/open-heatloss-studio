@@ -7,7 +7,7 @@
 
 import type { VerticalPosition } from "../types";
 
-import { getMaterialById } from "./materialsDatabase";
+import { getMaterialById, type MaterialCategory } from "./materialsDatabase";
 
 // ---------- Oppervlakteweerstanden ----------
 
@@ -49,6 +49,8 @@ export interface GlaserResult {
   layerNames: string[];
   /** Laagdiktes [mm] in volgorde. */
   layerThicknesses: number[];
+  /** Materiaalcategorieën per laag. */
+  layerCategories: MaterialCategory[];
   /** Totale dikte [mm]. */
   totalThickness: number;
   /** Condensatierisico aanwezig. */
@@ -87,6 +89,7 @@ interface LayerData {
   thickness: number;
   r: number;
   sd: number;
+  category: MaterialCategory;
 }
 
 // ---------- Berekening ----------
@@ -117,7 +120,7 @@ export function calculateGlaser(input: GlaserInput): GlaserResult {
 
     const sd = mat.mu * (li.thickness / 1000);
 
-    layerData.push({ name: mat.name, thickness: li.thickness, r, sd });
+    layerData.push({ name: mat.name, thickness: li.thickness, r, sd, category: mat.category });
   }
 
   const rcTotal = layerData.reduce((s, l) => s + l.r, 0);
@@ -206,6 +209,7 @@ export function calculateGlaser(input: GlaserInput): GlaserResult {
     curvePoints,
     layerNames: layerData.map((l) => l.name),
     layerThicknesses: layerData.map((l) => l.thickness),
+    layerCategories: layerData.map((l) => l.category),
     totalThickness,
     hasCondensation,
     pI,
