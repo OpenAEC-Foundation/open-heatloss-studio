@@ -36,7 +36,7 @@ impl Config {
                 .split(',')
                 .map(|s| s.trim().to_string())
                 .collect(),
-            static_dir: env::var("STATIC_DIR").ok(),
+            static_dir: env::var("STATIC_DIR").ok().filter(|s| !s.is_empty()),
         }
     }
 }
