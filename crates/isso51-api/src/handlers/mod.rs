@@ -4,7 +4,7 @@ mod calculation;
 mod projects;
 mod user;
 
-pub use calculation::{calculate, get_schema, health};
+pub use calculation::{calculate, get_schema, health, list_schemas};
 pub use projects::{
     calculate_and_save, create_project, delete_project, get_project, list_projects,
     update_project,

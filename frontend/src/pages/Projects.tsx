@@ -15,7 +15,7 @@ import type { ProjectSummary, Project } from "../types";
 
 export function Projects() {
   const navigate = useNavigate();
-  const { project, setProject, setActiveProjectId, setResult } = useProjectStore();
+  const { project, loadServerProject, setActiveProjectId } = useProjectStore();
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,17 +42,17 @@ export function Projects() {
     async (id: string) => {
       try {
         const response = await fetchProject(id);
-        setProject(response.project_data as Project);
-        setActiveProjectId(id);
-        if (response.result_data) {
-          setResult(response.result_data as Parameters<typeof setResult>[0]);
-        }
+        loadServerProject(
+          id,
+          response.project_data as Project,
+          response.result_data as import("../types").ProjectResult | null,
+        );
         navigate("/project");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Kon project niet openen");
       }
     },
-    [navigate, setProject, setActiveProjectId, setResult],
+    [navigate, loadServerProject],
   );
 
   const handleSaveNew = useCallback(async () => {
@@ -65,6 +65,21 @@ export function Projects() {
       setError(err instanceof Error ? err.message : "Kon project niet opslaan");
     }
   }, [project, setActiveProjectId, loadProjects]);
+
+  const handleDuplicate = useCallback(
+    async (id: string) => {
+      try {
+        const response = await fetchProject(id);
+        const sourceData = response.project_data as Project;
+        const name = `Kopie van ${response.name}`;
+        await createProject(name, sourceData);
+        await loadProjects();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Kon project niet dupliceren");
+      }
+    },
+    [loadProjects],
+  );
 
   const handleDelete = useCallback(
     async (id: string, projectName: string) => {
@@ -161,6 +176,13 @@ export function Projects() {
                           onClick={() => handleOpen(p.id)}
                         >
                           Openen
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDuplicate(p.id)}
+                        >
+                          Dupliceren
                         </Button>
                         <Button
                           variant="ghost"

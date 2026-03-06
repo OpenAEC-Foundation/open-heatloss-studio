@@ -52,6 +52,28 @@ pub async fn calculate(body: String) -> impl IntoResponse {
     }
 }
 
+/// Available schema definitions.
+const AVAILABLE_SCHEMAS: &[(&str, &str)] = &[
+    ("project", "Project input schema"),
+    ("result", "Calculation result schema"),
+];
+
+/// GET /schemas — List available schemas.
+pub async fn list_schemas() -> Json<serde_json::Value> {
+    let schemas: Vec<serde_json::Value> = AVAILABLE_SCHEMAS
+        .iter()
+        .map(|(name, description)| {
+            serde_json::json!({
+                "name": name,
+                "description": description,
+                "url": format!("/api/v1/schemas/{name}"),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({ "schemas": schemas }))
+}
+
 /// GET /schemas/:name — Return a JSON schema.
 ///
 /// Supported names: "project", "result".

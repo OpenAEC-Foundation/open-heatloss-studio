@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "../components/ui/Button";
@@ -5,6 +6,7 @@ import { Card } from "../components/ui/Card";
 import { Table, Th, Td } from "../components/ui/Table";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useProjectStore } from "../store/projectStore";
+import { exportProject } from "../lib/importExport";
 
 /** Format a number as W (watts) with locale formatting. */
 function fmtW(value: number): string {
@@ -18,7 +20,11 @@ function fmt2(value: number): string {
 
 export function Results() {
   const navigate = useNavigate();
-  const { result, error } = useProjectStore();
+  const { project, result, error } = useProjectStore();
+
+  const handleExport = useCallback(() => {
+    exportProject(project, result);
+  }, [project, result]);
 
   if (error) {
     return (
@@ -70,9 +76,14 @@ export function Results() {
         title="Resultaten"
         subtitle={`${rooms.length} vertrekken`}
         actions={
-          <Button variant="secondary" onClick={() => navigate("/project")}>
-            Terug naar project
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={handleExport}>
+              Export JSON
+            </Button>
+            <Button variant="secondary" onClick={() => navigate("/project")}>
+              Terug naar project
+            </Button>
+          </div>
         }
       />
 

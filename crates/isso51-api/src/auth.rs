@@ -49,7 +49,6 @@ struct Jwk {
 
 /// Shared JWKS cache, refreshed periodically.
 #[derive(Clone)]
-#[allow(dead_code)]
 pub struct JwksCache {
     jwks_uri: String,
     audience: String,
@@ -128,7 +127,7 @@ impl JwksCache {
     /// Refresh the JWKS keys from the provider.
     ///
     /// Call this periodically (e.g. every 15 min) to pick up key rotations.
-    pub async fn _refresh_keys(&self) -> Result<(), String> {
+    pub async fn refresh_keys(&self) -> Result<(), String> {
         let jwks: Jwks = reqwest::get(&self.jwks_uri)
             .await
             .map_err(|e| format!("Failed to fetch JWKS: {e}"))?

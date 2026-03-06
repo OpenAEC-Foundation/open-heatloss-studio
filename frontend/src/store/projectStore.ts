@@ -56,6 +56,12 @@ interface ProjectStore {
   setError: (error: string) => void;
   /** Set calculating state. */
   setCalculating: (isCalculating: boolean) => void;
+  /** Load a server project atomically (project + id + result in one set). */
+  loadServerProject: (
+    id: string,
+    project: Project,
+    result: ProjectResult | null,
+  ) => void;
   /** Reset to default state. */
   reset: () => void;
 
@@ -98,6 +104,16 @@ export const useProjectStore = create<ProjectStore>()(
 
       setProject: (project) =>
         set({ project, isDirty: true, result: null, error: null, activeProjectId: null }),
+
+      loadServerProject: (id, project, result) =>
+        set({
+          project,
+          activeProjectId: id,
+          result,
+          isDirty: false,
+          error: null,
+          isCalculating: false,
+        }),
 
       setResult: (result) =>
         set({ result, isDirty: false, error: null, isCalculating: false }),

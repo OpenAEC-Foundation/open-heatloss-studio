@@ -182,18 +182,42 @@ fn build_summary(rooms: &[result::RoomResult], theta_e: f64) -> BuildingSummary 
     }
 }
 
+/// Base URL for published schemas.
+const SCHEMA_BASE_URL: &str = "https://warmteverlies.open-aec.com/schemas/v1";
+
+/// Current schema version.
+const SCHEMA_VERSION: &str = "1.0.0";
+
 /// Generate the JSON schema for the Project input type.
 ///
 /// Useful for documentation and validation tooling.
 pub fn project_schema() -> String {
     let schema = schemars::schema_for!(Project);
-    serde_json::to_string_pretty(&schema).unwrap_or_default()
+    add_schema_metadata(schema, "project")
 }
 
 /// Generate the JSON schema for the ProjectResult output type.
 pub fn result_schema() -> String {
     let schema = schemars::schema_for!(ProjectResult);
-    serde_json::to_string_pretty(&schema).unwrap_or_default()
+    add_schema_metadata(schema, "result")
+}
+
+/// Add `$id` and `version` to a generated JSON schema.
+fn add_schema_metadata(schema: schemars::schema::RootSchema, name: &str) -> String {
+    let mut value = serde_json::to_value(&schema).unwrap_or_default();
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert(
+            "$id".to_string(),
+            serde_json::Value::String(format!(
+                "{SCHEMA_BASE_URL}/{name}.schema.json"
+            )),
+        );
+        obj.insert(
+            "version".to_string(),
+            serde_json::Value::String(SCHEMA_VERSION.to_string()),
+        );
+    }
+    serde_json::to_string_pretty(&value).unwrap_or_default()
 }
 
 #[cfg(test)]

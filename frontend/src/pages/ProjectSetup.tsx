@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "../components/ui/Button";
@@ -10,6 +10,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { createProject, updateProject as updateProjectApi } from "../lib/backend";
+import { exportProject, importProject } from "../lib/importExport";
 import {
   BUILDING_TYPE_LABELS,
   SECURITY_CLASS_LABELS,
@@ -30,6 +31,7 @@ export function ProjectSetup() {
     setResult, setError, activeProjectId, setActiveProjectId,
   } = useProjectStore();
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { info, building, climate, ventilation } = project;
 
@@ -94,6 +96,37 @@ export function ProjectSetup() {
     }
   }, [project, activeProjectId, setActiveProjectId, setError]);
 
+  const handleExport = useCallback(() => {
+    const { result } = useProjectStore.getState();
+    exportProject(project, result);
+  }, [project]);
+
+  const handleImportFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = importProject(reader.result as string);
+          const { setProject, setResult } = useProjectStore.getState();
+          setProject(imported.project);
+          if (imported.result) {
+            setResult(imported.result);
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Import mislukt");
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset input so the same file can be re-imported.
+      e.target.value = "";
+    },
+    [setError],
+  );
+
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
   return (
@@ -103,6 +136,12 @@ export function ProjectSetup() {
         subtitle="Gebouw- en installatie-instellingen"
         actions={
           <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => fileInputRef.current?.click()}>
+              Importeren
+            </Button>
+            <Button variant="ghost" onClick={handleExport}>
+              Exporteren
+            </Button>
             {auth.isLoggedIn && (
               <Button variant="secondary" onClick={handleSave} disabled={isSaving}>
                 {isSaving
@@ -345,6 +384,14 @@ export function ProjectSetup() {
           </Card>
         )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
     </div>
   );
 }

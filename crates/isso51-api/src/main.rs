@@ -52,12 +52,28 @@ async fn main() {
     // --- OIDC JWKS ---
     let jwks = init_jwks(&config).await;
 
+    // Spawn background JWKS key refresh (every 15 min).
+    if let Some(ref cache) = jwks {
+        let cache = cache.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
+            interval.tick().await; // skip immediate first tick
+            loop {
+                interval.tick().await;
+                if let Err(e) = cache.refresh_keys().await {
+                    tracing::warn!("JWKS refresh failed: {e}");
+                }
+            }
+        });
+    }
+
     let app_state = AppState::new(db, jwks);
 
     // --- Routes ---
     let public = Router::new()
         .route("/health", get(handlers::health))
         .route("/calculate", post(handlers::calculate))
+        .route("/schemas", get(handlers::list_schemas))
         .route("/schemas/{name}", get(handlers::get_schema));
 
     let protected = Router::new()
