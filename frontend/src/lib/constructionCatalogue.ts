@@ -13,7 +13,7 @@ export interface CatalogueEntry {
   uValue: number;
   materialType: MaterialType;
   verticalPosition: VerticalPosition;
-  boundaryType: BoundaryType;
+  boundaryType?: BoundaryType;
   isBuiltIn?: boolean;
   /** Optioneel: laag-detail voor Rc/U berekening. */
   layers?: CatalogueLayer[];

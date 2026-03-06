@@ -7,12 +7,9 @@ import {
   type CatalogueCategory,
   type CatalogueEntry,
 } from "../lib/constructionCatalogue";
-import {
-  BOUNDARY_TYPE_LABELS,
-  VERTICAL_POSITION_LABELS,
-} from "../lib/constants";
+import { VERTICAL_POSITION_LABELS } from "../lib/constants";
 import { useCatalogueStore } from "../store/catalogueStore";
-import type { BoundaryType, MaterialType, VerticalPosition } from "../types";
+import type { MaterialType, VerticalPosition } from "../types";
 
 const CATEGORY_ORDER: CatalogueCategory[] = [
   "wanden",
@@ -39,7 +36,6 @@ const EMPTY_ENTRY: Omit<CatalogueEntry, "id"> = {
   uValue: 0,
   materialType: "masonry",
   verticalPosition: "wall",
-  boundaryType: "exterior",
 };
 
 export function Library() {
@@ -167,7 +163,6 @@ export function Library() {
                   U-waarde
                 </th>
                 <th className="w-[140px] px-3 py-2.5">Materiaal</th>
-                <th className="w-[140px] px-3 py-2.5">Grensvlak</th>
                 <th className="w-[100px] px-3 py-2.5">Positie</th>
                 <th className="w-[100px] px-3 py-2.5" />
               </tr>
@@ -198,7 +193,7 @@ export function Library() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-stone-400">
+                  <td colSpan={5} className="px-3 py-8 text-center text-sm text-stone-400">
                     Geen constructies in deze categorie.
                   </td>
                 </tr>
@@ -243,7 +238,6 @@ function EntryRow({
       name: entry.name,
       uValue: entry.uValue,
       materialType: entry.materialType,
-      boundaryType: entry.boundaryType,
       verticalPosition: entry.verticalPosition,
     });
     onEdit();
@@ -263,14 +257,13 @@ function EntryRow({
   if (isEditing) {
     return (
       <tr className="border-b border-stone-100 bg-amber-50/50">
-        <td className="px-3 py-2" colSpan={5}>
+        <td className="px-3 py-2" colSpan={4}>
           <EntryForm
             draft={{
               name: draft.name ?? entry.name,
               category: entry.category,
               uValue: draft.uValue ?? entry.uValue,
               materialType: draft.materialType ?? entry.materialType,
-              boundaryType: draft.boundaryType ?? entry.boundaryType,
               verticalPosition: draft.verticalPosition ?? entry.verticalPosition,
             }}
             onChange={(d) => setDraft((prev) => ({ ...prev, ...d }))}
@@ -305,9 +298,6 @@ function EntryRow({
       </td>
       <td className="px-3 py-2.5 text-stone-600">
         {MATERIAL_LABELS[entry.materialType]}
-      </td>
-      <td className="px-3 py-2.5 text-stone-600">
-        {BOUNDARY_TYPE_LABELS[entry.boundaryType]}
       </td>
       <td className="px-3 py-2.5 text-stone-600">
         {VERTICAL_POSITION_LABELS[entry.verticalPosition]}
@@ -402,20 +392,6 @@ function EntryForm({ draft, onChange, onSubmit, onCancel, submitLabel }: EntryFo
           className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
         >
           {Object.entries(MATERIAL_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
-      </label>
-
-      {/* Boundary */}
-      <label className="flex w-36 flex-col gap-1 text-xs font-medium text-stone-600">
-        Grensvlak
-        <select
-          value={draft.boundaryType}
-          onChange={(e) => onChange({ boundaryType: e.target.value as BoundaryType })}
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
-        >
-          {Object.entries(BOUNDARY_TYPE_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
         </select>

@@ -39,7 +39,7 @@ export function createConstructionFromCatalogue(
     description: entry.name,
     area: 0,
     u_value: entry.uValue,
-    boundary_type: entry.boundaryType,
+    boundary_type: entry.boundaryType ?? "exterior",
     material_type: entry.materialType,
     vertical_position: entry.verticalPosition,
     use_forfaitaire_thermal_bridge: true,

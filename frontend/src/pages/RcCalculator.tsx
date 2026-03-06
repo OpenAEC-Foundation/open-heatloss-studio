@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { GlaserDiagram } from "../components/construction/GlaserDiagram";
 import { PageHeader } from "../components/layout/PageHeader";
 import { MaterialPicker } from "../components/construction/MaterialPicker";
 import { Button } from "../components/ui/Button";
@@ -7,7 +8,10 @@ import {
   CATALOGUE_CATEGORY_LABELS,
   type CatalogueCategory,
 } from "../lib/constructionCatalogue";
-import { BOUNDARY_TYPE_LABELS } from "../lib/constants";
+import {
+  calculateGlaser,
+  GLASER_DEFAULTS,
+} from "../lib/glaserCalculation";
 import { getMaterialById, type Material } from "../lib/materialsDatabase";
 import {
   calculateRc,
@@ -15,7 +19,7 @@ import {
   type LayerInput,
 } from "../lib/rcCalculation";
 import { useCatalogueStore } from "../store/catalogueStore";
-import type { BoundaryType, MaterialType, VerticalPosition } from "../types";
+import type { MaterialType, VerticalPosition } from "../types";
 
 // ---------- Constanten ----------
 
@@ -37,14 +41,6 @@ const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   non_masonry: "Niet-steenachtig",
 };
 
-const BOUNDARY_OPTIONS: BoundaryType[] = [
-  "exterior",
-  "unheated_space",
-  "adjacent_room",
-  "adjacent_building",
-  "ground",
-];
-
 // ---------- Component ----------
 
 export function RcCalculator() {
@@ -52,12 +48,17 @@ export function RcCalculator() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CatalogueCategory>("wanden");
   const [materialType, setMaterialType] = useState<MaterialType>("masonry");
-  const [boundaryType, setBoundaryType] = useState<BoundaryType>("exterior");
 
   // Lagen
   const [layers, setLayers] = useState<LayerInput[]>([
     { materialId: "", thickness: 0 },
   ]);
+
+  // Klimaatcondities (Glaser)
+  const [thetaI, setThetaI] = useState<number>(GLASER_DEFAULTS.thetaI);
+  const [thetaE, setThetaE] = useState<number>(GLASER_DEFAULTS.thetaE);
+  const [rhI, setRhI] = useState<number>(GLASER_DEFAULTS.rhI);
+  const [rhE, setRhE] = useState<number>(GLASER_DEFAULTS.rhE);
 
   // MaterialPicker state
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
@@ -75,6 +76,19 @@ export function RcCalculator() {
   const rcResult = useMemo(
     () => calculateRc(layers, position),
     [layers, position],
+  );
+
+  const glaserResult = useMemo(
+    () =>
+      calculateGlaser({
+        layers,
+        position,
+        thetaI,
+        thetaE,
+        rhI,
+        rhE,
+      }),
+    [layers, position, thetaI, thetaE, rhI, rhE],
   );
 
   const rcMin = RC_MIN_BOUWBESLUIT[position];
@@ -163,7 +177,6 @@ export function RcCalculator() {
       uValue: Math.round(rcResult.uValue * 1000) / 1000,
       materialType,
       verticalPosition: position,
-      boundaryType,
       layers: validLayers.map((l) => ({
         materialId: l.materialId,
         thickness: l.thickness,
@@ -172,7 +185,7 @@ export function RcCalculator() {
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [name, category, materialType, position, boundaryType, layers, rcResult.uValue, addEntry]);
+  }, [name, category, materialType, position, layers, rcResult.uValue, addEntry]);
 
   const canSave =
     name.trim().length > 0 && layers.some((l) => l.materialId);
@@ -187,9 +200,9 @@ export function RcCalculator() {
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="mx-auto max-w-3xl space-y-6">
           {/* Metadata */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-4">
             {/* Naam */}
-            <div className="col-span-2 sm:col-span-1">
+            <div>
               <label className="mb-1 block text-xs font-medium text-stone-500">
                 Naam
               </label>
@@ -241,26 +254,6 @@ export function RcCalculator() {
                     </option>
                   ),
                 )}
-              </select>
-            </div>
-
-            {/* Grenstype */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
-                Grenstype
-              </label>
-              <select
-                value={boundaryType}
-                onChange={(e) =>
-                  setBoundaryType(e.target.value as BoundaryType)
-                }
-                className="w-full rounded border border-stone-200 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-              >
-                {BOUNDARY_OPTIONS.map((bt) => (
-                  <option key={bt} value={bt}>
-                    {BOUNDARY_TYPE_LABELS[bt]}
-                  </option>
-                ))}
               </select>
             </div>
           </div>
@@ -450,6 +443,93 @@ export function RcCalculator() {
               >
                 + Laag toevoegen
               </button>
+            </div>
+          </div>
+
+          {/* Dampspanning (Glaser) */}
+          <div className="rounded-lg border border-stone-200 bg-white">
+            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2.5">
+              <h3 className="text-sm font-semibold text-stone-700">
+                Dampspanning (Glaser-methode)
+              </h3>
+              {glaserResult.hasCondensation ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                  Condensatierisico
+                </span>
+              ) : (
+                glaserResult.totalThickness > 0 && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                    Geen condensatie
+                  </span>
+                )
+              )}
+            </div>
+
+            <div className="px-4 py-3">
+              {/* Klimaatcondities */}
+              <div className="mb-4 grid grid-cols-4 gap-3">
+                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                  <span>
+                    Temp. binnen [°C]
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    value={thetaI}
+                    onChange={(e) => setThetaI(Number(e.target.value) || 0)}
+                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                  <span>
+                    RV binnen [%]
+                  </span>
+                  <input
+                    type="number"
+                    step="5"
+                    min="0"
+                    max="100"
+                    value={rhI}
+                    onChange={(e) => setRhI(Number(e.target.value) || 0)}
+                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                  <span>
+                    Temp. buiten [°C]
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    value={thetaE}
+                    onChange={(e) => setThetaE(Number(e.target.value) || 0)}
+                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                  <span>
+                    RV buiten [%]
+                  </span>
+                  <input
+                    type="number"
+                    step="5"
+                    min="0"
+                    max="100"
+                    value={rhE}
+                    onChange={(e) => setRhE(Number(e.target.value) || 0)}
+                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                  />
+                </label>
+              </div>
+
+              {/* Diagram */}
+              <GlaserDiagram
+                result={glaserResult}
+                thetaI={thetaI}
+                thetaE={thetaE}
+              />
             </div>
           </div>
 

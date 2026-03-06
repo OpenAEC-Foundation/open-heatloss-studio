@@ -80,7 +80,7 @@ function entryDiffersFromDefault(entry: CatalogueEntry): boolean {
     entry.uValue !== def.uValue ||
     entry.materialType !== def.materialType ||
     entry.verticalPosition !== def.verticalPosition ||
-    entry.boundaryType !== def.boundaryType ||
+    (entry.boundaryType ?? "exterior") !== (def.boundaryType ?? "exterior") ||
     entry.category !== def.category ||
     layersDiffer(entry.layers, def.layers)
   );
