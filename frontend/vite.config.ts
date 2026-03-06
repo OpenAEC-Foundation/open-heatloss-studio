@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
         // Bearer token van de gebruiker wordt doorgegeven.
         // REPORTS_API_KEY is optionele fallback totdat OIDC volledig werkt.
         "/api/report": {
-          target: env.REPORTS_API_URL || "https://reports.open-aec.com",
+          target: env.REPORTS_API_URL || "https://report.open-aec.com",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/report\/generate/, "/api/generate/v2"),
           configure: (proxy) => {
