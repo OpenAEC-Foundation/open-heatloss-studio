@@ -45,6 +45,8 @@ interface ProjectStore {
   activeProjectId: string | null;
   /** Server-side updated_at timestamp for conflict detection. */
   serverUpdatedAt: string | null;
+  /** Whether a save conflict was detected. */
+  hasConflict: boolean;
 
   /** Update project data (partial merge). */
   updateProject: (partial: Partial<Project>) => void;
@@ -98,6 +100,7 @@ export const useProjectStore = create<ProjectStore>()(
       isDirty: true,
       activeProjectId: null,
       serverUpdatedAt: null,
+      hasConflict: false,
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -110,7 +113,7 @@ export const useProjectStore = create<ProjectStore>()(
         })),
 
       setProject: (project) =>
-        set({ project, isDirty: true, result: null, error: null, activeProjectId: null, serverUpdatedAt: null }),
+        set({ project, isDirty: true, result: null, error: null, activeProjectId: null, serverUpdatedAt: null, hasConflict: false }),
 
       loadServerProject: (id, project, result, updatedAt) =>
         set({
@@ -121,6 +124,7 @@ export const useProjectStore = create<ProjectStore>()(
           error: null,
           isCalculating: false,
           serverUpdatedAt: updatedAt ?? null,
+          hasConflict: false,
         }),
 
       setResult: (result) =>
@@ -141,6 +145,7 @@ export const useProjectStore = create<ProjectStore>()(
           isDirty: true,
           activeProjectId: null,
           serverUpdatedAt: null,
+          hasConflict: false,
         }),
 
       addRoom: (room) =>

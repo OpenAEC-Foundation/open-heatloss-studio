@@ -20,6 +20,7 @@ export function Projects() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -97,6 +98,10 @@ export function Projects() {
     [loadProjects],
   );
 
+  const filtered = projects.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
   const formatDate = (dateStr: string) => {
     try {
       return new Date(dateStr + "Z").toLocaleDateString("nl-NL", {
@@ -128,13 +133,29 @@ export function Projects() {
           </div>
         )}
 
+        {projects.length > 0 && (
+          <input
+            type="text"
+            placeholder="Zoek op projectnaam..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full max-w-sm rounded-md border border-stone-300 px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        )}
+
         {loading ? (
           <p className="text-sm text-stone-400">Laden...</p>
-        ) : projects.length === 0 ? (
+        ) : filtered.length === 0 && projects.length === 0 ? (
           <Card>
             <div className="py-4 text-center text-sm text-stone-500">
               Nog geen opgeslagen projecten. Sla je huidige project op met de knop
               hierboven.
+            </div>
+          </Card>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <div className="py-4 text-center text-sm text-stone-500">
+              Geen projecten gevonden voor &ldquo;{search}&rdquo;.
             </div>
           </Card>
         ) : (
@@ -149,7 +170,7 @@ export function Projects() {
                 </tr>
               </thead>
               <tbody>
-                {projects.map((p) => (
+                {filtered.map((p) => (
                   <tr
                     key={p.id}
                     className="border-b border-stone-100 transition-colors last:border-0 hover:bg-stone-50"

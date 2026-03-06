@@ -9,8 +9,9 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
-import { createProject, updateProject as updateProjectApi } from "../lib/backend";
+import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
 import { exportProject, importProject } from "../lib/importExport";
+import { useToastStore } from "../store/toastStore";
 import {
   BUILDING_TYPE_LABELS,
   SECURITY_CLASS_LABELS,
@@ -29,7 +30,9 @@ export function ProjectSetup() {
   const {
     project, updateProject, isCalculating, setCalculating,
     setResult, setError, activeProjectId, setActiveProjectId,
+    serverUpdatedAt,
   } = useProjectStore();
+  const addToast = useToastStore((s) => s.addToast);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,23 +81,29 @@ export function ProjectSetup() {
     setIsSaving(true);
     try {
       if (activeProjectId) {
-        // Update existing project.
-        await updateProjectApi(activeProjectId, {
+        const response = await updateProjectApi(activeProjectId, {
           name: project.info.name || undefined,
           project_data: project,
+          expected_updated_at: serverUpdatedAt ?? undefined,
         });
+        useProjectStore.setState({ isDirty: false, serverUpdatedAt: response.updated_at });
       } else {
-        // Create new project.
         const name = project.info.name || "Naamloos project";
         const result = await createProject(name, project);
         setActiveProjectId(result.id);
+        useProjectStore.setState({ isDirty: false });
       }
+      addToast("Project opgeslagen", "success", 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Opslaan mislukt");
+      if (err instanceof ConflictError) {
+        useProjectStore.setState({ hasConflict: true });
+      } else {
+        addToast(err instanceof Error ? err.message : "Opslaan mislukt", "error");
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [project, activeProjectId, setActiveProjectId, setError]);
+  }, [project, activeProjectId, serverUpdatedAt, setActiveProjectId, addToast]);
 
   const handleExport = useCallback(() => {
     const { result } = useProjectStore.getState();

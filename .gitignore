@@ -4,8 +4,9 @@
 # PDF documents (copyrighted norm publications)
 *.pdf
 
-# Extracted text from PDFs (temporary)
+# Extracted text from PDFs (temporary/large)
 tests/references/*.txt
+tests/references/*.pdf
 
 # Excel spreadsheets
 *.xls

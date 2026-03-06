@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Sidebar } from "./Sidebar";
 import { ToastContainer } from "../ui/Toast";
+import { ConflictDialog } from "../ui/ConflictDialog";
 import { useAutoSave } from "../../hooks/useAutoSave";
 
 interface AppShellProps {
@@ -16,6 +17,7 @@ export function AppShell({ children }: AppShellProps) {
       <Sidebar />
       <main className="ml-sidebar flex-1">{children}</main>
       <ToastContainer />
+      <ConflictDialog />
     </div>
   );
 }
