@@ -1,12 +1,15 @@
 import { useCallback, useState } from "react";
 
-import { DrawingToolsPanel } from "../components/modeller/DrawingToolsPanel";
-import { FloorCanvas } from "../components/modeller/FloorCanvas";
-import { ModellerToolbar } from "../components/modeller/ModellerToolbar";
-import { PropertiesPanel } from "../components/modeller/PropertiesPanel";
-import { EXAMPLE_ROOMS, EXAMPLE_WINDOWS } from "../components/modeller/exampleData";
-import type { ModellerTool, SnapSettings, ViewMode } from "../components/modeller/types";
-import { DEFAULT_SNAP_SETTINGS } from "../components/modeller/types";
+import {
+  DrawingToolsPanel,
+  FloorCanvas,
+  ModellerToolbar,
+  PropertiesPanel,
+  EXAMPLE_ROOMS,
+  EXAMPLE_WINDOWS,
+  DEFAULT_SNAP_SETTINGS,
+} from "../components/modeller";
+import type { ModellerTool, SnapSettings, ViewMode } from "../components/modeller";
 import { useToastStore } from "../store/toastStore";
 
 export function Modeller() {

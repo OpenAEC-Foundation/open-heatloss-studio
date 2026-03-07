@@ -1,5 +1,3 @@
-import type { RoomFunction } from "../../types";
-
 export interface Point2D {
   x: number;
   y: number;
@@ -8,7 +6,8 @@ export interface Point2D {
 export interface ModelRoom {
   id: string;
   name: string;
-  function: RoomFunction;
+  /** Room function — kept as generic string so the modeller stays decoupled. */
+  function: string;
   polygon: Point2D[];
   floor: number;
   /** Room height in mm. */
