@@ -1,0 +1,40 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            REMOTE_DIR="/opt/warmteverlies"
+            REPO="https://github.com/OpenAEC-Foundation/warmteverliesberekening.git"
+
+            if [ -d "${REMOTE_DIR}/.git" ]; then
+                cd "${REMOTE_DIR}"
+                git fetch origin
+                git reset --hard origin/master
+            else
+                git clone --branch master "${REPO}" "${REMOTE_DIR}"
+                cd "${REMOTE_DIR}"
+            fi
+
+            docker compose build
+            docker compose up -d
+
+            echo "Waiting for container..."
+            sleep 5
+            docker exec warmteverlies curl -sf http://localhost:3001/api/v1/health && echo " OK" || echo " FAILED"

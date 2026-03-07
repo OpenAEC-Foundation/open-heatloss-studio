@@ -25,7 +25,7 @@ function fmt2(value: number): string {
 
 export function Results() {
   const navigate = useNavigate();
-  const { project, result, error } = useProjectStore();
+  const { project, result } = useProjectStore();
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -57,26 +57,6 @@ export function Results() {
       setIsGenerating(false);
     }
   }, [project, result, addToast]);
-
-  if (error) {
-    return (
-      <div>
-        <PageHeader
-          title="Resultaten"
-          actions={
-            <Button variant="secondary" onClick={() => navigate("/project")}>
-              Terug
-            </Button>
-          }
-        />
-        <div className="p-6">
-          <Card>
-            <p className="text-center text-red-600">{error}</p>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   if (!result) {
     return (

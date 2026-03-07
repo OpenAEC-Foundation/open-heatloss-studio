@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { useProjectStore } from "../../store/projectStore";
 import { Sidebar } from "./Sidebar";
 import { ToastContainer } from "../ui/Toast";
 import { ConflictDialog } from "../ui/ConflictDialog";
@@ -11,11 +12,28 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   useAutoSave();
+  const { error, clearError } = useProjectStore();
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="ml-sidebar flex-1">{children}</main>
+      <main className="ml-sidebar flex-1">
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+            <span className="flex-1">{error}</span>
+            <button
+              onClick={clearError}
+              className="shrink-0 rounded p-0.5 hover:bg-red-100"
+              aria-label="Sluiten"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
+            </button>
+          </div>
+        )}
+        {children}
+      </main>
       <ToastContainer />
       <ConflictDialog />
     </div>

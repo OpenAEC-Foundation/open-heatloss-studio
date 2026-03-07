@@ -58,6 +58,8 @@ interface ProjectStore {
   setResult: (result: ProjectResult) => void;
   /** Set an error from a failed calculation. */
   setError: (error: string) => void;
+  /** Clear the current error. */
+  clearError: () => void;
   /** Set calculating state. */
   setCalculating: (isCalculating: boolean) => void;
   /** Load a server project atomically (project + id + result in one set). */
@@ -132,6 +134,9 @@ export const useProjectStore = create<ProjectStore>()(
 
       setError: (error) =>
         set({ error, isCalculating: false }),
+
+      clearError: () =>
+        set({ error: null }),
 
       setCalculating: (isCalculating) =>
         set({ isCalculating }),
