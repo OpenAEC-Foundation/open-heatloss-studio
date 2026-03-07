@@ -51,8 +51,8 @@ interface ToolBtn {
 }
 
 const SELECT_TOOLS: ToolBtn[] = [
-  { id: "select", label: "Selecteer", icon: "\u{1F5B1}", shortcut: "V", large: true },
-  { id: "pan", label: "Verschuif", icon: "\u{270B}", shortcut: "H", large: true },
+  { id: "select", label: "Selecteer", icon: "\u2190", shortcut: "V", large: true },
+  { id: "pan", label: "Verschuif", icon: "\u2725", shortcut: "H", large: true },
 ];
 
 const SHAPE_TOOLS: ToolBtn[] = [
@@ -64,7 +64,7 @@ const SHAPE_TOOLS: ToolBtn[] = [
 const ELEMENT_TOOLS: ToolBtn[] = [
   { id: "draw_wall", label: "Wand", icon: "\u2587", shortcut: "W", large: true },
   { id: "draw_window", label: "Raam", icon: "\u25A8", shortcut: "N", large: true },
-  { id: "draw_door", label: "Deur", icon: "\u{1F6AA}", large: true },
+  { id: "draw_door", label: "Deur", icon: "\u2395", large: true },
   { id: "draw_floor", label: "Vloer", icon: "\u2B1C" },
   { id: "draw_roof", label: "Dak", icon: "\u25B3" },
 ];
@@ -73,7 +73,7 @@ const ANNOTATION_TOOLS: ToolBtn[] = [
   { id: "annotate_dimension", label: "Maatvoering", icon: "\u2194", large: true },
   { id: "annotate_text", label: "Tekst", icon: "T", large: true },
   { id: "annotate_leader", label: "Leider", icon: "\u2198", large: true },
-  { id: "measure", label: "Meten", icon: "\u{1F4CF}", shortcut: "M", large: true },
+  { id: "measure", label: "Meten", icon: "\u21A6", shortcut: "M", large: true },
 ];
 
 const SNAP_OPTIONS: { mode: SnapMode; label: string }[] = [
@@ -292,15 +292,15 @@ function InvoegenTab({
     <>
       <RibbonGroup label="Onderlegger">
         <div className="flex h-full items-center gap-1">
-          <LargeButton icon="\u{1F4D0}" label="DWG" onClick={onImportDwg} />
-          <LargeButton icon="\u{1F4C4}" label="PDF" onClick={onImportPdf} />
+          <LargeButton icon="\u2337" label="DWG" onClick={onImportDwg} />
+          <LargeButton icon="\u2338" label="PDF" onClick={onImportPdf} />
         </div>
       </RibbonGroup>
 
       <RibbonGroup label="IFC">
         <div className="flex h-full items-center gap-1">
-          <LargeButton icon="\u{1F4E5}" label="Importeren" onClick={onImportIfc} />
-          <LargeButton icon="\u{1F4E4}" label="Exporteren" onClick={onExportIfc} />
+          <LargeButton icon="\u21E9" label="Importeren" onClick={onImportIfc} />
+          <LargeButton icon="\u21E7" label="Exporteren" onClick={onExportIfc} />
         </div>
       </RibbonGroup>
     </>

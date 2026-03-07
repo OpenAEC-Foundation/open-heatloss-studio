@@ -23,8 +23,8 @@ interface ToolDef {
 }
 
 const SELECTION_TOOLS: ToolDef[] = [
-  { id: "select", label: "Selecteer", icon: "\u{1F5B1}", shortcut: "V" },
-  { id: "pan", label: "Verschuif", icon: "\u{270B}", shortcut: "H" },
+  { id: "select", label: "Selecteer", icon: "\u2190", shortcut: "V" },
+  { id: "pan", label: "Verschuif", icon: "\u2725", shortcut: "H" },
 ];
 
 const SHAPE_TOOLS: ToolDef[] = [
@@ -36,7 +36,7 @@ const SHAPE_TOOLS: ToolDef[] = [
 const ELEMENT_TOOLS: ToolDef[] = [
   { id: "draw_wall", label: "Wand", icon: "\u2587", shortcut: "W" },
   { id: "draw_window", label: "Raam", icon: "\u25A8", shortcut: "N" },
-  { id: "draw_door", label: "Deur", icon: "\u{1F6AA}" },
+  { id: "draw_door", label: "Deur", icon: "\u2395" },
   { id: "draw_floor", label: "Vloer", icon: "\u2B1C" },
   { id: "draw_roof", label: "Dak", icon: "\u25B3" },
 ];
@@ -45,7 +45,7 @@ const ANNOTATION_TOOLS: ToolDef[] = [
   { id: "annotate_text", label: "Tekst", icon: "T" },
   { id: "annotate_dimension", label: "Maatvoering", icon: "\u2194" },
   { id: "annotate_leader", label: "Leider", icon: "\u2198" },
-  { id: "measure", label: "Meten", icon: "\u{1F4CF}", shortcut: "M" },
+  { id: "measure", label: "Meten", icon: "\u21A6", shortcut: "M" },
 ];
 
 const SNAP_OPTIONS: { mode: SnapMode; label: string }[] = [
