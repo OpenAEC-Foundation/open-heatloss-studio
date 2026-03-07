@@ -13,4 +13,6 @@ STATUS.md
 SESSION_STATUS.md
 TODO.md
 .env
-.env.production
+# Root .env.production is excluded (API secrets, loaded via docker-compose env_file)
+# frontend/.env.production is NOT excluded (contains public VITE_ vars for the build)
+/.env.production
