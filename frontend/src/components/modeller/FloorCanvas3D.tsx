@@ -1,7 +1,6 @@
-import { useMemo, useRef } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import * as THREE from "three";
+import * as OBC from "@thatopen/components";
 
 import type { ModelRoom, ModelWindow, Point2D } from "./types";
 import { polygonCenter } from "./geometry";
@@ -21,26 +20,28 @@ interface FloorCanvas3DProps {
 // Color scheme
 // ---------------------------------------------------------------------------
 
-const FUNCTION_COLORS: Record<string, string> = {
-  living_room: "#fef3c7",
-  kitchen: "#fef9c3",
-  bedroom: "#dbeafe",
-  bathroom: "#cffafe",
-  toilet: "#e0e7ff",
-  hallway: "#f5f5f4",
-  landing: "#f5f5f4",
-  storage: "#e7e5e4",
-  attic: "#fce7f3",
-  custom: "#f3f4f6",
+const FUNCTION_COLORS: Record<string, number> = {
+  living_room: 0xfef3c7,
+  kitchen: 0xfef9c3,
+  bedroom: 0xdbeafe,
+  bathroom: 0xcffafe,
+  toilet: 0xe0e7ff,
+  hallway: 0xf5f5f4,
+  landing: 0xf5f5f4,
+  storage: 0xe7e5e4,
+  attic: 0xfce7f3,
+  custom: 0xf3f4f6,
 };
 
-const WALL_COLOR = "#44403c";
-const WALL_THICKNESS = 200; // mm
-const SELECTED_COLOR = "#f59e0b";
-const WINDOW_COLOR = "#60a5fa";
+const WALL_COLOR = 0x78716c;
+const WALL_THICKNESS = 0.2; // meters
+const SELECTED_COLOR = 0xf59e0b;
+const WINDOW_COLOR = 0x93c5fd;
+const FLOOR_OPACITY = 0.95;
+const CEILING_OPACITY = 0.15;
 
 // ---------------------------------------------------------------------------
-// Main component
+// Component
 // ---------------------------------------------------------------------------
 
 export function FloorCanvas3D({
@@ -49,309 +50,240 @@ export function FloorCanvas3D({
   selectedRoomId,
   onSelectRoom,
 }: FloorCanvas3DProps) {
-  // Calculate scene center for camera target
+  const containerRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<OBC.SimpleScene | null>(null);
+  const componentsRef = useRef<OBC.Components | null>(null);
+  const modelGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const mouseRef = useRef(new THREE.Vector2());
+  const roomMeshMapRef = useRef(new Map<THREE.Mesh, string>());
+
+  // Scene center for camera positioning
   const sceneCenter = useMemo(() => {
-    if (rooms.length === 0) return [0, 0, 0] as const;
+    if (rooms.length === 0) return new THREE.Vector3(0, 1.3, 0);
     let cx = 0, cy = 0;
     for (const room of rooms) {
       const c = polygonCenter(room.polygon);
-      cx += c.x;
-      cy += c.y;
+      cx += c.x / 1000;
+      cy += c.y / 1000;
     }
     cx /= rooms.length;
     cy /= rooms.length;
-    const avgHeight = rooms.reduce((s, r) => s + r.height, 0) / rooms.length;
-    return [cx / 1000, avgHeight / 2000, cy / 1000] as const;
+    return new THREE.Vector3(cx, 1.3, cy);
   }, [rooms]);
 
-  return (
-    <div className="h-full w-full">
-      <Canvas
-        camera={{
-          position: [
-            sceneCenter[0] + 15,
-            sceneCenter[1] + 12,
-            sceneCenter[2] + 15,
-          ],
-          fov: 45,
-          near: 0.1,
-          far: 1000,
-        }}
-        onPointerMissed={() => onSelectRoom(null)}
-      >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[20, 30, 10]} intensity={0.8} castShadow />
-        <directionalLight position={[-10, 20, -10]} intensity={0.3} />
+  // Initialize ThatOpen components
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-        {/* Ground plane */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[sceneCenter[0], -0.01, sceneCenter[2]]}>
-          <planeGeometry args={[100, 100]} />
-          <meshStandardMaterial color="#e7e5e4" />
-        </mesh>
+    const components = new OBC.Components();
+    componentsRef.current = components;
 
-        {/* Rooms */}
-        {rooms.map((room) => (
-          <RoomMesh
-            key={room.id}
-            room={room}
-            isSelected={room.id === selectedRoomId}
-            onSelect={() => onSelectRoom(room.id)}
-          />
-        ))}
+    const worlds = components.get(OBC.Worlds);
+    const world = worlds.create<OBC.SimpleScene, OBC.SimpleCamera, OBC.SimpleRenderer>();
 
-        {/* Walls */}
-        {rooms.map((room) => (
-          <WallMeshes key={`walls-${room.id}`} room={room} />
-        ))}
+    world.scene = new OBC.SimpleScene(components);
+    world.renderer = new OBC.SimpleRenderer(components, container);
+    world.camera = new OBC.SimpleCamera(components);
 
-        {/* Windows */}
-        {windows.map((win, i) => {
-          const room = rooms.find((r) => r.id === win.roomId);
-          if (!room) return null;
-          return <WindowMesh key={i} room={room} window={win} />;
-        })}
-
-        {/* Room labels */}
-        {rooms.map((room) => (
-          <RoomLabel key={`label-${room.id}`} room={room} isSelected={room.id === selectedRoomId} />
-        ))}
-
-        <OrbitControls
-          target={[sceneCenter[0], sceneCenter[1], sceneCenter[2]]}
-          maxPolarAngle={Math.PI / 2 - 0.05}
-          minDistance={3}
-          maxDistance={80}
-        />
-        <GridHelper center={sceneCenter} />
-      </Canvas>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Room floor/ceiling mesh
-// ---------------------------------------------------------------------------
-
-function RoomMesh({
-  room,
-  isSelected,
-  onSelect,
-}: {
-  room: ModelRoom;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
-  const floorGeom = useMemo(() => createPolygonGeometry(room.polygon, 0), [room.polygon]);
-  const ceilGeom = useMemo(
-    () => createPolygonGeometry(room.polygon, room.height / 1000),
-    [room.polygon, room.height],
-  );
-
-  const color = isSelected
-    ? SELECTED_COLOR
-    : FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom;
-
-  const floorY = room.floor * (room.height / 1000 + 0.3);
-
-  return (
-    <group position={[0, floorY, 0]}>
-      {/* Floor */}
-      <mesh geometry={floorGeom} onClick={onSelect}>
-        <meshStandardMaterial color={color} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Ceiling — slightly transparent */}
-      <mesh geometry={ceilGeom} onClick={onSelect}>
-        <meshStandardMaterial color="#f5f5f4" transparent opacity={0.3} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Wall meshes (thick outlines extruded vertically)
-// ---------------------------------------------------------------------------
-
-function WallMeshes({ room }: { room: ModelRoom }) {
-  const wallGeometries = useMemo(() => {
-    const geoms: { geometry: THREE.BufferGeometry; position: [number, number, number] }[] = [];
-    const poly = room.polygon;
-    const n = poly.length;
-    const h = room.height / 1000;
-    const t = WALL_THICKNESS / 1000;
-
-    for (let i = 0; i < n; i++) {
-      const a = poly[i]!;
-      const b = poly[(i + 1) % n]!;
-
-      const ax = a.x / 1000;
-      const az = a.y / 1000;
-      const bx = b.x / 1000;
-      const bz = b.y / 1000;
-
-      const dx = bx - ax;
-      const dz = bz - az;
-      const len = Math.sqrt(dx * dx + dz * dz);
-      if (len < 0.001) continue;
-
-      // Normal pointing outward (perpendicular to edge)
-      const nx = -dz / len;
-      const nz = dx / len;
-
-      geoms.push({
-        geometry: createWallGeometry(ax, az, bx, bz, h, t, nx, nz),
-        position: [0, 0, 0] as [number, number, number],
-      });
-    }
-
-    return geoms;
-  }, [room.polygon, room.height]);
-
-  const floorY = room.floor * (room.height / 1000 + 0.3);
-
-  return (
-    <group position={[0, floorY, 0]}>
-      {wallGeometries.map((w, i) => (
-        <mesh key={i} geometry={w.geometry} position={w.position}>
-          <meshStandardMaterial color={WALL_COLOR} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Window mesh (blue rectangle on wall)
-// ---------------------------------------------------------------------------
-
-function WindowMesh({ room, window: win }: { room: ModelRoom; window: ModelWindow }) {
-  const geometry = useMemo(() => {
-    const poly = room.polygon;
-    const n = poly.length;
-    const idx = win.wallIndex % n;
-    const a = poly[idx]!;
-    const b = poly[(idx + 1) % n]!;
-
-    const ax = a.x / 1000;
-    const az = a.y / 1000;
-    const bx = b.x / 1000;
-    const bz = b.y / 1000;
-
-    const dx = bx - ax;
-    const dz = bz - az;
-    const len = Math.sqrt(dx * dx + dz * dz);
-    if (len < 0.001) return null;
-
-    const ux = dx / len;
-    const uz = dz / len;
-    const nx = -dz / len;
-    const nz = dx / len;
-
-    const offset = win.offset / 1000;
-    const hw = (win.width / 2) / 1000;
-    const t = WALL_THICKNESS / 1000;
-
-    // Window center on the wall
-    const cx = ax + ux * offset + nx * t;
-    const cz = az + uz * offset + nz * t;
-
-    // Window rectangle: from 0.8m to 2.0m height, width = win.width
-    const sillH = 0.8;
-    const headH = 2.0;
-
-    const geom = new THREE.BufferGeometry();
-    const vertices = new Float32Array([
-      // p0: left bottom
-      cx - ux * hw, sillH, cz - uz * hw,
-      // p1: right bottom
-      cx + ux * hw, sillH, cz + uz * hw,
-      // p2: right top
-      cx + ux * hw, headH, cz + uz * hw,
-      // p3: left top
-      cx - ux * hw, headH, cz - uz * hw,
-    ]);
-    const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
-    geom.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-    geom.setIndex(new THREE.BufferAttribute(indices, 1));
-    geom.computeVertexNormals();
-    return geom;
-  }, [room.polygon, win]);
-
-  if (!geometry) return null;
-
-  const floorY = room.floor * (room.height / 1000 + 0.3);
-
-  return (
-    <mesh geometry={geometry} position={[0, floorY, 0]}>
-      <meshStandardMaterial color={WINDOW_COLOR} transparent opacity={0.6} side={THREE.DoubleSide} />
-    </mesh>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Room label (floating text sprite)
-// ---------------------------------------------------------------------------
-
-function RoomLabel({ room, isSelected }: { room: ModelRoom; isSelected: boolean }) {
-  const spriteRef = useRef<THREE.Sprite>(null);
-  const { gl } = useThree();
-
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-
-    ctx.clearRect(0, 0, 256, 128);
+    components.init();
+    world.scene.setup();
 
     // Background
-    ctx.fillStyle = isSelected ? "rgba(245, 158, 11, 0.85)" : "rgba(0, 0, 0, 0.6)";
-    ctx.beginPath();
-    ctx.roundRect(8, 8, 240, 112, 8);
-    ctx.fill();
+    world.scene.three.background = new THREE.Color(0xf5f5f4);
 
-    // Room ID
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 32px Inter, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(room.id, 128, 40);
+    // Lighting
+    const scene = world.scene.three;
+    scene.children
+      .filter((c) => c instanceof THREE.Light)
+      .forEach((l) => scene.remove(l));
 
-    // Room name
-    ctx.font = "24px Inter, system-ui, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.fillText(room.name, 128, 80);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
 
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.needsUpdate = true;
-    return tex;
-  }, [room.id, room.name, isSelected, gl]);
+    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir1.position.set(20, 30, 10);
+    dir1.castShadow = true;
+    scene.add(dir1);
 
-  const center = polygonCenter(room.polygon);
-  const floorY = room.floor * (room.height / 1000 + 0.3);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+    dir2.position.set(-15, 20, -15);
+    scene.add(dir2);
 
-  if (!texture) return null;
+    // Grid
+    const grids = components.get(OBC.Grids);
+    grids.create(world);
 
-  return (
-    <sprite
-      ref={spriteRef}
-      position={[center.x / 1000, floorY + room.height / 2000, center.y / 1000]}
-      scale={[2.5, 1.25, 1]}
-    >
-      <spriteMaterial map={texture} transparent depthTest={false} />
-    </sprite>
+    // Camera position
+    world.camera.controls.setLookAt(
+      sceneCenter.x + 12, 10, sceneCenter.z + 12,
+      sceneCenter.x, sceneCenter.y, sceneCenter.z,
+      true,
+    );
+
+    // Add model group to scene
+    scene.add(modelGroupRef.current);
+
+    worldRef.current = world.scene;
+
+    return () => {
+      modelGroupRef.current.removeFromParent();
+      components.dispose();
+      componentsRef.current = null;
+      worldRef.current = null;
+    };
+  }, [sceneCenter]);
+
+  // Build/update 3D geometry when rooms/windows/selection change
+  useEffect(() => {
+    const group = modelGroupRef.current;
+
+    // Clear previous
+    while (group.children.length > 0) {
+      const child = group.children[0]!;
+      group.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        if (child.material instanceof THREE.Material) child.material.dispose();
+      }
+    }
+    roomMeshMapRef.current.clear();
+
+    // Build rooms
+    for (const room of rooms) {
+      const isSelected = room.id === selectedRoomId;
+      const floorY = room.floor * (room.height / 1000 + 0.3);
+      const h = room.height / 1000;
+
+      // Floor slab
+      const floorGeom = createPolygonGeometry(room.polygon, 0);
+      const floorColor = isSelected
+        ? SELECTED_COLOR
+        : (FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: floorColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: FLOOR_OPACITY,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      });
+      const floorMesh = new THREE.Mesh(floorGeom, floorMat);
+      floorMesh.position.y = floorY + 0.01; // slight offset to avoid z-fighting with grid
+      group.add(floorMesh);
+      roomMeshMapRef.current.set(floorMesh, room.id);
+
+      // Ceiling
+      const ceilGeom = createPolygonGeometry(room.polygon, 0);
+      const ceilMat = new THREE.MeshStandardMaterial({
+        color: 0xfafaf9,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: CEILING_OPACITY,
+      });
+      const ceilMesh = new THREE.Mesh(ceilGeom, ceilMat);
+      ceilMesh.position.y = floorY + h;
+      group.add(ceilMesh);
+
+      // Walls
+      const poly = room.polygon;
+      const n = poly.length;
+      for (let i = 0; i < n; i++) {
+        const a = poly[i]!;
+        const b = poly[(i + 1) % n]!;
+
+        const ax = a.x / 1000;
+        const az = a.y / 1000;
+        const bx = b.x / 1000;
+        const bz = b.y / 1000;
+
+        const dx = bx - ax;
+        const dz = bz - az;
+        const len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.001) continue;
+
+        const nx = -dz / len;
+        const nz = dx / len;
+
+        const wallGeom = createWallGeometry(ax, az, bx, bz, h, WALL_THICKNESS, nx, nz);
+        const wallMat = new THREE.MeshStandardMaterial({
+          color: WALL_COLOR,
+          roughness: 0.8,
+        });
+        const wallMesh = new THREE.Mesh(wallGeom, wallMat);
+        wallMesh.position.y = floorY;
+        group.add(wallMesh);
+
+        // Check for windows on this wall
+        const wallWindows = windows.filter(
+          (w) => w.roomId === room.id && w.wallIndex % n === i,
+        );
+        for (const win of wallWindows) {
+          const winGeom = createWindowGeometry(ax, az, bx, bz, win, nx, nz);
+          if (winGeom) {
+            const winMat = new THREE.MeshStandardMaterial({
+              color: WINDOW_COLOR,
+              transparent: true,
+              opacity: 0.5,
+              side: THREE.DoubleSide,
+            });
+            const winMesh = new THREE.Mesh(winGeom, winMat);
+            winMesh.position.y = floorY;
+            group.add(winMesh);
+          }
+        }
+      }
+
+      // Room label sprite
+      const center = polygonCenter(room.polygon);
+      const sprite = createLabelSprite(room.id, room.name, isSelected);
+      sprite.position.set(center.x / 1000, floorY + h / 2, center.y / 1000);
+      sprite.scale.set(2, 1, 1);
+      group.add(sprite);
+    }
+  }, [rooms, windows, selectedRoomId]);
+
+  // Click handler for room selection
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const container = containerRef.current;
+      if (!container || !worldRef.current) return;
+
+      const rect = container.getBoundingClientRect();
+      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const components = componentsRef.current;
+      if (!components) return;
+      const worlds = components.get(OBC.Worlds);
+      const worldsList = Array.from(worlds.list.values());
+      if (worldsList.length === 0) return;
+      const cam = worldsList[0]!.camera.three;
+
+      raycasterRef.current.setFromCamera(mouseRef.current, cam);
+
+      const meshes = Array.from(roomMeshMapRef.current.keys());
+      const intersects = raycasterRef.current.intersectObjects(meshes, false);
+
+      if (intersects.length > 0) {
+        const roomId = roomMeshMapRef.current.get(intersects[0]!.object as THREE.Mesh);
+        if (roomId) {
+          onSelectRoom(roomId);
+          return;
+        }
+      }
+      onSelectRoom(null);
+    },
+    [onSelectRoom],
   );
-}
 
-// ---------------------------------------------------------------------------
-// Grid helper
-// ---------------------------------------------------------------------------
-
-function GridHelper({ center }: { center: readonly [number, number, number] }) {
   return (
-    <gridHelper
-      args={[50, 50, "#d6d3d1", "#e7e5e4"]}
-      position={[center[0], 0, center[2]]}
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      onClick={handleClick}
     />
   );
 }
@@ -360,8 +292,7 @@ function GridHelper({ center }: { center: readonly [number, number, number] }) {
 // Geometry helpers
 // ---------------------------------------------------------------------------
 
-/** Create a flat polygon geometry from 2D points at given Y height. */
-function createPolygonGeometry(polygon: Point2D[], yHeight: number): THREE.BufferGeometry {
+function createPolygonGeometry(polygon: Point2D[], _yOffset: number): THREE.BufferGeometry {
   const shape = new THREE.Shape();
   const p0 = polygon[0]!;
   shape.moveTo(p0.x / 1000, p0.y / 1000);
@@ -372,50 +303,34 @@ function createPolygonGeometry(polygon: Point2D[], yHeight: number): THREE.Buffe
   shape.closePath();
 
   const geom = new THREE.ShapeGeometry(shape);
-  // ShapeGeometry creates in XY plane; rotate to XZ (floor) plane
   geom.rotateX(-Math.PI / 2);
-  geom.translate(0, yHeight, 0);
   return geom;
 }
 
-/** Create wall geometry as a thin box between two points. */
 function createWallGeometry(
   ax: number, az: number,
   bx: number, bz: number,
-  h: number,
-  t: number,
+  h: number, t: number,
   nx: number, nz: number,
 ): THREE.BufferGeometry {
-  // 8 vertices: 4 bottom, 4 top
-  // Inner edge (room side) and outer edge (offset by normal * t)
   const vertices = new Float32Array([
-    // Bottom inner
     ax, 0, az,
     bx, 0, bz,
-    // Bottom outer
     ax + nx * t, 0, az + nz * t,
     bx + nx * t, 0, bz + nz * t,
-    // Top inner
     ax, h, az,
     bx, h, bz,
-    // Top outer
     ax + nx * t, h, az + nz * t,
     bx + nx * t, h, bz + nz * t,
   ]);
 
   const indices = new Uint16Array([
-    // Outer face
-    2, 3, 7, 2, 7, 6,
-    // Inner face
-    1, 0, 4, 1, 4, 5,
-    // Left cap
-    0, 2, 6, 0, 6, 4,
-    // Right cap
-    3, 1, 5, 3, 5, 7,
-    // Top
-    4, 6, 7, 4, 7, 5,
-    // Bottom
-    0, 1, 3, 0, 3, 2,
+    2, 3, 7, 2, 7, 6,   // outer
+    1, 0, 4, 1, 4, 5,   // inner
+    0, 2, 6, 0, 6, 4,   // left cap
+    3, 1, 5, 3, 5, 7,   // right cap
+    4, 6, 7, 4, 7, 5,   // top
+    0, 1, 3, 0, 3, 2,   // bottom
   ]);
 
   const geom = new THREE.BufferGeometry();
@@ -423,4 +338,71 @@ function createWallGeometry(
   geom.setIndex(new THREE.BufferAttribute(indices, 1));
   geom.computeVertexNormals();
   return geom;
+}
+
+function createWindowGeometry(
+  ax: number, az: number,
+  bx: number, bz: number,
+  win: ModelWindow,
+  nx: number, nz: number,
+): THREE.BufferGeometry | null {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 0.001) return null;
+
+  const ux = dx / len;
+  const uz = dz / len;
+  const t = WALL_THICKNESS;
+
+  const offset = win.offset / 1000;
+  const hw = win.width / 2000;
+
+  const cx = ax + ux * offset + nx * t * 0.5;
+  const cz = az + uz * offset + nz * t * 0.5;
+
+  const sillH = 0.8;
+  const headH = 2.0;
+
+  const vertices = new Float32Array([
+    cx - ux * hw, sillH, cz - uz * hw,
+    cx + ux * hw, sillH, cz + uz * hw,
+    cx + ux * hw, headH, cz + uz * hw,
+    cx - ux * hw, headH, cz - uz * hw,
+  ]);
+  const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  geom.setIndex(new THREE.BufferAttribute(indices, 1));
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function createLabelSprite(id: string, name: string, isSelected: boolean): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 96;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.clearRect(0, 0, 256, 96);
+
+  ctx.fillStyle = isSelected ? "rgba(245, 158, 11, 0.9)" : "rgba(0, 0, 0, 0.65)";
+  ctx.beginPath();
+  ctx.roundRect(4, 4, 248, 88, 8);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 28px Inter, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(id, 128, 32);
+
+  ctx.font = "22px Inter, system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText(name, 128, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+  return new THREE.Sprite(mat);
 }
