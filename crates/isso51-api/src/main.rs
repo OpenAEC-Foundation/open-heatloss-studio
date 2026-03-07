@@ -10,7 +10,6 @@ mod handlers;
 mod state;
 
 use axum::http::{header, HeaderValue, Method, StatusCode};
-use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
 use sqlx::sqlite::SqlitePoolOptions;
@@ -126,22 +125,36 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     // --- Static file serving (SPA fallback) ---
+    // NOTE: We cannot use ServeDir::not_found_service() because tower-http 0.6
+    // always overrides the fallback response status to 404.
+    // Instead, we wrap ServeDir in a custom service that intercepts 404s and
+    // returns index.html with 200 for SPA client-side routing.
     if let Some(ref static_dir) = config.static_dir {
-        let index_html = std::fs::read_to_string(format!("{static_dir}/index.html"))
-            .expect("index.html not found in static_dir");
+        let index_html: bytes::Bytes = std::fs::read(format!("{static_dir}/index.html"))
+            .expect("index.html not found in static_dir")
+            .into();
 
-        let fallback = tower::service_fn(move |_req: axum::extract::Request| {
-            let html = index_html.clone();
+        let serve_dir = ServeDir::new(static_dir.clone());
+
+        let spa_fallback = tower::service_fn(move |req: axum::extract::Request| {
+            let serve_dir = serve_dir.clone();
+            let index_html = index_html.clone();
             async move {
-                Ok::<_, std::convert::Infallible>(
-                    (StatusCode::OK, [("content-type", "text/html; charset=utf-8")], html)
-                        .into_response(),
-                )
+                use tower::ServiceExt;
+                let resp = serve_dir.oneshot(req).await?;
+                if resp.status() == StatusCode::NOT_FOUND {
+                    Ok(axum::response::Response::builder()
+                        .status(StatusCode::OK)
+                        .header("content-type", "text/html; charset=utf-8")
+                        .body(axum::body::Body::from(index_html))
+                        .unwrap())
+                } else {
+                    Ok(resp.map(axum::body::Body::new))
+                }
             }
         });
 
-        let serve_dir = ServeDir::new(static_dir).not_found_service(fallback);
-        app = app.fallback_service(serve_dir);
+        app = app.fallback_service(spa_fallback);
         tracing::info!("Serving static files from {static_dir}");
     }
 

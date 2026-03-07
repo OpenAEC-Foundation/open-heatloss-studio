@@ -1753,6 +1753,7 @@ name = "isso51-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bytes",
  "chrono",
  "dotenvy",
  "isso51-core",
@@ -1762,6 +1763,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",

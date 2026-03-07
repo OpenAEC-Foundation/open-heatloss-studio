@@ -28,6 +28,7 @@
 - [ ] PDF rapport: complete rapportage conform ISSO format
 
 ## Roadmap — platform
+- [ ] 3D modeller: visueel model van het gebouw met vertrekken en constructies
 - [ ] IFC/BIM import: constructies en vertrekken uit IFC-model halen
 - [ ] API voor derden: berekening als service voor andere tools
 - [ ] Multi-user: projecten delen, rollen (engineer/reviewer)
