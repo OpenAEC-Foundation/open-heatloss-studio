@@ -34,11 +34,8 @@ const SHAPE_TOOLS: ToolDef[] = [
 ];
 
 const ELEMENT_TOOLS: ToolDef[] = [
-  { id: "draw_wall", label: "Wand", icon: "\u2587", shortcut: "W" },
   { id: "draw_window", label: "Raam", icon: "\u25A8", shortcut: "N" },
   { id: "draw_door", label: "Deur", icon: "\u2395" },
-  { id: "draw_floor", label: "Vloer", icon: "\u2B1C" },
-  { id: "draw_roof", label: "Dak", icon: "\u25B3" },
 ];
 
 const ANNOTATION_TOOLS: ToolDef[] = [

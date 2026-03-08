@@ -9,7 +9,6 @@ import {
 import { Ribbon } from "../components/modeller/Ribbon";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import type { ModellerTool, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
-import type { WallAlignment } from "../components/modeller/types";
 import { useToastStore } from "../store/toastStore";
 import { useCatalogueStore } from "../store/catalogueStore";
 
@@ -19,19 +18,17 @@ export function Modeller() {
   const [activeFloor, setActiveFloor] = useState(0);
   const [selection, setSelection] = useState<Selection>(null);
   const [snap, setSnap] = useState<SnapSettings>(DEFAULT_SNAP_SETTINGS);
-  const [wallAlignment, setWallAlignment] = useState<WallAlignment>("exterior");
   const addToast = useToastStore((s) => s.addToast);
 
   // Store
   const rooms = useModellerStore((s) => s.rooms);
   const windows = useModellerStore((s) => s.windows);
   const doors = useModellerStore((s) => s.doors);
-  const walls = useModellerStore((s) => s.walls);
+
   const underlay = useModellerStore((s) => s.underlay);
   const wallConstructions = useModellerStore((s) => s.wallConstructions);
   const floorConstructions = useModellerStore((s) => s.floorConstructions);
   const roofConstructions = useModellerStore((s) => s.roofConstructions);
-  const standaloneWallConstructions = useModellerStore((s) => s.standaloneWallConstructions);
 
   const addRoom = useModellerStore((s) => s.addRoom);
   const updateRoom = useModellerStore((s) => s.updateRoom);
@@ -40,14 +37,12 @@ export function Modeller() {
   const updateWindow = useModellerStore((s) => s.updateWindow);
   const removeWindow = useModellerStore((s) => s.removeWindow);
   const addDoor = useModellerStore((s) => s.addDoor);
-  const addWall = useModellerStore((s) => s.addWall);
-  const updateWall = useModellerStore((s) => s.updateWall);
-  const removeWall = useModellerStore((s) => s.removeWall);
+
   const setUnderlay = useModellerStore((s) => s.setUnderlay);
   const assignWallConstruction = useModellerStore((s) => s.assignWallConstruction);
   const assignFloorConstruction = useModellerStore((s) => s.assignFloorConstruction);
   const assignRoofConstruction = useModellerStore((s) => s.assignRoofConstruction);
-  const assignStandaloneWallConstruction = useModellerStore((s) => s.assignStandaloneWallConstruction);
+
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
 
@@ -68,7 +63,6 @@ export function Modeller() {
   const floorRooms = useMemo(() => rooms.filter((r) => r.floor === activeFloor), [rooms, activeFloor]);
   const floorWindows = useMemo(() => windows.filter((w) => floorRooms.some((r) => r.id === w.roomId)), [windows, floorRooms]);
   const floorDoors = useMemo(() => doors.filter((d) => floorRooms.some((r) => r.id === d.roomId)), [doors, floorRooms]);
-  const floorWalls = useMemo(() => walls.filter((w) => w.floor === activeFloor), [walls, activeFloor]);
 
   // Selected room (for properties panel)
   const selectedRoomId = selection?.type === "room" ? selection.roomId
@@ -109,22 +103,6 @@ export function Modeller() {
       addToast("Deur geplaatst", "success");
     },
     [addDoor, addToast],
-  );
-
-  const handleAddWall = useCallback(
-    (points: Point2D[]) => {
-      addWall({ points, floor: activeFloor, alignment: wallAlignment });
-      addToast("Wand getekend", "success");
-    },
-    [addWall, activeFloor, wallAlignment, addToast],
-  );
-
-  const handleRemoveWall = useCallback(
-    (id: string) => {
-      removeWall(id);
-      addToast("Wand verwijderd", "info");
-    },
-    [removeWall, addToast],
   );
 
   const handleMoveRoom = useCallback(
@@ -239,12 +217,11 @@ export function Modeller() {
       if (e.key === "Delete") {
         if (selection?.type === "room") { handleRemoveRoom(selection.roomId); return; }
         if (selection?.type === "window") { handleRemoveWindow(selection.roomId, selection.wallIndex, selection.offset); return; }
-        if (selection?.type === "standalone_wall") { handleRemoveWall(selection.wallId); return; }
       }
 
       const keyMap: Record<string, ModellerTool> = {
         v: "select", h: "pan", r: "draw_rect", p: "draw_polygon",
-        c: "draw_circle", w: "draw_wall", n: "draw_window",
+        c: "draw_circle", n: "draw_window",
         d: "draw_door", m: "measure",
       };
       const mapped = keyMap[e.key.toLowerCase()];
@@ -252,7 +229,7 @@ export function Modeller() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow, handleRemoveWall]);
+  }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -292,15 +269,10 @@ export function Modeller() {
               onAddWindow={handleAddWindow}
               onAddDoor={handleAddDoor}
               onMoveRoom={handleMoveRoom}
-              walls={floorWalls}
               onMoveVertex={handleMoveVertex}
               onUpdateWindow={handleUpdateWindow}
               onRemoveRoom={handleRemoveRoom}
               onRemoveWindow={handleRemoveWindow}
-              onAddWall={handleAddWall}
-              onRemoveWall={handleRemoveWall}
-              wallAlignment={wallAlignment}
-              onWallAlignmentChange={setWallAlignment}
               fitViewTrigger={fitViewTrigger}
             />
           </div>
@@ -313,6 +285,10 @@ export function Modeller() {
               selectedRoomId={selectedRoomId}
               onSelectRoom={(id) => setSelection(id ? { type: "room", roomId: id } : null)}
               onDeleteRoom={handleRemoveRoom}
+              wallConstructions={wallConstructions}
+              floorConstructions={floorConstructions}
+              roofConstructions={roofConstructions}
+              catalogueUValues={catalogueUValues}
             />
           </div>
         )}
@@ -321,25 +297,17 @@ export function Modeller() {
           room={selectedRoom}
           rooms={floorRooms}
           windows={floorWindows}
-          walls={floorWalls}
           selection={selection}
           onUpdateRoom={updateRoom}
           onRemoveRoom={handleRemoveRoom}
-          onUpdateWall={updateWall}
-          onRemoveWall={handleRemoveWall}
           onUpdateWindow={handleUpdateWindow}
           onRemoveWindow={handleRemoveWindow}
           wallConstructions={wallConstructions}
           floorConstructions={floorConstructions}
           roofConstructions={roofConstructions}
-          standaloneWallConstructions={standaloneWallConstructions}
           onAssignWall={assignWallConstruction}
           onAssignFloor={assignFloorConstruction}
           onAssignRoof={assignRoofConstruction}
-          onAssignStandaloneWall={assignStandaloneWallConstruction}
-          tool={tool}
-          wallAlignment={wallAlignment}
-          onWallAlignmentChange={setWallAlignment}
         />
       </div>
     </div>

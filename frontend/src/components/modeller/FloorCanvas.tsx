@@ -8,8 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konva";
 import Konva from "konva";
 
-import type { ModelRoom, ModelWindow, ModelDoor, ModelWall, ModellerTool, Point2D, SnapSettings, Selection, WallAlignment } from "./types";
-import { pointInPolygon, polygonArea, polygonCenter, offsetPolygon, getSharedEdges } from "./geometry";
+import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection } from "./types";
+import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,6 @@ interface FloorCanvasProps {
   rooms: ModelRoom[];
   windows: ModelWindow[];
   doors: ModelDoor[];
-  walls?: ModelWall[];
   selection: Selection;
   tool: ModellerTool;
   snap: SnapSettings;
@@ -36,10 +35,6 @@ interface FloorCanvasProps {
   onUpdateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
   onRemoveRoom?: (id: string) => void;
   onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
-  onAddWall?: (points: Point2D[]) => void;
-  onRemoveWall?: (id: string) => void;
-  wallAlignment?: WallAlignment;
-  onWallAlignmentChange?: (alignment: WallAlignment) => void;
   /** Increment to trigger a fit-view zoom. */
   fitViewTrigger?: number;
 }
@@ -52,72 +47,6 @@ const WALL_THICKNESS_MM = 200;
 const DEFAULT_WINDOW_WIDTH = 1200;
 const DEFAULT_DOOR_WIDTH = 900;
 const MIN_WALL_PX = 3;
-
-/** Wall layer definitions (inner → outer), matching the 3D view. */
-const WALL_LAYERS = [
-  { thickness: 12,  color: "#f0ede8" },  // inner plaster
-  { thickness: 88,  color: "#e0ddd0" },  // structural inner leaf
-  { thickness: 50,  color: "#fef9c3" },  // insulation (pastel yellow)
-  { thickness: 10,  color: "#f0f0f0" },  // spouw (cavity)
-  { thickness: 40,  color: "#d6d0c8" },  // outer leaf
-];
-
-/** Cumulative offsets for layer boundaries (0, 12, 100, 150, 160, 200). */
-const WALL_LAYER_OFFSETS = WALL_LAYERS.reduce<number[]>(
-  (acc, l) => { acc.push(acc[acc.length - 1]! + l.thickness); return acc; },
-  [0],
-);
-
-/**
- * Offset an open polyline by `dist` with mitered corners.
- * Positive dist = left side when walking along the polyline.
- */
-function offsetPolyline(pts: Point2D[], dist: number): Point2D[] {
-  const n = pts.length;
-  if (n < 2) return pts;
-
-  // Segment normals (left-hand side when walking p→q)
-  const normals: Point2D[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    const dx = pts[i + 1]!.x - pts[i]!.x;
-    const dy = pts[i + 1]!.y - pts[i]!.y;
-    const len = Math.hypot(dx, dy);
-    if (len < 0.001) { normals.push({ x: 0, y: -1 }); continue; }
-    normals.push({ x: -dy / len, y: dx / len });
-  }
-
-  const result: Point2D[] = [];
-
-  // First point: simple offset along first segment normal
-  result.push({ x: pts[0]!.x + normals[0]!.x * dist, y: pts[0]!.y + normals[0]!.y * dist });
-
-  // Internal points: miter at the bisector of consecutive segments
-  for (let i = 1; i < n - 1; i++) {
-    const n1 = normals[i - 1]!;
-    const n2 = normals[i]!;
-    // Average normal
-    const avgX = n1.x + n2.x;
-    const avgY = n1.y + n2.y;
-    const avgLen = Math.hypot(avgX, avgY);
-    if (avgLen < 0.001) {
-      // Normals cancel out (180° turn) — just offset along one
-      result.push({ x: pts[i]!.x + n1.x * dist, y: pts[i]!.y + n1.y * dist });
-    } else {
-      // Miter: scale so that projection onto either normal equals dist
-      const dot = (avgX / avgLen) * n1.x + (avgY / avgLen) * n1.y;
-      const miterDist = dot > 0.1 ? dist / dot : dist;
-      // Clamp miter to avoid spikes at very acute angles
-      const clamped = Math.min(Math.abs(miterDist), Math.abs(dist) * 4) * Math.sign(miterDist);
-      result.push({ x: pts[i]!.x + (avgX / avgLen) * clamped, y: pts[i]!.y + (avgY / avgLen) * clamped });
-    }
-  }
-
-  // Last point: simple offset along last segment normal
-  const lastN = normals[normals.length - 1]!;
-  result.push({ x: pts[n - 1]!.x + lastN.x * dist, y: pts[n - 1]!.y + lastN.y * dist });
-
-  return result;
-}
 
 const FUNCTION_COLORS: Record<string, string> = {
   living_room: "#fef3c7",
@@ -140,7 +69,6 @@ export function FloorCanvas({
   rooms,
   windows,
   doors,
-  walls = [],
   selection,
   tool,
   snap,
@@ -156,10 +84,6 @@ export function FloorCanvas({
   onUpdateWindow,
   onRemoveRoom,
   onRemoveWindow,
-  onAddWall,
-  onRemoveWall,
-  wallAlignment = "exterior",
-  onWallAlignmentChange,
   fitViewTrigger = 0,
 }: FloorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -218,13 +142,6 @@ export function FloorCanvas({
             if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = v; }
           }
         }
-        // Snap to standalone wall endpoints
-        for (const w of walls) {
-          for (const v of w.points) {
-            const d = Math.hypot(v.x - p.x, v.y - p.y);
-            if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = v; }
-          }
-        }
         for (const v of drawPoints) {
           const d = Math.hypot(v.x - p.x, v.y - p.y);
           if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = v; }
@@ -242,16 +159,6 @@ export function FloorCanvas({
             if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = mid; }
           }
         }
-        // Standalone wall midpoints
-        for (const w of walls) {
-          for (let i = 0; i < w.points.length - 1; i++) {
-            const a = w.points[i]!;
-            const b = w.points[i + 1]!;
-            const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-            const d = Math.hypot(mid.x - p.x, mid.y - p.y);
-            if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = mid; }
-          }
-        }
       }
 
       if (snap.modes.includes("grid") && bestDist === Infinity) {
@@ -261,15 +168,11 @@ export function FloorCanvas({
 
       return best;
     },
-    [snap, rooms, walls, drawPoints],
+    [snap, rooms, drawPoints],
   );
 
   // Cancel drawing on tool change / Escape
   useEffect(() => {
-    // When switching away from wall tool with pending points, save as standalone wall
-    if (drawPoints.length >= 2 && onAddWall) {
-      onAddWall([...drawPoints]);
-    }
     setDrawPoints([]); setCursorWorld(null); setMeasurePoints([]); setNumericInput("");
   }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -278,26 +181,8 @@ export function FloorCanvas({
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       if (e.key === "Escape") {
-        if (tool === "draw_wall" && drawPoints.length >= 2 && onAddWall) {
-          onAddWall([...drawPoints]);
-        }
         setDrawPoints([]);
         setNumericInput("");
-        return;
-      }
-
-      // Delete selected standalone wall
-      if (e.key === "Delete" && selection?.type === "standalone_wall") {
-        onRemoveWall?.(selection.wallId);
-        return;
-      }
-
-      // Space: flip wall alignment while drawing
-      if (e.key === " " && tool === "draw_wall" && onWallAlignmentChange) {
-        e.preventDefault();
-        const cycle: WallAlignment[] = ["exterior", "center", "interior"];
-        const idx = cycle.indexOf(wallAlignment);
-        onWallAlignmentChange(cycle[(idx + 1) % cycle.length]!);
         return;
       }
 
@@ -333,7 +218,7 @@ export function FloorCanvas({
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [tool, drawPoints, numericInput, cursorWorld, selection, wallAlignment, onAddWall, onRemoveWall, onWallAlignmentChange]);
+  }, [tool, drawPoints, numericInput, cursorWorld, selection]);
 
   // Resize observer
   useEffect(() => {
@@ -466,22 +351,6 @@ export function FloorCanvas({
       return;
     }
 
-    if (tool === "draw_wall") {
-      // Wall tool: always creates standalone walls, never rooms.
-      // Close on loop (snap back to first point) or continue adding points.
-      if (drawPoints.length >= 2) {
-        const first = drawPoints[0]!;
-        if (Math.hypot(snapped.x - first.x, snapped.y - first.y) < snap.gridSize * 1.5) {
-          // Closed loop → save as standalone wall (include closing segment back to start)
-          onAddWall?.([...drawPoints, drawPoints[0]!]);
-          setDrawPoints([]);
-          return;
-        }
-      }
-      setDrawPoints([...drawPoints, snapped]);
-      return;
-    }
-
     if (tool === "draw_window") {
       const hit = findWallHit(raw, rooms, snap.gridSize * 3);
       if (hit) onAddWindow(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_WINDOW_WIDTH);
@@ -547,12 +416,7 @@ export function FloorCanvas({
       onAddRoom([...drawPoints]);
       setDrawPoints([]);
     }
-    if (tool === "draw_wall" && drawPoints.length >= 2) {
-      // Always save as standalone wall
-      onAddWall?.([...drawPoints]);
-      setDrawPoints([]);
-    }
-  }, [tool, drawPoints, onAddRoom, onAddWall]);
+  }, [tool, drawPoints, onAddRoom]);
 
   // Wall thickness in mm, with minimum pixel width
   const wallStroke = Math.max(WALL_THICKNESS_MM, MIN_WALL_PX / zoom);
@@ -615,13 +479,9 @@ export function FloorCanvas({
               />
             ))}
 
-            {/* Thick walls — exterior walls get layered composition, shared (interior) walls get a thin line */}
-            {rooms.map((room) => {
-              // Pre-compute offset polygons for each layer boundary
-              const layerPolys = WALL_LAYER_OFFSETS.map((d) =>
-                d === 0 ? room.polygon : offsetPolygon(room.polygon, d),
-              );
-              return room.polygon.map((_, wi) => {
+            {/* Room edges — exterior: solid dark, shared: dashed light */}
+            {rooms.map((room) =>
+              room.polygon.map((_, wi) => {
                 const ni = (wi + 1) % room.polygon.length;
                 const isWallSelected = selection?.type === "wall"
                   && selection.roomId === room.id && selection.wallIndex === wi;
@@ -629,153 +489,21 @@ export function FloorCanvas({
                 const a = room.polygon[wi]!;
                 const b = room.polygon[ni]!;
 
-                if (isShared) {
-                  // Interior shared wall: thin dividing line
-                  return (
-                    <Line
-                      key={`wall-${room.id}-${wi}`}
-                      points={[a.x, a.y, b.x, b.y]}
-                      stroke={isWallSelected ? "#d97706" : "#78716c"}
-                      strokeWidth={Math.max(60, 1 / zoom)}
-                      hitStrokeWidth={Math.max(WALL_THICKNESS_MM, 400)}
-                      onClick={(e) => {
-                        if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
-                      }}
-                    />
-                  );
-                }
-
-                // Exterior wall: multi-layer colored bands
-                const wallClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-                  if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
-                };
-
                 return (
-                  <Group key={`wall-${room.id}-${wi}`}>
-                    {WALL_LAYERS.map((layer, li) => {
-                      const innerPoly = layerPolys[li]!;
-                      const outerPoly = layerPolys[li + 1]!;
-                      const ia = innerPoly[wi]!;
-                      const ib = innerPoly[ni]!;
-                      const oa = outerPoly[wi]!;
-                      const ob = outerPoly[ni]!;
-                      const pts = [ia.x, ia.y, ib.x, ib.y, ob.x, ob.y, oa.x, oa.y];
-                      return (
-                        <Line
-                          key={`layer-${li}`}
-                          points={pts}
-                          closed
-                          fill={isWallSelected ? "#fbbf24" : layer.color}
-                          stroke={isWallSelected ? "#d97706" : "#a8a29e"}
-                          strokeWidth={Math.max(10, 0.5 / zoom)}
-                          hitStrokeWidth={li === 0 ? Math.max(WALL_THICKNESS_MM, 400) : 0}
-                          onClick={wallClick}
-                        />
-                      );
-                    })}
-                    {/* Outer edge (dark outline) */}
-                    <Line
-                      points={[
-                        layerPolys[layerPolys.length - 1]![wi]!.x, layerPolys[layerPolys.length - 1]![wi]!.y,
-                        layerPolys[layerPolys.length - 1]![ni]!.x, layerPolys[layerPolys.length - 1]![ni]!.y,
-                      ]}
-                      stroke={isWallSelected ? "#d97706" : "#1c1917"}
-                      strokeWidth={Math.max(20, 0.8 / zoom)}
-                      listening={false}
-                    />
-                    {/* Inner edge (dark outline) */}
-                    <Line
-                      points={[a.x, a.y, b.x, b.y]}
-                      stroke={isWallSelected ? "#d97706" : "#1c1917"}
-                      strokeWidth={Math.max(20, 0.8 / zoom)}
-                      listening={false}
-                    />
-                  </Group>
+                  <Line
+                    key={`wall-${room.id}-${wi}`}
+                    points={[a.x, a.y, b.x, b.y]}
+                    stroke={isWallSelected ? "#d97706" : isShared ? "#a8a29e" : "#1c1917"}
+                    strokeWidth={isShared ? Math.max(40, 1 / zoom) : Math.max(80, 2 / zoom)}
+                    hitStrokeWidth={Math.max(WALL_THICKNESS_MM, 400)}
+                    dash={isShared ? [200, 150] : undefined}
+                    onClick={(e) => {
+                      if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
+                    }}
+                  />
                 );
-              });
-            })}
-
-            {/* Standalone walls (not part of rooms) — rendered with layer composition + mitered corners */}
-            {walls.map((wall) => {
-              if (wall.points.length < 2) return null;
-              const isSelected = selection?.type === "standalone_wall" && selection.wallId === wall.id;
-              const wallClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-                if (tool === "select") { e.cancelBubble = true; onSelect({ type: "standalone_wall", wallId: wall.id }); }
-              };
-
-              // Alignment offset: shift layers so the drawn line is at the correct face
-              const alignOffset = wall.alignment === "exterior" ? -WALL_THICKNESS_MM
-                : wall.alignment === "interior" ? 0
-                : -WALL_THICKNESS_MM / 2;
-
-              // Pre-compute offset polylines for each layer boundary (with mitered corners)
-              const layerPolylines = WALL_LAYER_OFFSETS.map((d) =>
-                offsetPolyline(wall.points, d + alignOffset),
-              );
-
-              const nPts = wall.points.length;
-              const innerLine = layerPolylines[0]!;
-              const outerLine = layerPolylines[layerPolylines.length - 1]!;
-
-              return (
-                <Group key={`sw-${wall.id}`}>
-                  {/* Layer quads per segment */}
-                  {Array.from({ length: nPts - 1 }, (_, si) => (
-                    <Group key={`seg-${si}`}>
-                      {WALL_LAYERS.map((layer, li) => {
-                        const inner = layerPolylines[li]!;
-                        const outer = layerPolylines[li + 1]!;
-                        const pts = [
-                          inner[si]!.x, inner[si]!.y,
-                          inner[si + 1]!.x, inner[si + 1]!.y,
-                          outer[si + 1]!.x, outer[si + 1]!.y,
-                          outer[si]!.x, outer[si]!.y,
-                        ];
-                        return (
-                          <Line
-                            key={`layer-${li}`}
-                            points={pts}
-                            closed
-                            fill={isSelected ? "#fbbf24" : layer.color}
-                            stroke={isSelected ? "#d97706" : "#a8a29e"}
-                            strokeWidth={Math.max(10, 0.5 / zoom)}
-                            hitStrokeWidth={li === 0 ? Math.max(WALL_THICKNESS_MM, 400) : 0}
-                            onClick={wallClick}
-                          />
-                        );
-                      })}
-                    </Group>
-                  ))}
-                  {/* Outer edge polyline */}
-                  <Line
-                    points={outerLine.flatMap((p) => [p.x, p.y])}
-                    stroke={isSelected ? "#d97706" : "#1c1917"}
-                    strokeWidth={Math.max(20, 0.8 / zoom)}
-                    listening={false}
-                  />
-                  {/* Inner edge polyline */}
-                  <Line
-                    points={innerLine.flatMap((p) => [p.x, p.y])}
-                    stroke={isSelected ? "#d97706" : "#1c1917"}
-                    strokeWidth={Math.max(20, 0.8 / zoom)}
-                    listening={false}
-                  />
-                  {/* End caps */}
-                  <Line
-                    points={[innerLine[0]!.x, innerLine[0]!.y, outerLine[0]!.x, outerLine[0]!.y]}
-                    stroke={isSelected ? "#d97706" : "#1c1917"}
-                    strokeWidth={Math.max(20, 0.8 / zoom)}
-                    listening={false}
-                  />
-                  <Line
-                    points={[innerLine[nPts - 1]!.x, innerLine[nPts - 1]!.y, outerLine[nPts - 1]!.x, outerLine[nPts - 1]!.y]}
-                    stroke={isSelected ? "#d97706" : "#1c1917"}
-                    strokeWidth={Math.max(20, 0.8 / zoom)}
-                    listening={false}
-                  />
-                </Group>
-              );
-            })}
+              }),
+            )}
 
             {/* Windows */}
             {windows.map((win) => {
@@ -939,7 +667,7 @@ export function FloorCanvas({
             })()}
 
             {/* Drawing preview */}
-            <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} wallAlignment={wallAlignment} numericInput={numericInput} />
+            <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} numericInput={numericInput} />
 
             {/* Circle preview (center placed, sizing with cursor) */}
             {tool === "draw_circle" && drawPoints.length === 1 && cursorWorld && (() => {
@@ -1023,13 +751,6 @@ export function FloorCanvas({
         </div>
       )}
 
-      {/* Wall alignment indicator while drawing */}
-      {tool === "draw_wall" && (
-        <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded bg-stone-800/70 px-2 py-1 text-[10px] text-stone-200">
-          Plaatsing: {wallAlignment === "exterior" ? "Buiten" : wallAlignment === "interior" ? "Binnen" : "Hart"} <span className="text-stone-400">(Spatie = wissel)</span>
-        </div>
-      )}
-
       {/* Scale ratio */}
       <div className="pointer-events-none absolute right-3 top-3 rounded bg-black/60 px-2 py-1 font-mono text-[10px] text-white">
         1:{Math.round(1000 / (zoom * 1000))}
@@ -1064,14 +785,6 @@ export function FloorCanvas({
               onClick={() => { onRemoveRoom?.(selection.roomId); setCtxMenu(null); }}
             >
               Verwijder ruimte
-            </button>
-          )}
-          {selection?.type === "standalone_wall" && (
-            <button
-              className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
-              onClick={() => { onRemoveWall?.(selection.wallId); setCtxMenu(null); }}
-            >
-              Verwijder wand
             </button>
           )}
           {!selection && (
@@ -1407,10 +1120,10 @@ function DimensionAnnotations({ room, invZoom }: { room: ModelRoom; invZoom: num
   );
 }
 
-/** Drawing preview (rect, polygon, wall). */
-function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, wallAlignment = "exterior", numericInput = "" }: {
+/** Drawing preview (rect, polygon). */
+function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, numericInput: _numericInput = "" }: {
   tool: ModellerTool; points: Point2D[]; cursor: Point2D | null; invZoom: number; snapGridSize: number;
-  wallAlignment?: WallAlignment; numericInput?: string;
+  numericInput?: string;
 }) {
   if (points.length === 0 && !cursor) return null;
 
@@ -1483,103 +1196,6 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, wallAlignmen
               offsetX={25 * invZoom} width={50 * invZoom} />
           );
         })}
-      </Group>
-    );
-  }
-
-  // Wall preview: show thick layered wall preview
-  if (tool === "draw_wall" && points.length > 0) {
-    const allPts = cursor ? [...points, cursor] : points;
-    if (allPts.length < 2) {
-      // Just one point + cursor not yet: show vertex dot
-      return (
-        <Group listening={false}>
-          {points.map((p, i) => (
-            <Circle key={i} x={p.x} y={p.y} radius={4 * invZoom} fill="#d97706" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
-          ))}
-        </Group>
-      );
-    }
-
-    const alignOffset = wallAlignment === "exterior" ? -WALL_THICKNESS_MM
-      : wallAlignment === "interior" ? 0
-      : -WALL_THICKNESS_MM / 2;
-
-    const layerPolylines = WALL_LAYER_OFFSETS.map((d) =>
-      offsetPolyline(allPts, d + alignOffset),
-    );
-    const innerLine = layerPolylines[0]!;
-    const outerLine = layerPolylines[layerPolylines.length - 1]!;
-    const nPts = allPts.length;
-
-    return (
-      <Group listening={false}>
-        {/* Layer quads per segment */}
-        {Array.from({ length: nPts - 1 }, (_, si) => (
-          <Group key={`seg-${si}`}>
-            {WALL_LAYERS.map((layer, li) => {
-              const inner = layerPolylines[li]!;
-              const outer = layerPolylines[li + 1]!;
-              const pts = [
-                inner[si]!.x, inner[si]!.y,
-                inner[si + 1]!.x, inner[si + 1]!.y,
-                outer[si + 1]!.x, outer[si + 1]!.y,
-                outer[si]!.x, outer[si]!.y,
-              ];
-              return <Line key={`layer-${li}`} points={pts} closed fill={layer.color} opacity={0.7} />;
-            })}
-          </Group>
-        ))}
-        {/* Outlines */}
-        <Line points={outerLine.flatMap((p) => [p.x, p.y])} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
-        <Line points={innerLine.flatMap((p) => [p.x, p.y])} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
-        {/* End caps */}
-        <Line points={[innerLine[0]!.x, innerLine[0]!.y, outerLine[0]!.x, outerLine[0]!.y]} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
-        <Line points={[innerLine[nPts - 1]!.x, innerLine[nPts - 1]!.y, outerLine[nPts - 1]!.x, outerLine[nPts - 1]!.y]} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
-
-        {/* Close indicator */}
-        {cursor && points.length >= 2 && (() => {
-          const first = points[0]!;
-          const dist = Math.hypot(cursor.x - first.x, cursor.y - first.y);
-          if (dist < snapGridSize * 1.5) {
-            return <Circle x={first.x} y={first.y} radius={10 * invZoom} stroke="#d97706" strokeWidth={2 * invZoom} />;
-          }
-          return null;
-        })()}
-
-        {/* Vertex dots */}
-        {points.map((p, i) => (
-          <Circle key={i} x={p.x} y={p.y} radius={4 * invZoom} fill="#d97706" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
-        ))}
-
-        {/* Edge lengths */}
-        {allPts.slice(0, -1).map((p, i) => {
-          const next = allPts[i + 1]!;
-          const len = Math.hypot(next.x - p.x, next.y - p.y);
-          if (len < 100) return null;
-          return (
-            <Text key={`len-${i}`} x={(p.x + next.x) / 2} y={(p.y + next.y) / 2 - 14 * invZoom}
-              text={`${(len / 1000).toFixed(2)} m`} fontSize={10 * invZoom} fontStyle="bold"
-              fontFamily="Inter, system-ui, sans-serif" fill="#d97706" align="center"
-              offsetX={25 * invZoom} width={50 * invZoom} />
-          );
-        })}
-
-        {/* Numeric input indicator on last segment */}
-        {numericInput && cursor && (() => {
-          const lastPt = points[points.length - 1]!;
-          const mx = (lastPt.x + cursor.x) / 2;
-          const my = (lastPt.y + cursor.y) / 2;
-          return (
-            <Text
-              x={mx} y={my + 16 * invZoom}
-              text={`${numericInput} m \u23CE`}
-              fontSize={12 * invZoom} fontStyle="bold"
-              fontFamily="Inter, system-ui, sans-serif" fill="#059669"
-              align="center" offsetX={30 * invZoom} width={60 * invZoom}
-            />
-          );
-        })()}
       </Group>
     );
   }
@@ -1700,11 +1316,6 @@ function getDrawingHint(tool: ModellerTool, pointCount: number): string {
   if (tool === "draw_polygon") {
     if (pointCount < 3) return `Klik om punt ${pointCount + 1} te plaatsen`;
     return "Klik om punt toe te voegen, dubbelklik of klik bij startpunt om te sluiten";
-  }
-  if (tool === "draw_wall") {
-    if (pointCount === 0) return "Klik om wand te starten";
-    if (pointCount === 1) return "Klik om wandsegment te plaatsen";
-    return "Klik om door te gaan, dubbelklik/Escape om te bevestigen, klik bij startpunt om te sluiten";
   }
   if (tool === "draw_circle") return pointCount === 0 ? "Klik om middelpunt te plaatsen" : "Klik om straal in te stellen";
   if (tool === "draw_window") return "Klik op een wand om een raam te plaatsen";

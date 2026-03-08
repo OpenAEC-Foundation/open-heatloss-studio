@@ -62,11 +62,8 @@ const SHAPE_TOOLS: ToolBtn[] = [
 ];
 
 const ELEMENT_TOOLS: ToolBtn[] = [
-  { id: "draw_wall", label: "Wand", icon: "\u2587", shortcut: "W", large: true },
   { id: "draw_window", label: "Raam", icon: "\u25A8", shortcut: "N", large: true },
   { id: "draw_door", label: "Deur", icon: "\u2395", large: true },
-  { id: "draw_floor", label: "Vloer", icon: "\u2B1C" },
-  { id: "draw_roof", label: "Dak", icon: "\u25B3" },
 ];
 
 const ANNOTATION_TOOLS: ToolBtn[] = [

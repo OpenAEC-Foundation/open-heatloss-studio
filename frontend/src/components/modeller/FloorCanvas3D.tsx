@@ -1,23 +1,28 @@
 /**
  * 3D building viewer using ThatOpen Components + Three.js.
  *
- * Features:
- * - Multi-layer walls with mitered corner connections (insulation yellow, cavity transparent)
- * - Window and door openings cut into walls
- * - Section planes (X/Y/Z axis + click-on-face)
- * - Right-click context menu
- * - Room selection via click
+ * Vabi-style rendering: transparent colored surfaces per room face,
+ * white wireframe edges, blue window panes.
+ *
+ * Supports two render modes:
+ * - "normal": surfaces colored by room function (light transparent)
+ * - "uvalue": surfaces colored by thermal performance (green→yellow→red)
+ *
+ * Architecture: each room polygon edge = 1 wall surface. These can later
+ * be split into sub-surfaces for multiple construction types per wall.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 
 import type { ModelRoom, ModelWindow, ModelDoor, Point2D } from "./types";
-import { polygonCenter, offsetPolygon, getSharedEdges } from "./geometry";
+import { polygonCenter, getSharedEdges } from "./geometry";
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+export type RenderMode = "normal" | "uvalue";
 
 interface FloorCanvas3DProps {
   rooms: ModelRoom[];
@@ -26,25 +31,12 @@ interface FloorCanvas3DProps {
   selectedRoomId: string | null;
   onSelectRoom: (id: string | null) => void;
   onDeleteRoom?: (id: string) => void;
+  // Construction assignments for U-value coloring
+  wallConstructions?: Record<string, string>;
+  floorConstructions?: Record<string, string>;
+  roofConstructions?: Record<string, string>;
+  catalogueUValues?: Record<string, number>;
 }
-
-// ---------------------------------------------------------------------------
-// Wall layers (inner → outer, total = 200mm)
-// ---------------------------------------------------------------------------
-
-interface WallLayer {
-  thickness: number; // mm
-  color: number;
-  opacity: number;
-}
-
-const WALL_LAYERS: WallLayer[] = [
-  { thickness: 12,  color: 0xf0ede8, opacity: 1.0 },  // inner plaster
-  { thickness: 88,  color: 0xe8e5e0, opacity: 1.0 },  // structural inner leaf
-  { thickness: 50,  color: 0xfef9c3, opacity: 1.0 },  // insulation (pastel yellow)
-  { thickness: 10,  color: 0xd0d0d0, opacity: 0.08 },  // spouw (cavity, transparent)
-  { thickness: 40,  color: 0xe0ddd8, opacity: 1.0 },  // outer leaf
-];
 
 // ---------------------------------------------------------------------------
 // Colors & constants
@@ -64,13 +56,37 @@ const FUNCTION_COLORS: Record<string, number> = {
 };
 
 const SELECTED_COLOR = 0xf59e0b;
-const WINDOW_COLOR = 0x93c5fd;
-const ROOF_COLOR = 0xdc2626;
-const FLOOR_OPACITY = 0.95;
-const CEILING_OPACITY = 0.15;
-const WINDOW_SILL_H = 0.8;
-const WINDOW_HEAD_H = 2.1;
-const DOOR_HEAD_H = 2.1;
+const WINDOW_COLOR = 0x3b82f6;
+const UNASSIGNED_COLOR = 0xcccccc;
+const SURFACE_OPACITY = 0.55;
+const SELECTED_OPACITY = 0.7;
+const WINDOW_SILL_H = 0.8;  // m
+const WINDOW_HEAD_H = 2.1;  // m
+const DOOR_HEAD_H = 2.1;    // m
+const WIREFRAME_COLOR = 0xffffff;
+const WIREFRAME_WIDTH = 2;
+
+// ---------------------------------------------------------------------------
+// U-value → color mapping (thermal performance)
+// ---------------------------------------------------------------------------
+
+/** Map U-value to a color on a green→yellow→red gradient. */
+function uValueToColor(u: number): number {
+  // Excellent: U < 0.25 → dark green
+  // Good:     U 0.25-0.5 → green
+  // Fair:     U 0.5-1.0 → yellow-green
+  // Poor:     U 1.0-2.0 → yellow
+  // Bad:      U 2.0-3.5 → orange
+  // Terrible: U > 3.5 → red
+  const t = Math.min(1, Math.max(0, u / 4.0));
+
+  // Hue: 120 (green) → 0 (red)
+  const hue = (1 - t) * 120;
+  const saturation = 0.85;
+  const lightness = 0.50;
+
+  return new THREE.Color().setHSL(hue / 360, saturation, lightness).getHex();
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -83,21 +99,27 @@ export function FloorCanvas3D({
   selectedRoomId,
   onSelectRoom,
   onDeleteRoom,
+  wallConstructions = {},
+  floorConstructions = {},
+  roofConstructions = {},
+  catalogueUValues = {},
 }: FloorCanvas3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const componentsRef = useRef<OBC.Components | null>(null);
   const modelGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const wireframeGroupRef = useRef<THREE.Group>(new THREE.Group());
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const roomMeshMapRef = useRef(new Map<THREE.Mesh, string>());
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
+  // Render mode toggle
+  const [renderMode, setRenderMode] = useState<RenderMode>("normal");
+
   // Section plane state
   const [sectionX, setSectionX] = useState<number | null>(null);
   const [sectionY, setSectionY] = useState<number | null>(null);
   const [sectionZ, setSectionZ] = useState<number | null>(null);
-  const [customClip, setCustomClip] = useState<{ nx: number; ny: number; nz: number; d: number } | null>(null);
-  const [sectionClickMode, setSectionClickMode] = useState(false);
 
   // Context menu
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
@@ -130,7 +152,7 @@ export function FloorCanvas3D({
     };
   }, [rooms]);
 
-  // Initial camera target (computed once from rooms)
+  // Initial camera target
   const initialCenter = useMemo(() => {
     if (rooms.length === 0) return { x: 5, y: 1.3, z: 5 };
     let cx = 0, cz = 0;
@@ -145,7 +167,7 @@ export function FloorCanvas3D({
   }, [rooms]);
 
   // -----------------------------------------------------------------------
-  // Initialize ThatOpen scene ONCE (prevents zoom glitch on selection)
+  // Initialize ThatOpen scene ONCE
   // -----------------------------------------------------------------------
   useEffect(() => {
     const container = containerRef.current;
@@ -164,32 +186,27 @@ export function FloorCanvas3D({
     components.init();
     world.scene.setup();
 
-    // Enable clipping planes
     const threeRenderer = world.renderer.three as THREE.WebGLRenderer;
     threeRenderer.localClippingEnabled = true;
     rendererRef.current = threeRenderer;
 
-    // Background & lighting
     const scene = world.scene.three;
     scene.background = new THREE.Color(0xf5f5f4);
     scene.children
       .filter((c) => c instanceof THREE.Light)
       .forEach((l) => scene.remove(l));
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dir1 = new THREE.DirectionalLight(0xffffff, 0.6);
     dir1.position.set(20, 30, 10);
-    dir1.castShadow = true;
     scene.add(dir1);
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.25);
     dir2.position.set(-15, 20, -15);
     scene.add(dir2);
 
-    // Grid
     const grids = components.get(OBC.Grids);
     grids.create(world);
 
-    // Camera (use initial center from closure)
     const c = initialCenter;
     world.camera.controls.setLookAt(
       c.x + 12, 10, c.z + 12,
@@ -197,17 +214,18 @@ export function FloorCanvas3D({
       true,
     );
 
-    // Add model group
     scene.add(modelGroupRef.current);
+    scene.add(wireframeGroupRef.current);
 
     return () => {
       modelGroupRef.current.removeFromParent();
+      wireframeGroupRef.current.removeFromParent();
       components.dispose();
       componentsRef.current = null;
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount once — camera position captured from initialCenter closure
+  }, []);
 
   // -----------------------------------------------------------------------
   // Update clipping planes
@@ -220,21 +238,17 @@ export function FloorCanvas3D({
     if (sectionX !== null) planes.push(new THREE.Plane(new THREE.Vector3(-1, 0, 0), sectionX));
     if (sectionY !== null) planes.push(new THREE.Plane(new THREE.Vector3(0, -1, 0), sectionY));
     if (sectionZ !== null) planes.push(new THREE.Plane(new THREE.Vector3(0, 0, -1), sectionZ));
-    if (customClip) {
-      planes.push(new THREE.Plane(
-        new THREE.Vector3(customClip.nx, customClip.ny, customClip.nz),
-        customClip.d,
-      ));
-    }
     renderer.clippingPlanes = planes;
-  }, [sectionX, sectionY, sectionZ, customClip]);
+  }, [sectionX, sectionY, sectionZ]);
 
   // -----------------------------------------------------------------------
   // Build/update 3D geometry
   // -----------------------------------------------------------------------
   useEffect(() => {
     const group = modelGroupRef.current;
+    const wireGroup = wireframeGroupRef.current;
     clearGroup(group);
+    clearGroup(wireGroup);
     roomMeshMapRef.current.clear();
 
     const sharedEdges = getSharedEdges(rooms);
@@ -245,192 +259,160 @@ export function FloorCanvas3D({
       const h = room.height / 1000;
       const poly = room.polygon;
       const n = poly.length;
+      const baseColor = FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!;
 
-      // Floor slab
+      // --- Floor surface ---
+      const floorColor = getSurfaceColor(
+        renderMode, isSelected, baseColor,
+        floorConstructions[room.id], catalogueUValues,
+      );
       const floorGeom = createPolygonGeometry(poly);
-      const floorColor = isSelected
-        ? SELECTED_COLOR
-        : (FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!);
       const floorMat = new THREE.MeshStandardMaterial({
         color: floorColor,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: FLOOR_OPACITY,
+        opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
-      floorMesh.position.y = floorY + 0.01;
+      floorMesh.position.y = floorY + 0.005;
       group.add(floorMesh);
       roomMeshMapRef.current.set(floorMesh, room.id);
 
-      // Ceiling
+      // --- Ceiling surface ---
+      const ceilColor = getSurfaceColor(
+        renderMode, isSelected, baseColor,
+        roofConstructions[room.id], catalogueUValues,
+      );
       const ceilGeom = createPolygonGeometry(poly);
       const ceilMat = new THREE.MeshStandardMaterial({
-        color: ROOF_COLOR,
+        color: ceilColor,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: CEILING_OPACITY,
-        roughness: 0.9,
+        opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
       });
       const ceilMesh = new THREE.Mesh(ceilGeom, ceilMat);
       ceilMesh.position.y = floorY + h;
       group.add(ceilMesh);
 
-      // Offset polygons for each layer boundary
-      const layerOffsets = [0];
-      for (const layer of WALL_LAYERS) {
-        layerOffsets.push(layerOffsets[layerOffsets.length - 1]! + layer.thickness);
-      }
-      const offsetPolys = layerOffsets.map((d) =>
-        d === 0 ? poly : offsetPolygon(poly, d),
-      );
-
+      // --- Wall surfaces (one per polygon edge) ---
       const roomWindows = windows.filter((w) => w.roomId === room.id);
       const roomDoors = doors.filter((d) => d.roomId === room.id);
 
-      // Build walls per edge
       for (let i = 0; i < n; i++) {
         const ni = (i + 1) % n;
-        const edgeLen = Math.hypot(poly[ni]!.x - poly[i]!.x, poly[ni]!.y - poly[i]!.y);
+        const a = poly[i]!;
+        const b = poly[ni]!;
+        const edgeLen = Math.hypot(b.x - a.x, b.y - a.y);
         if (edgeLen < 1) continue;
-        const wallLenM = edgeLen / 1000;
+
         const isShared = sharedEdges.has(`${room.id}:${i}`);
+        const wallKey = `${room.id}:${i}`;
+        const wallColor = getSurfaceColor(
+          renderMode, isSelected, baseColor,
+          wallConstructions[wallKey], catalogueUValues,
+          isShared,
+        );
 
-        if (isShared) {
-          // Shared (interior) wall: render a thin partition (single layer, 60mm)
-          const partThick = 60; // mm
-          const innerOff = offsetPolygon(poly, 0);
-          const outerOff = offsetPolygon(poly, partThick);
-          const iStart = { x: innerOff[i]!.x / 1000, z: innerOff[i]!.y / 1000 };
-          const iEnd = { x: innerOff[ni]!.x / 1000, z: innerOff[ni]!.y / 1000 };
-          const oStart = { x: outerOff[i]!.x / 1000, z: outerOff[ni]!.y / 1000 };
-          const oEnd = { x: outerOff[ni]!.x / 1000, z: outerOff[ni]!.y / 1000 };
-
-          // Openings on this wall
-          const openings: Opening[] = [];
-          for (const dr of roomDoors) {
-            if (dr.wallIndex % n !== i) continue;
-            openings.push({
-              start: (dr.offset - dr.width / 2) / 1000,
-              end: (dr.offset + dr.width / 2) / 1000,
-              sillH: 0,
-              headH: Math.min(DOOR_HEAD_H, h),
-            });
-          }
-          openings.sort((a, b) => a.start - b.start);
-          const pieces = computeWallPieces(wallLenM, h, openings);
-
-          for (const piece of pieces) {
-            const geom = createWallPieceGeom(iStart, iEnd, oStart, oEnd, piece);
-            const mat = new THREE.MeshStandardMaterial({
-              color: 0xe8e5e0,
-              side: THREE.DoubleSide,
-              flatShading: true,
-              roughness: 0.85,
-            });
-            const mesh = new THREE.Mesh(geom, mat);
-            mesh.position.y = floorY;
-            group.add(mesh);
-          }
-          continue;
-        }
-
-        // Exterior wall: full multi-layer rendering
-        // Openings on this wall
-        const openings: Opening[] = [];
+        // Collect openings on this wall
+        const edgeOpenings: { tStart: number; tEnd: number; sillH: number; headH: number }[] = [];
         for (const win of roomWindows) {
           if (win.wallIndex % n !== i) continue;
-          openings.push({
-            start: (win.offset - win.width / 2) / 1000,
-            end: (win.offset + win.width / 2) / 1000,
-            sillH: WINDOW_SILL_H,
-            headH: Math.min(WINDOW_HEAD_H, h),
-          });
+          const tS = Math.max(0, (win.offset - win.width / 2) / edgeLen);
+          const tE = Math.min(1, (win.offset + win.width / 2) / edgeLen);
+          edgeOpenings.push({ tStart: tS, tEnd: tE, sillH: WINDOW_SILL_H, headH: Math.min(WINDOW_HEAD_H, h) });
         }
         for (const dr of roomDoors) {
           if (dr.wallIndex % n !== i) continue;
-          openings.push({
-            start: (dr.offset - dr.width / 2) / 1000,
-            end: (dr.offset + dr.width / 2) / 1000,
-            sillH: 0,
-            headH: Math.min(DOOR_HEAD_H, h),
+          const tS = Math.max(0, (dr.offset - dr.width / 2) / edgeLen);
+          const tE = Math.min(1, (dr.offset + dr.width / 2) / edgeLen);
+          edgeOpenings.push({ tStart: tS, tEnd: tE, sillH: 0, headH: Math.min(DOOR_HEAD_H, h) });
+        }
+        edgeOpenings.sort((x, y) => x.tStart - y.tStart);
+
+        // Generate wall pieces around openings
+        const pieces = computeWallPieces(h, edgeOpenings);
+
+        const ax = a.x / 1000, az = a.y / 1000;
+        const bx = b.x / 1000, bz = b.y / 1000;
+
+        for (const piece of pieces) {
+          const geom = createWallSurfaceGeom(ax, az, bx, bz, piece);
+          const mat = new THREE.MeshStandardMaterial({
+            color: wallColor,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
+            depthWrite: false,
           });
-        }
-        openings.sort((a, b) => a.start - b.start);
-
-        const pieces = computeWallPieces(wallLenM, h, openings);
-
-        // Each layer
-        for (let j = 0; j < WALL_LAYERS.length; j++) {
-          const layer = WALL_LAYERS[j]!;
-          const innerPoly = offsetPolys[j]!;
-          const outerPoly = offsetPolys[j + 1]!;
-
-          const iStart = { x: innerPoly[i]!.x / 1000, z: innerPoly[i]!.y / 1000 };
-          const iEnd = { x: innerPoly[ni]!.x / 1000, z: innerPoly[ni]!.y / 1000 };
-          const oStart = { x: outerPoly[i]!.x / 1000, z: outerPoly[i]!.y / 1000 };
-          const oEnd = { x: outerPoly[ni]!.x / 1000, z: outerPoly[ni]!.y / 1000 };
-
-          for (const piece of pieces) {
-            const geom = createWallPieceGeom(iStart, iEnd, oStart, oEnd, piece);
-            const mat = new THREE.MeshStandardMaterial({
-              color: layer.color,
-              side: THREE.DoubleSide,
-              flatShading: true,
-              roughness: 0.85,
-              transparent: layer.opacity < 1,
-              opacity: layer.opacity,
-              depthWrite: layer.opacity >= 1,
-            });
-            const mesh = new THREE.Mesh(geom, mat);
-            mesh.position.y = floorY;
-            if (layer.opacity < 1) mesh.renderOrder = 2;
-            group.add(mesh);
-          }
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.y = floorY;
+          mesh.renderOrder = 1;
+          group.add(mesh);
+          roomMeshMapRef.current.set(mesh, room.id);
         }
 
-        // Window glass panes (at wall mid-thickness)
-        const midIdx = Math.floor(offsetPolys.length / 2);
-        const midPoly = offsetPolys[midIdx]!;
-        const midStart = { x: midPoly[i]!.x / 1000, z: midPoly[i]!.y / 1000 };
-        const midEnd = { x: midPoly[ni]!.x / 1000, z: midPoly[ni]!.y / 1000 };
-
+        // Window glass panes (blue)
         for (const win of roomWindows) {
           if (win.wallIndex % n !== i) continue;
-          const paneGeom = createPaneGeom(midStart, midEnd, wallLenM, win);
+          const paneGeom = createPaneGeom(ax, az, bx, bz, edgeLen, win, h);
           if (paneGeom) {
             const paneMat = new THREE.MeshStandardMaterial({
               color: WINDOW_COLOR,
               transparent: true,
-              opacity: 0.35,
+              opacity: 0.6,
               side: THREE.DoubleSide,
               depthWrite: false,
             });
             const paneMesh = new THREE.Mesh(paneGeom, paneMat);
             paneMesh.position.y = floorY;
-            paneMesh.renderOrder = 3;
+            paneMesh.renderOrder = 2;
             group.add(paneMesh);
           }
         }
       }
 
-      // Room label
+      // --- Wireframe edges ---
+      const edgePositions: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const ni = (i + 1) % n;
+        const ax = poly[i]!.x / 1000;
+        const az = poly[i]!.y / 1000;
+        const bx = poly[ni]!.x / 1000;
+        const bz = poly[ni]!.y / 1000;
+
+        // Bottom edge
+        edgePositions.push(ax, floorY, az, bx, floorY, bz);
+        // Top edge
+        edgePositions.push(ax, floorY + h, az, bx, floorY + h, bz);
+        // Vertical edge at each vertex
+        edgePositions.push(ax, floorY, az, ax, floorY + h, az);
+      }
+
+      const edgeGeom = new THREE.BufferGeometry();
+      edgeGeom.setAttribute("position", new THREE.Float32BufferAttribute(edgePositions, 3));
+      const edgeMat = new THREE.LineBasicMaterial({ color: WIREFRAME_COLOR, linewidth: WIREFRAME_WIDTH });
+      const edgeLines = new THREE.LineSegments(edgeGeom, edgeMat);
+      edgeLines.renderOrder = 10;
+      wireGroup.add(edgeLines);
+
+      // --- Room label ---
       const center = polygonCenter(poly);
       const sprite = createLabelSprite(room.id, room.name, isSelected);
       sprite.position.set(center.x / 1000, floorY + h / 2, center.y / 1000);
       sprite.scale.set(2, 1, 1);
       group.add(sprite);
     }
-  }, [rooms, windows, doors, selectedRoomId]);
+  }, [rooms, windows, doors, selectedRoomId, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues]);
 
   // -----------------------------------------------------------------------
-  // Click handler (room selection + section-click)
+  // Click handler (room selection)
   // -----------------------------------------------------------------------
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      setCtxMenu(null); // close context menu on any click
+      setCtxMenu(null);
       if (e.button !== 0) return;
 
       const container = containerRef.current;
@@ -448,28 +430,6 @@ export function FloorCanvas3D({
       const cam = worldsList[0]!.camera.three;
       raycasterRef.current.setFromCamera(mouseRef.current, cam);
 
-      // Section click mode: create section plane on clicked face
-      if (sectionClickMode) {
-        const allMeshes = modelGroupRef.current.children.filter(
-          (c): c is THREE.Mesh => c instanceof THREE.Mesh,
-        );
-        const intersects = raycasterRef.current.intersectObjects(allMeshes, false);
-        if (intersects.length > 0 && intersects[0]!.face) {
-          const hit = intersects[0]!;
-          const normal = hit.face!.normal.clone();
-          const mesh = hit.object as THREE.Mesh;
-          const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
-          normal.applyMatrix3(normalMatrix).normalize();
-
-          // Negate so we clip the camera-facing side (reveals interior)
-          const d = normal.dot(hit.point);
-          setCustomClip({ nx: -normal.x, ny: -normal.y, nz: -normal.z, d });
-          setSectionClickMode(false);
-        }
-        return;
-      }
-
-      // Normal room selection
       const meshes = Array.from(roomMeshMapRef.current.keys());
       const intersects = raycasterRef.current.intersectObjects(meshes, false);
       if (intersects.length > 0) {
@@ -478,10 +438,9 @@ export function FloorCanvas3D({
       }
       onSelectRoom(null);
     },
-    [onSelectRoom, sectionClickMode],
+    [onSelectRoom],
   );
 
-  // Right-click context menu
   const handleContextMenu = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -490,16 +449,55 @@ export function FloorCanvas3D({
     [],
   );
 
-  const cursor = sectionClickMode ? "crosshair" : "default";
-
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full"
-      style={{ cursor }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
     >
+      {/* Render mode toggle */}
+      <div
+        className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-lg border border-stone-200 bg-white/95 shadow-sm backdrop-blur-sm text-xs select-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => setRenderMode("normal")}
+          className={`px-3 py-1.5 font-medium transition-colors ${
+            renderMode === "normal" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+          }`}
+        >
+          Normaal
+        </button>
+        <button
+          onClick={() => setRenderMode("uvalue")}
+          className={`px-3 py-1.5 font-medium transition-colors ${
+            renderMode === "uvalue" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+          }`}
+        >
+          U-waarde
+        </button>
+      </div>
+
+      {/* U-value legend */}
+      {renderMode === "uvalue" && (
+        <div
+          className="absolute right-3 top-12 z-10 rounded-lg bg-white/95 p-2.5 shadow-lg backdrop-blur-sm text-[10px] select-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-1 font-semibold text-stone-700 text-[11px]">U-waarde (W/m²K)</div>
+          <div className="flex flex-col gap-0.5">
+            <LegendRow color="#22c55e" label="< 0.5 (goed)" />
+            <LegendRow color="#a3e635" label="0.5 – 1.0" />
+            <LegendRow color="#facc15" label="1.0 – 2.0" />
+            <LegendRow color="#f97316" label="2.0 – 3.5" />
+            <LegendRow color="#ef4444" label="> 3.5 (slecht)" />
+            <LegendRow color="#9ca3af" label="Niet toegewezen" />
+            <LegendRow color="#3b82f6" label="Raam / deur" />
+          </div>
+        </div>
+      )}
+
       {/* Section plane controls */}
       <div
         className="absolute left-3 bottom-3 z-10 flex flex-col gap-1.5 rounded-lg bg-white/95 p-3 shadow-lg backdrop-blur-sm text-xs select-none"
@@ -526,37 +524,14 @@ export function FloorCanvas3D({
           onChange={setSectionZ}
         />
 
-        {customClip && (
-          <div className="flex items-center gap-1 text-[10px] text-indigo-600">
-            <span>Vlak-doorsnede actief</span>
-            <button className="underline" onClick={() => setCustomClip(null)}>wis</button>
-          </div>
-        )}
-
-        <div className="flex gap-1 mt-1 border-t border-stone-200 pt-1.5">
-          <button
-            className={`flex-1 rounded px-2 py-1 text-[10px] font-medium transition-colors ${
-              sectionClickMode
-                ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-            onClick={() => setSectionClickMode(!sectionClickMode)}
-          >
-            {sectionClickMode ? "Klik een vlak..." : "Vlak selecteren"}
-          </button>
-          <button
-            className="rounded bg-stone-100 px-2 py-1 text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-700"
-            onClick={() => {
-              setSectionX(null);
-              setSectionY(null);
-              setSectionZ(null);
-              setCustomClip(null);
-              setSectionClickMode(false);
-            }}
-          >
-            Wis alles
-          </button>
-        </div>
+        <button
+          className="mt-1 rounded bg-stone-100 px-2 py-1 text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+          onClick={() => {
+            setSectionX(null); setSectionY(null); setSectionZ(null);
+          }}
+        >
+          Wis alles
+        </button>
       </div>
 
       {/* Right-click context menu */}
@@ -577,22 +552,8 @@ export function FloorCanvas3D({
               <div className="my-0.5 border-t border-stone-200" />
             </>
           )}
-          <button
-            className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
-            onClick={() => { setSectionClickMode(true); setCtxMenu(null); }}
-          >
-            Doorsnede op vlak
-          </button>
-          {(sectionX !== null || sectionY !== null || sectionZ !== null || customClip) && (
-            <button
-              className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-500"
-              onClick={() => {
-                setSectionX(null); setSectionY(null); setSectionZ(null);
-                setCustomClip(null); setSectionClickMode(false);
-              }}
-            >
-              Wis doorsnedes
-            </button>
+          {!selectedRoomId && (
+            <div className="px-3 py-1.5 text-stone-400 italic">Geen selectie</div>
           )}
         </div>
       )}
@@ -634,6 +595,19 @@ function SectionRow({ label, enabled, value, min, max, onToggle, onChange }: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Legend row
+// ---------------------------------------------------------------------------
+
+function LegendRow({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="h-2.5 w-4 rounded-sm" style={{ backgroundColor: color }} />
+      <span className="text-stone-600">{label}</span>
+    </div>
+  );
+}
+
 // =============================================================================
 // Geometry helpers
 // =============================================================================
@@ -646,6 +620,10 @@ function clearGroup(group: THREE.Group): void {
       child.geometry.dispose();
       if (child.material instanceof THREE.Material) child.material.dispose();
     }
+    if (child instanceof THREE.LineSegments) {
+      child.geometry.dispose();
+      if (child.material instanceof THREE.Material) child.material.dispose();
+    }
     if (child instanceof THREE.Sprite) {
       child.material.map?.dispose();
       child.material.dispose();
@@ -654,24 +632,47 @@ function clearGroup(group: THREE.Group): void {
 }
 
 // ---------------------------------------------------------------------------
-// Wall pieces (segments around openings)
+// Surface color resolution
 // ---------------------------------------------------------------------------
 
-interface Opening {
-  start: number;
-  end: number;
-  sillH: number;
-  headH: number;
+function getSurfaceColor(
+  mode: RenderMode,
+  isSelected: boolean,
+  functionColor: number,
+  assignedEntryId: string | undefined,
+  catalogueUValues: Record<string, number>,
+  isShared?: boolean,
+): number {
+  if (isSelected) return SELECTED_COLOR;
+
+  if (mode === "uvalue") {
+    if (!assignedEntryId) return UNASSIGNED_COLOR;
+    const u = catalogueUValues[assignedEntryId];
+    if (u === undefined) return UNASSIGNED_COLOR;
+    // Shared (interior) walls: lighter shade
+    if (isShared) return 0xb0e0e6; // light blue for interior
+    return uValueToColor(u);
+  }
+
+  // Normal mode: use room function color
+  return functionColor;
 }
+
+// ---------------------------------------------------------------------------
+// Wall pieces (segments around openings) — flat surface version
+// ---------------------------------------------------------------------------
 
 interface WallPiece {
-  t1: number;
+  t1: number; // 0..1 along wall
   t2: number;
-  yBot: number;
-  yTop: number;
+  yBot: number; // m
+  yTop: number; // m
 }
 
-function computeWallPieces(wallLen: number, wallH: number, openings: Opening[]): WallPiece[] {
+function computeWallPieces(
+  wallH: number,
+  openings: { tStart: number; tEnd: number; sillH: number; headH: number }[],
+): WallPiece[] {
   if (openings.length === 0) {
     return [{ t1: 0, t2: 1, yBot: 0, yTop: wallH }];
   }
@@ -680,19 +681,16 @@ function computeWallPieces(wallLen: number, wallH: number, openings: Opening[]):
   let cursor = 0;
 
   for (const op of openings) {
-    const tStart = Math.max(0, op.start) / wallLen;
-    const tEnd = Math.min(wallLen, op.end) / wallLen;
-
-    if (tStart > cursor + 0.001) {
-      pieces.push({ t1: cursor, t2: tStart, yBot: 0, yTop: wallH });
+    if (op.tStart > cursor + 0.001) {
+      pieces.push({ t1: cursor, t2: op.tStart, yBot: 0, yTop: wallH });
     }
     if (op.sillH > 0.01) {
-      pieces.push({ t1: tStart, t2: tEnd, yBot: 0, yTop: op.sillH });
+      pieces.push({ t1: op.tStart, t2: op.tEnd, yBot: 0, yTop: op.sillH });
     }
     if (op.headH < wallH - 0.01) {
-      pieces.push({ t1: tStart, t2: tEnd, yBot: op.headH, yTop: wallH });
+      pieces.push({ t1: op.tStart, t2: op.tEnd, yBot: op.headH, yTop: wallH });
     }
-    cursor = tEnd;
+    cursor = op.tEnd;
   }
 
   if (cursor < 1 - 0.001) {
@@ -702,45 +700,28 @@ function computeWallPieces(wallLen: number, wallH: number, openings: Opening[]):
 }
 
 // ---------------------------------------------------------------------------
-// Wall piece 3D box geometry
+// Wall surface geometry (flat vertical quad)
 // ---------------------------------------------------------------------------
 
-interface XZ { x: number; z: number }
-
-function lerpXZ(a: XZ, b: XZ, t: number): XZ {
-  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
-}
-
-function createWallPieceGeom(
-  iStart: XZ, iEnd: XZ, oStart: XZ, oEnd: XZ,
+function createWallSurfaceGeom(
+  ax: number, az: number, bx: number, bz: number,
   piece: WallPiece,
 ): THREE.BufferGeometry {
-  const is = lerpXZ(iStart, iEnd, piece.t1);
-  const ie = lerpXZ(iStart, iEnd, piece.t2);
-  const os = lerpXZ(oStart, oEnd, piece.t1);
-  const oe = lerpXZ(oStart, oEnd, piece.t2);
+  // Lerp along wall edge
+  const x1 = ax + (bx - ax) * piece.t1;
+  const z1 = az + (bz - az) * piece.t1;
+  const x2 = ax + (bx - ax) * piece.t2;
+  const z2 = az + (bz - az) * piece.t2;
   const yb = piece.yBot;
   const yt = piece.yTop;
 
   const positions = new Float32Array([
-    is.x, yb, is.z,   // 0: inner-start-bot
-    ie.x, yb, ie.z,   // 1: inner-end-bot
-    oe.x, yb, oe.z,   // 2: outer-end-bot
-    os.x, yb, os.z,   // 3: outer-start-bot
-    is.x, yt, is.z,   // 4: inner-start-top
-    ie.x, yt, ie.z,   // 5: inner-end-top
-    oe.x, yt, oe.z,   // 6: outer-end-top
-    os.x, yt, os.z,   // 7: outer-start-top
+    x1, yb, z1,  // 0: start-bot
+    x2, yb, z2,  // 1: end-bot
+    x2, yt, z2,  // 2: end-top
+    x1, yt, z1,  // 3: start-top
   ]);
-
-  const indices = new Uint16Array([
-    0, 5, 4,  0, 1, 5,   // inner face
-    3, 7, 6,  3, 6, 2,   // outer face
-    4, 5, 6,  4, 6, 7,   // top
-    0, 3, 2,  0, 2, 1,   // bottom
-    0, 4, 7,  0, 7, 3,   // left cap
-    1, 2, 6,  1, 6, 5,   // right cap
-  ]);
+  const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -773,27 +754,32 @@ function createPolygonGeometry(polygon: Point2D[]): THREE.BufferGeometry {
 // ---------------------------------------------------------------------------
 
 function createPaneGeom(
-  edgeStart: XZ, edgeEnd: XZ, wallLenM: number, win: ModelWindow,
+  ax: number, az: number, bx: number, bz: number,
+  edgeLenMm: number, win: ModelWindow, wallH: number,
 ): THREE.BufferGeometry | null {
-  if (wallLenM < 0.001) return null;
+  if (edgeLenMm < 1) return null;
 
-  const tLeft = Math.max(0, (win.offset - win.width / 2) / 1000 / wallLenM);
-  const tRight = Math.min(1, (win.offset + win.width / 2) / 1000 / wallLenM);
+  const tLeft = Math.max(0, (win.offset - win.width / 2) / edgeLenMm);
+  const tRight = Math.min(1, (win.offset + win.width / 2) / edgeLenMm);
+  const sill = WINDOW_SILL_H;
+  const head = Math.min(WINDOW_HEAD_H, wallH);
 
-  const left = lerpXZ(edgeStart, edgeEnd, tLeft);
-  const right = lerpXZ(edgeStart, edgeEnd, tRight);
+  const lx = ax + (bx - ax) * tLeft;
+  const lz = az + (bz - az) * tLeft;
+  const rx = ax + (bx - ax) * tRight;
+  const rz = az + (bz - az) * tRight;
 
-  const verts = new Float32Array([
-    left.x, WINDOW_SILL_H, left.z,
-    right.x, WINDOW_SILL_H, right.z,
-    right.x, WINDOW_HEAD_H, right.z,
-    left.x, WINDOW_HEAD_H, left.z,
+  const positions = new Float32Array([
+    lx, sill, lz,
+    rx, sill, rz,
+    rx, head, rz,
+    lx, head, lz,
   ]);
-  const idx = new Uint16Array([0, 1, 2, 0, 2, 3]);
+  const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute("position", new THREE.BufferAttribute(verts, 3));
-  geom.setIndex(new THREE.BufferAttribute(idx, 1));
+  geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geom.setIndex(new THREE.BufferAttribute(indices, 1));
   geom.computeVertexNormals();
   return geom;
 }

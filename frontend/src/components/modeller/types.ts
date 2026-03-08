@@ -32,19 +32,6 @@ export interface ModelDoor {
   swing: "left" | "right";
 }
 
-/** Where the drawn polyline sits relative to the wall thickness. */
-export type WallAlignment = "exterior" | "center" | "interior";
-
-/** Standalone wall segment (not part of a room polygon). */
-export interface ModelWall {
-  id: string;
-  /** Polyline of two or more points defining the wall path. */
-  points: Point2D[];
-  floor: number;
-  /** Placement reference — "exterior" means the drawn line is the outer face. Default: "exterior". */
-  alignment: WallAlignment;
-}
-
 // ---------------------------------------------------------------------------
 // Tools
 // ---------------------------------------------------------------------------
@@ -55,11 +42,8 @@ export type ModellerTool =
   | "draw_rect"
   | "draw_polygon"
   | "draw_circle"
-  | "draw_wall"
   | "draw_window"
   | "draw_door"
-  | "draw_floor"
-  | "draw_roof"
   | "annotate_text"
   | "annotate_dimension"
   | "annotate_leader"
@@ -76,7 +60,6 @@ export type Selection =
   | { type: "wall"; roomId: string; wallIndex: number }
   | { type: "window"; roomId: string; wallIndex: number; offset: number }
   | { type: "door"; roomId: string; wallIndex: number; offset: number }
-  | { type: "standalone_wall"; wallId: string }
   | null;
 
 // ---------------------------------------------------------------------------

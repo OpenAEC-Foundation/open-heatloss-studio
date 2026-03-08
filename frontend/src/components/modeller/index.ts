@@ -9,6 +9,7 @@
 export { DrawingToolsPanel } from "./DrawingToolsPanel";
 export { FloorCanvas } from "./FloorCanvas";
 export { FloorCanvas3D } from "./FloorCanvas3D";
+export type { RenderMode } from "./FloorCanvas3D";
 export { ModellerToolbar } from "./ModellerToolbar";
 export { PropertiesPanel } from "./PropertiesPanel";
 export { Ribbon } from "./Ribbon";
@@ -26,8 +27,6 @@ export type {
   ModelRoom,
   ModelWindow,
   ModelDoor,
-  ModelWall,
-  WallAlignment,
   ModellerTool,
   ViewMode,
   SnapMode,
