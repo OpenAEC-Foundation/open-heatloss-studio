@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   FloorCanvas,
@@ -10,6 +10,7 @@ import { Ribbon } from "../components/modeller/Ribbon";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import type { ModellerTool, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
 import { useToastStore } from "../store/toastStore";
+import { useCatalogueStore } from "../store/catalogueStore";
 
 export function Modeller() {
   const [tool, setTool] = useState<ModellerTool>("select");
@@ -41,6 +42,19 @@ export function Modeller() {
   const assignRoofConstruction = useModellerStore((s) => s.assignRoofConstruction);
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
+
+  // Catalogue U-values (entryId → U-value)
+  const catalogueEntries = useCatalogueStore((s) => s.entries);
+  const catalogueUValues = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of catalogueEntries) {
+      map[e.id] = e.uValue;
+    }
+    return map;
+  }, [catalogueEntries]);
+
+  // Fit view trigger counter
+  const [fitViewTrigger, setFitViewTrigger] = useState(0);
 
   // Filter by floor
   const floorRooms = rooms.filter((r) => r.floor === activeFloor);
@@ -99,6 +113,16 @@ export function Modeller() {
       updateRoom(roomId, { polygon: newPoly });
     },
     [rooms, snap, updateRoom],
+  );
+
+  const handleMoveVertex = useCallback(
+    (roomId: string, vertexIndex: number, x: number, y: number) => {
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) return;
+      const newPoly = room.polygon.map((p, i) => (i === vertexIndex ? { x, y } : p));
+      updateRoom(roomId, { polygon: newPoly });
+    },
+    [rooms, updateRoom],
   );
 
   const handleUpdateWindow = useCallback(
@@ -175,8 +199,8 @@ export function Modeller() {
   }, [addToast]);
 
   const handleFitView = useCallback(() => {
-    addToast("Zoom passend", "info");
-  }, [addToast]);
+    setFitViewTrigger((n) => n + 1);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -235,12 +259,16 @@ export function Modeller() {
               tool={tool}
               snap={snap}
               underlay={underlay}
+              wallConstructions={wallConstructions}
+              catalogueUValues={catalogueUValues}
               onSelect={setSelection}
               onAddRoom={handleAddRoom}
               onAddWindow={handleAddWindow}
               onAddDoor={handleAddDoor}
               onMoveRoom={handleMoveRoom}
+              onMoveVertex={handleMoveVertex}
               onUpdateWindow={handleUpdateWindow}
+              fitViewTrigger={fitViewTrigger}
             />
           </div>
         ) : (

@@ -24,12 +24,17 @@ interface FloorCanvasProps {
   tool: ModellerTool;
   snap: SnapSettings;
   underlay: UnderlayImage | null;
+  wallConstructions?: Record<string, string>;
+  catalogueUValues?: Record<string, number>;
   onSelect: (sel: Selection) => void;
   onAddRoom: (polygon: Point2D[]) => void;
   onAddWindow: (roomId: string, wallIndex: number, offset: number, width: number) => void;
   onAddDoor: (roomId: string, wallIndex: number, offset: number, width: number) => void;
   onMoveRoom: (roomId: string, dx: number, dy: number) => void;
+  onMoveVertex: (roomId: string, vertexIndex: number, x: number, y: number) => void;
   onUpdateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
+  /** Increment to trigger a fit-view zoom. */
+  fitViewTrigger?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,12 +71,16 @@ export function FloorCanvas({
   tool,
   snap,
   underlay,
+  wallConstructions = {},
+  catalogueUValues = {},
   onSelect,
   onAddRoom,
   onAddWindow,
   onAddDoor,
   onMoveRoom,
+  onMoveVertex,
   onUpdateWindow,
+  fitViewTrigger = 0,
 }: FloorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -82,6 +91,8 @@ export function FloorCanvas({
   // Drawing state
   const [drawPoints, setDrawPoints] = useState<Point2D[]>([]);
   const [cursorWorld, setCursorWorld] = useState<Point2D | null>(null);
+  // Measure tool state
+  const [measurePoints, setMeasurePoints] = useState<Point2D[]>([]);
 
   // Panning
   const isPanningRef = useRef(false);
@@ -153,7 +164,7 @@ export function FloorCanvas({
   );
 
   // Cancel drawing on tool change / Escape
-  useEffect(() => { setDrawPoints([]); setCursorWorld(null); }, [tool]);
+  useEffect(() => { setDrawPoints([]); setCursorWorld(null); setMeasurePoints([]); }, [tool]);
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawPoints([]); };
     window.addEventListener("keydown", h);
@@ -171,6 +182,30 @@ export function FloorCanvas({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // --- Fit view ---
+  useEffect(() => {
+    if (fitViewTrigger === 0 || rooms.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const room of rooms) {
+      for (const p of room.polygon) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    const margin = 2000; // 2m margin
+    minX -= margin; minY -= margin; maxX += margin; maxY += margin;
+    const bw = maxX - minX;
+    const bh = maxY - minY;
+    if (bw < 1 || bh < 1) return;
+    const zx = size.width / bw;
+    const zy = size.height / bh;
+    const newZoom = Math.max(0.005, Math.min(0.5, Math.min(zx, zy)));
+    setViewCenter({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 });
+    setZoom(newZoom);
+  }, [fitViewTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Wheel zoom ---
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -219,7 +254,7 @@ export function FloorCanvas({
 
     const raw = screenToWorld(pointer.x, pointer.y);
     const snapped = applySnap(raw);
-    if (isDrawingTool(tool)) setCursorWorld(snapped);
+    if (isDrawingTool(tool) || tool === "measure") setCursorWorld(snapped);
     else setCursorWorld(null);
   }, [zoom, screenToWorld, applySnap, tool]);
 
@@ -275,6 +310,41 @@ export function FloorCanvas({
     if (tool === "draw_door") {
       const hit = findWallHit(raw, rooms, snap.gridSize * 3);
       if (hit) onAddDoor(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_DOOR_WIDTH);
+      return;
+    }
+
+    // Measure tool: 2 clicks, then click again to restart
+    if (tool === "measure") {
+      if (measurePoints.length === 0 || measurePoints.length === 2) {
+        setMeasurePoints([snapped]);
+      } else {
+        setMeasurePoints([measurePoints[0]!, snapped]);
+      }
+      return;
+    }
+
+    // Circle tool: click center, click edge
+    if (tool === "draw_circle") {
+      if (drawPoints.length === 0) {
+        setDrawPoints([snapped]);
+      } else {
+        const center = drawPoints[0]!;
+        const radius = Math.hypot(snapped.x - center.x, snapped.y - center.y);
+        if (radius > 100) {
+          // Approximate circle as 24-sided polygon
+          const sides = 24;
+          const poly: Point2D[] = [];
+          for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * Math.PI * 2;
+            poly.push({
+              x: Math.round(center.x + radius * Math.cos(angle)),
+              y: Math.round(center.y + radius * Math.sin(angle)),
+            });
+          }
+          onAddRoom(poly);
+        }
+        setDrawPoints([]);
+      }
       return;
     }
 
@@ -415,14 +485,157 @@ export function FloorCanvas({
               <RoomLabel key={`label-${room.id}`} room={room} invZoom={invZoom} isSelected={room.id === selectedRoomId} />
             ))}
 
+            {/* U-value labels on walls */}
+            {rooms.map((room) =>
+              room.polygon.map((_, wi) => {
+                const key = `${room.id}:${wi}`;
+                const conId = wallConstructions[key];
+                const uVal = conId ? catalogueUValues[conId] : undefined;
+                if (uVal === undefined) return null;
+                const a = room.polygon[wi]!;
+                const b = room.polygon[(wi + 1) % room.polygon.length]!;
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
+                const angle = Math.atan2(b.y - a.y, b.x - a.x);
+                const off = 28 * invZoom;
+                return (
+                  <Text
+                    key={`u-${room.id}-${wi}`}
+                    x={mx + Math.cos(angle - Math.PI / 2) * off}
+                    y={my + Math.sin(angle - Math.PI / 2) * off}
+                    text={`U=${uVal.toFixed(2)}`}
+                    fontSize={9 * invZoom}
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fill="#6366f1"
+                    align="center"
+                    offsetX={22 * invZoom}
+                    offsetY={5 * invZoom}
+                    width={44 * invZoom}
+                    listening={false}
+                  />
+                );
+              }),
+            )}
+
             {/* Dimension annotations on selected room */}
             {selectedRoomId && (() => {
               const sel = rooms.find((r) => r.id === selectedRoomId);
               return sel ? <DimensionAnnotations room={sel} invZoom={invZoom} /> : null;
             })()}
 
+            {/* Vertex grips on selected room */}
+            {selectedRoomId && tool === "select" && (() => {
+              const sel = rooms.find((r) => r.id === selectedRoomId);
+              if (!sel) return null;
+              return sel.polygon.map((v, vi) => (
+                <Circle
+                  key={`grip-${vi}`}
+                  x={v.x}
+                  y={v.y}
+                  radius={6 * invZoom}
+                  fill="#ffffff"
+                  stroke="#d97706"
+                  strokeWidth={2 * invZoom}
+                  draggable
+                  hitStrokeWidth={10 * invZoom}
+                  onDragEnd={(e) => {
+                    const nx = v.x + e.target.x();
+                    const ny = v.y + e.target.y();
+                    e.target.position({ x: 0, y: 0 });
+                    const snapped = applySnap({ x: nx, y: ny });
+                    onMoveVertex(sel.id, vi, snapped.x, snapped.y);
+                  }}
+                />
+              ));
+            })()}
+
+            {/* Measure result */}
+            {measurePoints.length === 2 && (() => {
+              const [mp0, mp1] = measurePoints as [Point2D, Point2D];
+              const dist = Math.hypot(mp1.x - mp0.x, mp1.y - mp0.y);
+              const mx = (mp0.x + mp1.x) / 2;
+              const my = (mp0.y + mp1.y) / 2;
+              return (
+                <Group listening={false}>
+                  <Line points={[mp0.x, mp0.y, mp1.x, mp1.y]} stroke="#ef4444" strokeWidth={2 * invZoom} dash={[8 * invZoom, 4 * invZoom]} />
+                  <Circle x={mp0.x} y={mp0.y} radius={4 * invZoom} fill="#ef4444" />
+                  <Circle x={mp1.x} y={mp1.y} radius={4 * invZoom} fill="#ef4444" />
+                  <Text
+                    x={mx}
+                    y={my - 18 * invZoom}
+                    text={`${(dist / 1000).toFixed(3)} m`}
+                    fontSize={12 * invZoom}
+                    fontStyle="bold"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fill="#ef4444"
+                    align="center"
+                    offsetX={35 * invZoom}
+                    width={70 * invZoom}
+                  />
+                </Group>
+              );
+            })()}
+
+            {/* Measure preview (1 point placed, cursor moving) */}
+            {measurePoints.length === 1 && cursorWorld && (() => {
+              const mp0 = measurePoints[0]!;
+              const dist = Math.hypot(cursorWorld.x - mp0.x, cursorWorld.y - mp0.y);
+              const mx = (mp0.x + cursorWorld.x) / 2;
+              const my = (mp0.y + cursorWorld.y) / 2;
+              return (
+                <Group listening={false}>
+                  <Line points={[mp0.x, mp0.y, cursorWorld.x, cursorWorld.y]} stroke="#ef4444" strokeWidth={1.5 * invZoom} dash={[6 * invZoom, 4 * invZoom]} opacity={0.6} />
+                  <Circle x={mp0.x} y={mp0.y} radius={4 * invZoom} fill="#ef4444" />
+                  <Text
+                    x={mx}
+                    y={my - 18 * invZoom}
+                    text={`${(dist / 1000).toFixed(3)} m`}
+                    fontSize={11 * invZoom}
+                    fontStyle="bold"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fill="#ef4444"
+                    align="center"
+                    offsetX={35 * invZoom}
+                    width={70 * invZoom}
+                    opacity={0.7}
+                  />
+                </Group>
+              );
+            })()}
+
             {/* Drawing preview */}
             <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} />
+
+            {/* Circle preview (center placed, sizing with cursor) */}
+            {tool === "draw_circle" && drawPoints.length === 1 && cursorWorld && (() => {
+              const center = drawPoints[0]!;
+              const radius = Math.hypot(cursorWorld.x - center.x, cursorWorld.y - center.y);
+              const sides = 48;
+              const circlePts: number[] = [];
+              for (let i = 0; i <= sides; i++) {
+                const angle = (i / sides) * Math.PI * 2;
+                circlePts.push(center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle));
+              }
+              return (
+                <Group listening={false}>
+                  <Line points={circlePts} stroke="#d97706" strokeWidth={2 * invZoom} dash={[6 * invZoom, 4 * invZoom]} />
+                  <Circle x={center.x} y={center.y} radius={4 * invZoom} fill="#d97706" />
+                  <Line points={[center.x, center.y, cursorWorld.x, cursorWorld.y]} stroke="#d97706" strokeWidth={invZoom} dash={[4 * invZoom, 3 * invZoom]} opacity={0.5} />
+                  <Text
+                    x={(center.x + cursorWorld.x) / 2}
+                    y={(center.y + cursorWorld.y) / 2 - 16 * invZoom}
+                    text={`r=${(radius / 1000).toFixed(2)} m`}
+                    fontSize={10 * invZoom}
+                    fontStyle="bold"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fill="#d97706"
+                    align="center"
+                    offsetX={30 * invZoom}
+                    width={60 * invZoom}
+                  />
+                </Group>
+              );
+            })()}
 
             {/* Snap cursor */}
             {cursorWorld && (
@@ -460,10 +673,10 @@ export function FloorCanvas({
         </Layer>
       </Stage>
 
-      {/* Drawing hint overlay (HTML for better styling) */}
-      {isDrawingTool(tool) && (
+      {/* Drawing / measure hint overlay (HTML for better styling) */}
+      {(isDrawingTool(tool) || tool === "measure") && (
         <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 rounded bg-black/70 px-3 py-1.5 text-[11px] text-white">
-          {getDrawingHint(tool, drawPoints.length)}
+          {tool === "measure" ? getMeasureHint(measurePoints.length) : getDrawingHint(tool, drawPoints.length)}
         </div>
       )}
 
@@ -1038,9 +1251,16 @@ function getDrawingHint(tool: ModellerTool, pointCount: number): string {
     if (pointCount < 3) return `Klik om wandpunt ${pointCount + 1} te plaatsen`;
     return "Klik om wand door te trekken, dubbelklik om af te sluiten";
   }
+  if (tool === "draw_circle") return pointCount === 0 ? "Klik om middelpunt te plaatsen" : "Klik om straal in te stellen";
   if (tool === "draw_window") return "Klik op een wand om een raam te plaatsen";
   if (tool === "draw_door") return "Klik op een wand om een deur te plaatsen";
   return "Klik om te tekenen";
+}
+
+function getMeasureHint(pointCount: number): string {
+  if (pointCount === 0) return "Klik om startpunt te plaatsen";
+  if (pointCount === 1) return "Klik om eindpunt te plaatsen";
+  return "Meting voltooid — klik opnieuw om te meten";
 }
 
 function findWallHit(p: Point2D, rooms: ModelRoom[], maxDist: number): { roomId: string; wallIndex: number; offset: number } | null {
