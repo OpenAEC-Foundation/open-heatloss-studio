@@ -431,7 +431,7 @@ function MaterialCategoryGroup({
   materials: Material[];
   onRemove: (id: string) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <>
