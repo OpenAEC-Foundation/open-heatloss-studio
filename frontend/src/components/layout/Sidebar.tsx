@@ -4,13 +4,17 @@ import { NavLink } from "react-router-dom";
 import { isTauri } from "../../lib/backend";
 import { useProjectStore } from "../../store/projectStore";
 
-const NAV_ITEMS = [
+const NAV_MAIN = [
   { to: "/project", label: "Project", icon: "\u2302" },
   { to: "/rooms", label: "Vertrekken", icon: "\u25A6" },
-  { to: "/rc", label: "Rc-waarde", icon: "\u229E" },
   { to: "/modeller", label: "Modeller", icon: "\u2316" },
-  { to: "/library", label: "Bibliotheek", icon: "\u25E8" },
   { to: "/results", label: "Resultaten", icon: "\u2261" },
+] as const;
+
+const NAV_LIBRARY = [
+  { to: "/library", label: "Bibliotheek", icon: "\u25E8" },
+  { to: "/rc", label: "Rc-waarde", icon: "\u229E" },
+  { to: "/materialen", label: "Materialen", icon: "\u25A4" },
 ] as const;
 
 function NavItem({ to, label, icon }: { to: string; label: string; icon: string }) {
@@ -166,7 +170,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => (
+          {NAV_MAIN.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
           {isWeb && (
@@ -174,6 +178,10 @@ export function Sidebar() {
               <ProjectsNavLink />
             </OidcGuard>
           )}
+          <li className="my-2 border-t border-zinc-800" />
+          {NAV_LIBRARY.map((item) => (
+            <NavItem key={item.to} {...item} />
+          ))}
         </ul>
       </nav>
 

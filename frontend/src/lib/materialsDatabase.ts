@@ -28,8 +28,12 @@ export interface Material {
   id: string;
   name: string;
   category: MaterialCategory;
+  /** Merknaam of null voor generieke materialen. */
+  brand: string | null;
   /** Warmtegeleidingscoëfficiënt [W/(m·K)]. null voor folies/spouwen. */
   lambda: number | null;
+  /** Warmtegeleidingscoëfficiënt nat/vochtig [W/(m·K)]. null = niet beschikbaar. */
+  lambdaWet: number | null;
   /** Dampweerstandsfactor [-]. */
   mu: number;
   /** Dichtheid [kg/m³]. null voor folies. */
@@ -40,6 +44,8 @@ export interface Material {
   sdFixed: number | null;
   /** Zoektermen voor fuzzy search. */
   keywords: string[];
+  /** Is dit een ingebouwd materiaal? */
+  isBuiltIn?: boolean;
 }
 
 export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
@@ -125,7 +131,9 @@ function mapCategory(cat: string): MaterialCategory {
 interface RawMaterial {
   categorie: string;
   naam: string;
+  merk?: string | null;
   lambda: number | null;
+  lambda_nat?: number | null;
   mu: number;
   rho: number | null;
   rd_vast: number | null;
@@ -243,25 +251,25 @@ const RAW_MATERIALS: RawMaterial[] = [
   { categorie: "Folie - Dampremmend", naam: "PE-folie 0.30mm (AVS)", lambda: null, mu: 100000, rho: null, rd_vast: 0.0, sd_vast: 30, keywords: ["pe", "avs", "dampremmend"] },
 
   // Folie - Miofol (sd uit productdatabladen)
-  { categorie: "Folie - Miofol", naam: "Miofol 125S (dampremmend)", lambda: null, mu: 200000, rho: null, rd_vast: 0.0, sd_vast: 25, keywords: ["miofol", "125s", "dampremmend"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 100S (dampremmend)", lambda: null, mu: 90000, rho: null, rd_vast: 0.0, sd_vast: 9, keywords: ["miofol", "100s"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 125AV (dampdicht alu)", lambda: null, mu: 7500000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "125av", "alu", "dampdicht"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 150A (dampdicht gewapend)", lambda: null, mu: 10000000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "150a", "alu"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 200AK (zelfklevend)", lambda: null, mu: 10000000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "200ak", "zelfklevend"] },
-  { categorie: "Folie - Miofol", naam: "Miofol Active (variabel)", lambda: null, mu: 1000, rho: null, rd_vast: 0.0, sd_vast: 5, keywords: ["miofol", "active", "variabel", "klimaat"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 125G (dampopen gevel)", lambda: null, mu: 1400, rho: null, rd_vast: 0.0, sd_vast: 0.14, keywords: ["miofol", "125g", "gevel", "dampopen"] },
-  { categorie: "Folie - Miofol", naam: "Miofol 170AG (alu gevel)", lambda: null, mu: 500, rho: null, rd_vast: 0.0, sd_vast: 0.05, keywords: ["miofol", "170ag", "gevel"] },
-  { categorie: "Folie - Miofol", naam: "Miofol AVS 4 (vloerfolie)", lambda: null, mu: 500000, rho: null, rd_vast: 0.0, sd_vast: 100, keywords: ["miofol", "avs", "vloer"] },
+  { categorie: "Folie - Miofol", naam: "125S (dampremmend)", merk: "Miofol", lambda: null, mu: 200000, rho: null, rd_vast: 0.0, sd_vast: 25, keywords: ["miofol", "125s", "dampremmend"] },
+  { categorie: "Folie - Miofol", naam: "100S (dampremmend)", merk: "Miofol", lambda: null, mu: 90000, rho: null, rd_vast: 0.0, sd_vast: 9, keywords: ["miofol", "100s"] },
+  { categorie: "Folie - Miofol", naam: "125AV (dampdicht alu)", merk: "Miofol", lambda: null, mu: 7500000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "125av", "alu", "dampdicht"] },
+  { categorie: "Folie - Miofol", naam: "150A (dampdicht gewapend)", merk: "Miofol", lambda: null, mu: 10000000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "150a", "alu"] },
+  { categorie: "Folie - Miofol", naam: "200AK (zelfklevend)", merk: "Miofol", lambda: null, mu: 10000000, rho: null, rd_vast: 0.0, sd_vast: 1500, keywords: ["miofol", "200ak", "zelfklevend"] },
+  { categorie: "Folie - Miofol", naam: "Active (variabel)", merk: "Miofol", lambda: null, mu: 1000, rho: null, rd_vast: 0.0, sd_vast: 5, keywords: ["miofol", "active", "variabel", "klimaat"] },
+  { categorie: "Folie - Miofol", naam: "125G (dampopen gevel)", merk: "Miofol", lambda: null, mu: 1400, rho: null, rd_vast: 0.0, sd_vast: 0.14, keywords: ["miofol", "125g", "gevel", "dampopen"] },
+  { categorie: "Folie - Miofol", naam: "170AG (alu gevel)", merk: "Miofol", lambda: null, mu: 500, rho: null, rd_vast: 0.0, sd_vast: 0.05, keywords: ["miofol", "170ag", "gevel"] },
+  { categorie: "Folie - Miofol", naam: "AVS 4 (vloerfolie)", merk: "Miofol", lambda: null, mu: 500000, rho: null, rd_vast: 0.0, sd_vast: 100, keywords: ["miofol", "avs", "vloer"] },
 
   // Folie - Pro Clima (sd uit productdatabladen)
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima INTELLO (variabel)", lambda: null, mu: 2500, rho: null, rd_vast: 0.0, sd_vast: 0.25, keywords: ["proclima", "intello", "variabel", "klimaat"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima INTELLO PLUS", lambda: null, mu: 2500, rho: null, rd_vast: 0.0, sd_vast: 0.25, keywords: ["proclima", "intello", "plus"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima DB+ (dampremmend)", lambda: null, mu: 10000, rho: null, rd_vast: 0.0, sd_vast: 2, keywords: ["proclima", "db"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima DA (damprem)", lambda: null, mu: 10000, rho: null, rd_vast: 0.0, sd_vast: 2, keywords: ["proclima", "da"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima SOLITEX MENTO (dampopen)", lambda: null, mu: 125, rho: null, rd_vast: 0.0, sd_vast: 0.3, keywords: ["proclima", "solitex", "mento", "onderdak"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima SOLITEX PLUS (dampopen)", lambda: null, mu: 100, rho: null, rd_vast: 0.0, sd_vast: 0.2, keywords: ["proclima", "solitex", "plus"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima SOLITEX WELDANO (dampopen)", lambda: null, mu: 125, rho: null, rd_vast: 0.0, sd_vast: 0.3, keywords: ["proclima", "weldano"] },
-  { categorie: "Folie - Pro Clima", naam: "Pro Clima SOLITEX FRONTA WA", lambda: null, mu: 80, rho: null, rd_vast: 0.0, sd_vast: 0.18, keywords: ["proclima", "fronta", "gevel"] },
+  { categorie: "Folie - Pro Clima", naam: "INTELLO (variabel)", merk: "Pro Clima", lambda: null, mu: 2500, rho: null, rd_vast: 0.0, sd_vast: 0.25, keywords: ["proclima", "intello", "variabel", "klimaat"] },
+  { categorie: "Folie - Pro Clima", naam: "INTELLO PLUS", merk: "Pro Clima", lambda: null, mu: 2500, rho: null, rd_vast: 0.0, sd_vast: 0.25, keywords: ["proclima", "intello", "plus"] },
+  { categorie: "Folie - Pro Clima", naam: "DB+ (dampremmend)", merk: "Pro Clima", lambda: null, mu: 10000, rho: null, rd_vast: 0.0, sd_vast: 2, keywords: ["proclima", "db"] },
+  { categorie: "Folie - Pro Clima", naam: "DA (damprem)", merk: "Pro Clima", lambda: null, mu: 10000, rho: null, rd_vast: 0.0, sd_vast: 2, keywords: ["proclima", "da"] },
+  { categorie: "Folie - Pro Clima", naam: "SOLITEX MENTO (dampopen)", merk: "Pro Clima", lambda: null, mu: 125, rho: null, rd_vast: 0.0, sd_vast: 0.3, keywords: ["proclima", "solitex", "mento", "onderdak"] },
+  { categorie: "Folie - Pro Clima", naam: "SOLITEX PLUS (dampopen)", merk: "Pro Clima", lambda: null, mu: 100, rho: null, rd_vast: 0.0, sd_vast: 0.2, keywords: ["proclima", "solitex", "plus"] },
+  { categorie: "Folie - Pro Clima", naam: "SOLITEX WELDANO (dampopen)", merk: "Pro Clima", lambda: null, mu: 125, rho: null, rd_vast: 0.0, sd_vast: 0.3, keywords: ["proclima", "weldano"] },
+  { categorie: "Folie - Pro Clima", naam: "SOLITEX FRONTA WA", merk: "Pro Clima", lambda: null, mu: 80, rho: null, rd_vast: 0.0, sd_vast: 0.18, keywords: ["proclima", "fronta", "gevel"] },
 
   // Folie - Overig
   { categorie: "Folie - Overig", naam: "EPDM", lambda: 0.17, mu: 10000, rho: 1200, rd_vast: null, keywords: ["epdm", "rubber", "dakbedekking"] },
@@ -344,12 +352,15 @@ export const MATERIALS_DATABASE: Material[] = RAW_MATERIALS.map((raw) => {
     id,
     name: raw.naam,
     category: mapCategory(raw.categorie),
+    brand: raw.merk ?? null,
     lambda: raw.lambda,
+    lambdaWet: raw.lambda_nat ?? null,
     mu: raw.mu,
     rho: raw.rho,
     rdFixed: raw.rd_vast,
     sdFixed: raw.sd_vast ?? null,
     keywords: raw.keywords,
+    isBuiltIn: true,
   };
 });
 

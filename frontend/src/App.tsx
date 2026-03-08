@@ -77,6 +77,7 @@ export function App() {
           <Route path="/rooms" element={<RoomEditor />} />
           <Route path="/rc" element={<RcCalculator />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/materialen" element={<Library initialSection="materialen" />} />
           <Route path="/results" element={<Results />} />
           <Route path="/modeller" element={<Modeller />} />
           <Route path="/projects" element={<Projects />} />
