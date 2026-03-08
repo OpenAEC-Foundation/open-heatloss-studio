@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { ModelRoom, ModelWindow, ModelDoor } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType } from "./types";
 import { EXAMPLE_ROOMS, EXAMPLE_WINDOWS } from "./exampleData";
 
 // ---------------------------------------------------------------------------
@@ -66,6 +66,9 @@ interface ModellerStore {
   floorConstructions: Record<string, string>;
   roofConstructions: Record<string, string>;
 
+  // Wall boundary type overrides: "roomId:wallIndex" -> WallBoundaryType
+  wallBoundaryTypes: Record<string, WallBoundaryType>;
+
   // History (not persisted)
   _past: Snapshot[];
   _future: Snapshot[];
@@ -92,6 +95,9 @@ interface ModellerStore {
   assignWallConstruction: (roomId: string, wallIndex: number, entryId: string | null) => void;
   assignFloorConstruction: (roomId: string, entryId: string | null) => void;
   assignRoofConstruction: (roomId: string, entryId: string | null) => void;
+
+  // Wall boundary type
+  assignWallBoundaryType: (roomId: string, wallIndex: number, boundaryType: WallBoundaryType) => void;
   // History
   undo: () => void;
   redo: () => void;
@@ -136,6 +142,7 @@ export const useModellerStore = create<ModellerStore>()(
       wallConstructions: {},
       floorConstructions: {},
       roofConstructions: {},
+      wallBoundaryTypes: {},
       _past: [],
       _future: [],
 
@@ -253,6 +260,17 @@ export const useModellerStore = create<ModellerStore>()(
           return { roofConstructions: next };
         });
       },
+      // -- Wall boundary type --
+      assignWallBoundaryType: (roomId, wallIndex, boundaryType) => {
+        const key = `${roomId}:${wallIndex}`;
+        set((state) => {
+          const next = { ...state.wallBoundaryTypes };
+          if (boundaryType === "auto") delete next[key];
+          else next[key] = boundaryType;
+          return { wallBoundaryTypes: next };
+        });
+      },
+
       // -- History --
       undo: () => {
         const state = get();
@@ -293,6 +311,7 @@ export const useModellerStore = create<ModellerStore>()(
           wallConstructions: {},
           floorConstructions: {},
           roofConstructions: {},
+          wallBoundaryTypes: {},
           _past: [],
           _future: [],
         }),
@@ -308,6 +327,7 @@ export const useModellerStore = create<ModellerStore>()(
         wallConstructions: state.wallConstructions,
         floorConstructions: state.floorConstructions,
         roofConstructions: state.roofConstructions,
+        wallBoundaryTypes: state.wallBoundaryTypes,
       }),
     },
   ),

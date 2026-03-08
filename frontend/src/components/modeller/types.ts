@@ -12,6 +12,8 @@ export interface ModelRoom {
   floor: number;
   /** Room height in mm. */
   height: number;
+  /** Design temperature in °C (default based on function). */
+  temperature?: number;
 }
 
 export interface ModelWindow {
@@ -31,6 +33,28 @@ export interface ModelDoor {
   width: number;
   swing: "left" | "right";
 }
+
+// ---------------------------------------------------------------------------
+// Wall boundary type (for heat loss calculation)
+// ---------------------------------------------------------------------------
+
+/** How a wall relates to the building boundary — determines which temperature applies. */
+export type WallBoundaryType =
+  | "auto"       // Determine automatically from geometry (default)
+  | "exterior"   // Gevel — buitenwand (θe)
+  | "interior"   // Binnenwand — naar verwarmde ruimte (θi)
+  | "neighbor"   // Scheidingsmuur — wand naar buren (θadj)
+  | "unheated"   // Naar onverwarmde ruimte (θu)
+  | "ground";    // Grenzend aan grond
+
+export const BOUNDARY_TYPE_LABELS: Record<WallBoundaryType, string> = {
+  auto: "Automatisch",
+  exterior: "Gevel (buiten)",
+  interior: "Binnenwand",
+  neighbor: "Scheidingsmuur (buren)",
+  unheated: "Naar onverwarmd",
+  ground: "Naar grond",
+};
 
 // ---------------------------------------------------------------------------
 // Tools

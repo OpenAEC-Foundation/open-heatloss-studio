@@ -32,8 +32,9 @@ export type {
   SnapMode,
   SnapSettings,
   Selection,
+  WallBoundaryType,
 } from "./types";
-export { DEFAULT_SNAP_SETTINGS } from "./types";
+export { DEFAULT_SNAP_SETTINGS, BOUNDARY_TYPE_LABELS } from "./types";
 
 // IFCX (IFC5) core types and helpers
 export type {

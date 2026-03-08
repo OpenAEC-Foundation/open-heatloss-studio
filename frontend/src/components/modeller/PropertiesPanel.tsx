@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import type { ModelRoom, ModelWindow, Point2D, Selection } from "./types";
+import type { ModelRoom, ModelWindow, Point2D, Selection, WallBoundaryType } from "./types";
+import { BOUNDARY_TYPE_LABELS } from "./types";
 import { polygonArea, segmentsShareEdge } from "./geometry";
 import { useCatalogueStore } from "../../store/catalogueStore";
 import type { CatalogueEntry, CatalogueCategory } from "../../lib/constructionCatalogue";
@@ -25,6 +26,8 @@ interface PropertiesPanelProps {
   onAssignWall?: (roomId: string, wallIndex: number, entryId: string | null) => void;
   onAssignFloor?: (roomId: string, entryId: string | null) => void;
   onAssignRoof?: (roomId: string, entryId: string | null) => void;
+  wallBoundaryTypes?: Record<string, WallBoundaryType>;
+  onAssignBoundaryType?: (roomId: string, wallIndex: number, boundaryType: WallBoundaryType) => void;
 }
 
 const FUNCTION_LABELS: Record<string, string> = {
@@ -61,6 +64,8 @@ export function PropertiesPanel({
   onAssignWall,
   onAssignFloor,
   onAssignRoof,
+  wallBoundaryTypes = {},
+  onAssignBoundaryType,
 }: PropertiesPanelProps) {
   const catalogueEntries = useCatalogueStore((s) => s.entries);
 
@@ -120,12 +125,15 @@ export function PropertiesPanel({
     const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
     const dir = wallDirection(poly, wi);
 
-    let wallType: "exterior" | "interior" = "exterior";
+    let autoType: "exterior" | "interior" = "exterior";
     let adjacentName: string | null = null;
     for (const other of rooms) {
       if (other.id === room.id) continue;
-      if (hasSharedWall(a, b, other.polygon)) { wallType = "interior"; adjacentName = other.name; break; }
+      if (hasSharedWall(a, b, other.polygon)) { autoType = "interior"; adjacentName = other.name; break; }
     }
+
+    const boundaryKey = `${room.id}:${wi}`;
+    const currentBoundary = wallBoundaryTypes[boundaryKey] ?? "auto";
 
     const wallWindows = windows.filter((w) => w.roomId === room.id && w.wallIndex === wi);
     const assignedId = wallConstructions[`${room.id}:${wi}`];
@@ -144,10 +152,27 @@ export function PropertiesPanel({
               <Row label="Lengte" value={`${(length / 1000).toFixed(2)} m`} />
               <Row label="Hoogte" value={`${room.height} mm`} />
               <Row label="Oppervlak" value={`${((length / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
-              <Row
-                label="Type"
-                value={wallType === "exterior" ? "Gevel (buitenwand)" : `Intern (${adjacentName})`}
-              />
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-stone-500">Grenstype</span>
+                <select
+                  value={currentBoundary}
+                  onChange={(e) => onAssignBoundaryType?.(room.id, wi, e.target.value as WallBoundaryType)}
+                  className="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-800"
+                >
+                  {Object.entries(BOUNDARY_TYPE_LABELS).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {key === "auto" ? `${label} (${autoType === "exterior" ? "Gevel" : "Binnenwand"})` : label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </dl>
+          </Section>
+
+          <Section title="Aangrenzend">
+            <dl className="space-y-1 text-xs">
+              <Row label="Van" value={`${room.id} ${room.name}`} />
+              <Row label="Naar" value={adjacentName ? adjacentName : "Buiten"} />
             </dl>
           </Section>
 
@@ -207,7 +232,7 @@ export function PropertiesPanel({
 
   // Room selected
   const area = polygonArea(room.polygon) / 1e6;
-  const roomWalls = getWallInfo(room, rooms, windows);
+  const roomWalls = getWallInfo(room, rooms, windows, wallBoundaryTypes);
 
   return (
     <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
@@ -244,6 +269,11 @@ export function PropertiesPanel({
             </div>
             <Row label="Vloeroppervlak" value={`${area.toFixed(2)} m\u00B2`} />
             <EditableNumberField label="Hoogte (mm)" value={room.height} onChange={(val) => onUpdateRoom?.(room.id, { height: val })} />
+            <EditableNumberField
+              label="Temperatuur (°C)"
+              value={room.temperature ?? 20}
+              onChange={(val) => onUpdateRoom?.(room.id, { temperature: val })}
+            />
             <Row label="Volume" value={`${((area * room.height) / 1e3).toFixed(1)} m\u00B3`} />
           </div>
         </Section>
@@ -251,13 +281,14 @@ export function PropertiesPanel({
         {/* Walls */}
         <Section title={`Wanden (${roomWalls.length})`}>
           <div className="space-y-1.5">
-            {roomWalls.map((w, i) => (
+            {roomWalls.map((w) => (
               <WallCard
-                key={i}
+                key={w.wallIndex}
                 wall={w}
-                assignedEntryId={wallConstructions[`${room.id}:${i}`]}
+                assignedEntryId={wallConstructions[`${room.id}:${w.wallIndex}`]}
                 catalogueEntries={catalogueEntries}
-                onAssign={(entryId) => onAssignWall?.(room.id, i, entryId)}
+                onAssign={(entryId) => onAssignWall?.(room.id, w.wallIndex, entryId)}
+                onChangeBoundary={(wi, bt) => onAssignBoundaryType?.(room.id, wi, bt)}
               />
             ))}
           </div>
@@ -371,22 +402,72 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
 // Wall card
 // ---------------------------------------------------------------------------
 
-interface WallInfo { direction: string; length: number; type: "exterior" | "interior"; adjacentName: string | null; windowCount: number; }
+interface WallInfo {
+  direction: string;
+  length: number;
+  autoType: "exterior" | "interior";
+  adjacentName: string | null;
+  adjacentId: string | null;
+  windowCount: number;
+  wallIndex: number;
+  boundaryType: WallBoundaryType;
+}
 
-function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign }: {
-  wall: WallInfo; assignedEntryId?: string; catalogueEntries: CatalogueEntry[]; onAssign?: (entryId: string | null) => void;
+/** Describe what's on the other side of this wall based on effective boundary type. */
+function wallTarget(wall: WallInfo): string {
+  const bt = wall.boundaryType === "auto"
+    ? (wall.autoType === "interior" ? "interior" : "exterior")
+    : wall.boundaryType;
+  if (bt === "interior" && wall.adjacentName) return wall.adjacentName;
+  if (bt === "exterior") return "Buiten";
+  if (bt === "neighbor") return "Buren";
+  if (bt === "unheated") return "Onverwarmde ruimte";
+  if (bt === "ground") return "Grond";
+  if (wall.adjacentName) return wall.adjacentName;
+  return "Buiten";
+}
+
+function boundaryBadge(wall: WallInfo): { label: string; colors: string } {
+  const bt = wall.boundaryType;
+  if (bt === "auto" || bt === "exterior") {
+    if (bt === "auto" && wall.autoType === "interior") {
+      return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-50 text-blue-700" };
+    }
+    return { label: "Gevel", colors: "bg-red-50 text-red-700" };
+  }
+  if (bt === "interior") return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-50 text-blue-700" };
+  if (bt === "neighbor") return { label: "Buren", colors: "bg-orange-50 text-orange-700" };
+  if (bt === "unheated") return { label: "Onverwarmd", colors: "bg-purple-50 text-purple-700" };
+  if (bt === "ground") return { label: "Grond", colors: "bg-green-50 text-green-700" };
+  return { label: "Gevel", colors: "bg-red-50 text-red-700" };
+}
+
+function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeBoundary }: {
+  wall: WallInfo; assignedEntryId?: string; catalogueEntries: CatalogueEntry[];
+  onAssign?: (entryId: string | null) => void;
+  onChangeBoundary?: (wallIndex: number, bt: WallBoundaryType) => void;
 }) {
   const [picking, setPicking] = useState(false);
   const assigned = assignedEntryId ? catalogueEntries.find((e) => e.id === assignedEntryId) : null;
+  const badge = boundaryBadge(wall);
 
   return (
     <div className="rounded border border-stone-100 px-2 py-1.5 text-xs">
       <div className="flex items-center justify-between">
         <span className="font-medium text-stone-700">{wall.direction} — {(wall.length / 1000).toFixed(2)} m</span>
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${wall.type === "exterior" ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
-          {wall.type === "exterior" ? "Gevel" : wall.adjacentName ?? "Intern"}
-        </span>
+        <select
+          value={wall.boundaryType}
+          onChange={(e) => onChangeBoundary?.(wall.wallIndex, e.target.value as WallBoundaryType)}
+          className={`rounded border-0 px-1.5 py-0.5 text-[10px] font-medium ${badge.colors} cursor-pointer`}
+        >
+          {Object.entries(BOUNDARY_TYPE_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>
+              {key === "auto" ? `Auto (${wall.autoType === "exterior" ? "Gevel" : "Intern"})` : label}
+            </option>
+          ))}
+        </select>
       </div>
+      <div className="mt-0.5 text-stone-400">→ {wallTarget(wall)}</div>
       {wall.windowCount > 0 && <div className="mt-0.5 text-blue-600">{wall.windowCount} kozijn{wall.windowCount > 1 ? "en" : ""}</div>}
       {assigned ? (
         <div className="mt-1 flex items-center justify-between">
@@ -498,7 +579,7 @@ function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
 // Wall analysis
 // ---------------------------------------------------------------------------
 
-function getWallInfo(room: ModelRoom, allRooms: ModelRoom[], allWindows: ModelWindow[]): WallInfo[] {
+function getWallInfo(room: ModelRoom, allRooms: ModelRoom[], allWindows: ModelWindow[], boundaryTypes: Record<string, WallBoundaryType>): WallInfo[] {
   const poly = room.polygon;
   const n = poly.length;
   const roomWindows = allWindows.filter((w) => w.roomId === room.id);
@@ -510,14 +591,16 @@ function getWallInfo(room: ModelRoom, allRooms: ModelRoom[], allWindows: ModelWi
     const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
     const direction = wallDirection(poly, i);
 
-    let type: "exterior" | "interior" = "exterior";
+    let autoType: "exterior" | "interior" = "exterior";
     let adjacentName: string | null = null;
+    let adjacentId: string | null = null;
     for (const other of allRooms) {
       if (other.id === room.id) continue;
-      if (hasSharedWall(a, b, other.polygon)) { type = "interior"; adjacentName = other.name; break; }
+      if (hasSharedWall(a, b, other.polygon)) { autoType = "interior"; adjacentName = other.name; adjacentId = other.id; break; }
     }
 
-    walls.push({ direction, length, type, adjacentName, windowCount: roomWindows.filter((w) => w.wallIndex === i).length });
+    const boundaryType = boundaryTypes[`${room.id}:${i}`] ?? "auto";
+    walls.push({ direction, length, autoType, adjacentName, adjacentId, windowCount: roomWindows.filter((w) => w.wallIndex === i).length, wallIndex: i, boundaryType });
   }
   return walls;
 }

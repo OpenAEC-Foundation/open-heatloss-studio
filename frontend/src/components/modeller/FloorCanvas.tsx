@@ -9,7 +9,7 @@ import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konv
 import Konva from "konva";
 
 import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection } from "./types";
-import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges } from "./geometry";
+import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges, segmentsShareEdge } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
 
 // ---------------------------------------------------------------------------
@@ -572,7 +572,7 @@ export function FloorCanvas({
               />
             ))}
 
-            {/* Room edges — exterior: solid dark, shared: thin light gray */}
+            {/* Room edges — exterior: solid dark, shared: thin light gray (drawn once) */}
             {rooms.map((room) =>
               room.polygon.map((_, wi) => {
                 const ni = (wi + 1) % room.polygon.length;
@@ -581,6 +581,12 @@ export function FloorCanvas({
                 const isShared = sharedEdges.has(`${room.id}:${wi}`);
                 const a = room.polygon[wi]!;
                 const b = room.polygon[ni]!;
+
+                // For shared walls, only draw from the room with the lower ID to avoid double-drawing
+                if (isShared && !isWallSelected) {
+                  const partner = sharedEdgePartner(room.id, wi, rooms, sharedEdges);
+                  if (partner && partner.roomId < room.id) return null;
+                }
 
                 return (
                   <Line
@@ -1482,6 +1488,27 @@ function SnapBadge({ width, count }: { width: number; count: number }) {
 // =============================================================================
 // Utilities
 // =============================================================================
+
+/** Find the partner room that shares this wall edge (for dedup rendering). */
+function sharedEdgePartner(
+  roomId: string, wallIndex: number, rooms: ModelRoom[], sharedEdges: Set<string>,
+): { roomId: string; wallIndex: number } | null {
+  if (!sharedEdges.has(`${roomId}:${wallIndex}`)) return null;
+  const room = rooms.find((r) => r.id === roomId);
+  if (!room) return null;
+  const a = room.polygon[wallIndex]!;
+  const b = room.polygon[(wallIndex + 1) % room.polygon.length]!;
+  for (const other of rooms) {
+    if (other.id === roomId) continue;
+    for (let oj = 0; oj < other.polygon.length; oj++) {
+      if (!sharedEdges.has(`${other.id}:${oj}`)) continue;
+      const c = other.polygon[oj]!;
+      const d = other.polygon[(oj + 1) % other.polygon.length]!;
+      if (segmentsShareEdge(a, b, c, d)) return { roomId: other.id, wallIndex: oj };
+    }
+  }
+  return null;
+}
 
 function isDrawingTool(tool: ModellerTool): boolean {
   return tool.startsWith("draw_") || tool === "split_room";

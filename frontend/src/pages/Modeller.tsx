@@ -45,6 +45,8 @@ export function Modeller() {
   const assignWallConstruction = useModellerStore((s) => s.assignWallConstruction);
   const assignFloorConstruction = useModellerStore((s) => s.assignFloorConstruction);
   const assignRoofConstruction = useModellerStore((s) => s.assignRoofConstruction);
+  const wallBoundaryTypes = useModellerStore((s) => s.wallBoundaryTypes);
+  const assignWallBoundaryType = useModellerStore((s) => s.assignWallBoundaryType);
 
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
@@ -378,6 +380,8 @@ export function Modeller() {
           onAssignWall={assignWallConstruction}
           onAssignFloor={assignFloorConstruction}
           onAssignRoof={assignRoofConstruction}
+          wallBoundaryTypes={wallBoundaryTypes}
+          onAssignBoundaryType={assignWallBoundaryType}
         />
       </div>
     </div>
