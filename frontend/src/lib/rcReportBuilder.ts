@@ -12,6 +12,8 @@ import {
   type CatalogueCategory,
 } from "./constructionCatalogue";
 import type { GlaserResult } from "./glaserCalculation";
+import { generateGlaserSvg, svgToBase64 } from "./glaserSvg";
+import { generateMoistureYearSvg } from "./moistureYearSvg";
 import type { LayerInput, RcResult } from "./rcCalculation";
 import { RC_MIN_BOUWBESLUIT } from "./rcCalculation";
 import type { YearlyMoistureResult } from "./yearlyMoistureCalculation";
@@ -222,6 +224,21 @@ function buildGlaserSection(input: RcReportInput): Record<string, unknown> {
     p.pActual >= p.pSat ? "Condensatie" : "OK",
   ]);
 
+  // Generate Glaser SVG diagram
+  const glaserSvg = generateGlaserSvg(glaserResult, thetaI, thetaE);
+  const glaserImageBlock = glaserSvg
+    ? {
+        type: "image",
+        src: {
+          data: svgToBase64(glaserSvg),
+          media_type: "image/svg+xml",
+        },
+        caption: "Dampspanningsverloop door de constructie",
+        width_mm: 170,
+        alignment: "center",
+      }
+    : null;
+
   return {
     title: "Dampspanningsanalyse (Glaser)",
     level: 1,
@@ -240,6 +257,7 @@ function buildGlaserSection(input: RcReportInput): Record<string, unknown> {
         ],
       },
       { type: "spacer", height_mm: 4 },
+      ...(glaserImageBlock ? [glaserImageBlock, { type: "spacer", height_mm: 4 }] : []),
       {
         type: "table",
         title: "Dampdrukverloop per grensvlak",
@@ -283,6 +301,21 @@ function buildMoistureSection(input: RcReportInput): Record<string, unknown> {
       ? "Tijdelijk vochtophoping, maar constructie droogt uit binnen \u00E9\u00E9n jaar."
       : "Geen vochtophoping. Constructie blijft droog over het jaar.";
 
+  // Generate moisture year chart SVG
+  const moistureSvg = generateMoistureYearSvg(mr);
+  const moistureImageBlock = moistureSvg
+    ? {
+        type: "image",
+        src: {
+          data: svgToBase64(moistureSvg),
+          media_type: "image/svg+xml",
+        },
+        caption: "Vochthuishouding over het jaar",
+        width_mm: 170,
+        alignment: "center",
+      }
+    : null;
+
   return {
     title: "Jaarlijkse vochtbalans (NEN-EN-ISO 13788)",
     level: 1,
@@ -308,6 +341,7 @@ function buildMoistureSection(input: RcReportInput): Record<string, unknown> {
         rows: monthRows,
       },
       { type: "spacer", height_mm: 4 },
+      ...(moistureImageBlock ? [moistureImageBlock, { type: "spacer", height_mm: 4 }] : []),
       {
         type: "table",
         title: "Samenvatting",
