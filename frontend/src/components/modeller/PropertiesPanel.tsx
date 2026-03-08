@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ModelRoom, ModelWindow, Point2D } from "./types";
+import type { ModelRoom, ModelWindow, Point2D, Selection } from "./types";
 import { polygonArea, segmentsShareEdge } from "./geometry";
 import { useCatalogueStore } from "../../store/catalogueStore";
 import type { CatalogueEntry, CatalogueCategory } from "../../lib/constructionCatalogue";
@@ -14,8 +14,11 @@ interface PropertiesPanelProps {
   room: ModelRoom | null;
   rooms: ModelRoom[];
   windows: ModelWindow[];
+  selection: Selection;
   onUpdateRoom?: (id: string, updates: Partial<Omit<ModelRoom, "id">>) => void;
   onRemoveRoom?: (id: string) => void;
+  onUpdateWindow?: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
+  onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
   wallConstructions?: Record<string, string>;
   floorConstructions?: Record<string, string>;
   roofConstructions?: Record<string, string>;
@@ -47,8 +50,11 @@ export function PropertiesPanel({
   room,
   rooms,
   windows,
+  selection,
   onUpdateRoom,
   onRemoveRoom,
+  onUpdateWindow,
+  onRemoveWindow,
   wallConstructions = {},
   floorConstructions = {},
   roofConstructions = {},
@@ -58,21 +64,139 @@ export function PropertiesPanel({
 }: PropertiesPanelProps) {
   const catalogueEntries = useCatalogueStore((s) => s.entries);
 
+  // Window selected: show window editor
+  if (selection?.type === "window" && room) {
+    const win = windows.find(
+      (w) => w.roomId === selection.roomId && w.wallIndex === selection.wallIndex && Math.abs(w.offset - selection.offset) < 1,
+    );
+    if (win) {
+      const poly = room.polygon;
+      const a = poly[win.wallIndex]!;
+      const b = poly[(win.wallIndex + 1) % poly.length]!;
+      const wallLen = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+
+      return (
+        <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
+          <div className="border-b border-stone-100 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-stone-800">Raam</span>
+              {onRemoveWindow && (
+                <button
+                  onClick={() => onRemoveWindow(win.roomId, win.wallIndex, win.offset)}
+                  className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50"
+                >
+                  Verwijderen
+                </button>
+              )}
+            </div>
+            <div className="mt-1 text-xs text-stone-500">
+              Wand {wallDirection(room.polygon, win.wallIndex)} van {room.name}
+            </div>
+          </div>
+          <div className="space-y-2 px-4 py-3">
+            <EditableNumberField
+              label="Breedte (mm)"
+              value={win.width}
+              onChange={(val) => onUpdateWindow?.(win.roomId, win.wallIndex, win.offset, { width: val })}
+            />
+            <EditableNumberField
+              label="Positie (mm)"
+              value={Math.round(win.offset)}
+              onChange={(val) => onUpdateWindow?.(win.roomId, win.wallIndex, win.offset, { offset: val })}
+            />
+            <Row label="Wand lengte" value={`${(wallLen / 1000).toFixed(2)} m`} />
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Wall selected: show wall details
+  if (selection?.type === "wall" && room) {
+    const wi = selection.wallIndex;
+    const poly = room.polygon;
+    const a = poly[wi]!;
+    const b = poly[(wi + 1) % poly.length]!;
+    const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+    const dir = wallDirection(poly, wi);
+
+    let wallType: "exterior" | "interior" = "exterior";
+    let adjacentName: string | null = null;
+    for (const other of rooms) {
+      if (other.id === room.id) continue;
+      if (hasSharedWall(a, b, other.polygon)) { wallType = "interior"; adjacentName = other.name; break; }
+    }
+
+    const wallWindows = windows.filter((w) => w.roomId === room.id && w.wallIndex === wi);
+    const assignedId = wallConstructions[`${room.id}:${wi}`];
+    const assigned = assignedId ? catalogueEntries.find((e) => e.id === assignedId) : null;
+
+    return (
+      <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
+        <div className="border-b border-stone-100 px-4 py-3">
+          <span className="text-sm font-bold text-stone-800">Wand {dir}</span>
+          <div className="mt-1 text-xs text-stone-500">{room.id} {room.name}</div>
+        </div>
+        <div className="space-y-3 px-4 py-3">
+          <Section title="Eigenschappen">
+            <dl className="space-y-1 text-xs">
+              <Row label="Richting" value={dir} />
+              <Row label="Lengte" value={`${(length / 1000).toFixed(2)} m`} />
+              <Row label="Hoogte" value={`${room.height} mm`} />
+              <Row label="Oppervlak" value={`${((length / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
+              <Row
+                label="Type"
+                value={wallType === "exterior" ? "Gevel (buitenwand)" : `Intern (${adjacentName})`}
+              />
+            </dl>
+          </Section>
+
+          {wallWindows.length > 0 && (
+            <Section title={`Ramen (${wallWindows.length})`}>
+              <div className="space-y-1">
+                {wallWindows.map((w, i) => (
+                  <div key={i} className="flex items-center justify-between rounded border border-stone-100 px-2 py-1 text-xs">
+                    <span>Raam — {w.width} mm breed</span>
+                    <span className="text-stone-400">op {(w.offset / 1000).toFixed(2)} m</span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section title="Constructie">
+            {assigned ? (
+              <div className="rounded border border-green-200 bg-green-50 px-2 py-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-green-800">{assigned.name}</span>
+                  <button onClick={() => onAssignWall?.(room.id, wi, null)} className="text-red-400 hover:text-red-600">x</button>
+                </div>
+                <div className="mt-0.5 text-green-600">U = {assigned.uValue} W/(m²·K)</div>
+              </div>
+            ) : (
+              <ConstructionPickerInline
+                entries={catalogueEntries}
+                filterCategory="wanden"
+                onSelect={(entryId) => onAssignWall?.(room.id, wi, entryId)}
+              />
+            )}
+          </Section>
+        </div>
+      </div>
+    );
+  }
+
+  // No room selected
   if (!room) {
     return (
       <div className="w-72 shrink-0 border-l border-stone-200 bg-white p-4">
-        <p className="text-xs text-stone-400">
-          Selecteer een ruimte om de eigenschappen te bekijken.
-        </p>
+        <p className="text-xs text-stone-400">Selecteer een ruimte om de eigenschappen te bekijken.</p>
         <div className="mt-6">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
-            Ruimten ({rooms.length})
-          </h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">Ruimten ({rooms.length})</h3>
           <ul className="space-y-1">
             {rooms.map((r) => (
               <li key={r.id} className="text-xs text-stone-600">
-                <span className="font-mono font-medium">{r.id}</span>{" "}
-                {r.name} — {(polygonArea(r.polygon) / 1e6).toFixed(1)} m²
+                <span className="font-mono font-medium">{r.id}</span> {r.name} — {(polygonArea(r.polygon) / 1e6).toFixed(1)} m²
               </li>
             ))}
           </ul>
@@ -81,6 +205,7 @@ export function PropertiesPanel({
     );
   }
 
+  // Room selected
   const area = polygonArea(room.polygon) / 1e6;
   const walls = getWallInfo(room, rooms, windows);
 
@@ -94,11 +219,7 @@ export function PropertiesPanel({
             <span className="text-sm text-stone-600">{room.name}</span>
           </div>
           {onRemoveRoom && (
-            <button
-              onClick={() => onRemoveRoom(room.id)}
-              className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:text-red-700"
-              title="Ruimte verwijderen"
-            >
+            <button onClick={() => onRemoveRoom(room.id)} className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50" title="Verwijderen">
               Verwijderen
             </button>
           )}
@@ -106,14 +227,9 @@ export function PropertiesPanel({
       </div>
 
       <div className="space-y-4 px-4 py-3">
-        {/* Editable Properties */}
         <Section title="Eigenschappen">
           <div className="space-y-2">
-            <EditableField
-              label="Naam"
-              value={room.name}
-              onChange={(val) => onUpdateRoom?.(room.id, { name: val })}
-            />
+            <EditableField label="Naam" value={room.name} onChange={(val) => onUpdateRoom?.(room.id, { name: val })} />
             <div className="flex items-center justify-between text-xs">
               <span className="text-stone-500">Functie</span>
               <select
@@ -127,11 +243,7 @@ export function PropertiesPanel({
               </select>
             </div>
             <Row label="Vloeroppervlak" value={`${area.toFixed(2)} m\u00B2`} />
-            <EditableNumberField
-              label="Hoogte (mm)"
-              value={room.height}
-              onChange={(val) => onUpdateRoom?.(room.id, { height: val })}
-            />
+            <EditableNumberField label="Hoogte (mm)" value={room.height} onChange={(val) => onUpdateRoom?.(room.id, { height: val })} />
             <Row label="Volume" value={`${((area * room.height) / 1e3).toFixed(1)} m\u00B3`} />
           </div>
         </Section>
@@ -151,12 +263,10 @@ export function PropertiesPanel({
           </div>
         </Section>
 
-        {/* Floor */}
         <Section title="Vloer">
           <ConstructionCard
             label={`Vloer — ${area.toFixed(2)} m\u00B2`}
-            badge="Grond"
-            badgeColor="green"
+            badge="Grond" badgeColor="green"
             assignedEntryId={floorConstructions[room.id]}
             catalogueEntries={catalogueEntries}
             filterCategory="vloeren_plafonds"
@@ -164,12 +274,10 @@ export function PropertiesPanel({
           />
         </Section>
 
-        {/* Ceiling / Roof */}
         <Section title="Plafond / Dak">
           <ConstructionCard
             label={`Plafond — ${area.toFixed(2)} m\u00B2`}
-            badge="Verdieping"
-            badgeColor="purple"
+            badge="Verdieping" badgeColor="purple"
             assignedEntryId={roofConstructions[room.id]}
             catalogueEntries={catalogueEntries}
             filterCategory="daken"
@@ -182,15 +290,13 @@ export function PropertiesPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Generic sub-components
 // ---------------------------------------------------------------------------
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-400">
-        {title}
-      </h3>
+      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-400">{title}</h3>
       {children}
     </div>
   );
@@ -205,37 +311,19 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function EditableField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange?: (val: string) => void;
-}) {
+function EditableField({ label, value, onChange }: { label: string; value: string; onChange?: (val: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
   if (!onChange) return <Row label={label} value={value} />;
-
   if (editing) {
     return (
       <div className="flex items-center justify-between text-xs">
         <span className="text-stone-500">{label}</span>
         <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => {
-            if (draft.trim()) onChange(draft.trim());
-            setEditing(false);
-          }}
+          autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => { if (draft.trim()) onChange(draft.trim()); setEditing(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              if (draft.trim()) onChange(draft.trim());
-              setEditing(false);
-            }
+            if (e.key === "Enter") { if (draft.trim()) onChange(draft.trim()); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
           className="w-28 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
@@ -243,54 +331,27 @@ function EditableField({
       </div>
     );
   }
-
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-stone-500">{label}</span>
-      <button
-        onClick={() => { setDraft(value); setEditing(true); }}
-        className="font-mono text-stone-800 hover:text-amber-700 hover:underline"
-      >
-        {value}
-      </button>
+      <button onClick={() => { setDraft(value); setEditing(true); }} className="font-mono text-stone-800 hover:text-amber-700 hover:underline">{value}</button>
     </div>
   );
 }
 
-function EditableNumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange?: (val: number) => void;
-}) {
+function EditableNumberField({ label, value, onChange }: { label: string; value: number; onChange?: (val: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
-
   if (!onChange) return <Row label={label} value={String(value)} />;
-
   if (editing) {
     return (
       <div className="flex items-center justify-between text-xs">
         <span className="text-stone-500">{label}</span>
         <input
-          autoFocus
-          type="number"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => {
-            const n = parseInt(draft, 10);
-            if (!isNaN(n) && n > 0) onChange(n);
-            setEditing(false);
-          }}
+          autoFocus type="number" value={draft} onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => { const n = parseInt(draft, 10); if (!isNaN(n) && n > 0) onChange(n); setEditing(false); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              const n = parseInt(draft, 10);
-              if (!isNaN(n) && n > 0) onChange(n);
-              setEditing(false);
-            }
+            if (e.key === "Enter") { const n = parseInt(draft, 10); if (!isNaN(n) && n > 0) onChange(n); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
           className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
@@ -298,227 +359,133 @@ function EditableNumberField({
       </div>
     );
   }
-
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-stone-500">{label}</span>
-      <button
-        onClick={() => { setDraft(String(value)); setEditing(true); }}
-        className="font-mono text-stone-800 hover:text-amber-700 hover:underline"
-      >
-        {value}
-      </button>
+      <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-stone-800 hover:text-amber-700 hover:underline">{value}</button>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Wall card with construction picker
+// Wall card
 // ---------------------------------------------------------------------------
 
-interface WallInfo {
-  direction: string;
-  length: number;
-  type: "exterior" | "interior";
-  adjacentName: string | null;
-  windowCount: number;
-}
+interface WallInfo { direction: string; length: number; type: "exterior" | "interior"; adjacentName: string | null; windowCount: number; }
 
-function WallCard({
-  wall,
-  assignedEntryId,
-  catalogueEntries,
-  onAssign,
-}: {
-  wall: WallInfo;
-  assignedEntryId?: string;
-  catalogueEntries: CatalogueEntry[];
-  onAssign?: (entryId: string | null) => void;
+function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign }: {
+  wall: WallInfo; assignedEntryId?: string; catalogueEntries: CatalogueEntry[]; onAssign?: (entryId: string | null) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const assigned = assignedEntryId
-    ? catalogueEntries.find((e) => e.id === assignedEntryId)
-    : null;
+  const assigned = assignedEntryId ? catalogueEntries.find((e) => e.id === assignedEntryId) : null;
 
   return (
     <div className="rounded border border-stone-100 px-2 py-1.5 text-xs">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-stone-700">
-          {wall.direction} — {(wall.length / 1000).toFixed(2)} m
-        </span>
-        <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-            wall.type === "exterior"
-              ? "bg-red-50 text-red-700"
-              : "bg-blue-50 text-blue-700"
-          }`}
-        >
+        <span className="font-medium text-stone-700">{wall.direction} — {(wall.length / 1000).toFixed(2)} m</span>
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${wall.type === "exterior" ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
           {wall.type === "exterior" ? "Gevel" : wall.adjacentName ?? "Intern"}
         </span>
       </div>
-      {wall.windowCount > 0 && (
-        <div className="mt-0.5 text-blue-600">
-          {wall.windowCount} kozijn{wall.windowCount > 1 ? "en" : ""}
-        </div>
-      )}
+      {wall.windowCount > 0 && <div className="mt-0.5 text-blue-600">{wall.windowCount} kozijn{wall.windowCount > 1 ? "en" : ""}</div>}
       {assigned ? (
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-[10px] text-green-700">
-            {assigned.name} (U={assigned.uValue})
-          </span>
-          <button
-            onClick={() => onAssign?.(null)}
-            className="text-[10px] text-red-400 hover:text-red-600"
-          >
-            x
-          </button>
+          <span className="text-[10px] text-green-700">{assigned.name} (U={assigned.uValue})</span>
+          <button onClick={() => onAssign?.(null)} className="text-[10px] text-red-400 hover:text-red-600">x</button>
         </div>
       ) : picking ? (
-        <ConstructionPicker
-          entries={catalogueEntries}
-          filterCategory="wanden"
-          onSelect={(entryId) => {
-            onAssign?.(entryId);
-            setPicking(false);
-          }}
-          onCancel={() => setPicking(false)}
-        />
+        <ConstructionPicker entries={catalogueEntries} filterCategory="wanden" onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button
-          onClick={() => setPicking(true)}
-          className="mt-1 text-[10px] text-amber-600 hover:text-amber-800"
-        >
-          Constructie toewijzen...
-        </button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Construction card (floor/roof)
+// Construction card + picker
 // ---------------------------------------------------------------------------
 
-function ConstructionCard({
-  label,
-  badge,
-  badgeColor,
-  assignedEntryId,
-  catalogueEntries,
-  filterCategory,
-  onAssign,
-}: {
-  label: string;
-  badge: string;
-  badgeColor: "green" | "purple";
-  assignedEntryId?: string;
-  catalogueEntries: CatalogueEntry[];
-  filterCategory: CatalogueCategory;
-  onAssign?: (entryId: string | null) => void;
+function ConstructionCard({ label, badge, badgeColor, assignedEntryId, catalogueEntries, filterCategory, onAssign }: {
+  label: string; badge: string; badgeColor: "green" | "purple"; assignedEntryId?: string; catalogueEntries: CatalogueEntry[];
+  filterCategory: CatalogueCategory; onAssign?: (entryId: string | null) => void;
 }) {
   const [picking, setPicking] = useState(false);
-  const assigned = assignedEntryId
-    ? catalogueEntries.find((e) => e.id === assignedEntryId)
-    : null;
-
-  const colors =
-    badgeColor === "green"
-      ? "bg-green-50 text-green-700"
-      : "bg-purple-50 text-purple-700";
+  const assigned = assignedEntryId ? catalogueEntries.find((e) => e.id === assignedEntryId) : null;
+  const colors = badgeColor === "green" ? "bg-green-50 text-green-700" : "bg-purple-50 text-purple-700";
 
   return (
     <div className="rounded border border-stone-100 px-2 py-1.5 text-xs">
       <div className="flex items-center justify-between">
         <span className="font-medium text-stone-700">{label}</span>
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colors}`}>
-          {badge}
-        </span>
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colors}`}>{badge}</span>
       </div>
       {assigned ? (
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-[10px] text-green-700">
-            {assigned.name} (U={assigned.uValue})
-          </span>
-          <button
-            onClick={() => onAssign?.(null)}
-            className="text-[10px] text-red-400 hover:text-red-600"
-          >
-            x
-          </button>
+          <span className="text-[10px] text-green-700">{assigned.name} (U={assigned.uValue})</span>
+          <button onClick={() => onAssign?.(null)} className="text-[10px] text-red-400 hover:text-red-600">x</button>
         </div>
       ) : picking ? (
-        <ConstructionPicker
-          entries={catalogueEntries}
-          filterCategory={filterCategory}
-          onSelect={(entryId) => {
-            onAssign?.(entryId);
-            setPicking(false);
-          }}
-          onCancel={() => setPicking(false)}
-        />
+        <ConstructionPicker entries={catalogueEntries} filterCategory={filterCategory} onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button
-          onClick={() => setPicking(true)}
-          className="mt-1 text-[10px] text-amber-600 hover:text-amber-800"
-        >
-          Constructie toewijzen...
-        </button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>
       )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Construction picker (inline dropdown)
-// ---------------------------------------------------------------------------
-
-function ConstructionPicker({
-  entries,
-  filterCategory,
-  onSelect,
-  onCancel,
-}: {
-  entries: CatalogueEntry[];
-  filterCategory: CatalogueCategory;
-  onSelect: (entryId: string) => void;
-  onCancel: () => void;
+function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
+  entries: CatalogueEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = entries.filter((e) => {
-    if (e.category !== filterCategory) return false;
-    if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const [open, setOpen] = useState(false);
+  const filtered = entries.filter((e) => e.category === filterCategory && (!search || e.name.toLowerCase().includes(search.toLowerCase())));
+
+  if (!open) {
+    return <button onClick={() => setOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>;
+  }
+
+  return (
+    <div className="rounded border border-amber-200 bg-amber-50/50 p-1.5">
+      <input
+        autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
+        value={search} onChange={(e) => setSearch(e.target.value)}
+        className="mb-1 w-full rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
+      />
+      <div className="max-h-40 overflow-y-auto">
+        {filtered.length === 0 ? <div className="py-1 text-center text-[10px] text-stone-400">Geen resultaten</div> : (
+          filtered.map((e) => (
+            <button key={e.id} onClick={() => onSelect(e.id)} className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100">
+              <span className="font-medium">{e.name}</span> <span className="text-stone-400">U={e.uValue}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
+  entries: CatalogueEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void; onCancel: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const filtered = entries.filter((e) => e.category === filterCategory && (!search || e.name.toLowerCase().includes(search.toLowerCase())));
 
   return (
     <div className="mt-1 rounded border border-amber-200 bg-amber-50/50 p-1.5">
       <div className="mb-1 flex items-center gap-1">
         <input
-          autoFocus
-          placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
+          value={search} onChange={(e) => setSearch(e.target.value)}
           className="flex-1 rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
         />
-        <button
-          onClick={onCancel}
-          className="text-[10px] text-stone-400 hover:text-stone-600"
-        >
-          Annuleer
-        </button>
+        <button onClick={onCancel} className="text-[10px] text-stone-400 hover:text-stone-600">Annuleer</button>
       </div>
       <div className="max-h-40 overflow-y-auto">
-        {filtered.length === 0 ? (
-          <div className="py-1 text-center text-[10px] text-stone-400">Geen resultaten</div>
-        ) : (
+        {filtered.length === 0 ? <div className="py-1 text-center text-[10px] text-stone-400">Geen resultaten</div> : (
           filtered.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => onSelect(e.id)}
-              className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100"
-            >
-              <span className="font-medium">{e.name}</span>
-              <span className="ml-1 text-stone-400">U={e.uValue}</span>
+            <button key={e.id} onClick={() => onSelect(e.id)} className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100">
+              <span className="font-medium">{e.name}</span> <span className="text-stone-400">U={e.uValue}</span>
             </button>
           ))
         )}
@@ -531,40 +498,27 @@ function ConstructionPicker({
 // Wall analysis
 // ---------------------------------------------------------------------------
 
-function getWallInfo(
-  room: ModelRoom,
-  allRooms: ModelRoom[],
-  allWindows: ModelWindow[],
-): WallInfo[] {
+function getWallInfo(room: ModelRoom, allRooms: ModelRoom[], allWindows: ModelWindow[]): WallInfo[] {
   const poly = room.polygon;
   const n = poly.length;
   const roomWindows = allWindows.filter((w) => w.roomId === room.id);
   const walls: WallInfo[] = [];
 
   for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
     const a = poly[i]!;
-    const b = poly[j]!;
+    const b = poly[(i + 1) % n]!;
     const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
-
     const direction = wallDirection(poly, i);
 
     let type: "exterior" | "interior" = "exterior";
     let adjacentName: string | null = null;
     for (const other of allRooms) {
       if (other.id === room.id) continue;
-      if (hasSharedWall(a, b, other.polygon)) {
-        type = "interior";
-        adjacentName = other.name;
-        break;
-      }
+      if (hasSharedWall(a, b, other.polygon)) { type = "interior"; adjacentName = other.name; break; }
     }
 
-    const windowCount = roomWindows.filter((w) => w.wallIndex === i).length;
-
-    walls.push({ direction, length, type, adjacentName, windowCount });
+    walls.push({ direction, length, type, adjacentName, windowCount: roomWindows.filter((w) => w.wallIndex === i).length });
   }
-
   return walls;
 }
 
@@ -572,19 +526,11 @@ function wallDirection(polygon: Point2D[], edgeIndex: number): string {
   const n = polygon.length;
   const a = polygon[edgeIndex]!;
   const b = polygon[(edgeIndex + 1) % n]!;
-
   const cx = polygon.reduce((s, p) => s + p.x, 0) / n;
   const cy = polygon.reduce((s, p) => s + p.y, 0) / n;
-
-  const mx = (a.x + b.x) / 2;
-  const my = (a.y + b.y) / 2;
-
-  const nx = mx - cx;
-  const ny = my - cy;
-
-  if (Math.abs(nx) > Math.abs(ny)) {
-    return nx > 0 ? "Oost" : "West";
-  }
+  const nx = (a.x + b.x) / 2 - cx;
+  const ny = (a.y + b.y) / 2 - cy;
+  if (Math.abs(nx) > Math.abs(ny)) return nx > 0 ? "Oost" : "West";
   return ny > 0 ? "Zuid" : "Noord";
 }
 

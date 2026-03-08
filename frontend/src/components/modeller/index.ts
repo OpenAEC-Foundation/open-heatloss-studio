@@ -30,6 +30,7 @@ export type {
   ViewMode,
   SnapMode,
   SnapSettings,
+  Selection,
 } from "./types";
 export { DEFAULT_SNAP_SETTINGS } from "./types";
 

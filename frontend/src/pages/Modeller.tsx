@@ -8,26 +8,21 @@ import {
 } from "../components/modeller";
 import { Ribbon } from "../components/modeller/Ribbon";
 import { useModellerStore } from "../components/modeller/modellerStore";
-import type { ModellerTool, Point2D, SnapSettings, ViewMode } from "../components/modeller";
+import type { ModellerTool, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
 import { useToastStore } from "../store/toastStore";
-
-const ROOM_FUNCTIONS = [
-  "living_room", "kitchen", "bedroom", "bathroom", "toilet",
-  "hallway", "landing", "storage", "attic", "custom",
-];
 
 export function Modeller() {
   const [tool, setTool] = useState<ModellerTool>("select");
   const [viewMode, setViewMode] = useState<ViewMode>("2d");
   const [activeFloor, setActiveFloor] = useState(0);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
   const [snap, setSnap] = useState<SnapSettings>(DEFAULT_SNAP_SETTINGS);
   const addToast = useToastStore((s) => s.addToast);
 
   // Store
   const rooms = useModellerStore((s) => s.rooms);
   const windows = useModellerStore((s) => s.windows);
+  const doors = useModellerStore((s) => s.doors);
   const underlay = useModellerStore((s) => s.underlay);
   const wallConstructions = useModellerStore((s) => s.wallConstructions);
   const floorConstructions = useModellerStore((s) => s.floorConstructions);
@@ -37,6 +32,9 @@ export function Modeller() {
   const updateRoom = useModellerStore((s) => s.updateRoom);
   const removeRoom = useModellerStore((s) => s.removeRoom);
   const addWindow = useModellerStore((s) => s.addWindow);
+  const updateWindow = useModellerStore((s) => s.updateWindow);
+  const removeWindow = useModellerStore((s) => s.removeWindow);
+  const addDoor = useModellerStore((s) => s.addDoor);
   const setUnderlay = useModellerStore((s) => s.setUnderlay);
   const assignWallConstruction = useModellerStore((s) => s.assignWallConstruction);
   const assignFloorConstruction = useModellerStore((s) => s.assignFloorConstruction);
@@ -44,13 +42,17 @@ export function Modeller() {
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
 
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
-
-  // Filter rooms by active floor
+  // Filter by floor
   const floorRooms = rooms.filter((r) => r.floor === activeFloor);
-  const floorWindows = windows.filter((w) =>
-    floorRooms.some((r) => r.id === w.roomId),
-  );
+  const floorWindows = windows.filter((w) => floorRooms.some((r) => r.id === w.roomId));
+  const floorDoors = doors.filter((d) => floorRooms.some((r) => r.id === d.roomId));
+
+  // Selected room (for properties panel)
+  const selectedRoomId = selection?.type === "room" ? selection.roomId
+    : selection?.type === "wall" ? selection.roomId
+    : selection?.type === "window" ? selection.roomId
+    : null;
+  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
 
   // --- Handlers ---
 
@@ -58,12 +60,12 @@ export function Modeller() {
     (polygon: Point2D[]) => {
       const id = addRoom({
         name: "Nieuwe ruimte",
-        function: ROOM_FUNCTIONS[Math.floor(Math.random() * 3)]!,
+        function: "custom",
         polygon,
         floor: activeFloor,
         height: 2600,
       });
-      setSelectedRoomId(id);
+      setSelection({ type: "room", roomId: id });
       setTool("select");
       addToast(`Ruimte ${id} aangemaakt`, "success");
     },
@@ -78,42 +80,73 @@ export function Modeller() {
     [addWindow, addToast],
   );
 
+  const handleAddDoor = useCallback(
+    (roomId: string, wallIndex: number, offset: number, width: number) => {
+      addDoor({ roomId, wallIndex, offset, width, swing: "left" });
+      addToast("Deur geplaatst", "success");
+    },
+    [addDoor, addToast],
+  );
+
+  const handleMoveRoom = useCallback(
+    (roomId: string, dx: number, dy: number) => {
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) return;
+      const gs = snap.enabled && snap.modes.includes("grid") ? snap.gridSize : 1;
+      const sdx = Math.round(dx / gs) * gs;
+      const sdy = Math.round(dy / gs) * gs;
+      const newPoly = room.polygon.map((p) => ({ x: p.x + sdx, y: p.y + sdy }));
+      updateRoom(roomId, { polygon: newPoly });
+    },
+    [rooms, snap, updateRoom],
+  );
+
+  const handleUpdateWindow = useCallback(
+    (roomId: string, wallIndex: number, offset: number, updates: Partial<{ offset: number; width: number }>) => {
+      updateWindow(roomId, wallIndex, offset, updates);
+    },
+    [updateWindow],
+  );
+
   const handleRemoveRoom = useCallback(
     (id: string) => {
       removeRoom(id);
-      if (selectedRoomId === id) setSelectedRoomId(null);
+      if (selectedRoomId === id) setSelection(null);
       addToast("Ruimte verwijderd", "info");
     },
     [removeRoom, selectedRoomId, addToast],
+  );
+
+  const handleRemoveWindow = useCallback(
+    (roomId: string, wallIndex: number, offset: number) => {
+      removeWindow(roomId, wallIndex, offset);
+      setSelection(selectedRoomId ? { type: "room", roomId: selectedRoomId } : null);
+      addToast("Raam verwijderd", "info");
+    },
+    [removeWindow, selectedRoomId, addToast],
   );
 
   const handleImportPdf = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*,.pdf";
-    input.onchange = async () => {
+    input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return;
-
-      // For images, read directly. For PDF, we'd need pdf.js but for now just support images.
       if (!file.type.startsWith("image/")) {
         addToast("Momenteel alleen afbeeldingen ondersteund als onderlegger (PNG, JPG)", "info");
         return;
       }
-
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
-        // Get image dimensions
         const img = new Image();
         img.onload = () => {
-          // Scale to fit: assume 1 pixel = 10mm (user can rescale)
           const scale = 10;
           setUnderlay({
             dataUrl,
             fileName: file.name,
-            x: 0,
-            y: 0,
+            x: 0, y: 0,
             width: img.width * scale,
             height: img.height * scale,
             opacity: 0.3,
@@ -145,45 +178,31 @@ export function Modeller() {
     addToast("Zoom passend", "info");
   }, [addToast]);
 
-  const handleUndo = useCallback(() => {
-    undo();
-  }, [undo]);
-
-  const handleRedo = useCallback(() => {
-    redo();
-  }, [redo]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't capture when user is typing in an input
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); return; }
       if (e.ctrlKey && e.key === "y") { e.preventDefault(); redo(); return; }
-      if (e.key === "Delete" && selectedRoomId) {
-        handleRemoveRoom(selectedRoomId);
-        return;
+
+      if (e.key === "Delete") {
+        if (selection?.type === "room") { handleRemoveRoom(selection.roomId); return; }
+        if (selection?.type === "window") { handleRemoveWindow(selection.roomId, selection.wallIndex, selection.offset); return; }
       }
 
       const keyMap: Record<string, ModellerTool> = {
-        v: "select",
-        h: "pan",
-        r: "draw_rect",
-        p: "draw_polygon",
-        c: "draw_circle",
-        w: "draw_wall",
-        n: "draw_window",
-        m: "measure",
+        v: "select", h: "pan", r: "draw_rect", p: "draw_polygon",
+        c: "draw_circle", w: "draw_wall", n: "draw_window",
+        d: "draw_door", m: "measure",
       };
       const mapped = keyMap[e.key.toLowerCase()];
       if (mapped) setTool(mapped);
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo, selectedRoomId, handleRemoveRoom]);
+  }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -197,8 +216,8 @@ export function Modeller() {
         onFloorChange={setActiveFloor}
         onSnapChange={setSnap}
         onFitView={handleFitView}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
+        onUndo={undo}
+        onRedo={redo}
         onImportDwg={handleImportDwg}
         onImportPdf={handleImportPdf}
         onImportIfc={handleImportIfc}
@@ -206,21 +225,22 @@ export function Modeller() {
       />
 
       <div className="flex min-h-0 flex-1">
-        {/* Center: Canvas or 3D view */}
         {viewMode === "2d" ? (
           <div className="min-w-0 flex-1">
             <FloorCanvas
               rooms={floorRooms}
               windows={floorWindows}
-              selectedRoomId={selectedRoomId}
-              hoveredRoomId={hoveredRoomId}
+              doors={floorDoors}
+              selection={selection}
               tool={tool}
               snap={snap}
               underlay={underlay}
-              onSelectRoom={setSelectedRoomId}
-              onHoverRoom={setHoveredRoomId}
+              onSelect={setSelection}
               onAddRoom={handleAddRoom}
               onAddWindow={handleAddWindow}
+              onAddDoor={handleAddDoor}
+              onMoveRoom={handleMoveRoom}
+              onUpdateWindow={handleUpdateWindow}
             />
           </div>
         ) : (
@@ -229,18 +249,20 @@ export function Modeller() {
               rooms={floorRooms}
               windows={floorWindows}
               selectedRoomId={selectedRoomId}
-              onSelectRoom={setSelectedRoomId}
+              onSelectRoom={(id) => setSelection(id ? { type: "room", roomId: id } : null)}
             />
           </div>
         )}
 
-        {/* Right: Properties panel */}
         <PropertiesPanel
           room={selectedRoom}
           rooms={floorRooms}
           windows={floorWindows}
+          selection={selection}
           onUpdateRoom={updateRoom}
           onRemoveRoom={handleRemoveRoom}
+          onUpdateWindow={handleUpdateWindow}
+          onRemoveWindow={handleRemoveWindow}
           wallConstructions={wallConstructions}
           floorConstructions={floorConstructions}
           roofConstructions={roofConstructions}

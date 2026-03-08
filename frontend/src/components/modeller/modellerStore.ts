@@ -77,6 +77,7 @@ interface ModellerStore {
 
   // Window CRUD
   addWindow: (win: ModelWindow) => void;
+  updateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
   removeWindow: (roomId: string, wallIndex: number, offset: number) => void;
 
   // Door CRUD
@@ -175,6 +176,18 @@ export const useModellerStore = create<ModellerStore>()(
         set({
           ...pushUndo(state),
           windows: [...state.windows, win],
+        });
+      },
+
+      updateWindow: (roomId, wallIndex, offset, updates) => {
+        const state = get();
+        set({
+          ...pushUndo(state),
+          windows: state.windows.map((w) =>
+            w.roomId === roomId && w.wallIndex === wallIndex && Math.abs(w.offset - offset) < 1
+              ? { ...w, ...updates }
+              : w,
+          ),
         });
       },
 

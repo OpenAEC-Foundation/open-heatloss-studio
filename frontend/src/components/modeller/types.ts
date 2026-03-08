@@ -55,6 +55,17 @@ export type ModellerTool =
 export type ViewMode = "2d" | "3d";
 
 // ---------------------------------------------------------------------------
+// Selection
+// ---------------------------------------------------------------------------
+
+export type Selection =
+  | { type: "room"; roomId: string }
+  | { type: "wall"; roomId: string; wallIndex: number }
+  | { type: "window"; roomId: string; wallIndex: number; offset: number }
+  | { type: "door"; roomId: string; wallIndex: number; offset: number }
+  | null;
+
+// ---------------------------------------------------------------------------
 // Snap
 // ---------------------------------------------------------------------------
 
