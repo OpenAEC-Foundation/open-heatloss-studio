@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ModellerTool, SnapMode, SnapSettings, ViewMode, WallAlignment } from "./types";
+import type { ModellerTool, SnapMode, SnapSettings, ViewMode } from "./types";
 import { FLOOR_LABELS } from "./exampleData";
 
 // ---------------------------------------------------------------------------
@@ -12,12 +12,10 @@ interface RibbonProps {
   viewMode: ViewMode;
   activeFloor: number;
   snap: SnapSettings;
-  wallAlignment: WallAlignment;
   onToolChange: (tool: ModellerTool) => void;
   onViewModeChange: (mode: ViewMode) => void;
   onFloorChange: (floor: number) => void;
   onSnapChange: (snap: SnapSettings) => void;
-  onWallAlignmentChange: (alignment: WallAlignment) => void;
   onFitView: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -128,13 +126,7 @@ export function Ribbon(props: RibbonProps) {
 // Tab: Model
 // ---------------------------------------------------------------------------
 
-const WALL_ALIGNMENT_OPTIONS: { value: WallAlignment; label: string; title: string }[] = [
-  { value: "exterior", label: "Buiten", title: "Tekenlijn = buitenkant wand" },
-  { value: "center", label: "Hart", title: "Tekenlijn = hart wand" },
-  { value: "interior", label: "Binnen", title: "Tekenlijn = binnenkant wand" },
-];
-
-function ModelTab({ tool, wallAlignment, onToolChange, onWallAlignmentChange, onUndo, onRedo }: RibbonProps) {
+function ModelTab({ tool, onToolChange, onUndo, onRedo }: RibbonProps) {
   return (
     <>
       {/* Undo / Redo */}
@@ -157,26 +149,6 @@ function ModelTab({ tool, wallAlignment, onToolChange, onWallAlignmentChange, on
         <ToolRow tools={ELEMENT_TOOLS} active={tool} onSelect={onToolChange} />
       </RibbonGroup>
 
-      <RibbonGroup label="Plaatsingspunt">
-        <div className="flex h-full items-center">
-          <div className="flex overflow-hidden rounded border border-stone-200">
-            {WALL_ALIGNMENT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => onWallAlignmentChange(opt.value)}
-                title={opt.title}
-                className={`px-2 py-1 text-[10px] font-medium ${
-                  wallAlignment === opt.value
-                    ? "bg-stone-800 text-white"
-                    : "text-stone-500 hover:bg-stone-100"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </RibbonGroup>
     </>
   );
 }

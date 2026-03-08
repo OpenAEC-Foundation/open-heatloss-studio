@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ModelRoom, ModelWall, ModelWindow, Point2D, Selection, WallAlignment } from "./types";
+import type { ModelRoom, ModelWall, ModelWindow, ModellerTool, Point2D, Selection, WallAlignment } from "./types";
 import { polygonArea, segmentsShareEdge } from "./geometry";
 import { useCatalogueStore } from "../../store/catalogueStore";
 import type { CatalogueEntry, CatalogueCategory } from "../../lib/constructionCatalogue";
@@ -30,6 +30,9 @@ interface PropertiesPanelProps {
   onAssignFloor?: (roomId: string, entryId: string | null) => void;
   onAssignRoof?: (roomId: string, entryId: string | null) => void;
   onAssignStandaloneWall?: (wallId: string, entryId: string | null) => void;
+  tool?: ModellerTool;
+  wallAlignment?: WallAlignment;
+  onWallAlignmentChange?: (alignment: WallAlignment) => void;
 }
 
 const FUNCTION_LABELS: Record<string, string> = {
@@ -71,6 +74,9 @@ export function PropertiesPanel({
   onAssignFloor,
   onAssignRoof,
   onAssignStandaloneWall,
+  tool,
+  wallAlignment = "exterior",
+  onWallAlignmentChange,
 }: PropertiesPanelProps) {
   const catalogueEntries = useCatalogueStore((s) => s.entries);
 
@@ -284,9 +290,57 @@ export function PropertiesPanel({
 
   // No room selected
   if (!room) {
+    // Wall drawing tool active: show wall settings
+    if (tool === "draw_wall") {
+      return (
+        <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
+          <div className="border-b border-stone-100 px-4 py-3">
+            <span className="text-sm font-bold text-stone-800">Wand tekenen</span>
+          </div>
+          <div className="space-y-3 px-4 py-3">
+            <Section title="Plaatsingspunt">
+              <div className="flex overflow-hidden rounded border border-stone-200">
+                {(["exterior", "center", "interior"] as WallAlignment[]).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => onWallAlignmentChange?.(opt)}
+                    className={`flex-1 px-2 py-1.5 text-[11px] font-medium ${
+                      wallAlignment === opt
+                        ? "bg-stone-800 text-white"
+                        : "text-stone-500 hover:bg-stone-100"
+                    }`}
+                  >
+                    {opt === "exterior" ? "Buiten" : opt === "interior" ? "Binnen" : "Hart"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-stone-400">Spatie = wissel tijdens tekenen</p>
+            </Section>
+
+            <Section title="Sneltoetsen">
+              <dl className="space-y-1 text-[10px] text-stone-500">
+                <div className="flex justify-between"><span>Exacte maat</span><span className="font-mono text-stone-700">getal + Enter</span></div>
+                <div className="flex justify-between"><span>Spiegelen</span><span className="font-mono text-stone-700">Spatie</span></div>
+                <div className="flex justify-between"><span>Afronden</span><span className="font-mono text-stone-700">Dubbelklik / Esc</span></div>
+                <div className="flex justify-between"><span>Sluiten (loop)</span><span className="font-mono text-stone-700">Klik startpunt</span></div>
+              </dl>
+            </Section>
+
+            <Section title="Wandtype">
+              <ConstructionPickerInline
+                entries={catalogueEntries}
+                filterCategory="wanden"
+                onSelect={() => {/* TODO: pre-assign construction to new walls */}}
+              />
+            </Section>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="w-72 shrink-0 border-l border-stone-200 bg-white p-4">
-        <p className="text-xs text-stone-400">Selecteer een ruimte om de eigenschappen te bekijken.</p>
+        <p className="text-xs text-stone-400">Selecteer een ruimte of wand om de eigenschappen te bekijken.</p>
         <div className="mt-6">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">Ruimten ({rooms.length})</h3>
           <ul className="space-y-1">
@@ -297,6 +351,22 @@ export function PropertiesPanel({
             ))}
           </ul>
         </div>
+        {walls.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">Wanden ({walls.length})</h3>
+            <ul className="space-y-1">
+              {walls.map((w) => {
+                let len = 0;
+                for (let i = 0; i < w.points.length - 1; i++) len += Math.hypot(w.points[i + 1]!.x - w.points[i]!.x, w.points[i + 1]!.y - w.points[i]!.y);
+                return (
+                  <li key={w.id} className="text-xs text-stone-600">
+                    <span className="font-mono font-medium">{w.id.slice(0, 6)}</span> — {(len / 1000).toFixed(2)} m
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
     );
   }

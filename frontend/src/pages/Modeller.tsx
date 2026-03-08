@@ -239,6 +239,7 @@ export function Modeller() {
       if (e.key === "Delete") {
         if (selection?.type === "room") { handleRemoveRoom(selection.roomId); return; }
         if (selection?.type === "window") { handleRemoveWindow(selection.roomId, selection.wallIndex, selection.offset); return; }
+        if (selection?.type === "standalone_wall") { handleRemoveWall(selection.wallId); return; }
       }
 
       const keyMap: Record<string, ModellerTool> = {
@@ -251,7 +252,7 @@ export function Modeller() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow]);
+  }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow, handleRemoveWall]);
 
   return (
     <div className="flex h-screen flex-col">
@@ -260,12 +261,10 @@ export function Modeller() {
         viewMode={viewMode}
         activeFloor={activeFloor}
         snap={snap}
-        wallAlignment={wallAlignment}
         onToolChange={setTool}
         onViewModeChange={setViewMode}
         onFloorChange={setActiveFloor}
         onSnapChange={setSnap}
-        onWallAlignmentChange={setWallAlignment}
         onFitView={handleFitView}
         onUndo={undo}
         onRedo={redo}
@@ -300,6 +299,8 @@ export function Modeller() {
               onRemoveWindow={handleRemoveWindow}
               onAddWall={handleAddWall}
               onRemoveWall={handleRemoveWall}
+              wallAlignment={wallAlignment}
+              onWallAlignmentChange={setWallAlignment}
               fitViewTrigger={fitViewTrigger}
             />
           </div>
@@ -336,6 +337,9 @@ export function Modeller() {
           onAssignFloor={assignFloorConstruction}
           onAssignRoof={assignRoofConstruction}
           onAssignStandaloneWall={assignStandaloneWallConstruction}
+          tool={tool}
+          wallAlignment={wallAlignment}
+          onWallAlignmentChange={setWallAlignment}
         />
       </div>
     </div>

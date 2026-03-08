@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konva";
 import Konva from "konva";
 
-import type { ModelRoom, ModelWindow, ModelDoor, ModelWall, ModellerTool, Point2D, SnapSettings, Selection } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, ModelWall, ModellerTool, Point2D, SnapSettings, Selection, WallAlignment } from "./types";
 import { pointInPolygon, polygonArea, polygonCenter, offsetPolygon, getSharedEdges } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
 
@@ -38,6 +38,8 @@ interface FloorCanvasProps {
   onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
   onAddWall?: (points: Point2D[]) => void;
   onRemoveWall?: (id: string) => void;
+  wallAlignment?: WallAlignment;
+  onWallAlignmentChange?: (alignment: WallAlignment) => void;
   /** Increment to trigger a fit-view zoom. */
   fitViewTrigger?: number;
 }
@@ -156,6 +158,8 @@ export function FloorCanvas({
   onRemoveWindow,
   onAddWall,
   onRemoveWall,
+  wallAlignment = "exterior",
+  onWallAlignmentChange,
   fitViewTrigger = 0,
 }: FloorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -167,6 +171,8 @@ export function FloorCanvas({
   // Drawing state
   const [drawPoints, setDrawPoints] = useState<Point2D[]>([]);
   const [cursorWorld, setCursorWorld] = useState<Point2D | null>(null);
+  // Numeric length input (mm) while drawing
+  const [numericInput, setNumericInput] = useState("");
   // Measure tool state
   const [measurePoints, setMeasurePoints] = useState<Point2D[]>([]);
   // Context menu
@@ -264,20 +270,70 @@ export function FloorCanvas({
     if (drawPoints.length >= 2 && onAddWall) {
       onAddWall([...drawPoints]);
     }
-    setDrawPoints([]); setCursorWorld(null); setMeasurePoints([]);
+    setDrawPoints([]); setCursorWorld(null); setMeasurePoints([]); setNumericInput("");
   }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       if (e.key === "Escape") {
         if (tool === "draw_wall" && drawPoints.length >= 2 && onAddWall) {
           onAddWall([...drawPoints]);
         }
         setDrawPoints([]);
+        setNumericInput("");
+        return;
+      }
+
+      // Delete selected standalone wall
+      if (e.key === "Delete" && selection?.type === "standalone_wall") {
+        onRemoveWall?.(selection.wallId);
+        return;
+      }
+
+      // Space: flip wall alignment while drawing
+      if (e.key === " " && tool === "draw_wall" && onWallAlignmentChange) {
+        e.preventDefault();
+        const cycle: WallAlignment[] = ["exterior", "center", "interior"];
+        const idx = cycle.indexOf(wallAlignment);
+        onWallAlignmentChange(cycle[(idx + 1) % cycle.length]!);
+        return;
+      }
+
+      // Numeric input: digits, period, Backspace, Enter
+      if (isDrawingTool(tool) && drawPoints.length > 0) {
+        if ((e.key >= "0" && e.key <= "9") || e.key === ".") {
+          e.preventDefault();
+          setNumericInput((prev) => prev + e.key);
+          return;
+        }
+        if (e.key === "Backspace" && numericInput.length > 0) {
+          e.preventDefault();
+          setNumericInput((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (e.key === "Enter" && numericInput.length > 0 && cursorWorld) {
+          e.preventDefault();
+          const mm = parseFloat(numericInput) * 1000; // input in meters → mm
+          if (!isNaN(mm) && mm > 0) {
+            const lastPt = drawPoints[drawPoints.length - 1]!;
+            const dx = cursorWorld.x - lastPt.x;
+            const dy = cursorWorld.y - lastPt.y;
+            const len = Math.hypot(dx, dy);
+            if (len > 0.001) {
+              const snapped = { x: lastPt.x + (dx / len) * mm, y: lastPt.y + (dy / len) * mm };
+              setDrawPoints([...drawPoints, snapped]);
+            }
+          }
+          setNumericInput("");
+          return;
+        }
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, []);
+  }, [tool, drawPoints, numericInput, cursorWorld, selection, wallAlignment, onAddWall, onRemoveWall, onWallAlignmentChange]);
 
   // Resize observer
   useEffect(() => {
@@ -883,7 +939,7 @@ export function FloorCanvas({
             })()}
 
             {/* Drawing preview */}
-            <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} />
+            <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} wallAlignment={wallAlignment} numericInput={numericInput} />
 
             {/* Circle preview (center placed, sizing with cursor) */}
             {tool === "draw_circle" && drawPoints.length === 1 && cursorWorld && (() => {
@@ -954,8 +1010,23 @@ export function FloorCanvas({
 
       {/* Drawing / measure hint overlay (HTML for better styling) */}
       {(isDrawingTool(tool) || tool === "measure") && (
-        <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 rounded bg-black/70 px-3 py-1.5 text-[11px] text-white">
-          {tool === "measure" ? getMeasureHint(measurePoints.length) : getDrawingHint(tool, drawPoints.length)}
+        <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+          {/* Numeric input display */}
+          {numericInput && (
+            <div className="rounded bg-emerald-600/90 px-3 py-1 font-mono text-sm text-white">
+              {numericInput} m <span className="text-emerald-200">Enter</span>
+            </div>
+          )}
+          <div className="rounded bg-black/70 px-3 py-1.5 text-[11px] text-white">
+            {tool === "measure" ? getMeasureHint(measurePoints.length) : getDrawingHint(tool, drawPoints.length)}
+          </div>
+        </div>
+      )}
+
+      {/* Wall alignment indicator while drawing */}
+      {tool === "draw_wall" && (
+        <div className="pointer-events-none absolute bottom-20 left-1/2 -translate-x-1/2 rounded bg-stone-800/70 px-2 py-1 text-[10px] text-stone-200">
+          Plaatsing: {wallAlignment === "exterior" ? "Buiten" : wallAlignment === "interior" ? "Binnen" : "Hart"} <span className="text-stone-400">(Spatie = wissel)</span>
         </div>
       )}
 
@@ -1337,8 +1408,9 @@ function DimensionAnnotations({ room, invZoom }: { room: ModelRoom; invZoom: num
 }
 
 /** Drawing preview (rect, polygon, wall). */
-function DrawPreview({ tool, points, cursor, invZoom, snapGridSize }: {
+function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, wallAlignment = "exterior", numericInput = "" }: {
   tool: ModellerTool; points: Point2D[]; cursor: Point2D | null; invZoom: number; snapGridSize: number;
+  wallAlignment?: WallAlignment; numericInput?: string;
 }) {
   if (points.length === 0 && !cursor) return null;
 
@@ -1380,18 +1452,93 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize }: {
     );
   }
 
-  // Polygon / wall preview
-  if ((tool === "draw_polygon" || tool === "draw_wall") && points.length > 0) {
+  // Polygon preview (non-wall)
+  if (tool === "draw_polygon" && points.length > 0) {
     const allPts = cursor ? [...points, cursor] : points;
     const flatPts = allPts.flatMap((p) => [p.x, p.y]);
 
     return (
       <Group listening={false}>
-        {/* Fill */}
         <Line points={flatPts} closed fill="rgba(217, 119, 6, 0.08)" stroke="#d97706" strokeWidth={2 * invZoom} dash={[6 * invZoom, 4 * invZoom]} />
+        {cursor && points.length >= 3 && (() => {
+          const first = points[0]!;
+          const dist = Math.hypot(cursor.x - first.x, cursor.y - first.y);
+          if (dist < snapGridSize * 1.5) {
+            return <Circle x={first.x} y={first.y} radius={10 * invZoom} stroke="#d97706" strokeWidth={2 * invZoom} />;
+          }
+          return null;
+        })()}
+        {points.map((p, i) => (
+          <Circle key={i} x={p.x} y={p.y} radius={4 * invZoom} fill="#d97706" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
+        ))}
+        {points.map((p, i) => {
+          const next = i < points.length - 1 ? points[i + 1]! : cursor;
+          if (!next) return null;
+          const len = Math.hypot(next.x - p.x, next.y - p.y);
+          if (len < 100) return null;
+          return (
+            <Text key={`len-${i}`} x={(p.x + next.x) / 2} y={(p.y + next.y) / 2 - 14 * invZoom}
+              text={`${(len / 1000).toFixed(2)} m`} fontSize={10 * invZoom} fontStyle="bold"
+              fontFamily="Inter, system-ui, sans-serif" fill="#d97706" align="center"
+              offsetX={25 * invZoom} width={50 * invZoom} />
+          );
+        })}
+      </Group>
+    );
+  }
+
+  // Wall preview: show thick layered wall preview
+  if (tool === "draw_wall" && points.length > 0) {
+    const allPts = cursor ? [...points, cursor] : points;
+    if (allPts.length < 2) {
+      // Just one point + cursor not yet: show vertex dot
+      return (
+        <Group listening={false}>
+          {points.map((p, i) => (
+            <Circle key={i} x={p.x} y={p.y} radius={4 * invZoom} fill="#d97706" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
+          ))}
+        </Group>
+      );
+    }
+
+    const alignOffset = wallAlignment === "exterior" ? -WALL_THICKNESS_MM
+      : wallAlignment === "interior" ? 0
+      : -WALL_THICKNESS_MM / 2;
+
+    const layerPolylines = WALL_LAYER_OFFSETS.map((d) =>
+      offsetPolyline(allPts, d + alignOffset),
+    );
+    const innerLine = layerPolylines[0]!;
+    const outerLine = layerPolylines[layerPolylines.length - 1]!;
+    const nPts = allPts.length;
+
+    return (
+      <Group listening={false}>
+        {/* Layer quads per segment */}
+        {Array.from({ length: nPts - 1 }, (_, si) => (
+          <Group key={`seg-${si}`}>
+            {WALL_LAYERS.map((layer, li) => {
+              const inner = layerPolylines[li]!;
+              const outer = layerPolylines[li + 1]!;
+              const pts = [
+                inner[si]!.x, inner[si]!.y,
+                inner[si + 1]!.x, inner[si + 1]!.y,
+                outer[si + 1]!.x, outer[si + 1]!.y,
+                outer[si]!.x, outer[si]!.y,
+              ];
+              return <Line key={`layer-${li}`} points={pts} closed fill={layer.color} opacity={0.7} />;
+            })}
+          </Group>
+        ))}
+        {/* Outlines */}
+        <Line points={outerLine.flatMap((p) => [p.x, p.y])} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
+        <Line points={innerLine.flatMap((p) => [p.x, p.y])} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
+        {/* End caps */}
+        <Line points={[innerLine[0]!.x, innerLine[0]!.y, outerLine[0]!.x, outerLine[0]!.y]} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
+        <Line points={[innerLine[nPts - 1]!.x, innerLine[nPts - 1]!.y, outerLine[nPts - 1]!.x, outerLine[nPts - 1]!.y]} stroke="#d97706" strokeWidth={Math.max(20, 0.8 / (1 / invZoom))} />
 
         {/* Close indicator */}
-        {cursor && points.length >= 3 && (() => {
+        {cursor && points.length >= 2 && (() => {
           const first = points[0]!;
           const dist = Math.hypot(cursor.x - first.x, cursor.y - first.y);
           if (dist < snapGridSize * 1.5) {
@@ -1406,27 +1553,33 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize }: {
         ))}
 
         {/* Edge lengths */}
-        {points.map((p, i) => {
-          const next = i < points.length - 1 ? points[i + 1]! : cursor;
-          if (!next) return null;
+        {allPts.slice(0, -1).map((p, i) => {
+          const next = allPts[i + 1]!;
           const len = Math.hypot(next.x - p.x, next.y - p.y);
           if (len < 100) return null;
           return (
-            <Text
-              key={`len-${i}`}
-              x={(p.x + next.x) / 2}
-              y={(p.y + next.y) / 2 - 14 * invZoom}
-              text={`${(len / 1000).toFixed(2)} m`}
-              fontSize={10 * invZoom}
-              fontStyle="bold"
-              fontFamily="Inter, system-ui, sans-serif"
-              fill="#d97706"
-              align="center"
-              offsetX={25 * invZoom}
-              width={50 * invZoom}
-            />
+            <Text key={`len-${i}`} x={(p.x + next.x) / 2} y={(p.y + next.y) / 2 - 14 * invZoom}
+              text={`${(len / 1000).toFixed(2)} m`} fontSize={10 * invZoom} fontStyle="bold"
+              fontFamily="Inter, system-ui, sans-serif" fill="#d97706" align="center"
+              offsetX={25 * invZoom} width={50 * invZoom} />
           );
         })}
+
+        {/* Numeric input indicator on last segment */}
+        {numericInput && cursor && (() => {
+          const lastPt = points[points.length - 1]!;
+          const mx = (lastPt.x + cursor.x) / 2;
+          const my = (lastPt.y + cursor.y) / 2;
+          return (
+            <Text
+              x={mx} y={my + 16 * invZoom}
+              text={`${numericInput} m \u23CE`}
+              fontSize={12 * invZoom} fontStyle="bold"
+              fontFamily="Inter, system-ui, sans-serif" fill="#059669"
+              align="center" offsetX={30 * invZoom} width={60 * invZoom}
+            />
+          );
+        })()}
       </Group>
     );
   }
