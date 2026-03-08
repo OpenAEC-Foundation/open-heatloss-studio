@@ -431,18 +431,26 @@ function MaterialCategoryGroup({
   materials: Material[];
   onRemove: (id: string) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <>
-      <tr className="bg-stone-50">
+      <tr
+        className="cursor-pointer select-none bg-stone-50 hover:bg-stone-100"
+        onClick={() => setCollapsed((v) => !v)}
+      >
         <td
           colSpan={7}
           className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-stone-500"
         >
+          <span className="mr-1.5 inline-block w-3 text-center text-[10px]">
+            {collapsed ? "\u25B6" : "\u25BC"}
+          </span>
           {MATERIAL_CATEGORY_LABELS[category]}
           <span className="ml-2 font-normal text-stone-400">({materials.length})</span>
         </td>
       </tr>
-      {materials.map((m) => (
+      {!collapsed && materials.map((m) => (
         <tr key={m.id} className="group border-b border-stone-100 hover:bg-stone-50/50">
           <td className="px-3 py-2 font-medium text-stone-800">
             {m.name}
