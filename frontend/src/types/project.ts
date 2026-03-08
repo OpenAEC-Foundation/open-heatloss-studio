@@ -108,7 +108,7 @@ export interface Room {
   height?: number;
   constructions: ConstructionElement[];
   heating_system: HeatingSystem;
-  ventilation_rate: number;
+  ventilation_rate?: number | null;
   has_mechanical_exhaust?: boolean;
   has_mechanical_supply?: boolean;
   fraction_outside_air?: number;

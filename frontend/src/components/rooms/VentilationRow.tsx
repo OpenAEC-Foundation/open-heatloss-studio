@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
+import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import type { Room } from "../../types";
 
 interface VentilationRowProps {
@@ -11,11 +12,20 @@ interface VentilationRowProps {
  * Uitklapbare rij met ventilatie-instellingen per vertrek.
  *
  * Velden: q_v [dm³/s], mech. afvoer, mech. toevoer, f_buitenlucht.
+ * Als q_v leeg is, wordt het BBL minimum als placeholder getoond
+ * en door de Rust core automatisch berekend.
  */
 export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
+  const bblMinimum = useMemo(
+    () => bblMinimumVentilationRate(room.function, room.floor_area),
+    [room.function, room.floor_area],
+  );
+
   const handleQvChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdate({ ventilation_rate: Number(e.target.value) || 0 });
+      const val = e.target.value;
+      // Empty field → null (auto-calculate from BBL)
+      onUpdate({ ventilation_rate: val === "" ? null : Number(val) || 0 });
     },
     [onUpdate],
   );
@@ -54,11 +64,14 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               type="number"
               step="any"
               min="0"
-              value={room.ventilation_rate || ""}
+              value={room.ventilation_rate ?? ""}
               onChange={handleQvChange}
               className="w-16 rounded border border-stone-200 px-1.5 py-0.5 text-right text-xs tabular-nums focus:border-blue-400 focus:outline-none"
-              placeholder="0"
+              placeholder={bblMinimum > 0 ? bblMinimum.toFixed(1) : "0"}
             />
+            {bblMinimum > 0 && room.ventilation_rate == null && (
+              <span className="text-[10px] text-stone-400">BBL min.</span>
+            )}
           </label>
 
           {/* Mech. afvoer */}

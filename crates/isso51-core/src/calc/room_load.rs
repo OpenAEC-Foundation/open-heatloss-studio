@@ -100,13 +100,13 @@ pub fn calculate_room(
             let f_v2 =
                 ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
             let h = ventilation::h_ventilation_mixed(
-                room.ventilation_rate,
+                room.effective_ventilation_rate(),
                 room.fraction_outside_air,
                 f_v1,
                 f_v2,
             );
-            let fv_eff = if room.ventilation_rate > 0.0 {
-                h / (1.2 * room.ventilation_rate)
+            let fv_eff = if room.effective_ventilation_rate() > 0.0 {
+                h / (1.2 * room.effective_ventilation_rate())
             } else {
                 0.0
             };
@@ -125,7 +125,7 @@ pub fn calculate_room(
             let theta_a = room.internal_air_temperature.unwrap_or(theta_i);
             let fv =
                 ventilation::f_v_adjacent(theta_i, theta_e, theta_a, delta_v);
-            let h = ventilation::h_ventilation(room.ventilation_rate, fv);
+            let h = ventilation::h_ventilation(room.effective_ventilation_rate(), fv);
             (
                 h,
                 fv,
@@ -138,7 +138,7 @@ pub fn calculate_room(
         } else {
             // All air from outside
             let fv = ventilation::f_v(theta_i, theta_e, theta_t, delta_v);
-            let h = ventilation::h_ventilation(room.ventilation_rate, fv);
+            let h = ventilation::h_ventilation(room.effective_ventilation_rate(), fv);
             (
                 h,
                 fv,
@@ -284,7 +284,8 @@ pub fn calculate_room(
         ventilation: VentilationResult {
             h_v,
             f_v: fv,
-            q_v: room.ventilation_rate,
+            q_v: room.effective_ventilation_rate(),
+            q_v_minimum: room.bbl_minimum_ventilation_rate(),
             phi_v,
             phi_vent,
             norm_refs: vent_norm_refs,

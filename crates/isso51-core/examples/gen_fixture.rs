@@ -158,7 +158,7 @@ fn create_room(
         height: 2.6,
         constructions,
         heating_system: HeatingSystem::RadiatorLt,
-        ventilation_rate: vent_rate,
+        ventilation_rate: Some(vent_rate),
         has_mechanical_exhaust: false,
         has_mechanical_supply: false,
         fraction_outside_air: frac_outside,

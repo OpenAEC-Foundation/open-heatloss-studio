@@ -476,7 +476,7 @@ mod tests {
                 },
             ],
             heating_system: HeatingSystem::RadiatorLt,
-            ventilation_rate: 25.38,
+            ventilation_rate: Some(25.38),
             has_mechanical_exhaust: false,
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,

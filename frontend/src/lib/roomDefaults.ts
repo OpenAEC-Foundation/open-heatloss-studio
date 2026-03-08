@@ -1,6 +1,42 @@
 import type { CatalogueEntry } from "./constructionCatalogue";
 
-import type { ConstructionElement, Room } from "../types";
+import type { ConstructionElement, Room, RoomFunction } from "../types";
+
+/** BBL specific ventilation rate for verblijfsruimten in dm³/s per m². */
+const BBL_QV_SPEC_LIVING = 0.9;
+/** BBL minimum ventilation per verblijfsruimte in dm³/s. */
+const BBL_QV_MIN_LIVING = 7.0;
+
+/**
+ * Calculate the BBL minimum ventilation rate for a room.
+ * BBL Afdeling 3.6: Luchtverversing.
+ *
+ * @param func - Room function
+ * @param floorArea - Floor area in m²
+ * @returns Minimum ventilation rate in dm³/s
+ */
+export function bblMinimumVentilationRate(
+  func: RoomFunction,
+  floorArea: number,
+): number {
+  switch (func) {
+    case "living_room":
+    case "bedroom":
+    case "attic":
+      return Math.max(BBL_QV_SPEC_LIVING * floorArea, BBL_QV_MIN_LIVING);
+    case "kitchen":
+      return 21;
+    case "bathroom":
+      return 14;
+    case "toilet":
+      return 7;
+    case "hallway":
+    case "landing":
+    case "storage":
+    case "custom":
+      return 0;
+  }
+}
 
 /** Create a new Room with sensible defaults. */
 export function createRoom(): Room {
@@ -12,7 +48,6 @@ export function createRoom(): Room {
     height: 2.6,
     constructions: [],
     heating_system: "radiator_ht",
-    ventilation_rate: 0,
   };
 }
 

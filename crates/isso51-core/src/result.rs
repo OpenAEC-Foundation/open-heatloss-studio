@@ -109,8 +109,12 @@ pub struct VentilationResult {
     /// Temperature correction factor f_v.
     pub f_v: f64,
 
-    /// Ventilation volume flow q_v in dm³/s.
+    /// Ventilation volume flow q_v in dm³/s (effective, used in calculation).
     pub q_v: f64,
+
+    /// BBL minimum ventilation rate in dm³/s.
+    /// Always calculated from room function and floor area (BBL Afdeling 3.6).
+    pub q_v_minimum: f64,
 
     /// Ventilation heat loss Φ_v in W.
     pub phi_v: f64,

@@ -8,3 +8,4 @@ pub mod heating_up;
 pub mod infiltration;
 pub mod temperature;
 pub mod thermal_bridge;
+pub mod ventilation;

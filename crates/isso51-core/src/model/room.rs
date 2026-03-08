@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::construction::ConstructionElement;
 use super::enums::{HeatingSystem, RoomFunction};
+use crate::tables;
 
 /// A single room (vertrek) in the dwelling.
 /// ISSO 51 Chapter 4 — per-room heat loss calculation.
@@ -42,8 +43,10 @@ pub struct Room {
     pub heating_system: HeatingSystem,
 
     /// Ventilation volume flow rate q_v in dm³/s.
-    /// From ventilation requirements (ISSO 51 Table 2.9/2.10).
-    pub ventilation_rate: f64,
+    /// If None, automatically calculated from BBL minimum requirements
+    /// based on room function and floor area.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ventilation_rate: Option<f64>,
 
     /// Whether this room has mechanical exhaust.
     /// Affects ventilation loss calculation (formule 4.7).
@@ -84,6 +87,22 @@ impl Room {
         self.custom_temperature
             .unwrap_or_else(|| self.function.design_temperature())
     }
+
+    /// Returns the effective ventilation rate q_v in dm³/s.
+    /// Uses the explicit ventilation_rate if set, otherwise calculates
+    /// the BBL minimum based on room function and floor area.
+    pub fn effective_ventilation_rate(&self) -> f64 {
+        self.ventilation_rate.unwrap_or_else(|| {
+            tables::ventilation::bbl_minimum_ventilation_rate(self.function, self.floor_area)
+        })
+    }
+
+    /// Returns the BBL minimum ventilation rate in dm³/s.
+    /// Always calculated from room function and floor area,
+    /// regardless of the explicit ventilation_rate setting.
+    pub fn bbl_minimum_ventilation_rate(&self) -> f64 {
+        tables::ventilation::bbl_minimum_ventilation_rate(self.function, self.floor_area)
+    }
 }
 
 fn default_room_height() -> f64 {
@@ -113,7 +132,7 @@ mod tests {
             height: 2.6,
             constructions: vec![],
             heating_system: HeatingSystem::RadiatorLt,
-            ventilation_rate: 25.38,
+            ventilation_rate: Some(25.38),
             has_mechanical_exhaust: false,
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
@@ -135,7 +154,7 @@ mod tests {
             height: 2.6,
             constructions: vec![],
             heating_system: HeatingSystem::RadiatorLt,
-            ventilation_rate: 0.0,
+            ventilation_rate: None,
             has_mechanical_exhaust: false,
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
@@ -144,5 +163,73 @@ mod tests {
             clamp_positive: true,
         };
         assert_eq!(room.design_temperature(), 18.0);
+    }
+
+    #[test]
+    fn test_effective_ventilation_rate_explicit() {
+        let room = Room {
+            id: "r1".to_string(),
+            name: "Woonkamer".to_string(),
+            function: RoomFunction::LivingRoom,
+            custom_temperature: None,
+            floor_area: 28.2,
+            height: 2.6,
+            constructions: vec![],
+            heating_system: HeatingSystem::RadiatorLt,
+            ventilation_rate: Some(25.38),
+            has_mechanical_exhaust: false,
+            has_mechanical_supply: false,
+            fraction_outside_air: 1.0,
+            supply_air_temperature: None,
+            internal_air_temperature: None,
+            clamp_positive: true,
+        };
+        assert!((room.effective_ventilation_rate() - 25.38).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_effective_ventilation_rate_auto_bbl() {
+        let room = Room {
+            id: "r1".to_string(),
+            name: "Woonkamer".to_string(),
+            function: RoomFunction::LivingRoom,
+            custom_temperature: None,
+            floor_area: 28.0,
+            height: 2.6,
+            constructions: vec![],
+            heating_system: HeatingSystem::RadiatorLt,
+            ventilation_rate: None, // auto-calculate from BBL
+            has_mechanical_exhaust: false,
+            has_mechanical_supply: false,
+            fraction_outside_air: 1.0,
+            supply_air_temperature: None,
+            internal_air_temperature: None,
+            clamp_positive: true,
+        };
+        // BBL: 0.9 × 28 = 25.2 dm³/s
+        assert!((room.effective_ventilation_rate() - 25.2).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_bbl_minimum_bathroom() {
+        let room = Room {
+            id: "r1".to_string(),
+            name: "Badkamer".to_string(),
+            function: RoomFunction::Bathroom,
+            custom_temperature: None,
+            floor_area: 6.0,
+            height: 2.6,
+            constructions: vec![],
+            heating_system: HeatingSystem::RadiatorLt,
+            ventilation_rate: None,
+            has_mechanical_exhaust: false,
+            has_mechanical_supply: false,
+            fraction_outside_air: 1.0,
+            supply_air_temperature: None,
+            internal_air_temperature: None,
+            clamp_positive: true,
+        };
+        assert!((room.effective_ventilation_rate() - 14.0).abs() < 0.01);
+        assert!((room.bbl_minimum_ventilation_rate() - 14.0).abs() < 0.01);
     }
 }
