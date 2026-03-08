@@ -35,6 +35,7 @@ interface FloorCanvasProps {
   onUpdateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
   onRemoveRoom?: (id: string) => void;
   onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
+  onSplitRoom?: (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number) => void;
   /** Increment to trigger a fit-view zoom. */
   fitViewTrigger?: number;
 }
@@ -84,6 +85,7 @@ export function FloorCanvas({
   onUpdateWindow,
   onRemoveRoom,
   onRemoveWindow,
+  onSplitRoom,
   fitViewTrigger = 0,
 }: FloorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,6 +103,8 @@ export function FloorCanvas({
   const [measurePoints, setMeasurePoints] = useState<Point2D[]>([]);
   // Context menu
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  // Split room tool: stores first hit info between clicks
+  const splitHitRef = useRef<{ roomId: string; wallIndex: number; offset: number }[] | null>(null);
 
   // Panning
   const isPanningRef = useRef(false);
@@ -363,6 +367,51 @@ export function FloorCanvas({
       return;
     }
 
+    // Split room tool: click two points on room edges
+    if (tool === "split_room") {
+      const hit = findWallHit(raw, rooms, snap.gridSize * 3);
+      if (!hit) return;
+      if (drawPoints.length === 0) {
+        // First split point — store the hit info
+        setDrawPoints([{ x: hit.roomId as unknown as number, y: 0 }]); // placeholder
+        splitHitRef.current = [hit];
+        // Compute and store the actual snap point on the wall edge
+        const room = rooms.find((r) => r.id === hit.roomId);
+        if (room) {
+          const a = room.polygon[hit.wallIndex]!;
+          const b = room.polygon[(hit.wallIndex + 1) % room.polygon.length]!;
+          const len = Math.hypot(b.x - a.x, b.y - a.y);
+          const t = len > 0 ? hit.offset / len : 0;
+          const px = a.x + (b.x - a.x) * t;
+          const py = a.y + (b.y - a.y) * t;
+          setDrawPoints([{ x: px, y: py }]);
+        }
+      } else {
+        // Second split point — execute split
+        const firstHit = splitHitRef.current?.[0];
+        if (firstHit && hit.roomId === firstHit.roomId && hit.wallIndex !== firstHit.wallIndex) {
+          const room = rooms.find((r) => r.id === hit.roomId);
+          if (room) {
+            const polyLen = room.polygon.length;
+            const a1 = room.polygon[firstHit.wallIndex]!;
+            const b1 = room.polygon[(firstHit.wallIndex + 1) % polyLen]!;
+            const len1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
+            const tA = len1 > 0 ? firstHit.offset / len1 : 0;
+
+            const a2 = room.polygon[hit.wallIndex]!;
+            const b2 = room.polygon[(hit.wallIndex + 1) % polyLen]!;
+            const len2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+            const tB = len2 > 0 ? hit.offset / len2 : 0;
+
+            onSplitRoom?.(hit.roomId, firstHit.wallIndex, tA, hit.wallIndex, tB);
+          }
+        }
+        setDrawPoints([]);
+        splitHitRef.current = null;
+      }
+      return;
+    }
+
     // Measure tool: 2 clicks, then click again to restart
     if (tool === "measure") {
       if (measurePoints.length === 0 || measurePoints.length === 2) {
@@ -409,7 +458,7 @@ export function FloorCanvas({
       }
       onSelect(null);
     }
-  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, onAddRoom, onAddWindow, onAddDoor, onSelect]);
+  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, onAddRoom, onAddWindow, onAddDoor, onSelect, onSplitRoom]);
 
   const handleDblClick = useCallback(() => {
     if (tool === "draw_polygon" && drawPoints.length >= 3) {
@@ -668,6 +717,38 @@ export function FloorCanvas({
 
             {/* Drawing preview */}
             <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} numericInput={numericInput} />
+
+            {/* Split room preview */}
+            {tool === "split_room" && drawPoints.length === 1 && cursorWorld && (() => {
+              const p0 = drawPoints[0]!;
+              // Find the wall the cursor is near
+              const hit = findWallHit(cursorWorld, rooms, snap.gridSize * 3);
+              if (hit && splitHitRef.current?.[0]?.roomId === hit.roomId) {
+                const room = rooms.find((r) => r.id === hit.roomId);
+                if (room) {
+                  const a = room.polygon[hit.wallIndex]!;
+                  const b = room.polygon[(hit.wallIndex + 1) % room.polygon.length]!;
+                  const len = Math.hypot(b.x - a.x, b.y - a.y);
+                  const t = len > 0 ? hit.offset / len : 0;
+                  const px = a.x + (b.x - a.x) * t;
+                  const py = a.y + (b.y - a.y) * t;
+                  return (
+                    <Group listening={false}>
+                      <Line points={[p0.x, p0.y, px, py]} stroke="#ef4444" strokeWidth={2 * invZoom} dash={[8 * invZoom, 4 * invZoom]} />
+                      <Circle x={p0.x} y={p0.y} radius={5 * invZoom} fill="#ef4444" />
+                      <Circle x={px} y={py} radius={5 * invZoom} fill="#ef4444" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
+                    </Group>
+                  );
+                }
+              }
+              // Fallback: just show first point and line to cursor
+              return (
+                <Group listening={false}>
+                  <Line points={[p0.x, p0.y, cursorWorld.x, cursorWorld.y]} stroke="#ef4444" strokeWidth={1.5 * invZoom} dash={[6 * invZoom, 4 * invZoom]} opacity={0.5} />
+                  <Circle x={p0.x} y={p0.y} radius={5 * invZoom} fill="#ef4444" />
+                </Group>
+              );
+            })()}
 
             {/* Circle preview (center placed, sizing with cursor) */}
             {tool === "draw_circle" && drawPoints.length === 1 && cursorWorld && (() => {
@@ -1308,7 +1389,7 @@ function SnapBadge({ width, count }: { width: number; count: number }) {
 // =============================================================================
 
 function isDrawingTool(tool: ModellerTool): boolean {
-  return tool.startsWith("draw_");
+  return tool.startsWith("draw_") || tool === "split_room";
 }
 
 function getDrawingHint(tool: ModellerTool, pointCount: number): string {
@@ -1320,6 +1401,7 @@ function getDrawingHint(tool: ModellerTool, pointCount: number): string {
   if (tool === "draw_circle") return pointCount === 0 ? "Klik om middelpunt te plaatsen" : "Klik om straal in te stellen";
   if (tool === "draw_window") return "Klik op een wand om een raam te plaatsen";
   if (tool === "draw_door") return "Klik op een wand om een deur te plaatsen";
+  if (tool === "split_room") return pointCount === 0 ? "Klik op een wand om splitpunt te plaatsen" : "Klik op een andere wand om te splitsen";
   return "Klik om te tekenen";
 }
 

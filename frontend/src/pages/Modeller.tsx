@@ -3,14 +3,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FloorCanvas,
   FloorCanvas3D,
-  PropertiesPanel,
   DEFAULT_SNAP_SETTINGS,
 } from "../components/modeller";
 import { Ribbon } from "../components/modeller/Ribbon";
 import { useModellerStore } from "../components/modeller/modellerStore";
-import type { ModellerTool, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
+import type { ModellerTool, ModelRoom, ModelWindow, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
+import { splitPolygon } from "../components/modeller";
 import { useToastStore } from "../store/toastStore";
 import { useCatalogueStore } from "../store/catalogueStore";
+import { FLOOR_LABELS } from "../components/modeller/exampleData";
+import { polygonArea, segmentsShareEdge } from "../components/modeller";
 
 export function Modeller() {
   const [tool, setTool] = useState<ModellerTool>("select");
@@ -153,6 +155,26 @@ export function Modeller() {
     [removeWindow, selectedRoomId, addToast],
   );
 
+  const handleSplitRoom = useCallback(
+    (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number) => {
+      const room = rooms.find((r) => r.id === roomId);
+      if (!room) return;
+      const result = splitPolygon(room.polygon, edgeA, tA, edgeB, tB);
+      if (!result) {
+        addToast("Splitsen mislukt — probeer twee verschillende wanden", "info");
+        return;
+      }
+      const [poly1, poly2] = result;
+      // Remove original room, add two new ones
+      removeRoom(roomId);
+      const id1 = addRoom({ name: room.name, function: room.function, polygon: poly1, floor: room.floor, height: room.height });
+      addRoom({ name: `${room.name} (2)`, function: room.function, polygon: poly2, floor: room.floor, height: room.height });
+      setSelection({ type: "room", roomId: id1 });
+      addToast("Ruimte gesplitst", "success");
+    },
+    [rooms, removeRoom, addRoom, addToast],
+  );
+
   const handleImportPdf = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -222,7 +244,7 @@ export function Modeller() {
       const keyMap: Record<string, ModellerTool> = {
         v: "select", h: "pan", r: "draw_rect", p: "draw_polygon",
         c: "draw_circle", n: "draw_window",
-        d: "draw_door", m: "measure",
+        d: "draw_door", s: "split_room", m: "measure",
       };
       const mapped = keyMap[e.key.toLowerCase()];
       if (mapped) setTool(mapped);
@@ -252,8 +274,9 @@ export function Modeller() {
       />
 
       <div className="flex min-h-0 flex-1">
-        {viewMode === "2d" ? (
-          <div className="min-w-0 flex-1">
+        {/* Canvas area with 2D/3D overlay */}
+        <div className="relative min-w-0 flex-1">
+          {viewMode === "2d" ? (
             <FloorCanvas
               rooms={floorRooms}
               windows={floorWindows}
@@ -273,31 +296,55 @@ export function Modeller() {
               onUpdateWindow={handleUpdateWindow}
               onRemoveRoom={handleRemoveRoom}
               onRemoveWindow={handleRemoveWindow}
+              onSplitRoom={handleSplitRoom}
               fitViewTrigger={fitViewTrigger}
             />
-          </div>
-        ) : (
-          <div className="min-w-0 flex-1">
+          ) : (
             <FloorCanvas3D
               rooms={floorRooms}
               windows={floorWindows}
               doors={floorDoors}
-              selectedRoomId={selectedRoomId}
-              onSelectRoom={(id) => setSelection(id ? { type: "room", roomId: id } : null)}
+              selection={selection}
+              onSelect={setSelection}
               onDeleteRoom={handleRemoveRoom}
               wallConstructions={wallConstructions}
               floorConstructions={floorConstructions}
               roofConstructions={roofConstructions}
               catalogueUValues={catalogueUValues}
             />
-          </div>
-        )}
+          )}
 
-        <PropertiesPanel
-          room={selectedRoom}
-          rooms={floorRooms}
-          windows={floorWindows}
+          {/* 2D / 3D toggle — top left overlay */}
+          <div className="pointer-events-auto absolute left-3 top-3 z-20 flex overflow-hidden rounded-lg border border-stone-200 bg-white/95 shadow-sm backdrop-blur-sm text-xs">
+            <button
+              onClick={() => setViewMode("2d")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                viewMode === "2d" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+              }`}
+            >
+              2D
+            </button>
+            <button
+              onClick={() => setViewMode("3d")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                viewMode === "3d" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+              }`}
+            >
+              3D
+            </button>
+          </div>
+        </div>
+
+        {/* Right panel: project browser + properties */}
+        <ProjectBrowser
+          rooms={rooms}
+          floorRooms={floorRooms}
+          windows={windows}
           selection={selection}
+          selectedRoom={selectedRoom}
+          activeFloor={activeFloor}
+          onFloorChange={setActiveFloor}
+          onSelect={setSelection}
           onUpdateRoom={updateRoom}
           onRemoveRoom={handleRemoveRoom}
           onUpdateWindow={handleUpdateWindow}
@@ -312,4 +359,195 @@ export function Modeller() {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Project Browser — right panel with floor/room/surface hierarchy
+// ---------------------------------------------------------------------------
+
+
+interface ProjectBrowserProps {
+  rooms: ModelRoom[];
+  floorRooms: ModelRoom[];
+  windows: ModelWindow[];
+  selection: Selection;
+  selectedRoom: ModelRoom | null;
+  activeFloor: number;
+  onFloorChange: (floor: number) => void;
+  onSelect: (sel: Selection) => void;
+  onUpdateRoom: (id: string, updates: Partial<Omit<ModelRoom, "id">>) => void;
+  onRemoveRoom: (id: string) => void;
+  onUpdateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<{ offset: number; width: number }>) => void;
+  onRemoveWindow: (roomId: string, wallIndex: number, offset: number) => void;
+  wallConstructions: Record<string, string>;
+  floorConstructions: Record<string, string>;
+  roofConstructions: Record<string, string>;
+  onAssignWall: (roomId: string, wallIndex: number, entryId: string | null) => void;
+  onAssignFloor: (roomId: string, entryId: string | null) => void;
+  onAssignRoof: (roomId: string, entryId: string | null) => void;
+}
+
+function ProjectBrowser({
+  rooms,
+  windows,
+  selection,
+  activeFloor,
+  onFloorChange,
+  onSelect,
+  onRemoveRoom,
+  wallConstructions,
+}: ProjectBrowserProps) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggle = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Group rooms by floor
+  const floorGroups = FLOOR_LABELS.map((label, floor) => ({
+    label,
+    floor,
+    rooms: rooms.filter((r) => r.floor === floor),
+  }));
+
+  const catalogueEntries = useCatalogueStore((s) => s.entries);
+
+  return (
+    <div className="w-64 shrink-0 overflow-y-auto border-l border-stone-200 bg-white text-xs">
+      <div className="border-b border-stone-100 px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Project</span>
+      </div>
+
+      {floorGroups.map(({ label, floor, rooms: floorRooms }) => {
+        const floorKey = `floor-${floor}`;
+        const isFloorCollapsed = collapsed[floorKey];
+        const isActive = floor === activeFloor;
+
+        return (
+          <div key={floor}>
+            {/* Floor header */}
+            <button
+              onClick={() => { toggle(floorKey); onFloorChange(floor); }}
+              className={`flex w-full items-center gap-1.5 px-3 py-1.5 text-left transition-colors ${
+                isActive ? "bg-amber-50 font-semibold text-amber-900" : "text-stone-700 hover:bg-stone-50"
+              }`}
+            >
+              <span className="text-[10px] text-stone-400">{isFloorCollapsed ? "\u25B6" : "\u25BC"}</span>
+              <span>{label}</span>
+              <span className="ml-auto text-[10px] text-stone-400">{floorRooms.length}</span>
+            </button>
+
+            {/* Rooms under this floor */}
+            {!isFloorCollapsed && floorRooms.map((room) => {
+              const roomKey = `room-${room.id}`;
+              const isRoomCollapsed = collapsed[roomKey];
+              const isSelected = selection?.type === "room" && selection.roomId === room.id;
+              const area = polygonArea(room.polygon) / 1e6;
+              const roomWindows = windows.filter((w) => w.roomId === room.id);
+
+              return (
+                <div key={room.id}>
+                  {/* Room header */}
+                  <div
+                    className={`flex items-center gap-1 pl-6 pr-3 py-1 cursor-pointer transition-colors ${
+                      isSelected ? "bg-amber-100 text-amber-900" : "text-stone-600 hover:bg-stone-50"
+                    }`}
+                    onClick={() => onSelect({ type: "room", roomId: room.id })}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggle(roomKey); }}
+                      className="text-[10px] text-stone-400 w-3"
+                    >
+                      {isRoomCollapsed ? "\u25B6" : "\u25BC"}
+                    </button>
+                    <span className="font-mono font-medium text-[10px]">{room.id}</span>
+                    <span className="truncate flex-1">{room.name}</span>
+                    <span className="text-[10px] text-stone-400">{area.toFixed(1)}m²</span>
+                  </div>
+
+                  {/* Surfaces under this room */}
+                  {!isRoomCollapsed && (
+                    <div className="pl-10 pr-3">
+                      {/* Walls */}
+                      {room.polygon.map((_, wi) => {
+                        const ni = (wi + 1) % room.polygon.length;
+                        const a = room.polygon[wi]!;
+                        const b = room.polygon[ni]!;
+                        const len = Math.hypot(b.x - a.x, b.y - a.y);
+                        const dir = wallDir(room.polygon, wi);
+                        const isWallSel = selection?.type === "wall" && selection.roomId === room.id && selection.wallIndex === wi;
+                        const assignedId = wallConstructions[`${room.id}:${wi}`];
+                        const assigned = assignedId ? catalogueEntries.find((e) => e.id === assignedId) : null;
+
+                        // Check if shared
+                        let isShared = false;
+                        for (const other of rooms) {
+                          if (other.id === room.id) continue;
+                          for (let oj = 0; oj < other.polygon.length; oj++) {
+                            if (segmentsShareEdge(a, b, other.polygon[oj]!, other.polygon[(oj + 1) % other.polygon.length]!)) {
+                              isShared = true; break;
+                            }
+                          }
+                          if (isShared) break;
+                        }
+
+                        const wallWins = roomWindows.filter((w) => w.wallIndex === wi);
+
+                        return (
+                          <div
+                            key={`w-${wi}`}
+                            className={`flex items-center gap-1 py-0.5 cursor-pointer rounded px-1 ${
+                              isWallSel ? "bg-amber-100" : "hover:bg-stone-50"
+                            }`}
+                            onClick={() => onSelect({ type: "wall", roomId: room.id, wallIndex: wi })}
+                          >
+                            <span className="text-stone-400 w-10 text-[10px]">{dir}</span>
+                            <span className="text-[10px] flex-1">{(len / 1000).toFixed(2)}m</span>
+                            {isShared && <span className="text-[9px] text-blue-500">int</span>}
+                            {!isShared && <span className="text-[9px] text-red-500">ext</span>}
+                            {wallWins.length > 0 && <span className="text-[9px] text-blue-400">{wallWins.length}R</span>}
+                            {assigned && <span className="text-[9px] text-green-600">U={assigned.uValue}</span>}
+                          </div>
+                        );
+                      })}
+
+                      {/* Floor surface */}
+                      <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-stone-500">
+                        <span className="w-10">Vloer</span>
+                        <span className="flex-1">{area.toFixed(2)}m²</span>
+                      </div>
+
+                      {/* Ceiling surface */}
+                      <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-stone-500">
+                        <span className="w-10">Plafond</span>
+                        <span className="flex-1">{area.toFixed(2)}m²</span>
+                      </div>
+
+                      {/* Delete button */}
+                      <button
+                        onClick={() => onRemoveRoom(room.id)}
+                        className="mt-0.5 mb-1 text-[10px] text-red-400 hover:text-red-600 px-1"
+                      >
+                        Verwijderen
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function wallDir(polygon: Point2D[], edgeIndex: number): string {
+  const n = polygon.length;
+  const a = polygon[edgeIndex]!;
+  const b = polygon[(edgeIndex + 1) % n]!;
+  const cx = polygon.reduce((s, p) => s + p.x, 0) / n;
+  const cy = polygon.reduce((s, p) => s + p.y, 0) / n;
+  const nx = (a.x + b.x) / 2 - cx;
+  const ny = (a.y + b.y) / 2 - cy;
+  if (Math.abs(nx) > Math.abs(ny)) return nx > 0 ? "O" : "W";
+  return ny > 0 ? "Z" : "N";
 }

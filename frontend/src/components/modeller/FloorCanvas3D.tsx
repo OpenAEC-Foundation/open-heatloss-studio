@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import * as OBC from "@thatopen/components";
 
-import type { ModelRoom, ModelWindow, ModelDoor, Point2D } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, Selection } from "./types";
 import { polygonCenter, getSharedEdges } from "./geometry";
 
 // ---------------------------------------------------------------------------
@@ -28,8 +28,8 @@ interface FloorCanvas3DProps {
   rooms: ModelRoom[];
   windows: ModelWindow[];
   doors: ModelDoor[];
-  selectedRoomId: string | null;
-  onSelectRoom: (id: string | null) => void;
+  selection: Selection;
+  onSelect: (sel: Selection) => void;
   onDeleteRoom?: (id: string) => void;
   // Construction assignments for U-value coloring
   wallConstructions?: Record<string, string>;
@@ -92,16 +92,23 @@ function uValueToColor(u: number): number {
 // Component
 // ---------------------------------------------------------------------------
 
+/** Surface identity stored per mesh for hit testing. */
+interface SurfaceId {
+  roomId: string;
+  type: "wall" | "floor" | "ceiling";
+  wallIndex?: number;
+}
+
 export function FloorCanvas3D({
   rooms,
   windows,
   doors,
-  selectedRoomId,
-  onSelectRoom,
+  selection,
+  onSelect,
   onDeleteRoom,
   wallConstructions = {},
-  floorConstructions = {},
-  roofConstructions = {},
+  floorConstructions: _floorConstructions = {},
+  roofConstructions: _roofConstructions = {},
   catalogueUValues = {},
 }: FloorCanvas3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -110,8 +117,15 @@ export function FloorCanvas3D({
   const wireframeGroupRef = useRef<THREE.Group>(new THREE.Group());
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
-  const roomMeshMapRef = useRef(new Map<THREE.Mesh, string>());
+  const surfaceMeshMapRef = useRef(new Map<THREE.Mesh, SurfaceId>());
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+
+  // Derive selectedRoomId from selection
+  const selectedRoomId = selection?.type === "room" ? selection.roomId
+    : selection?.type === "wall" ? selection.roomId
+    : selection?.type === "window" ? selection.roomId
+    : null;
+  const selectedWallIndex = selection?.type === "wall" ? selection.wallIndex : null;
 
   // Render mode toggle
   const [renderMode, setRenderMode] = useState<RenderMode>("normal");
@@ -249,53 +263,17 @@ export function FloorCanvas3D({
     const wireGroup = wireframeGroupRef.current;
     clearGroup(group);
     clearGroup(wireGroup);
-    roomMeshMapRef.current.clear();
+    surfaceMeshMapRef.current.clear();
 
     const sharedEdges = getSharedEdges(rooms);
 
     for (const room of rooms) {
-      const isSelected = room.id === selectedRoomId;
+      const isRoomSelected = room.id === selectedRoomId;
       const floorY = room.floor * (room.height / 1000 + 0.3);
       const h = room.height / 1000;
       const poly = room.polygon;
       const n = poly.length;
       const baseColor = FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!;
-
-      // --- Floor surface ---
-      const floorColor = getSurfaceColor(
-        renderMode, isSelected, baseColor,
-        floorConstructions[room.id], catalogueUValues,
-      );
-      const floorGeom = createPolygonGeometry(poly);
-      const floorMat = new THREE.MeshStandardMaterial({
-        color: floorColor,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1,
-      });
-      const floorMesh = new THREE.Mesh(floorGeom, floorMat);
-      floorMesh.position.y = floorY + 0.005;
-      group.add(floorMesh);
-      roomMeshMapRef.current.set(floorMesh, room.id);
-
-      // --- Ceiling surface ---
-      const ceilColor = getSurfaceColor(
-        renderMode, isSelected, baseColor,
-        roofConstructions[room.id], catalogueUValues,
-      );
-      const ceilGeom = createPolygonGeometry(poly);
-      const ceilMat = new THREE.MeshStandardMaterial({
-        color: ceilColor,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
-      });
-      const ceilMesh = new THREE.Mesh(ceilGeom, ceilMat);
-      ceilMesh.position.y = floorY + h;
-      group.add(ceilMesh);
 
       // --- Wall surfaces (one per polygon edge) ---
       const roomWindows = windows.filter((w) => w.roomId === room.id);
@@ -310,8 +288,9 @@ export function FloorCanvas3D({
 
         const isShared = sharedEdges.has(`${room.id}:${i}`);
         const wallKey = `${room.id}:${i}`;
+        const isWallSelected = isRoomSelected && selectedWallIndex === i;
         const wallColor = getSurfaceColor(
-          renderMode, isSelected, baseColor,
+          renderMode, isWallSelected, baseColor,
           wallConstructions[wallKey], catalogueUValues,
           isShared,
         );
@@ -344,14 +323,14 @@ export function FloorCanvas3D({
             color: wallColor,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: isSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
+            opacity: isWallSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
             depthWrite: false,
           });
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.y = floorY;
           mesh.renderOrder = 1;
           group.add(mesh);
-          roomMeshMapRef.current.set(mesh, room.id);
+          surfaceMeshMapRef.current.set(mesh, { roomId: room.id, type: "wall", wallIndex: i });
         }
 
         // Window glass panes (blue)
@@ -400,12 +379,12 @@ export function FloorCanvas3D({
 
       // --- Room label ---
       const center = polygonCenter(poly);
-      const sprite = createLabelSprite(room.id, room.name, isSelected);
+      const sprite = createLabelSprite(room.id, room.name, isRoomSelected);
       sprite.position.set(center.x / 1000, floorY + h / 2, center.y / 1000);
       sprite.scale.set(2, 1, 1);
       group.add(sprite);
     }
-  }, [rooms, windows, doors, selectedRoomId, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues]);
+  }, [rooms, windows, doors, selectedRoomId, selectedWallIndex, renderMode, wallConstructions, catalogueUValues]);
 
   // -----------------------------------------------------------------------
   // Click handler (room selection)
@@ -430,15 +409,22 @@ export function FloorCanvas3D({
       const cam = worldsList[0]!.camera.three;
       raycasterRef.current.setFromCamera(mouseRef.current, cam);
 
-      const meshes = Array.from(roomMeshMapRef.current.keys());
+      const meshes = Array.from(surfaceMeshMapRef.current.keys());
       const intersects = raycasterRef.current.intersectObjects(meshes, false);
       if (intersects.length > 0) {
-        const roomId = roomMeshMapRef.current.get(intersects[0]!.object as THREE.Mesh);
-        if (roomId) { onSelectRoom(roomId); return; }
+        const surface = surfaceMeshMapRef.current.get(intersects[0]!.object as THREE.Mesh);
+        if (surface) {
+          if (surface.type === "wall" && surface.wallIndex !== undefined) {
+            onSelect({ type: "wall", roomId: surface.roomId, wallIndex: surface.wallIndex });
+          } else {
+            onSelect({ type: "room", roomId: surface.roomId });
+          }
+          return;
+        }
       }
-      onSelectRoom(null);
+      onSelect(null);
     },
-    [onSelectRoom],
+    [onSelect],
   );
 
   const handleContextMenu = useCallback(
@@ -727,25 +713,6 @@ function createWallSurfaceGeom(
   geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geom.setIndex(new THREE.BufferAttribute(indices, 1));
   geom.computeVertexNormals();
-  return geom;
-}
-
-// ---------------------------------------------------------------------------
-// Floor/ceiling polygon
-// ---------------------------------------------------------------------------
-
-function createPolygonGeometry(polygon: Point2D[]): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  const p0 = polygon[0]!;
-  shape.moveTo(p0.x / 1000, -p0.y / 1000);
-  for (let i = 1; i < polygon.length; i++) {
-    const p = polygon[i]!;
-    shape.lineTo(p.x / 1000, -p.y / 1000);
-  }
-  shape.closePath();
-
-  const geom = new THREE.ShapeGeometry(shape);
-  geom.rotateX(-Math.PI / 2);
   return geom;
 }
 

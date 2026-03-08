@@ -36,6 +36,7 @@ const SHAPE_TOOLS: ToolDef[] = [
 const ELEMENT_TOOLS: ToolDef[] = [
   { id: "draw_window", label: "Raam", icon: "\u25A8", shortcut: "N" },
   { id: "draw_door", label: "Deur", icon: "\u2395" },
+  { id: "split_room", label: "Splitsen", icon: "\u2702", shortcut: "S" },
 ];
 
 const ANNOTATION_TOOLS: ToolDef[] = [
