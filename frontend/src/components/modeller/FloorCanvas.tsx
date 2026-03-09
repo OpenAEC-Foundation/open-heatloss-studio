@@ -35,7 +35,7 @@ interface FloorCanvasProps {
   onUpdateWindow: (roomId: string, wallIndex: number, offset: number, updates: Partial<ModelWindow>) => void;
   onRemoveRoom?: (id: string) => void;
   onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
-  onSplitRoom?: (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number) => void;
+  onSplitRoom?: (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number, intermediatePoints?: Point2D[]) => void;
   /** Rooms from the floor below, rendered as ghost outlines. */
   ghostRooms?: ModelRoom[];
   /** Increment to trigger a fit-view zoom. */
@@ -394,58 +394,58 @@ export function FloorCanvas({
     }
 
     if (tool === "draw_window") {
-      const hit = findWallHit(raw, rooms, snap.gridSize * 3);
+      const hit = findWallHit(snapped, rooms, snap.gridSize * 3);
       if (hit) onAddWindow(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_WINDOW_WIDTH);
       return;
     }
 
     if (tool === "draw_door") {
-      const hit = findWallHit(raw, rooms, snap.gridSize * 3);
+      const hit = findWallHit(snapped, rooms, snap.gridSize * 3);
       if (hit) onAddDoor(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_DOOR_WIDTH);
       return;
     }
 
-    // Split room tool: click two points on room edges
+    // Split room tool: click wall → optional intermediate points → click wall
     if (tool === "split_room") {
-      const hit = findWallHit(raw, rooms, snap.gridSize * 3);
-      if (!hit) return;
+      const hit = findWallHit(snapped, rooms, snap.gridSize * 3);
+      const firstHit = splitHitRef.current?.[0];
+
       if (drawPoints.length === 0) {
-        // First split point — store the hit info
-        setDrawPoints([{ x: hit.roomId as unknown as number, y: 0 }]); // placeholder
+        // First click: must be on a wall
+        if (!hit) return;
         splitHitRef.current = [hit];
-        // Compute and store the actual snap point on the wall edge
         const room = rooms.find((r) => r.id === hit.roomId);
         if (room) {
           const a = room.polygon[hit.wallIndex]!;
           const b = room.polygon[(hit.wallIndex + 1) % room.polygon.length]!;
           const len = Math.hypot(b.x - a.x, b.y - a.y);
           const t = len > 0 ? hit.offset / len : 0;
-          const px = a.x + (b.x - a.x) * t;
-          const py = a.y + (b.y - a.y) * t;
-          setDrawPoints([{ x: px, y: py }]);
+          setDrawPoints([{ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }]);
         }
-      } else {
-        // Second split point — execute split
-        const firstHit = splitHitRef.current?.[0];
-        if (firstHit && hit.roomId === firstHit.roomId && hit.wallIndex !== firstHit.wallIndex) {
-          const room = rooms.find((r) => r.id === hit.roomId);
-          if (room) {
-            const polyLen = room.polygon.length;
-            const a1 = room.polygon[firstHit.wallIndex]!;
-            const b1 = room.polygon[(firstHit.wallIndex + 1) % polyLen]!;
-            const len1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
-            const tA = len1 > 0 ? firstHit.offset / len1 : 0;
+      } else if (hit && firstHit && hit.roomId === firstHit.roomId && hit.wallIndex !== firstHit.wallIndex) {
+        // Click on a wall of the same room (different edge) → execute split
+        const room = rooms.find((r) => r.id === hit.roomId);
+        if (room) {
+          const polyLen = room.polygon.length;
+          const a1 = room.polygon[firstHit.wallIndex]!;
+          const b1 = room.polygon[(firstHit.wallIndex + 1) % polyLen]!;
+          const len1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
+          const tA = len1 > 0 ? firstHit.offset / len1 : 0;
 
-            const a2 = room.polygon[hit.wallIndex]!;
-            const b2 = room.polygon[(hit.wallIndex + 1) % polyLen]!;
-            const len2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
-            const tB = len2 > 0 ? hit.offset / len2 : 0;
+          const a2 = room.polygon[hit.wallIndex]!;
+          const b2 = room.polygon[(hit.wallIndex + 1) % polyLen]!;
+          const len2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+          const tB = len2 > 0 ? hit.offset / len2 : 0;
 
-            onSplitRoom?.(hit.roomId, firstHit.wallIndex, tA, hit.wallIndex, tB);
-          }
+          // Intermediate points = drawPoints[1..n-1] (skip first wall point)
+          const intermediatePoints = drawPoints.slice(1);
+          onSplitRoom?.(hit.roomId, firstHit.wallIndex, tA, hit.wallIndex, tB, intermediatePoints);
         }
         setDrawPoints([]);
         splitHitRef.current = null;
+      } else {
+        // Click not on a wall → add as intermediate polyline point
+        setDrawPoints([...drawPoints, snapped]);
       }
       return;
     }
@@ -804,10 +804,13 @@ export function FloorCanvas({
             {/* Drawing preview */}
             <DrawPreview tool={tool} points={drawPoints} cursor={cursorWorld} invZoom={invZoom} snapGridSize={snap.gridSize} numericInput={numericInput} />
 
-            {/* Split room preview */}
-            {tool === "split_room" && drawPoints.length === 1 && cursorWorld && (() => {
-              const p0 = drawPoints[0]!;
-              // Find the wall the cursor is near
+            {/* Split room preview — polyline from first wall point through intermediates to cursor */}
+            {tool === "split_room" && drawPoints.length >= 1 && cursorWorld && (() => {
+              const allPts = drawPoints;
+
+              // Determine end point: snap to wall if near, otherwise follow cursor
+              let endPt = cursorWorld;
+              let onWall = false;
               const hit = findWallHit(cursorWorld, rooms, snap.gridSize * 3);
               if (hit && splitHitRef.current?.[0]?.roomId === hit.roomId) {
                 const room = rooms.find((r) => r.id === hit.roomId);
@@ -816,22 +819,38 @@ export function FloorCanvas({
                   const b = room.polygon[(hit.wallIndex + 1) % room.polygon.length]!;
                   const len = Math.hypot(b.x - a.x, b.y - a.y);
                   const t = len > 0 ? hit.offset / len : 0;
-                  const px = a.x + (b.x - a.x) * t;
-                  const py = a.y + (b.y - a.y) * t;
-                  return (
-                    <Group listening={false}>
-                      <Line points={[p0.x, p0.y, px, py]} stroke="#ef4444" strokeWidth={2 * invZoom} dash={[8 * invZoom, 4 * invZoom]} />
-                      <Circle x={p0.x} y={p0.y} radius={5 * invZoom} fill="#ef4444" />
-                      <Circle x={px} y={py} radius={5 * invZoom} fill="#ef4444" stroke="#ffffff" strokeWidth={1.5 * invZoom} />
-                    </Group>
-                  );
+                  endPt = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+                  onWall = true;
                 }
               }
-              // Fallback: just show first point and line to cursor
+
+              // Build flat points array for the full polyline
+              const linePts: number[] = [];
+              for (const pt of allPts) {
+                linePts.push(pt.x, pt.y);
+              }
+              linePts.push(endPt.x, endPt.y);
+
               return (
                 <Group listening={false}>
-                  <Line points={[p0.x, p0.y, cursorWorld.x, cursorWorld.y]} stroke="#ef4444" strokeWidth={1.5 * invZoom} dash={[6 * invZoom, 4 * invZoom]} opacity={0.5} />
-                  <Circle x={p0.x} y={p0.y} radius={5 * invZoom} fill="#ef4444" />
+                  <Line
+                    points={linePts}
+                    stroke="#ef4444"
+                    strokeWidth={(onWall ? 2 : 1.5) * invZoom}
+                    dash={[8 * invZoom, 4 * invZoom]}
+                    opacity={onWall ? 1 : 0.5}
+                  />
+                  {/* Dots on each placed point */}
+                  {allPts.map((pt, i) => (
+                    <Circle key={i} x={pt.x} y={pt.y} radius={4 * invZoom} fill={i === 0 ? "#ef4444" : "#f97316"} />
+                  ))}
+                  {/* End dot — highlight when on wall */}
+                  <Circle
+                    x={endPt.x} y={endPt.y} radius={5 * invZoom}
+                    fill={onWall ? "#ef4444" : "#f9731680"}
+                    stroke={onWall ? "#ffffff" : undefined}
+                    strokeWidth={onWall ? 1.5 * invZoom : 0}
+                  />
                 </Group>
               );
             })()}
@@ -1553,7 +1572,11 @@ function getDrawingHint(tool: ModellerTool, pointCount: number): string {
   if (tool === "draw_circle") return pointCount === 0 ? "Klik om middelpunt te plaatsen" : "Klik om straal in te stellen";
   if (tool === "draw_window") return "Klik op een wand om een raam te plaatsen";
   if (tool === "draw_door") return "Klik op een wand om een deur te plaatsen";
-  if (tool === "split_room") return pointCount === 0 ? "Klik op een wand om splitpunt te plaatsen" : "Klik op een andere wand om te splitsen";
+  if (tool === "split_room") {
+    if (pointCount === 0) return "Klik op een wand om splitpunt te plaatsen";
+    if (pointCount === 1) return "Klik op een andere wand, of klik vrij voor tussenpunten";
+    return "Klik op een wand om te splitsen, of voeg meer tussenpunten toe";
+  }
   return "Klik om te tekenen";
 }
 

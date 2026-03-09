@@ -160,10 +160,10 @@ export function Modeller() {
   );
 
   const handleSplitRoom = useCallback(
-    (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number) => {
+    (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number, intermediatePoints?: Point2D[]) => {
       const room = rooms.find((r) => r.id === roomId);
       if (!room) return;
-      const result = splitPolygon(room.polygon, edgeA, tA, edgeB, tB);
+      const result = splitPolygon(room.polygon, edgeA, tA, edgeB, tB, intermediatePoints);
       if (!result) {
         addToast("Splitsen mislukt — probeer twee verschillende wanden", "info");
         return;

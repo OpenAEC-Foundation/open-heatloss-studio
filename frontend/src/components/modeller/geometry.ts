@@ -155,7 +155,8 @@ export function getSharedEdges(rooms: ModelRoom[]): Set<string> {
 }
 
 /**
- * Split a room polygon along a line between two edge points.
+ * Split a room polygon along a path between two edge points.
+ * The path can be a straight line (no intermediate points) or a polyline.
  * Returns two new polygons, or null if the split is invalid.
  *
  * @param polygon - Room polygon vertices
@@ -163,6 +164,7 @@ export function getSharedEdges(rooms: ModelRoom[]): Set<string> {
  * @param tA - Parametric position (0..1) along edgeA
  * @param edgeB - Index of the second edge to split on
  * @param tB - Parametric position (0..1) along edgeB
+ * @param intermediatePoints - Optional points between splitA and splitB
  */
 export function splitPolygon(
   polygon: Point2D[],
@@ -170,6 +172,7 @@ export function splitPolygon(
   tA: number,
   edgeB: number,
   tB: number,
+  intermediatePoints: Point2D[] = [],
 ): [Point2D[], Point2D[]] | null {
   const n = polygon.length;
   if (edgeA === edgeB) return null;
@@ -193,26 +196,26 @@ export function splitPolygon(
   // Ensure edgeA < edgeB for consistent traversal
   let eA = edgeA, eB = edgeB;
   let pA = splitA, pB = splitB;
+  // Path from A to B — reverse if we swap edges
+  let path = intermediatePoints;
   if (eA > eB) {
     [eA, eB] = [eB, eA];
     [pA, pB] = [pB, pA];
+    path = [...intermediatePoints].reverse();
   }
 
-  // Polygon 1: vertices from after eA split to eB split
-  // Walk: pA → vertices[eA+1] → ... → vertices[eB] → pB → pA
-  const poly1: Point2D[] = [pA];
-  for (let i = (eA + 1) % n; i !== (eB + 1) % n; i = (i + 1) % n) {
+  // Polygon 1: pA → path → pB → polygon vertices from eB+1 to eA
+  const poly1: Point2D[] = [pA, ...path, pB];
+  for (let i = (eB + 1) % n; i !== (eA + 1) % n; i = (i + 1) % n) {
     poly1.push(polygon[i]!);
   }
-  poly1.push(pB);
 
-  // Polygon 2: vertices from after eB split to eA split
-  // Walk: pB → vertices[eB+1] → ... → vertices[eA] → pA → pB
-  const poly2: Point2D[] = [pB];
-  for (let i = (eB + 1) % n; i !== (eA + 1) % n; i = (i + 1) % n) {
+  // Polygon 2: pB → reverse(path) → pA → polygon vertices from eA+1 to eB
+  const reversePath = [...path].reverse();
+  const poly2: Point2D[] = [pB, ...reversePath, pA];
+  for (let i = (eA + 1) % n; i !== (eB + 1) % n; i = (i + 1) % n) {
     poly2.push(polygon[i]!);
   }
-  poly2.push(pA);
 
   // Validate: both polygons should have at least 3 vertices and positive area
   if (poly1.length < 3 || poly2.length < 3) return null;
