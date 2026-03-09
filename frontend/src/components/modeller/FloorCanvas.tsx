@@ -632,12 +632,6 @@ export function FloorCanvas({
                   ? isShared
                   : boundary === "interior" || boundary === "neighbor" || boundary === "unheated";
 
-                // For auto shared walls, only draw from the room with the lower ID to avoid double-drawing
-                if (boundary === "auto" && isShared && !isWallSelected) {
-                  const partner = sharedEdgePartner(room.id, wi, rooms, sharedEdges);
-                  if (partner && partner.roomId < room.id) return null;
-                }
-
                 const wallColor = isWallSelected ? "#d97706"
                   : isInteriorStyle ? "#d6d3d1"
                   : "#1c1917";
