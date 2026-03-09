@@ -155,6 +155,70 @@ export function getSharedEdges(rooms: ModelRoom[]): Set<string> {
 }
 
 /**
+ * Merge two adjacent room polygons by removing their shared wall.
+ * Returns the merged polygon, or null if the rooms don't share exactly one edge pair.
+ *
+ * @param polyA - First room polygon
+ * @param wallA - Edge index in polyA that is shared
+ * @param polyB - Second room polygon
+ * @param wallB - Edge index in polyB that is shared
+ */
+export function mergePolygons(
+  polyA: Point2D[],
+  wallA: number,
+  polyB: Point2D[],
+  wallB: number,
+): Point2D[] | null {
+  const nA = polyA.length;
+  const nB = polyB.length;
+  if (nA < 3 || nB < 3) return null;
+
+  // Build merged polygon:
+  // Walk A from wallA+2 around to wallA (skip shared edge endpoint wallA+1)
+  // Then walk B from wallB+2 around to wallB (skip shared edge endpoint wallB+1)
+  // Note: A[wallA]→A[wallA+1] shares with B[wallB+1]←B[wallB] (reversed direction)
+
+  const merged: Point2D[] = [];
+
+  // Walk polyA: start after shared edge, go around to the start of shared edge
+  for (let step = 0; step < nA - 1; step++) {
+    const i = (wallA + 1 + step) % nA;
+    merged.push(polyA[i]!);
+  }
+
+  // Walk polyB: start after shared edge, go around to the start of shared edge
+  for (let step = 0; step < nB - 1; step++) {
+    const i = (wallB + 1 + step) % nB;
+    merged.push(polyB[i]!);
+  }
+
+  // Clean up near-duplicate vertices (from shared edge endpoints that nearly coincide)
+  const cleaned = removeCollinearVertices(merged);
+
+  if (cleaned.length < 3) return null;
+  if (polygonArea(cleaned) < 100) return null;
+
+  return cleaned;
+}
+
+/** Remove vertices that are (nearly) collinear with their neighbours. */
+function removeCollinearVertices(poly: Point2D[], tolerance = 25): Point2D[] {
+  const result: Point2D[] = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const prev = poly[(i - 1 + n) % n]!;
+    const curr = poly[i]!;
+    const next = poly[(i + 1) % n]!;
+    // Cross product to check collinearity
+    const cross = (curr.x - prev.x) * (next.y - prev.y) - (curr.y - prev.y) * (next.x - prev.x);
+    if (Math.abs(cross) > tolerance) {
+      result.push(curr);
+    }
+  }
+  return result;
+}
+
+/**
  * Split a room polygon along a path between two edge points.
  * The path can be a straight line (no intermediate points) or a polyline.
  * Returns two new polygons, or null if the split is invalid.

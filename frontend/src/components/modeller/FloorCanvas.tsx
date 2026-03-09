@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konva";
 import Konva from "konva";
 
-import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection, WallBoundaryType } from "./types";
 import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges, segmentsShareEdge } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
 
@@ -36,6 +36,9 @@ interface FloorCanvasProps {
   onRemoveRoom?: (id: string) => void;
   onRemoveWindow?: (roomId: string, wallIndex: number, offset: number) => void;
   onSplitRoom?: (roomId: string, edgeA: number, tA: number, edgeB: number, tB: number, intermediatePoints?: Point2D[]) => void;
+  onMergeRooms?: (roomIdA: string, wallA: number, roomIdB: string, wallB: number) => void;
+  /** Wall boundary type overrides (key = "roomId:wallIndex"). */
+  wallBoundaryTypes?: Record<string, WallBoundaryType>;
   /** Rooms from the floor below, rendered as ghost outlines. */
   ghostRooms?: ModelRoom[];
   /** Increment to trigger a fit-view zoom. */
@@ -88,6 +91,8 @@ export function FloorCanvas({
   onRemoveRoom,
   onRemoveWindow,
   onSplitRoom,
+  onMergeRooms,
+  wallBoundaryTypes = {},
   ghostRooms = [],
   fitViewTrigger = 0,
 }: FloorCanvasProps) {
@@ -610,7 +615,7 @@ export function FloorCanvas({
               />
             ))}
 
-            {/* Room edges — exterior: solid dark, shared: thin light gray (drawn once) */}
+            {/* Room edges — style depends on boundary type override or auto-detection */}
             {rooms.map((room) =>
               room.polygon.map((_, wi) => {
                 const ni = (wi + 1) % room.polygon.length;
@@ -619,19 +624,37 @@ export function FloorCanvas({
                 const isShared = sharedEdges.has(`${room.id}:${wi}`);
                 const a = room.polygon[wi]!;
                 const b = room.polygon[ni]!;
+                const boundaryKey = `${room.id}:${wi}`;
+                const boundary = wallBoundaryTypes[boundaryKey] ?? "auto";
 
-                // For shared walls, only draw from the room with the lower ID to avoid double-drawing
-                if (isShared && !isWallSelected) {
+                // Determine if this wall renders as "interior" (thin/light) or "exterior" (thick/dark)
+                const isInteriorStyle = boundary === "auto"
+                  ? isShared
+                  : boundary === "interior" || boundary === "neighbor" || boundary === "unheated";
+
+                // For auto shared walls, only draw from the room with the lower ID to avoid double-drawing
+                if (boundary === "auto" && isShared && !isWallSelected) {
                   const partner = sharedEdgePartner(room.id, wi, rooms, sharedEdges);
                   if (partner && partner.roomId < room.id) return null;
                 }
+
+                // Wall colors: exterior=dark, interior=light gray, ground=brown, neighbor=blue-gray
+                const wallColor = isWallSelected ? "#d97706"
+                  : boundary === "ground" ? "#78716c"
+                  : boundary === "neighbor" ? "#94a3b8"
+                  : isInteriorStyle ? "#d6d3d1"
+                  : "#1c1917";
+
+                // Dash pattern for neighbor walls
+                const dash = boundary === "neighbor" ? [200, 100] : undefined;
 
                 return (
                   <Line
                     key={`wall-${room.id}-${wi}`}
                     points={[a.x, a.y, b.x, b.y]}
-                    stroke={isWallSelected ? "#d97706" : isShared ? "#d6d3d1" : "#1c1917"}
-                    strokeWidth={isShared ? Math.max(40, 1 / zoom) : Math.max(80, 2 / zoom)}
+                    stroke={wallColor}
+                    strokeWidth={isInteriorStyle ? Math.max(40, 1 / zoom) : Math.max(80, 2 / zoom)}
+                    dash={dash}
                     hitStrokeWidth={Math.max(WALL_THICKNESS_MM, 400)}
                     onClick={(e) => {
                       if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
@@ -1021,14 +1044,33 @@ export function FloorCanvas({
               Verwijder raam
             </button>
           )}
-          {selection?.type === "wall" && (
-            <button
-              className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
-              onClick={() => { onRemoveRoom?.(selection.roomId); setCtxMenu(null); }}
-            >
-              Verwijder ruimte
-            </button>
-          )}
+          {selection?.type === "wall" && (() => {
+            const isShared = sharedEdges.has(`${selection.roomId}:${selection.wallIndex}`);
+            const partner = isShared
+              ? sharedEdgePartner(selection.roomId, selection.wallIndex, rooms, sharedEdges)
+              : null;
+            return (
+              <>
+                {partner && (
+                  <button
+                    className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+                    onClick={() => {
+                      onMergeRooms?.(selection.roomId, selection.wallIndex, partner.roomId, partner.wallIndex);
+                      setCtxMenu(null);
+                    }}
+                  >
+                    Wand verwijderen (samenvoegen)
+                  </button>
+                )}
+                <button
+                  className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+                  onClick={() => { onRemoveRoom?.(selection.roomId); setCtxMenu(null); }}
+                >
+                  Verwijder ruimte
+                </button>
+              </>
+            );
+          })()}
           {!selection && (
             <div className="px-3 py-1.5 text-stone-400 italic">Geen selectie</div>
           )}

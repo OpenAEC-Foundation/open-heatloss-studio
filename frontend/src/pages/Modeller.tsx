@@ -13,7 +13,7 @@ import { splitPolygon } from "../components/modeller";
 import { useToastStore } from "../store/toastStore";
 import { useCatalogueStore } from "../store/catalogueStore";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
-import { polygonArea, segmentsShareEdge } from "../components/modeller";
+import { polygonArea, segmentsShareEdge, mergePolygons } from "../components/modeller";
 
 export function Modeller() {
   const [tool, setTool] = useState<ModellerTool>("select");
@@ -179,6 +179,31 @@ export function Modeller() {
     [rooms, removeRoom, addRoom, addToast],
   );
 
+  const handleMergeRooms = useCallback(
+    (roomIdA: string, wallA: number, roomIdB: string, wallB: number) => {
+      const rA = rooms.find((r) => r.id === roomIdA);
+      const rB = rooms.find((r) => r.id === roomIdB);
+      if (!rA || !rB) return;
+      const merged = mergePolygons(rA.polygon, wallA, rB.polygon, wallB);
+      if (!merged) {
+        addToast("Samenvoegen mislukt — controleer de gedeelde wand", "info");
+        return;
+      }
+      removeRoom(roomIdA);
+      removeRoom(roomIdB);
+      const id = addRoom({
+        name: rA.name,
+        function: rA.function,
+        polygon: merged,
+        floor: rA.floor,
+        height: Math.max(rA.height, rB.height),
+      });
+      setSelection({ type: "room", roomId: id });
+      addToast("Ruimten samengevoegd", "success");
+    },
+    [rooms, removeRoom, addRoom, addToast],
+  );
+
   const handleImportPdf = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -315,6 +340,7 @@ export function Modeller() {
               underlay={underlay}
               wallConstructions={wallConstructions}
               catalogueUValues={catalogueUValues}
+              wallBoundaryTypes={wallBoundaryTypes}
               ghostRooms={belowFloorRooms}
               onSelect={setSelection}
               onAddRoom={handleAddRoom}
@@ -326,6 +352,7 @@ export function Modeller() {
               onRemoveRoom={handleRemoveRoom}
               onRemoveWindow={handleRemoveWindow}
               onSplitRoom={handleSplitRoom}
+              onMergeRooms={handleMergeRooms}
               fitViewTrigger={fitViewTrigger}
             />
           ) : (
