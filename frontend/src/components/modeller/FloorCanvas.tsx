@@ -421,11 +421,15 @@ export function FloorCanvas({
       const searchRooms = firstHit
         ? rooms.filter((r) => r.id === firstHit.roomId)
         : rooms;
-      const hit = findWallHit(snapped, searchRooms, Math.max(snap.gridSize * 3, 30 / zoom))
-        ?? findWallHit(raw, searchRooms, Math.max(snap.gridSize * 3, 30 / zoom));
+      // After first click: exclude the starting wall so corner clicks resolve
+      // to the adjacent wall instead of the starting wall.
+      const exclude = firstHit ? { roomId: firstHit.roomId, wallIndex: firstHit.wallIndex } : undefined;
+      const wallTol = Math.max(snap.gridSize * 3, 30 / zoom);
 
       if (drawPoints.length === 0) {
-        // First click: must be on a wall
+        // First click: must be on a wall (no exclusion)
+        const hit = findWallHit(snapped, searchRooms, wallTol)
+          ?? findWallHit(raw, searchRooms, wallTol);
         if (!hit) return;
         splitHitRef.current = [hit];
         const room = rooms.find((r) => r.id === hit.roomId);
@@ -436,30 +440,36 @@ export function FloorCanvas({
           const t = len > 0 ? hit.offset / len : 0;
           setDrawPoints([{ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }]);
         }
-      } else if (hit && hit.wallIndex !== firstHit!.wallIndex) {
-        // Click on a different wall of the target room → execute split
-        const room = rooms.find((r) => r.id === hit.roomId);
-        if (room) {
-          const polyLen = room.polygon.length;
-          const a1 = room.polygon[firstHit!.wallIndex]!;
-          const b1 = room.polygon[(firstHit!.wallIndex + 1) % polyLen]!;
-          const len1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
-          const tA = len1 > 0 ? firstHit!.offset / len1 : 0;
-
-          const a2 = room.polygon[hit.wallIndex]!;
-          const b2 = room.polygon[(hit.wallIndex + 1) % polyLen]!;
-          const len2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
-          const tB = len2 > 0 ? hit.offset / len2 : 0;
-
-          // Intermediate points = drawPoints[1..n-1] (skip first wall point)
-          const intermediatePoints = drawPoints.slice(1);
-          onSplitRoom?.(hit.roomId, firstHit!.wallIndex, tA, hit.wallIndex, tB, intermediatePoints);
-        }
-        setDrawPoints([]);
-        splitHitRef.current = null;
       } else {
-        // Not on a wall (or same wall) → add as intermediate polyline point
-        setDrawPoints([...drawPoints, snapped]);
+        // Subsequent clicks: exclude starting wall to find endpoint
+        const hit = findWallHit(snapped, searchRooms, wallTol, exclude)
+          ?? findWallHit(raw, searchRooms, wallTol, exclude);
+
+        if (hit) {
+          // Click on a different wall of the target room → execute split
+          const room = rooms.find((r) => r.id === hit.roomId);
+          if (room) {
+            const polyLen = room.polygon.length;
+            const a1 = room.polygon[firstHit!.wallIndex]!;
+            const b1 = room.polygon[(firstHit!.wallIndex + 1) % polyLen]!;
+            const len1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
+            const tA = len1 > 0 ? firstHit!.offset / len1 : 0;
+
+            const a2 = room.polygon[hit.wallIndex]!;
+            const b2 = room.polygon[(hit.wallIndex + 1) % polyLen]!;
+            const len2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+            const tB = len2 > 0 ? hit.offset / len2 : 0;
+
+            // Intermediate points = drawPoints[1..n-1] (skip first wall point)
+            const intermediatePoints = drawPoints.slice(1);
+            onSplitRoom?.(hit.roomId, firstHit!.wallIndex, tA, hit.wallIndex, tB, intermediatePoints);
+          }
+          setDrawPoints([]);
+          splitHitRef.current = null;
+        } else {
+          // Not on a wall → add as intermediate polyline point
+          setDrawPoints([...drawPoints, snapped]);
+        }
       }
       return;
     }
@@ -510,7 +520,7 @@ export function FloorCanvas({
       }
       onSelect(null);
     }
-  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, onAddRoom, onAddWindow, onAddDoor, onSelect, onSplitRoom]);
+  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, zoom, onAddRoom, onAddWindow, onAddDoor, onSelect, onSplitRoom]);
 
   const handleDblClick = useCallback(() => {
     if (tool === "draw_polygon" && drawPoints.length >= 3) {
@@ -834,8 +844,9 @@ export function FloorCanvas({
               const targetRooms = firstHitRef
                 ? rooms.filter((r) => r.id === firstHitRef.roomId)
                 : rooms;
-              const hit = findWallHit(cursorWorld, targetRooms, Math.max(snap.gridSize * 3, 30 / zoom));
-              if (hit && firstHitRef && hit.wallIndex !== firstHitRef.wallIndex) {
+              const previewExclude = firstHitRef ? { roomId: firstHitRef.roomId, wallIndex: firstHitRef.wallIndex } : undefined;
+              const hit = findWallHit(cursorWorld, targetRooms, Math.max(snap.gridSize * 3, 30 / zoom), previewExclude);
+              if (hit && firstHitRef) {
                 const room = rooms.find((r) => r.id === hit.roomId);
                 if (room) {
                   const a = room.polygon[hit.wallIndex]!;
@@ -1628,7 +1639,10 @@ function getMeasureHint(pointCount: number): string {
   return "Meting voltooid — klik opnieuw om te meten";
 }
 
-function findWallHit(p: Point2D, rooms: ModelRoom[], maxDist: number): { roomId: string; wallIndex: number; offset: number } | null {
+function findWallHit(
+  p: Point2D, rooms: ModelRoom[], maxDist: number,
+  excludeWall?: { roomId: string; wallIndex: number },
+): { roomId: string; wallIndex: number; offset: number } | null {
   let best: { roomId: string; wallIndex: number; offset: number } | null = null;
   let bestDist = maxDist;
 
@@ -1636,6 +1650,7 @@ function findWallHit(p: Point2D, rooms: ModelRoom[], maxDist: number): { roomId:
     const poly = room.polygon;
     const n = poly.length;
     for (let i = 0; i < n; i++) {
+      if (excludeWall && room.id === excludeWall.roomId && i === excludeWall.wallIndex) continue;
       const a = poly[i]!;
       const b = poly[(i + 1) % n]!;
       const dx = b.x - a.x;
