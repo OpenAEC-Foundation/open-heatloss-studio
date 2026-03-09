@@ -102,6 +102,9 @@ interface ModellerStore {
   undo: () => void;
   redo: () => void;
 
+  // Bulk import (replaces all model data in one undo step)
+  importModel: (rooms: ModelRoom[], windows?: ModelWindow[], doors?: ModelDoor[]) => void;
+
   // Utility
   nextRoomId: (floor: number) => string;
   resetToExample: () => void;
@@ -297,6 +300,21 @@ export const useModellerStore = create<ModellerStore>()(
           doors: next.doors,
           _past: [...state._past, snap],
           _future: state._future.slice(0, -1),
+        });
+      },
+
+      // -- Bulk import --
+      importModel: (rooms, windows = [], doors = []) => {
+        const state = get();
+        set({
+          ...pushUndo(state),
+          rooms,
+          windows,
+          doors,
+          wallConstructions: {},
+          floorConstructions: {},
+          roofConstructions: {},
+          wallBoundaryTypes: {},
         });
       },
 

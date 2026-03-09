@@ -60,5 +60,9 @@ export {
 export { modelToIfcx, ifcxToModel } from "./ifcx-builder";
 export type { ModelToIfcxOptions } from "./ifcx-builder";
 
+// IFC import (web-ifc based, IFC2x3/IFC4 STEP files)
+export { importIfcFile } from "./ifc-import";
+export type { IfcImportResult } from "./ifc-import";
+
 // Example data (for development/testing)
 export { EXAMPLE_ROOMS, EXAMPLE_WINDOWS, FLOOR_LABELS } from "./exampleData";

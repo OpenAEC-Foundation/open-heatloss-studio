@@ -10,6 +10,7 @@ import { Ribbon } from "../components/modeller/Ribbon";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import type { ModellerTool, ModelRoom, ModelWindow, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
 import { splitPolygon } from "../components/modeller";
+import { importIfcFile } from "../components/modeller/ifc-import";
 import { useToastStore } from "../store/toastStore";
 import { useCatalogueStore } from "../store/catalogueStore";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
@@ -48,6 +49,7 @@ export function Modeller() {
   const wallBoundaryTypes = useModellerStore((s) => s.wallBoundaryTypes);
   const assignWallBoundaryType = useModellerStore((s) => s.assignWallBoundaryType);
 
+  const importModel = useModellerStore((s) => s.importModel);
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
 
@@ -245,8 +247,60 @@ export function Modeller() {
   }, [addToast]);
 
   const handleImportIfc = useCallback(() => {
-    addToast("IFC import wordt binnenkort beschikbaar", "info");
-  }, [addToast]);
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".ifc";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      addToast(`IFC bestand "${file.name}" wordt geladen...`, "info");
+
+      try {
+        const result = await importIfcFile(file);
+
+        if (result.rooms.length === 0) {
+          addToast(
+            `Geen ruimten gevonden in "${file.name}". ${result.stats.spacesFound} IfcSpace entiteiten gevonden, ${result.stats.spacesSkipped} overgeslagen.`,
+            "info",
+          );
+          return;
+        }
+
+        // Generate IDs for imported rooms
+        const existingRooms = useModellerStore.getState().rooms;
+        const roomsWithIds: ModelRoom[] = [];
+        const usedIds = new Set(existingRooms.map((r) => r.id));
+
+        for (const room of result.rooms) {
+          let id: string;
+          let num = 1;
+          do {
+            id = `${room.floor}.${String(num).padStart(2, "0")}`;
+            num++;
+          } while (usedIds.has(id));
+          usedIds.add(id);
+          roomsWithIds.push({ ...room, id });
+        }
+
+        importModel(roomsWithIds);
+
+        const msg = `${result.stats.spacesImported} ruimten geimporteerd uit "${file.name}"`;
+        addToast(msg, "success");
+
+        if (result.warnings.length > 0) {
+          const warnMsg = result.warnings
+            .map((w) => `${w.spaceName}: ${w.message}`)
+            .join(", ");
+          addToast(`Waarschuwingen: ${warnMsg}`, "info");
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        addToast(`IFC import mislukt: ${message}`, "error");
+      }
+    };
+    input.click();
+  }, [addToast, importModel]);
 
   const handleExportIfc = useCallback(() => {
     addToast("IFC export wordt binnenkort beschikbaar", "info");
