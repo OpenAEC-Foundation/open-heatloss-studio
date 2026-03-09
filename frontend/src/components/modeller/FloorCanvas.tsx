@@ -137,29 +137,35 @@ export function FloorCanvas({
     [viewCenter, zoom, size],
   );
 
-  // Snap
+  // Snap — priority: endpoint > midpoint > nearest (wall edge) > grid
   const applySnap = useCallback(
-    (p: Point2D): Point2D => {
-      if (!snap.enabled) return p;
+    (p: Point2D, forceNearest = false): Point2D => {
+      // For tools like split_room: always snap to geometry even if snap is disabled
+      const useNearest = forceNearest || snap.modes.includes("nearest");
+      if (!snap.enabled && !forceNearest) return p;
+
       let best = p;
       let bestDist = Infinity;
+      const tolerance = snap.gridSize * 2;
 
       // Snap targets: active rooms + ghost rooms from floor below
       const allSnapRooms = [...rooms, ...ghostRooms];
 
+      // 1. Endpoint snap (highest geometry priority)
       if (snap.modes.includes("endpoint")) {
         for (const room of allSnapRooms) {
           for (const v of room.polygon) {
             const d = Math.hypot(v.x - p.x, v.y - p.y);
-            if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = v; }
+            if (d < bestDist && d < tolerance) { bestDist = d; best = v; }
           }
         }
         for (const v of drawPoints) {
           const d = Math.hypot(v.x - p.x, v.y - p.y);
-          if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = v; }
+          if (d < bestDist && d < tolerance) { bestDist = d; best = v; }
         }
       }
 
+      // 2. Midpoint snap
       if (snap.modes.includes("midpoint")) {
         for (const room of allSnapRooms) {
           const poly = room.polygon;
@@ -168,11 +174,33 @@ export function FloorCanvas({
             const b = poly[(i + 1) % poly.length]!;
             const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
             const d = Math.hypot(mid.x - p.x, mid.y - p.y);
-            if (d < bestDist && d < snap.gridSize * 2) { bestDist = d; best = mid; }
+            if (d < bestDist && d < tolerance) { bestDist = d; best = mid; }
           }
         }
       }
 
+      // 3. Nearest (wall edge projection) — before grid
+      if (useNearest && bestDist === Infinity) {
+        for (const room of allSnapRooms) {
+          const poly = room.polygon;
+          const n = poly.length;
+          for (let i = 0; i < n; i++) {
+            const a = poly[i]!;
+            const b = poly[(i + 1) % n]!;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq < 1) continue;
+            let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            const proj = { x: a.x + t * dx, y: a.y + t * dy };
+            const d = Math.hypot(p.x - proj.x, p.y - proj.y);
+            if (d < bestDist && d < tolerance) { bestDist = d; best = proj; }
+          }
+        }
+      }
+
+      // 4. Grid snap (lowest priority — only if no geometry matched)
       if (snap.modes.includes("grid") && bestDist === Infinity) {
         const gs = snap.gridSize;
         best = { x: Math.round(p.x / gs) * gs, y: Math.round(p.y / gs) * gs };
@@ -314,7 +342,8 @@ export function FloorCanvas({
     if (!pointer) return;
 
     const raw = screenToWorld(pointer.x, pointer.y);
-    const snapped = applySnap(raw);
+    const forceNearest = tool === "split_room" || tool === "draw_window" || tool === "draw_door";
+    const snapped = applySnap(raw, forceNearest);
     if (isDrawingTool(tool) || tool === "measure") setCursorWorld(snapped);
     else setCursorWorld(null);
   }, [zoom, screenToWorld, applySnap, tool]);
@@ -331,7 +360,8 @@ export function FloorCanvas({
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     const raw = screenToWorld(pointer.x, pointer.y);
-    const snapped = applySnap(raw);
+    const forceNearest = tool === "split_room" || tool === "draw_window" || tool === "draw_door";
+    const snapped = applySnap(raw, forceNearest);
 
     // Drawing tools
     if (tool === "draw_rect") {

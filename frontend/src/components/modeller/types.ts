@@ -107,6 +107,6 @@ export interface SnapSettings {
 
 export const DEFAULT_SNAP_SETTINGS: SnapSettings = {
   enabled: true,
-  modes: ["grid", "endpoint", "midpoint", "perpendicular"],
+  modes: ["grid", "endpoint", "midpoint", "nearest", "perpendicular"],
   gridSize: 100,
 };
