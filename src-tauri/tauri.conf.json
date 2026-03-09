@@ -5,7 +5,7 @@
   "identifier": "nl.openaec.isso51",
   "build": {
     "frontendDist": "../frontend/dist",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:3023",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
@@ -20,7 +20,8 @@
         "minHeight": 600,
         "resizable": true,
         "visible": true,
-        "center": true
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {

@@ -26,8 +26,8 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: string 
           `flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors
           ${
             isActive
-              ? "bg-zinc-800 text-white font-medium"
-              : "hover:bg-zinc-800/60 hover:text-white"
+              ? "bg-app-sidebar-active text-white font-medium"
+              : "hover:bg-app-sidebar-hover hover:text-white"
           }`
         }
       >
@@ -65,7 +65,7 @@ function ProjectsNavLink() {
   if (!visible) return null;
   return (
     <>
-      <li className="my-2 border-t border-zinc-800" />
+      <li className="my-2 border-t border-app-border" />
       <NavItem to="/projects" label="Projecten" icon="&#128193;" />
     </>
   );
@@ -155,11 +155,12 @@ function SaveStatus() {
 
 export function Sidebar() {
   const isWeb = !isTauri();
+  const hasTitleBar = !isWeb;
 
   return (
-    <aside className="fixed left-0 top-0 z-30 flex h-screen w-sidebar flex-col bg-zinc-900 text-stone-300">
+    <aside className={`fixed left-0 z-30 flex w-sidebar flex-col bg-app-sidebar-bg text-app-sidebar-text ${hasTitleBar ? "top-[32px] h-[calc(100vh-32px)]" : "top-0 h-screen"}`}>
       {/* Logo / title */}
-      <div className="flex h-header items-center gap-2 border-b border-zinc-800 px-4">
+      <div className="flex h-header items-center gap-2 border-b border-app-border px-4">
         <div
           className="h-6 w-6 rounded"
           style={{ background: "var(--gradient-amber, #D97706)" }}
@@ -178,7 +179,7 @@ export function Sidebar() {
               <ProjectsNavLink />
             </OidcGuard>
           )}
-          <li className="my-2 border-t border-zinc-800" />
+          <li className="my-2 border-t border-app-border" />
           {NAV_LIBRARY.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
@@ -189,7 +190,7 @@ export function Sidebar() {
       <SaveStatus />
 
       {/* Footer */}
-      <div className="space-y-3 border-t border-zinc-800 px-4 py-3">
+      <div className="space-y-3 border-t border-app-border px-4 py-3">
         {isWeb && (
           <OidcGuard>
             <AuthSection />

@@ -1,31 +1,258 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --gradient-amber: linear-gradient(90deg, #D97706 0%, #F59E0B 40%, #EA580C 100%);
-  }
+@source "../index.html";
+@source "./";
 
-  [data-theme="dark"] {
-    --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #B45309 100%);
-  }
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Colors - primary */
+  --color-primary: #D97706;
+  --color-primary-hover: #EA580C;
+  --color-primary-light: #FFFBEB;
+  --color-primary-border: #F59E0B;
+
+  /* Colors - boundary */
+  --color-boundary-exterior: #3b82f6;
+  --color-boundary-exterior-bg: #dbeafe;
+  --color-boundary-unheated: #8b5cf6;
+  --color-boundary-unheated-bg: #ede9fe;
+  --color-boundary-adjacent-room: #22c55e;
+  --color-boundary-adjacent-room-bg: #dcfce7;
+  --color-boundary-adjacent-building: #F59E0B;
+  --color-boundary-adjacent-building-bg: #fef3c7;
+  --color-boundary-ground: #92400e;
+  --color-boundary-ground-bg: #fef3c7;
+
+  /* Theme-aware colors */
+  --color-app-bg: var(--theme-bg);
+  --color-app-surface: var(--theme-surface);
+  --color-app-surface-elevated: var(--theme-surface-elevated);
+  --color-app-text: var(--theme-text);
+  --color-app-text-dim: var(--theme-text-dim);
+  --color-app-text-muted: var(--theme-text-muted);
+  --color-app-border: var(--theme-border);
+  --color-app-border-light: var(--theme-border-light);
+  --color-app-accent: var(--theme-accent);
+  --color-app-accent-hover: var(--theme-accent-hover);
+  --color-app-hover: var(--theme-hover);
+  --color-app-active: var(--theme-active);
+  --color-app-input-bg: var(--theme-input-bg);
+  --color-app-dropdown-bg: var(--theme-dropdown-bg);
+  --color-app-sidebar-bg: var(--theme-surface);
+  --color-app-sidebar-text: var(--theme-text);
+  --color-app-sidebar-hover: var(--theme-hover);
+  --color-app-sidebar-active: var(--theme-active);
+  --color-app-titlebar-bg: var(--theme-surface);
+  --color-app-titlebar-text: var(--theme-text-dim);
+  --color-app-card-bg: var(--theme-surface-elevated);
+  --color-app-card-border: var(--theme-border);
+  --color-app-error-bg: var(--theme-error-bg);
+  --color-app-error-text: var(--theme-error-text);
+  --color-app-scrollbar-track: var(--theme-scrollbar-track);
+  --color-app-scrollbar-thumb: var(--theme-scrollbar-thumb);
+
+  /* Font families */
+  --font-heading: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  /* Font sizes */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.25;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.25;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.25;
+
+  /* Spacing */
+  --spacing-sidebar: 220px;
+  --spacing-header: 48px;
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Box shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+  /* Animation */
+  --animate-toast-in: toast-in 0.2s ease-out;
 }
 
-@layer components {
-  .input-unit {
-    @apply pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 font-mono;
-  }
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
 
-  .metric-card {
-    @apply rounded-lg border border-stone-200 bg-white p-4 shadow-sm;
-  }
+html, body {
+  overflow: hidden;
+  height: 100%;
+  margin: 0;
+}
 
-  .metric-card-value {
-    @apply font-mono text-2xl font-bold text-stone-900;
-  }
+/* ─────────────────────────────────────────────
+   Dark theme (default)
+   ───────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #B45309 100%);
+  --theme-bg: #1a1a2e;
+  --theme-surface: #16213e;
+  --theme-surface-elevated: #1e293b;
+  --theme-border: #0f3460;
+  --theme-border-light: #334155;
+  --theme-accent: #D97706;
+  --theme-accent-hover: #EA580C;
+  --theme-text: #eaeaea;
+  --theme-text-dim: #a0a0a0;
+  --theme-text-muted: #64748b;
+  --theme-input-bg: #0f172a;
+  --theme-hover: #334155;
+  --theme-active: #3b82f6;
+  --theme-dropdown-bg: #1e293b;
+  --theme-scrollbar-track: #16213e;
+  --theme-scrollbar-thumb: #0f3460;
+  --theme-error-bg: #2d1515;
+  --theme-error-text: #fca5a5;
+}
 
-  .metric-card-label {
-    @apply text-xs text-stone-500 mt-1;
-  }
+/* ─────────────────────────────────────────────
+   Light theme
+   ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --gradient-amber: linear-gradient(90deg, #D97706 0%, #F59E0B 40%, #EA580C 100%);
+  --theme-bg: #f5f5f5;
+  --theme-surface: #ffffff;
+  --theme-surface-elevated: #fafafa;
+  --theme-border: #d1d5db;
+  --theme-border-light: #e5e7eb;
+  --theme-accent: #D97706;
+  --theme-accent-hover: #EA580C;
+  --theme-text: #1f2937;
+  --theme-text-dim: #6b7280;
+  --theme-text-muted: #9ca3af;
+  --theme-input-bg: #ffffff;
+  --theme-hover: #e5e7eb;
+  --theme-active: #3b82f6;
+  --theme-dropdown-bg: #ffffff;
+  --theme-scrollbar-track: #f3f4f6;
+  --theme-scrollbar-thumb: #9ca3af;
+  --theme-error-bg: #fef2f2;
+  --theme-error-text: #b91c1c;
+}
+
+/* ─────────────────────────────────────────────
+   Blue theme
+   ───────────────────────────────────────────── */
+[data-theme="blue"] {
+  --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #B45309 100%);
+  --theme-bg: #0d1b2a;
+  --theme-surface: #1b263b;
+  --theme-surface-elevated: #253a52;
+  --theme-border: #2c4a6b;
+  --theme-border-light: #3d5a80;
+  --theme-accent: #00b4d8;
+  --theme-accent-hover: #0096c7;
+  --theme-text: #e0e1dd;
+  --theme-text-dim: #98c1d9;
+  --theme-text-muted: #778da9;
+  --theme-input-bg: #0d1b2a;
+  --theme-hover: #3d5a80;
+  --theme-active: #0077b6;
+  --theme-dropdown-bg: #1b263b;
+  --theme-scrollbar-track: #1b263b;
+  --theme-scrollbar-thumb: #3d5a80;
+  --theme-error-bg: #2d1515;
+  --theme-error-text: #fca5a5;
+}
+
+/* ─────────────────────────────────────────────
+   High Contrast theme
+   ───────────────────────────────────────────── */
+[data-theme="highContrast"] {
+  --gradient-amber: linear-gradient(90deg, #FFD700 0%, #FFA500 40%, #FF8C00 100%);
+  --theme-bg: #000000;
+  --theme-surface: #0a0a0a;
+  --theme-surface-elevated: #141414;
+  --theme-border: #ffffff;
+  --theme-border-light: #cccccc;
+  --theme-accent: #ffff00;
+  --theme-accent-hover: #ffcc00;
+  --theme-text: #ffffff;
+  --theme-text-dim: #cccccc;
+  --theme-text-muted: #999999;
+  --theme-input-bg: #000000;
+  --theme-hover: #333333;
+  --theme-active: #ffff00;
+  --theme-dropdown-bg: #0a0a0a;
+  --theme-scrollbar-track: #0a0a0a;
+  --theme-scrollbar-thumb: #ffffff;
+  --theme-error-bg: #330000;
+  --theme-error-text: #ff6666;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--theme-scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--theme-scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+@utility input-unit {
+  pointer-events: none;
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  color: var(--theme-text-muted);
+  font-family: var(--font-mono);
+}
+
+@utility metric-card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--theme-border);
+  background-color: var(--theme-surface-elevated);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@utility metric-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--theme-text);
+}
+
+@utility metric-card-label {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  color: var(--theme-text-muted);
+  margin-top: 0.25rem;
 }
