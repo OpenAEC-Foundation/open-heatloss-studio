@@ -1162,7 +1162,7 @@ function RoomFill({ room, isSelected, tool, onSelect, onDragEnd }: {
       opacity={0.9}
       hitStrokeWidth={0}
       draggable={tool === "select"}
-      onClick={(e) => { e.cancelBubble = true; onSelect(); }}
+      onClick={(e) => { if (tool === "select") { e.cancelBubble = true; onSelect(); } }}
       onDragEnd={(e) => {
         const dx = e.target.x();
         const dy = e.target.y();
