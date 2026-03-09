@@ -29,6 +29,8 @@ pub struct OidcClaims {
 /// OIDC configuration discovered from the issuer.
 #[derive(Debug, Deserialize)]
 struct OidcDiscovery {
+    /// Canonical issuer URL (used for JWT `iss` claim validation).
+    issuer: String,
     jwks_uri: String,
 }
 
@@ -59,10 +61,10 @@ pub struct JwksCache {
 impl JwksCache {
     /// Create a new JWKS cache by discovering the OIDC configuration.
     pub async fn from_issuer(issuer: &str, audience: &str) -> Result<Self, String> {
-        // Normalize issuer URL (remove trailing slash for discovery).
-        let issuer_normalized = issuer.trim_end_matches('/');
+        // Normalize issuer URL (remove trailing slash for discovery endpoint).
+        let issuer_trimmed = issuer.trim_end_matches('/');
         let discovery_url =
-            format!("{issuer_normalized}/.well-known/openid-configuration");
+            format!("{issuer_trimmed}/.well-known/openid-configuration");
 
         tracing::info!("Fetching OIDC discovery from {discovery_url}");
 
@@ -73,7 +75,13 @@ impl JwksCache {
             .await
             .map_err(|e| format!("Failed to parse OIDC discovery: {e}"))?;
 
-        tracing::info!("JWKS URI: {}", discovery.jwks_uri);
+        // Use the canonical issuer from the discovery document for JWT validation.
+        // This ensures the `iss` claim in tokens matches exactly (trailing slash etc.).
+        tracing::info!(
+            "OIDC issuer (canonical): {}, JWKS URI: {}",
+            discovery.issuer,
+            discovery.jwks_uri
+        );
 
         let jwks: Jwks = reqwest::get(&discovery.jwks_uri)
             .await
@@ -87,7 +95,7 @@ impl JwksCache {
         Ok(Self {
             jwks_uri: discovery.jwks_uri,
             audience: audience.to_string(),
-            issuer: issuer_normalized.to_string(),
+            issuer: discovery.issuer,
             keys: Arc::new(RwLock::new(jwks.keys)),
         })
     }
