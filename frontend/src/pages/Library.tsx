@@ -64,6 +64,7 @@ interface MaterialDraft {
   lambdaWet: string;
   mu: string;
   rho: string;
+  keywords: string;
 }
 
 const EMPTY_MAT_DRAFT: MaterialDraft = {
@@ -74,6 +75,7 @@ const EMPTY_MAT_DRAFT: MaterialDraft = {
   lambdaWet: "",
   mu: "",
   rho: "",
+  keywords: "",
 };
 
 // ============================================================
@@ -297,11 +299,15 @@ function ConstructionsView() {
 function MaterialsView() {
   const materials = useMaterialsStore((s) => s.materials);
   const addMaterial = useMaterialsStore((s) => s.addMaterial);
+  const updateMaterial = useMaterialsStore((s) => s.updateMaterial);
   const removeMaterial = useMaterialsStore((s) => s.removeMaterial);
+  const resetMaterial = useMaterialsStore((s) => s.resetMaterial);
   const resetAll = useMaterialsStore((s) => s.resetAll);
+  const isModified = useMaterialsStore((s) => s.isModified);
 
   const [search, setSearch] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<MaterialDraft>({ ...EMPTY_MAT_DRAFT });
 
   // Filter materials by search
@@ -324,6 +330,9 @@ function MaterialsView() {
     return map;
   }, [filtered]);
 
+  const parseKeywords = (input: string): string[] =>
+    input.split(",").map((s) => s.trim()).filter(Boolean);
+
   const handleAdd = useCallback(() => {
     if (!draft.name.trim()) return;
     addMaterial({
@@ -336,7 +345,7 @@ function MaterialsView() {
       rho: draft.rho ? Number(draft.rho) : null,
       rdFixed: null,
       sdFixed: null,
-      keywords: [],
+      keywords: parseKeywords(draft.keywords),
     });
     setDraft({ ...EMPTY_MAT_DRAFT });
     setShowAddForm(false);
@@ -405,7 +414,18 @@ function MaterialsView() {
           </thead>
           <tbody>
             {[...grouped.entries()].map(([cat, items]) => (
-              <MaterialCategoryGroup key={cat} category={cat} materials={items} onRemove={removeMaterial} />
+              <MaterialCategoryGroup
+                key={cat}
+                category={cat}
+                materials={items}
+                editingId={editingId}
+                onEdit={(id) => { setEditingId(id); setShowAddForm(false); }}
+                onCancelEdit={() => setEditingId(null)}
+                onUpdate={(id, partial) => { updateMaterial(id, partial); setEditingId(null); }}
+                onRemove={removeMaterial}
+                onReset={resetMaterial}
+                isModified={isModified}
+              />
             ))}
             {grouped.size === 0 && (
               <tr>
@@ -423,15 +443,29 @@ function MaterialsView() {
 
 /* ─── Material category group ─── */
 
+interface MaterialCategoryGroupProps {
+  category: MaterialCategory;
+  materials: Material[];
+  editingId: string | null;
+  onEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onUpdate: (id: string, partial: Partial<Material>) => void;
+  onRemove: (id: string) => void;
+  onReset: (id: string) => void;
+  isModified: (id: string) => boolean;
+}
+
 function MaterialCategoryGroup({
   category,
   materials,
+  editingId,
+  onEdit,
+  onCancelEdit,
+  onUpdate,
   onRemove,
-}: {
-  category: MaterialCategory;
-  materials: Material[];
-  onRemove: (id: string) => void;
-}) {
+  onReset,
+  isModified,
+}: MaterialCategoryGroupProps) {
   const [collapsed, setCollapsed] = useState(true);
 
   return (
@@ -452,45 +486,237 @@ function MaterialCategoryGroup({
         </td>
       </tr>
       {!collapsed && materials.map((m) => (
-        <tr key={m.id} className="group border-b border-stone-100 hover:bg-stone-50/50">
-          <td className="px-3 py-2 font-medium text-stone-800">
-            {m.name}
-            {!m.isBuiltIn && (
-              <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600">
-                Aangepast
-              </span>
-            )}
-          </td>
-          <td className="px-3 py-2 text-stone-500">
-            {m.brand ?? <span className="text-stone-300">-</span>}
-          </td>
-          <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-            {m.rho !== null ? m.rho : <span className="text-stone-300">-</span>}
-          </td>
-          <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-            {m.lambda !== null ? m.lambda : <span className="text-stone-300">-</span>}
-          </td>
-          <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-            {m.lambdaWet !== null ? m.lambdaWet : <span className="text-stone-300">-</span>}
-          </td>
-          <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-            {m.mu}
-          </td>
-          <td className="px-3 py-2">
-            {!m.isBuiltIn && (
-              <button
-                type="button"
-                onClick={() => onRemove(m.id)}
-                className="rounded px-2 py-0.5 text-xs text-red-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                title="Verwijderen"
-              >
-                Verwijder
-              </button>
-            )}
-          </td>
-        </tr>
+        <MaterialRow
+          key={m.id}
+          material={m}
+          isEditing={editingId === m.id}
+          modified={isModified(m.id)}
+          onEdit={() => onEdit(m.id)}
+          onCancelEdit={onCancelEdit}
+          onUpdate={(partial) => onUpdate(m.id, partial)}
+          onRemove={() => onRemove(m.id)}
+          onReset={m.isBuiltIn ? () => onReset(m.id) : undefined}
+        />
       ))}
     </>
+  );
+}
+
+/* ─── Material row (view + inline edit) ─── */
+
+interface MaterialRowProps {
+  material: Material;
+  isEditing: boolean;
+  modified: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onUpdate: (partial: Partial<Material>) => void;
+  onRemove: () => void;
+  onReset?: () => void;
+}
+
+function MaterialRow({
+  material,
+  isEditing,
+  modified,
+  onEdit,
+  onCancelEdit,
+  onUpdate,
+  onRemove,
+  onReset,
+}: MaterialRowProps) {
+  const [draft, setDraft] = useState<MaterialDraft>({
+    name: "",
+    category: "metselwerk",
+    brand: "",
+    lambda: "",
+    lambdaWet: "",
+    mu: "",
+    rho: "",
+    keywords: "",
+  });
+
+  const parseKeywords = (input: string): string[] =>
+    input.split(",").map((s) => s.trim()).filter(Boolean);
+
+  const handleStartEdit = useCallback(() => {
+    setDraft({
+      name: material.name,
+      category: material.category,
+      brand: material.brand ?? "",
+      lambda: material.lambda !== null ? String(material.lambda) : "",
+      lambdaWet: material.lambdaWet !== null ? String(material.lambdaWet) : "",
+      mu: String(material.mu),
+      rho: material.rho !== null ? String(material.rho) : "",
+      keywords: material.keywords.join(", "),
+    });
+    onEdit();
+  }, [material, onEdit]);
+
+  const handleSave = useCallback(() => {
+    if (!draft.name.trim()) return;
+    onUpdate({
+      name: draft.name.trim(),
+      brand: draft.brand.trim() || null,
+      lambda: draft.lambda ? Number(draft.lambda) : null,
+      lambdaWet: draft.lambdaWet ? Number(draft.lambdaWet) : null,
+      mu: Number(draft.mu) || 1,
+      rho: draft.rho ? Number(draft.rho) : null,
+      keywords: parseKeywords(draft.keywords),
+    });
+  }, [draft, onUpdate]);
+
+  const handleCancel = useCallback(() => {
+    onCancelEdit();
+  }, [onCancelEdit]);
+
+  if (isEditing) {
+    return (
+      <tr className="border-b border-stone-100 bg-amber-50/50">
+        <td className="px-2 py-1.5">
+          <input
+            type="text"
+            value={draft.name}
+            onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+            className="w-full rounded border border-stone-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+            autoFocus
+          />
+          <input
+            type="text"
+            value={draft.keywords}
+            onChange={(e) => setDraft((p) => ({ ...p, keywords: e.target.value }))}
+            placeholder="Zoekwoorden (kommagescheiden)"
+            className="mt-1 w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="text"
+            value={draft.brand}
+            onChange={(e) => setDraft((p) => ({ ...p, brand: e.target.value }))}
+            placeholder="-"
+            className="w-full rounded border border-stone-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="number"
+            value={draft.rho}
+            onChange={(e) => setDraft((p) => ({ ...p, rho: e.target.value }))}
+            step="any"
+            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="number"
+            value={draft.lambda}
+            onChange={(e) => setDraft((p) => ({ ...p, lambda: e.target.value }))}
+            step="any"
+            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="number"
+            value={draft.lambdaWet}
+            onChange={(e) => setDraft((p) => ({ ...p, lambdaWet: e.target.value }))}
+            step="any"
+            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <input
+            type="number"
+            value={draft.mu}
+            onChange={(e) => setDraft((p) => ({ ...p, mu: e.target.value }))}
+            step="any"
+            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
+          <div className="flex justify-end gap-1">
+            <button
+              type="button"
+              onClick={handleSave}
+              className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              Opslaan
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:bg-stone-100"
+            >
+              Annuleer
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="group border-b border-stone-100 hover:bg-stone-50/50">
+      <td className="px-3 py-2 font-medium text-stone-800">
+        {material.name}
+        {!material.isBuiltIn && (
+          <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600">
+            Aangepast
+          </span>
+        )}
+        {modified && (
+          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-600">
+            Gewijzigd
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-stone-500">
+        {material.brand ?? <span className="text-stone-300">-</span>}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
+        {material.rho !== null ? material.rho : <span className="text-stone-300">-</span>}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
+        {material.lambda !== null ? material.lambda : <span className="text-stone-300">-</span>}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
+        {material.lambdaWet !== null ? material.lambdaWet : <span className="text-stone-300">-</span>}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
+        {material.mu}
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+            title="Bewerken"
+          >
+            Bewerk
+          </button>
+          {modified && onReset && (
+            <button
+              type="button"
+              onClick={onReset}
+              className="rounded px-2 py-0.5 text-xs text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              title="Herstel naar standaardwaarden"
+            >
+              Herstel
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 hover:text-red-600"
+            title="Verwijderen"
+          >
+            Verwijder
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -580,6 +806,16 @@ function MaterialAddForm({
           onChange={(e) => onChange({ mu: e.target.value })}
           step="any"
           className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+        />
+      </label>
+      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-stone-600">
+        Zoekwoorden
+        <input
+          type="text"
+          value={draft.keywords}
+          onChange={(e) => onChange({ keywords: e.target.value })}
+          placeholder="kommagescheiden, bijv. pir, isolatie"
+          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
         />
       </label>
       <div className="flex gap-2">
