@@ -102,10 +102,17 @@ export function segmentsShareEdge(
   a: Point2D, b: Point2D,
   c: Point2D, d: Point2D,
 ): boolean {
-  const eps = 50;
+  // Use perpendicular distance (not raw cross product) so tolerance is
+  // independent of wall length. 5 mm perpendicular tolerance.
+  const PERP_TOL = 5;
+  const OVERLAP_TOL = 50;
+
+  const abLen = Math.hypot(b.x - a.x, b.y - a.y);
+  if (abLen < 1) return false;
+
   const cross1 = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
   const cross2 = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x);
-  if (Math.abs(cross1) > eps || Math.abs(cross2) > eps) return false;
+  if (Math.abs(cross1) / abLen > PERP_TOL || Math.abs(cross2) / abLen > PERP_TOL) return false;
 
   const horiz = Math.abs(b.x - a.x) > Math.abs(b.y - a.y);
   const [a1, b1] = horiz
@@ -115,7 +122,7 @@ export function segmentsShareEdge(
     ? [Math.min(c.x, d.x), Math.max(c.x, d.x)]
     : [Math.min(c.y, d.y), Math.max(c.y, d.y)];
 
-  return Math.min(b1, d1) - Math.max(a1, c1) > eps;
+  return Math.min(b1, d1) - Math.max(a1, c1) > OVERLAP_TOL;
 }
 
 /**
@@ -193,7 +200,9 @@ export function mergePolygons(
   }
 
   // Clean up near-duplicate vertices (from shared edge endpoints that nearly coincide)
-  const cleaned = removeCollinearVertices(merged);
+  // NOTE: only remove duplicates, NOT collinear vertices — collinear corners are
+  // T-junction points needed for shared wall detection with adjacent rooms.
+  const cleaned = removeNearDuplicateVertices(merged);
 
   if (cleaned.length < 3) return null;
   if (polygonArea(cleaned) < 100) return null;
@@ -201,18 +210,15 @@ export function mergePolygons(
   return cleaned;
 }
 
-/** Remove vertices that are (nearly) collinear with their neighbours. */
-function removeCollinearVertices(poly: Point2D[], tolerance = 25): Point2D[] {
+/** Remove consecutive vertices that are nearly at the same position (< threshold mm apart). */
+function removeNearDuplicateVertices(poly: Point2D[], threshold = 50): Point2D[] {
   const result: Point2D[] = [];
   const n = poly.length;
   for (let i = 0; i < n; i++) {
-    const prev = poly[(i - 1 + n) % n]!;
-    const curr = poly[i]!;
     const next = poly[(i + 1) % n]!;
-    // Cross product to check collinearity
-    const cross = (curr.x - prev.x) * (next.y - prev.y) - (curr.y - prev.y) * (next.x - prev.x);
-    if (Math.abs(cross) > tolerance) {
-      result.push(curr);
+    const d = Math.hypot(poly[i]!.x - next.x, poly[i]!.y - next.y);
+    if (d >= threshold) {
+      result.push(poly[i]!);
     }
   }
   return result;

@@ -638,15 +638,9 @@ export function FloorCanvas({
                   if (partner && partner.roomId < room.id) return null;
                 }
 
-                // Wall colors: exterior=dark, interior=light gray, ground=brown, neighbor=blue-gray
                 const wallColor = isWallSelected ? "#d97706"
-                  : boundary === "ground" ? "#78716c"
-                  : boundary === "neighbor" ? "#94a3b8"
                   : isInteriorStyle ? "#d6d3d1"
                   : "#1c1917";
-
-                // Dash pattern for neighbor walls
-                const dash = boundary === "neighbor" ? [200, 100] : undefined;
 
                 return (
                   <Line
@@ -654,7 +648,6 @@ export function FloorCanvas({
                     points={[a.x, a.y, b.x, b.y]}
                     stroke={wallColor}
                     strokeWidth={isInteriorStyle ? Math.max(40, 1 / zoom) : Math.max(80, 2 / zoom)}
-                    dash={dash}
                     hitStrokeWidth={Math.max(WALL_THICKNESS_MM, 400)}
                     onClick={(e) => {
                       if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
