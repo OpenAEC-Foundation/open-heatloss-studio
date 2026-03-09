@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
       preserveSymlinks: true,
     },
     server: {
-      port: 5173,
+      port: 3023,
       proxy: {
         // Report generation → OpenAEC Reports API
         // Pad matcht /api/v1/report/* zodat het consistent is met de Rust backend.

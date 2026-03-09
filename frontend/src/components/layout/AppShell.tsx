@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 
 import { useProjectStore } from "../../store/projectStore";
 import { Sidebar } from "./Sidebar";
+import { TitleBar } from "./TitleBar";
 import { ToastContainer } from "../ui/Toast";
 import { ConflictDialog } from "../ui/ConflictDialog";
 import { useAutoSave } from "../../hooks/useAutoSave";
+import { isTauri } from "../../lib/backend";
 
 interface AppShellProps {
   children: ReactNode;
@@ -13,13 +15,15 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   useAutoSave();
   const { error, clearError } = useProjectStore();
+  const hasTitleBar = isTauri();
 
   return (
-    <div className="flex min-h-screen">
+    <div className={`flex min-h-screen bg-app-bg text-app-text ${hasTitleBar ? "pt-[32px]" : ""}`}>
+      <TitleBar />
       <Sidebar />
-      <main className="ml-sidebar flex-1">
+      <main className="ml-sidebar flex-1 overflow-y-auto" style={{ height: hasTitleBar ? "calc(100vh - 32px)" : "100vh" }}>
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <div className="flex items-center gap-2 bg-app-error-bg px-4 py-2.5 text-sm text-app-error-text">
             <span className="flex-1">{error}</span>
             <button
               onClick={clearError}
