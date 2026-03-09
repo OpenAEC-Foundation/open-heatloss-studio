@@ -151,7 +151,8 @@ export function FloorCanvas({
 
       let best = p;
       let bestDist = Infinity;
-      const tolerance = snap.gridSize * 2;
+      // Tolerance in world mm — at least gridSize*2 but also at least 25 screen pixels
+      const tolerance = Math.max(snap.gridSize * 2, 25 / zoom);
 
       // Snap targets: active rooms + ghost rooms from floor below
       const allSnapRooms = [...rooms, ...ghostRooms];
@@ -214,7 +215,7 @@ export function FloorCanvas({
 
       return best;
     },
-    [snap, rooms, ghostRooms, drawPoints],
+    [snap, rooms, ghostRooms, drawPoints, zoom],
   );
 
   // Cancel drawing on tool change / Escape
@@ -400,13 +401,13 @@ export function FloorCanvas({
     }
 
     if (tool === "draw_window") {
-      const hit = findWallHit(snapped, rooms, snap.gridSize * 3);
+      const hit = findWallHit(snapped, rooms, Math.max(snap.gridSize * 3, 30 / zoom));
       if (hit) onAddWindow(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_WINDOW_WIDTH);
       return;
     }
 
     if (tool === "draw_door") {
-      const hit = findWallHit(snapped, rooms, snap.gridSize * 3);
+      const hit = findWallHit(snapped, rooms, Math.max(snap.gridSize * 3, 30 / zoom));
       if (hit) onAddDoor(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_DOOR_WIDTH);
       return;
     }
@@ -420,8 +421,8 @@ export function FloorCanvas({
       const searchRooms = firstHit
         ? rooms.filter((r) => r.id === firstHit.roomId)
         : rooms;
-      const hit = findWallHit(snapped, searchRooms, snap.gridSize * 3)
-        ?? findWallHit(raw, searchRooms, snap.gridSize * 3);
+      const hit = findWallHit(snapped, searchRooms, Math.max(snap.gridSize * 3, 30 / zoom))
+        ?? findWallHit(raw, searchRooms, Math.max(snap.gridSize * 3, 30 / zoom));
 
       if (drawPoints.length === 0) {
         // First click: must be on a wall
@@ -833,7 +834,7 @@ export function FloorCanvas({
               const targetRooms = firstHitRef
                 ? rooms.filter((r) => r.id === firstHitRef.roomId)
                 : rooms;
-              const hit = findWallHit(cursorWorld, targetRooms, snap.gridSize * 3);
+              const hit = findWallHit(cursorWorld, targetRooms, Math.max(snap.gridSize * 3, 30 / zoom));
               if (hit && firstHitRef && hit.wallIndex !== firstHitRef.wallIndex) {
                 const room = rooms.find((r) => r.id === hit.roomId);
                 if (room) {
