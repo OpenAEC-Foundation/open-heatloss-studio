@@ -1,4 +1,6 @@
 import type { BoundaryType, MaterialType, VerticalPosition } from "../types";
+import type { ProjectConstruction } from "../components/modeller/types";
+import { calculateRc } from "./rcCalculation";
 
 export interface CatalogueLayer {
   materialId: string;
@@ -584,3 +586,37 @@ export const CONSTRUCTION_CATALOGUE: CatalogueEntry[] = [
     isBuiltIn: true,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Unified lookup: project constructions + catalogue
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a construction by ID — searches project constructions first,
+ * then falls back to the global catalogue.
+ *
+ * For project constructions, the U-value is calculated on-the-fly from layers.
+ */
+export function resolveConstruction(
+  entryId: string,
+  catalogueEntries: CatalogueEntry[],
+  projectConstructions: ProjectConstruction[],
+): CatalogueEntry | null {
+  // Check project constructions first (proj- prefix)
+  const projEntry = projectConstructions.find((c) => c.id === entryId);
+  if (projEntry) {
+    const rcResult = calculateRc(projEntry.layers, projEntry.verticalPosition);
+    return {
+      id: projEntry.id,
+      name: projEntry.name,
+      category: projEntry.category,
+      uValue: Math.round(rcResult.uValue * 1000) / 1000,
+      materialType: projEntry.materialType,
+      verticalPosition: projEntry.verticalPosition,
+      layers: projEntry.layers,
+    };
+  }
+
+  // Fall back to catalogue
+  return catalogueEntries.find((e) => e.id === entryId) ?? null;
+}

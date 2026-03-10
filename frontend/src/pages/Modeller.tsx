@@ -11,11 +11,14 @@ import { useModellerStore } from "../components/modeller/modellerStore";
 import type { ModellerTool, ModelRoom, ModelWindow, Point2D, Selection, SnapSettings, ViewMode } from "../components/modeller";
 import { splitPolygon } from "../components/modeller";
 import { importIfcFile } from "../components/modeller/ifc-import";
+import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
+import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
+import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
 import { modelToIfcx } from "../components/modeller/ifcx-builder";
 import { renderPdfFirstPage } from "../components/modeller/pdf-underlay";
 import { useToastStore } from "../store/toastStore";
 import { useProjectStore } from "../store/projectStore";
-import { useCatalogueStore } from "../store/catalogueStore";
+import { useAllConstructions } from "../hooks/useAllConstructions";
 import { importProject, exportProject } from "../lib/importExport";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
@@ -54,18 +57,26 @@ export function Modeller() {
   const assignWallBoundaryType = useModellerStore((s) => s.assignWallBoundaryType);
 
   const importModel = useModellerStore((s) => s.importModel);
+  const importProjectConstructions = useModellerStore(
+    (s) => s.importProjectConstructions,
+  );
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
 
-  // Catalogue U-values (entryId → U-value)
-  const catalogueEntries = useCatalogueStore((s) => s.entries);
+  // IFC wall type review dialog state
+  const [ifcWallTypes, setIfcWallTypes] = useState<IfcWallTypeInfo[] | null>(
+    null,
+  );
+
+  // All constructions U-values (entryId → U-value), includes project constructions
+  const allConstructionEntries = useAllConstructions();
   const catalogueUValues = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const e of catalogueEntries) {
+    for (const e of allConstructionEntries) {
       map[e.id] = e.uValue;
     }
     return map;
-  }, [catalogueEntries]);
+  }, [allConstructionEntries]);
 
   // Fit view trigger counter
   const [fitViewTrigger, setFitViewTrigger] = useState(0);
@@ -346,6 +357,20 @@ export function Modeller() {
             .join(", ");
           addToast(`Waarschuwingen: ${warnMsg}`, "info");
         }
+
+        // Phase 2: extract wall types for project construction import
+        try {
+          const wallTypes = await extractWallTypesFromFile(file);
+          if (wallTypes.length > 0) {
+            setIfcWallTypes(wallTypes);
+            addToast(
+              `${wallTypes.length} wandtype(n) gevonden — controleer de matching`,
+              "info",
+            );
+          }
+        } catch {
+          // Wall type extraction is optional — don't fail the import
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         addToast(`IFC import mislukt: ${message}`, "error");
@@ -456,6 +481,23 @@ export function Modeller() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undo, redo, selection, handleRemoveRoom, handleRemoveWindow]);
+
+  // IFC wall type review handlers
+  const handleImportWallTypes = useCallback(
+    (constructions: Omit<import("../components/modeller/types").ProjectConstruction, "id">[]) => {
+      importProjectConstructions(constructions);
+      setIfcWallTypes(null);
+      addToast(
+        `${constructions.length} constructie(s) geimporteerd als projectconstructie`,
+        "success",
+      );
+    },
+    [importProjectConstructions, addToast],
+  );
+
+  const handleCancelWallTypes = useCallback(() => {
+    setIfcWallTypes(null);
+  }, []);
 
   return (
     <div className="flex h-screen flex-col">
@@ -587,6 +629,15 @@ export function Modeller() {
           onAssignBoundaryType={assignWallBoundaryType}
         />
       </div>
+
+      {/* IFC Wall Type Review Dialog */}
+      {ifcWallTypes && ifcWallTypes.length > 0 && (
+        <IfcWallTypeReview
+          wallTypes={ifcWallTypes}
+          onImport={handleImportWallTypes}
+          onCancel={handleCancelWallTypes}
+        />
+      )}
     </div>
   );
 }
@@ -638,7 +689,7 @@ function ProjectBrowser({
     rooms: rooms.filter((r) => r.floor === floor),
   }));
 
-  const catalogueEntries = useCatalogueStore((s) => s.entries);
+  const catalogueEntries = useAllConstructions();
 
   return (
     <div className="w-64 shrink-0 overflow-y-auto border-r border-stone-200 bg-white text-xs">
@@ -766,6 +817,11 @@ function ProjectBrowser({
           </div>
         );
       })}
+
+      {/* Project constructions library */}
+      <div className="border-t border-stone-100">
+        <ProjectLibraryPanel />
+      </div>
     </div>
   );
 }

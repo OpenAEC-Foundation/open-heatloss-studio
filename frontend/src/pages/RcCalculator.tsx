@@ -25,6 +25,7 @@ import {
 import { generateReportDirect } from "../lib/reportClient";
 import { calculateYearlyMoisture } from "../lib/yearlyMoistureCalculation";
 import { useCatalogueStore } from "../store/catalogueStore";
+import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
 import type { MaterialType, VerticalPosition } from "../types";
 
@@ -83,6 +84,9 @@ export function RcCalculator() {
   const addEntry = useCatalogueStore((s) => s.addEntry);
   const updateEntry = useCatalogueStore((s) => s.updateEntry);
   const allEntries = useCatalogueStore((s) => s.entries);
+  const addProjectConstruction = useModellerStore(
+    (s) => s.addProjectConstruction,
+  );
   const addToast = useToastStore((s) => s.addToast);
 
   // Load entry when editing
@@ -231,6 +235,25 @@ export function RcCalculator() {
       if (editId) navigate("/library");
     }, 1000);
   }, [category, materialType, position, layers, rcResult.uValue, addEntry, updateEntry, editId, navigate]);
+
+  const handleSaveToProject = useCallback(() => {
+    const validLayers = layers.filter((l) => l.materialId);
+    if (validLayers.length === 0) return;
+
+    const layerName = buildLayerName(validLayers);
+    addProjectConstruction({
+      name: layerName,
+      category,
+      materialType,
+      verticalPosition: position,
+      layers: validLayers.map((l) => ({
+        materialId: l.materialId,
+        thickness: l.thickness,
+      })),
+    });
+
+    addToast("Opgeslagen als projectconstructie", "success");
+  }, [category, materialType, position, layers, addProjectConstruction, addToast]);
 
   const handleGenerateReport = useCallback(async () => {
     setIsGenerating(true);
@@ -701,6 +724,16 @@ export function RcCalculator() {
                 >
                   {isGenerating ? "Genereren..." : "Genereer rapport"}
                 </Button>
+                {!editId && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveToProject}
+                    disabled={!canSave}
+                    size="md"
+                  >
+                    Opslaan in project
+                  </Button>
+                )}
                 <Button
                   onClick={handleSave}
                   disabled={!canSave}

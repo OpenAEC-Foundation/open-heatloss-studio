@@ -3,8 +3,8 @@ import { useState } from "react";
 import type { ModelRoom, ModelWindow, Point2D, Selection, WallBoundaryType } from "./types";
 import { BOUNDARY_TYPE_LABELS } from "./types";
 import { polygonArea, segmentsShareEdge } from "./geometry";
-import { useCatalogueStore } from "../../store/catalogueStore";
-import type { CatalogueEntry, CatalogueCategory } from "../../lib/constructionCatalogue";
+import { useAllConstructions, type UnifiedConstructionEntry } from "../../hooks/useAllConstructions";
+import type { CatalogueCategory } from "../../lib/constructionCatalogue";
 import { CATALOGUE_CATEGORY_LABELS } from "../../lib/constructionCatalogue";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ export function PropertiesPanel({
   wallBoundaryTypes = {},
   onAssignBoundaryType,
 }: PropertiesPanelProps) {
-  const catalogueEntries = useCatalogueStore((s) => s.entries);
+  const catalogueEntries = useAllConstructions();
 
   // Window selected: show window editor
   if (selection?.type === "window" && room) {
@@ -516,7 +516,7 @@ function boundaryBadge(wall: WallInfo): { label: string; colors: string } {
 }
 
 function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeBoundary }: {
-  wall: WallInfo; assignedEntryId?: string; catalogueEntries: CatalogueEntry[];
+  wall: WallInfo; assignedEntryId?: string; catalogueEntries: UnifiedConstructionEntry[];
   onAssign?: (entryId: string | null) => void;
   onChangeBoundary?: (wallIndex: number, bt: WallBoundaryType) => void;
 }) {
@@ -561,7 +561,7 @@ function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeB
 // ---------------------------------------------------------------------------
 
 function ConstructionCard({ label, badge, badgeColor, assignedEntryId, catalogueEntries, filterCategory, onAssign }: {
-  label: string; badge: string; badgeColor: "green" | "purple"; assignedEntryId?: string; catalogueEntries: CatalogueEntry[];
+  label: string; badge: string; badgeColor: "green" | "purple"; assignedEntryId?: string; catalogueEntries: UnifiedConstructionEntry[];
   filterCategory: CatalogueCategory; onAssign?: (entryId: string | null) => void;
 }) {
   const [picking, setPicking] = useState(false);
@@ -588,12 +588,85 @@ function ConstructionCard({ label, badge, badgeColor, assignedEntryId, catalogue
   );
 }
 
+function PickerEntryButton({ entry, onSelect }: {
+  entry: UnifiedConstructionEntry; onSelect: (id: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onSelect(entry.id)}
+      className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100"
+    >
+      {entry.isProjectEntry && (
+        <span className="mr-1 rounded bg-teal-50 px-1 py-0.5 text-[8px] font-medium text-teal-700">
+          Project
+        </span>
+      )}
+      <span className="font-medium">{entry.name}</span>{" "}
+      <span className="text-stone-400">U={entry.uValue}</span>
+    </button>
+  );
+}
+
+function PickerList({ entries, filterCategory, search, onSelect }: {
+  entries: UnifiedConstructionEntry[];
+  filterCategory: CatalogueCategory;
+  search: string;
+  onSelect: (id: string) => void;
+}) {
+  const filtered = entries.filter(
+    (e) =>
+      e.category === filterCategory &&
+      (!search || e.name.toLowerCase().includes(search.toLowerCase())),
+  );
+
+  // Split into project and catalogue entries
+  const projectEntries = filtered.filter((e) => e.isProjectEntry);
+  const catalogueOnly = filtered.filter((e) => !e.isProjectEntry);
+
+  if (filtered.length === 0) {
+    return (
+      <div className="py-1 text-center text-[10px] text-stone-400">
+        Geen resultaten
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {projectEntries.length > 0 && (
+        <>
+          <div className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-teal-600">
+            Project
+          </div>
+          {projectEntries.map((e) => (
+            <PickerEntryButton key={e.id} entry={e} onSelect={onSelect} />
+          ))}
+          {catalogueOnly.length > 0 && (
+            <div className="my-0.5 border-t border-stone-200" />
+          )}
+        </>
+      )}
+      {catalogueOnly.length > 0 && (
+        <>
+          {projectEntries.length > 0 && (
+            <div className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
+              Catalogus
+            </div>
+          )}
+          {catalogueOnly.map((e) => (
+            <PickerEntryButton key={e.id} entry={e} onSelect={onSelect} />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
 function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
-  entries: CatalogueEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void;
+  entries: UnifiedConstructionEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
-  const filtered = entries.filter((e) => e.category === filterCategory && (!search || e.name.toLowerCase().includes(search.toLowerCase())));
 
   if (!open) {
     return <button onClick={() => setOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>;
@@ -607,23 +680,16 @@ function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
         className="mb-1 w-full rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
       />
       <div className="max-h-40 overflow-y-auto">
-        {filtered.length === 0 ? <div className="py-1 text-center text-[10px] text-stone-400">Geen resultaten</div> : (
-          filtered.map((e) => (
-            <button key={e.id} onClick={() => onSelect(e.id)} className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100">
-              <span className="font-medium">{e.name}</span> <span className="text-stone-400">U={e.uValue}</span>
-            </button>
-          ))
-        )}
+        <PickerList entries={entries} filterCategory={filterCategory} search={search} onSelect={onSelect} />
       </div>
     </div>
   );
 }
 
 function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
-  entries: CatalogueEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void; onCancel: () => void;
+  entries: UnifiedConstructionEntry[]; filterCategory: CatalogueCategory; onSelect: (entryId: string) => void; onCancel: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = entries.filter((e) => e.category === filterCategory && (!search || e.name.toLowerCase().includes(search.toLowerCase())));
 
   return (
     <div className="mt-1 rounded border border-amber-200 bg-amber-50/50 p-1.5">
@@ -636,13 +702,7 @@ function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
         <button onClick={onCancel} className="text-[10px] text-stone-400 hover:text-stone-600">Annuleer</button>
       </div>
       <div className="max-h-40 overflow-y-auto">
-        {filtered.length === 0 ? <div className="py-1 text-center text-[10px] text-stone-400">Geen resultaten</div> : (
-          filtered.map((e) => (
-            <button key={e.id} onClick={() => onSelect(e.id)} className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100">
-              <span className="font-medium">{e.name}</span> <span className="text-stone-400">U={e.uValue}</span>
-            </button>
-          ))
-        )}
+        <PickerList entries={entries} filterCategory={filterCategory} search={search} onSelect={onSelect} />
       </div>
     </div>
   );

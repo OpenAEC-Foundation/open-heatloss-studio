@@ -31,6 +31,7 @@ export type {
   SnapSettings,
   Selection,
   WallBoundaryType,
+  ProjectConstruction,
 } from "./types";
 export { DEFAULT_SNAP_SETTINGS, BOUNDARY_TYPE_LABELS } from "./types";
 
@@ -61,6 +62,14 @@ export type { ModelToIfcxOptions } from "./ifcx-builder";
 // IFC import (web-ifc based, IFC2x3/IFC4 STEP files)
 export { importIfcFile } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
+
+// IFC wall type extraction
+export { extractWallTypes, extractWallTypesFromFile } from "./ifc-wall-types";
+export type { IfcWallTypeInfo, IfcWallTypeLayer } from "./ifc-wall-types";
+
+// Project library UI
+export { ProjectLibraryPanel } from "./ProjectLibraryPanel";
+export { IfcWallTypeReview } from "./IfcWallTypeReview";
 
 // Example data (for development/testing)
 export { EXAMPLE_ROOMS, EXAMPLE_WINDOWS, FLOOR_LABELS } from "./exampleData";

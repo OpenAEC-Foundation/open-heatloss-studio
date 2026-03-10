@@ -1,6 +1,30 @@
+import type { MaterialType, VerticalPosition } from "../../types";
+import type { CatalogueCategory, CatalogueLayer } from "../../lib/constructionCatalogue";
+
 export interface Point2D {
   x: number;
   y: number;
+}
+
+// ---------------------------------------------------------------------------
+// Project construction (per-project layer-based construction)
+// ---------------------------------------------------------------------------
+
+export interface ProjectConstruction {
+  id: string;
+  /** Auto-generated from layers ("KZS 100 | PIR 110 | ..."). */
+  name: string;
+  category: CatalogueCategory;
+  materialType: MaterialType;
+  verticalPosition: VerticalPosition;
+  /** Layer build-up — always required for project constructions. */
+  layers: CatalogueLayer[];
+  /** Traceability to IFC source (optional). */
+  ifcSource?: {
+    wallTypeName: string;
+    globalId: string;
+    originalMaterialNames: string[];
+  };
 }
 
 export interface ModelRoom {

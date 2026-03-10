@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType, ProjectConstruction } from "./types";
 import { EXAMPLE_ROOMS, EXAMPLE_WINDOWS } from "./exampleData";
 
 // ---------------------------------------------------------------------------
@@ -36,13 +36,20 @@ interface Snapshot {
   rooms: ModelRoom[];
   windows: ModelWindow[];
   doors: ModelDoor[];
+  projectConstructions: ProjectConstruction[];
 }
 
-function takeSnapshot(state: { rooms: ModelRoom[]; windows: ModelWindow[]; doors: ModelDoor[] }): Snapshot {
+function takeSnapshot(state: {
+  rooms: ModelRoom[];
+  windows: ModelWindow[];
+  doors: ModelDoor[];
+  projectConstructions: ProjectConstruction[];
+}): Snapshot {
   return {
     rooms: structuredClone(state.rooms),
     windows: structuredClone(state.windows),
     doors: structuredClone(state.doors),
+    projectConstructions: structuredClone(state.projectConstructions),
   };
 }
 
@@ -58,10 +65,13 @@ interface ModellerStore {
   windows: ModelWindow[];
   doors: ModelDoor[];
 
+  // Project constructions (per-project layer-based constructions)
+  projectConstructions: ProjectConstruction[];
+
   // Underlay
   underlay: UnderlayImage | null;
 
-  // Construction assignments: "roomId:wallIndex" -> catalogueEntryId
+  // Construction assignments: "roomId:wallIndex" -> catalogueEntryId or projectConstructionId
   wallConstructions: Record<string, string>;
   floorConstructions: Record<string, string>;
   roofConstructions: Record<string, string>;
@@ -98,6 +108,13 @@ interface ModellerStore {
 
   // Wall boundary type
   assignWallBoundaryType: (roomId: string, wallIndex: number, boundaryType: WallBoundaryType) => void;
+
+  // Project construction CRUD
+  addProjectConstruction: (construction: Omit<ProjectConstruction, "id">) => string;
+  updateProjectConstruction: (id: string, updates: Partial<Omit<ProjectConstruction, "id">>) => void;
+  removeProjectConstruction: (id: string) => void;
+  importProjectConstructions: (constructions: Omit<ProjectConstruction, "id">[]) => void;
+
   // History
   undo: () => void;
   redo: () => void;
@@ -141,6 +158,7 @@ export const useModellerStore = create<ModellerStore>()(
       rooms: [...EXAMPLE_ROOMS],
       windows: [...EXAMPLE_WINDOWS],
       doors: [],
+      projectConstructions: [],
       underlay: null,
       wallConstructions: {},
       floorConstructions: {},
@@ -274,6 +292,66 @@ export const useModellerStore = create<ModellerStore>()(
         });
       },
 
+      // -- Project construction CRUD --
+      addProjectConstruction: (construction) => {
+        const state = get();
+        const id = `proj-${crypto.randomUUID()}`;
+        set({
+          ...pushUndo(state),
+          projectConstructions: [
+            ...state.projectConstructions,
+            { ...construction, id },
+          ],
+        });
+        return id;
+      },
+
+      updateProjectConstruction: (id, updates) => {
+        const state = get();
+        set({
+          ...pushUndo(state),
+          projectConstructions: state.projectConstructions.map((c) =>
+            c.id === id ? { ...c, ...updates } : c,
+          ),
+        });
+      },
+
+      removeProjectConstruction: (id) => {
+        const state = get();
+        // Clean up any assignment references pointing to this construction
+        const cleanRecord = (rec: Record<string, string>) => {
+          const next: Record<string, string> = {};
+          for (const [k, v] of Object.entries(rec)) {
+            if (v !== id) next[k] = v;
+          }
+          return next;
+        };
+        set({
+          ...pushUndo(state),
+          projectConstructions: state.projectConstructions.filter(
+            (c) => c.id !== id,
+          ),
+          wallConstructions: cleanRecord(state.wallConstructions),
+          floorConstructions: cleanRecord(state.floorConstructions),
+          roofConstructions: cleanRecord(state.roofConstructions),
+        });
+      },
+
+      importProjectConstructions: (constructions) => {
+        const state = get();
+        const newEntries = constructions.map((c) => ({
+          ...c,
+          id: `proj-${crypto.randomUUID()}`,
+        }));
+        set({
+          ...pushUndo(state),
+          projectConstructions: [
+            ...state.projectConstructions,
+            ...newEntries,
+          ],
+        });
+      },
+
       // -- History --
       undo: () => {
         const state = get();
@@ -284,6 +362,7 @@ export const useModellerStore = create<ModellerStore>()(
           rooms: prev.rooms,
           windows: prev.windows,
           doors: prev.doors,
+          projectConstructions: prev.projectConstructions,
           _past: state._past.slice(0, -1),
           _future: [...state._future, snap],
         });
@@ -298,6 +377,7 @@ export const useModellerStore = create<ModellerStore>()(
           rooms: next.rooms,
           windows: next.windows,
           doors: next.doors,
+          projectConstructions: next.projectConstructions,
           _past: [...state._past, snap],
           _future: state._future.slice(0, -1),
         });
@@ -315,6 +395,7 @@ export const useModellerStore = create<ModellerStore>()(
           floorConstructions: {},
           roofConstructions: {},
           wallBoundaryTypes: {},
+          // Note: projectConstructions are intentionally preserved during model import
         });
       },
 
@@ -326,6 +407,7 @@ export const useModellerStore = create<ModellerStore>()(
           rooms: [...EXAMPLE_ROOMS],
           windows: [...EXAMPLE_WINDOWS],
           doors: [],
+          projectConstructions: [],
           wallConstructions: {},
           floorConstructions: {},
           roofConstructions: {},
@@ -341,6 +423,7 @@ export const useModellerStore = create<ModellerStore>()(
         rooms: state.rooms,
         windows: state.windows,
         doors: state.doors,
+        projectConstructions: state.projectConstructions,
         underlay: state.underlay,
         wallConstructions: state.wallConstructions,
         floorConstructions: state.floorConstructions,
