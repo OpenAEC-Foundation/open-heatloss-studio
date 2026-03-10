@@ -534,6 +534,11 @@ function tryExtractBrep(
 const VERTEX_STRIDE = 6; // x, y, z, nx, ny, nz per vertex
 /** 50mm tolerance for "same Z level", expressed in file units. */
 const Z_TOLERANCE_MM = 50;
+/**
+ * GetFlatMesh always returns vertices in meters (web-ifc normalizes
+ * internally), regardless of the IFC file's declared length unit.
+ */
+const MESH_UNIT_TO_MM = 1000;
 
 /** Position key for deduplication — rounds to ~1mm in file units. */
 function posKey(x: number, y: number, scale: number): string {
@@ -545,7 +550,6 @@ function tryExtractMesh(
   api: WebIfc.IfcAPI,
   modelId: number,
   spaceId: number,
-  unitToMm: number,
 ): ExtractionResult | null {
   try {
     const flatMesh = api.GetFlatMesh(modelId, spaceId);
@@ -625,12 +629,13 @@ function tryExtractMesh(
       if (v.z < minZ) minZ = v.z;
       if (v.z > maxZ) maxZ = v.z;
     }
-    const height = (maxZ - minZ) * unitToMm;
-    const zTol = Z_TOLERANCE_MM / unitToMm; // tolerance in file units
+    // GetFlatMesh always returns meters — use MESH_UNIT_TO_MM (not unitToMm)
+    const height = (maxZ - minZ) * MESH_UNIT_TO_MM;
+    const zTol = Z_TOLERANCE_MM / MESH_UNIT_TO_MM; // 0.05m = 50mm
 
     // Try to extract accurate floor polygon outline from mesh triangles
     const outline = extractFloorOutline(
-      allVertices, allIndices, minZ, unitToMm, zTol,
+      allVertices, allIndices, minZ, MESH_UNIT_TO_MM, zTol,
     );
     if (outline && outline.length >= MIN_POLYGON_POINTS) {
       return {
@@ -645,7 +650,7 @@ function tryExtractMesh(
     );
     if (bottomVerts.length < MIN_POLYGON_POINTS) return null;
 
-    const points2D = bottomVerts.map((v) => ifcToModeller(v.x, v.y, unitToMm));
+    const points2D = bottomVerts.map((v) => ifcToModeller(v.x, v.y, MESH_UNIT_TO_MM));
     const hull = convexHull2D(points2D);
 
     if (hull.length >= MIN_POLYGON_POINTS) {
@@ -1069,7 +1074,7 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
       let brepErr = "";
 
       try {
-        extracted = tryExtractMesh(api, modelId, spaceId, unitToMm);
+        extracted = tryExtractMesh(api, modelId, spaceId);
         if (extracted) strategy = "mesh";
       } catch (e) {
         meshErr = String(e);
