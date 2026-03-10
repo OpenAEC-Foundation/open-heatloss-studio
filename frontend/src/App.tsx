@@ -9,6 +9,7 @@ import { RoomEditor } from "./pages/RoomEditor";
 import { RcCalculator } from "./pages/RcCalculator";
 import { Results } from "./pages/Results";
 import { Modeller } from "./pages/Modeller";
+import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { isTauri } from "./lib/backend";
 
 /** Whether OIDC env vars are baked in at build time. */
@@ -75,6 +76,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/project" replace />} />
           <Route path="/project" element={<ProjectSetup />} />
           <Route path="/rooms" element={<RoomEditor />} />
+          <Route path="/constructies" element={<ProjectConstructions />} />
           <Route path="/rc" element={<RcCalculator />} />
           <Route path="/library" element={<Library />} />
           <Route path="/materialen" element={<Library initialSection="materialen" />} />
