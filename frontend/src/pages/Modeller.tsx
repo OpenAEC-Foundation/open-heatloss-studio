@@ -419,6 +419,12 @@ export function Modeller() {
     input.click();
   }, [addToast]);
 
+  const handleClearView = useCallback(() => {
+    importModel([], [], []);
+    setSelection(null);
+    addToast("Beeld geleegd", "info");
+  }, [importModel, addToast]);
+
   const handleFitView = useCallback(() => {
     setFitViewTrigger((n) => n + 1);
   }, []);
@@ -471,6 +477,7 @@ export function Modeller() {
         onExportIfc={handleExportIfc}
         onImportJson={handleImportJson}
         onExportJson={handleExportJson}
+        onClearView={handleClearView}
       />
 
       <div className="flex min-h-0 flex-1">

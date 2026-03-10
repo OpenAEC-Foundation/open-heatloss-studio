@@ -6,6 +6,7 @@ import {
   Grid2x2, DoorOpen, Scissors, MoveHorizontal,
   Type, CornerRightDown, Ruler, Undo2, Redo2,
   FileImage, FileText, Download, Upload, FileDown, FileUp,
+  Trash2,
 } from "lucide-react";
 
 import type { ModellerTool, SnapMode, SnapSettings, ViewMode } from "./types";
@@ -33,6 +34,7 @@ interface RibbonProps {
   onExportIfc: () => void;
   onImportJson: () => void;
   onExportJson: () => void;
+  onClearView: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,14 +136,15 @@ export function Ribbon(props: RibbonProps) {
 // Tab: Model
 // ---------------------------------------------------------------------------
 
-function ModelTab({ tool, onToolChange, onUndo, onRedo }: RibbonProps) {
+function ModelTab({ tool, onToolChange, onUndo, onRedo, onClearView }: RibbonProps) {
   return (
     <>
-      {/* Undo / Redo */}
+      {/* Undo / Redo / Clear */}
       <RibbonGroup label="">
         <div className="flex h-full flex-col items-center justify-center gap-1">
           <SmallButton icon={Undo2} label="Ongedaan" onClick={onUndo} title="Ctrl+Z" />
           <SmallButton icon={Redo2} label="Opnieuw" onClick={onRedo} title="Ctrl+Y" />
+          <SmallButton icon={Trash2} label="Leeg" onClick={onClearView} title="Leeg beeld" />
         </div>
       </RibbonGroup>
 
