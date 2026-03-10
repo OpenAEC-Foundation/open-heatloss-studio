@@ -524,8 +524,21 @@ function tryExtractBrep(
 }
 
 // ---------------------------------------------------------------------------
-// Strategy 3: Mesh fallback via GetFlatMesh
+// Strategy 3: Mesh extraction via GetFlatMesh (with flatTransformation)
+//
+// GetFlatMesh returns geometry with a per-geometry 4x4 transform matrix
+// (flatTransformation) that places vertices in global model space.
+// This is the most reliable strategy for correct room positioning.
 // ---------------------------------------------------------------------------
+
+const VERTEX_STRIDE = 6; // x, y, z, nx, ny, nz per vertex
+const Z_TOLERANCE = 0.05; // 5cm tolerance for "same Z level"
+
+/** Position key for deduplication — rounds to ~1mm in file units. */
+function posKey(x: number, y: number, scale: number): string {
+  const s = Math.max(100, scale);
+  return `${Math.round(x * s)}_${Math.round(y * s)}`;
+}
 
 function tryExtractMesh(
   api: WebIfc.IfcAPI,
@@ -537,26 +550,45 @@ function tryExtractMesh(
     const flatMesh = api.GetFlatMesh(modelId, spaceId);
     if (!flatMesh || flatMesh.geometries.size() === 0) return null;
 
-    // Collect all vertices from all geometries
+    // Collect all vertices and triangle indices, applying flatTransformation
     const allVertices: { x: number; y: number; z: number }[] = [];
+    const allIndices: number[] = [];
 
     for (let g = 0; g < flatMesh.geometries.size(); g++) {
       const geom = flatMesh.geometries.get(g);
       const meshData = api.GetGeometry(modelId, geom.geometryExpressID);
+
       const vertexData = api.GetVertexArray(
         meshData.GetVertexData(),
         meshData.GetVertexDataSize(),
       );
+      const indexData = api.GetIndexArray(
+        meshData.GetIndexData(),
+        meshData.GetIndexDataSize(),
+      );
 
-      // vertex data is: x, y, z, nx, ny, nz (6 floats per vertex)
-      const stride = 6;
-      for (let v = 0; v + 2 < vertexData.length; v += stride) {
+      // 4x4 column-major transformation matrix (local → global)
+      const m = geom.flatTransformation;
+      const baseIndex = allVertices.length;
+
+      for (let v = 0; v + 2 < vertexData.length; v += VERTEX_STRIDE) {
+        const lx = vertexData[v]!;
+        const ly = vertexData[v + 1]!;
+        const lz = vertexData[v + 2]!;
+        // Apply 4x4 column-major matrix: M * [lx, ly, lz, 1]
         allVertices.push({
-          x: vertexData[v] ?? 0,
-          y: vertexData[v + 1] ?? 0,
-          z: vertexData[v + 2] ?? 0,
+          x: m[0]! * lx + m[4]! * ly + m[8]! * lz + m[12]!,
+          y: m[1]! * lx + m[5]! * ly + m[9]! * lz + m[13]!,
+          z: m[2]! * lx + m[6]! * ly + m[10]! * lz + m[14]!,
         });
       }
+
+      // Offset indices to global vertex array
+      for (let i = 0; i < indexData.length; i++) {
+        allIndices.push(indexData[i]! + baseIndex);
+      }
+
+      meshData.delete();
     }
 
     if (allVertices.length < MIN_POLYGON_POINTS) return null;
@@ -570,15 +602,23 @@ function tryExtractMesh(
     }
     const height = (maxZ - minZ) * unitToMm;
 
-    // Extract bottom-face vertices (Z near minZ)
-    const zTolerance = 0.05; // 5cm
-    const bottomVerts = allVertices.filter(
-      (v) => Math.abs(v.z - minZ) < zTolerance,
+    // Try to extract accurate floor polygon outline from mesh triangles
+    const outline = extractFloorOutline(
+      allVertices, allIndices, minZ, unitToMm,
     );
+    if (outline && outline.length >= MIN_POLYGON_POINTS) {
+      return {
+        polygon: outline,
+        height: height > 0 ? height : FLOOR_HEIGHT_DEFAULT_MM,
+      };
+    }
 
+    // Fallback: convex hull of bottom vertices
+    const bottomVerts = allVertices.filter(
+      (v) => Math.abs(v.z - minZ) < Z_TOLERANCE,
+    );
     if (bottomVerts.length < MIN_POLYGON_POINTS) return null;
 
-    // Compute convex hull of bottom vertices in 2D
     const points2D = bottomVerts.map((v) => ifcToModeller(v.x, v.y, unitToMm));
     const hull = convexHull2D(points2D);
 
@@ -592,6 +632,142 @@ function tryExtractMesh(
     // Mesh extraction failed
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Floor polygon outline from mesh boundary edges
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the floor polygon outline from triangulated mesh data.
+ * Finds bottom-face triangles (all vertices at minZ), identifies boundary
+ * edges (edges appearing in exactly one triangle), and chains them into
+ * an ordered polygon. Preserves concave shapes like L-rooms.
+ */
+function extractFloorOutline(
+  vertices: { x: number; y: number; z: number }[],
+  indices: number[],
+  minZ: number,
+  unitToMm: number,
+): Point2D[] | null {
+  // Snap scale for position deduplication (~1mm precision)
+  const snapScale = unitToMm >= 100 ? 100 : 100_000;
+
+  // 1. Find bottom-face triangles and collect edges by position key
+  const edgeCounts = new Map<string, number>();
+  const edgeEndpoints = new Map<string, [string, string]>();
+
+  for (let i = 0; i + 2 < indices.length; i += 3) {
+    const v0 = vertices[indices[i]!]!;
+    const v1 = vertices[indices[i + 1]!]!;
+    const v2 = vertices[indices[i + 2]!]!;
+
+    // All 3 vertices must be at the floor level
+    if (
+      Math.abs(v0.z - minZ) > Z_TOLERANCE ||
+      Math.abs(v1.z - minZ) > Z_TOLERANCE ||
+      Math.abs(v2.z - minZ) > Z_TOLERANCE
+    ) {
+      continue;
+    }
+
+    const k0 = posKey(v0.x, v0.y, snapScale);
+    const k1 = posKey(v1.x, v1.y, snapScale);
+    const k2 = posKey(v2.x, v2.y, snapScale);
+
+    // Register 3 edges with canonical keys
+    for (const [a, b] of [[k0, k1], [k1, k2], [k2, k0]] as [string, string][]) {
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+      if (!edgeEndpoints.has(key)) {
+        edgeEndpoints.set(key, a < b ? [a, b] : [b, a]);
+      }
+    }
+  }
+
+  if (edgeCounts.size === 0) return null;
+
+  // 2. Boundary edges appear exactly once
+  const adjacency = new Map<string, Set<string>>();
+  for (const [key, count] of edgeCounts) {
+    if (count !== 1) continue;
+    const [a, b] = edgeEndpoints.get(key)!;
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a)!.add(b);
+    adjacency.get(b)!.add(a);
+  }
+
+  if (adjacency.size < MIN_POLYGON_POINTS) return null;
+
+  // 3. Walk boundary to form ordered polygon chain
+  const startKey = adjacency.keys().next().value!;
+  const chain: string[] = [startKey];
+  const visited = new Set<string>([startKey]);
+  let current = startKey;
+
+  for (let step = 0; step < adjacency.size; step++) {
+    const neighbors = adjacency.get(current);
+    if (!neighbors) break;
+    let next: string | undefined;
+    for (const n of neighbors) {
+      if (!visited.has(n)) { next = n; break; }
+    }
+    if (!next) break;
+    chain.push(next);
+    visited.add(next);
+    current = next;
+  }
+
+  if (chain.length < MIN_POLYGON_POINTS) return null;
+
+  // 4. Map position keys back to actual coordinates (average of vertices)
+  const posAvg = new Map<string, { sx: number; sy: number; n: number }>();
+  for (const v of vertices) {
+    if (Math.abs(v.z - minZ) > Z_TOLERANCE) continue;
+    const key = posKey(v.x, v.y, snapScale);
+    const entry = posAvg.get(key);
+    if (entry) {
+      entry.sx += v.x;
+      entry.sy += v.y;
+      entry.n++;
+    } else {
+      posAvg.set(key, { sx: v.x, sy: v.y, n: 1 });
+    }
+  }
+
+  const polygon: Point2D[] = [];
+  for (const key of chain) {
+    const avg = posAvg.get(key);
+    if (!avg) continue;
+    polygon.push(ifcToModeller(avg.sx / avg.n, avg.sy / avg.n, unitToMm));
+  }
+
+  // 5. Remove collinear points
+  return simplifyPolygon(polygon);
+}
+
+/** Remove collinear intermediate points from a polygon. */
+function simplifyPolygon(polygon: Point2D[]): Point2D[] {
+  if (polygon.length <= MIN_POLYGON_POINTS) return polygon;
+
+  const COLLINEAR_TOLERANCE = 1; // 1 mm²
+  const result: Point2D[] = [];
+
+  for (let i = 0; i < polygon.length; i++) {
+    const prev = polygon[(i - 1 + polygon.length) % polygon.length]!;
+    const curr = polygon[i]!;
+    const next = polygon[(i + 1) % polygon.length]!;
+
+    const cross =
+      (curr.x - prev.x) * (next.y - prev.y) -
+      (curr.y - prev.y) * (next.x - prev.x);
+    if (Math.abs(cross) > COLLINEAR_TOLERANCE) {
+      result.push(curr);
+    }
+  }
+
+  return result.length >= MIN_POLYGON_POINTS ? result : polygon;
 }
 
 // ---------------------------------------------------------------------------
@@ -848,17 +1024,20 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
       const spaceId = spaceIds.get(i);
       const spaceName = getSpaceName(api, modelId, spaceId);
 
-      // Try extraction strategies in order
+      // Try extraction strategies in order.
+      // Mesh first: GetFlatMesh returns globally-transformed coordinates via
+      // flatTransformation, making it the most reliable for positioning.
+      // Profile/Brep are fallbacks — their manual placement chain can fail.
       let extracted: ExtractionResult | null = null;
 
-      extracted = tryExtractProfile(api, modelId, spaceId, unitToMm);
+      extracted = tryExtractMesh(api, modelId, spaceId, unitToMm);
 
       if (!extracted) {
-        extracted = tryExtractBrep(api, modelId, spaceId, unitToMm);
+        extracted = tryExtractProfile(api, modelId, spaceId, unitToMm);
       }
 
       if (!extracted) {
-        extracted = tryExtractMesh(api, modelId, spaceId, unitToMm);
+        extracted = tryExtractBrep(api, modelId, spaceId, unitToMm);
       }
 
       if (!extracted) {
