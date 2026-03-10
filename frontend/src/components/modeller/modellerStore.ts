@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType, ProjectConstruction } from "./types";
+import type { CatalogueEntry } from "../../lib/constructionCatalogue";
 import { EXAMPLE_ROOMS, EXAMPLE_WINDOWS } from "./exampleData";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,14 @@ interface ModellerStore {
   updateProjectConstruction: (id: string, updates: Partial<Omit<ProjectConstruction, "id">>) => void;
   removeProjectConstruction: (id: string) => void;
   importProjectConstructions: (constructions: Omit<ProjectConstruction, "id">[]) => void;
+
+  /**
+   * Copy a catalogue entry into the project library.
+   * If already copied (same catalogueSourceId), returns existing project ID.
+   * The entry must have layers — entries without layers (e.g. glazing) are
+   * assigned directly without copying.
+   */
+  copyFromCatalogue: (entry: CatalogueEntry) => string;
 
   // History
   undo: () => void;
@@ -335,6 +344,34 @@ export const useModellerStore = create<ModellerStore>()(
           floorConstructions: cleanRecord(state.floorConstructions),
           roofConstructions: cleanRecord(state.roofConstructions),
         });
+      },
+
+      copyFromCatalogue: (entry) => {
+        const state = get();
+        // Check if already copied
+        const existing = state.projectConstructions.find(
+          (c) => c.catalogueSourceId === entry.id,
+        );
+        if (existing) return existing.id;
+
+        // Copy as new project construction
+        const id = `proj-${crypto.randomUUID()}`;
+        set({
+          ...pushUndo(state),
+          projectConstructions: [
+            ...state.projectConstructions,
+            {
+              id,
+              name: entry.name,
+              category: entry.category,
+              materialType: entry.materialType,
+              verticalPosition: entry.verticalPosition,
+              layers: structuredClone(entry.layers ?? []),
+              catalogueSourceId: entry.id,
+            },
+          ],
+        });
+        return id;
       },
 
       importProjectConstructions: (constructions) => {

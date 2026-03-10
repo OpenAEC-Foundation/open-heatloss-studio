@@ -19,6 +19,8 @@ export interface ProjectConstruction {
   verticalPosition: VerticalPosition;
   /** Layer build-up — always required for project constructions. */
   layers: CatalogueLayer[];
+  /** ID of the catalogue entry this was copied from (if any). */
+  catalogueSourceId?: string;
   /** Traceability to IFC source (optional). */
   ifcSource?: {
     wallTypeName: string;

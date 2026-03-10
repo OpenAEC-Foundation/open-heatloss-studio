@@ -14,6 +14,7 @@ import { importIfcFile } from "../components/modeller/ifc-import";
 import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
 import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
 import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
+import { CatalogueBrowserPanel } from "../components/modeller/CatalogueBrowserPanel";
 import { modelToIfcx } from "../components/modeller/ifcx-builder";
 import { renderPdfFirstPage } from "../components/modeller/pdf-underlay";
 import { useToastStore } from "../store/toastStore";
@@ -50,9 +51,10 @@ export function Modeller() {
   const addDoor = useModellerStore((s) => s.addDoor);
 
   const setUnderlay = useModellerStore((s) => s.setUnderlay);
-  const assignWallConstruction = useModellerStore((s) => s.assignWallConstruction);
-  const assignFloorConstruction = useModellerStore((s) => s.assignFloorConstruction);
-  const assignRoofConstruction = useModellerStore((s) => s.assignRoofConstruction);
+  const assignWallConstructionRaw = useModellerStore((s) => s.assignWallConstruction);
+  const assignFloorConstructionRaw = useModellerStore((s) => s.assignFloorConstruction);
+  const assignRoofConstructionRaw = useModellerStore((s) => s.assignRoofConstruction);
+  const copyFromCatalogue = useModellerStore((s) => s.copyFromCatalogue);
   const wallBoundaryTypes = useModellerStore((s) => s.wallBoundaryTypes);
   const assignWallBoundaryType = useModellerStore((s) => s.assignWallBoundaryType);
 
@@ -68,8 +70,38 @@ export function Modeller() {
     null,
   );
 
-  // All constructions U-values (entryId → U-value), includes project constructions
+  // All constructions (catalogue + project), used for U-value lookup and copy-on-assign
   const allConstructionEntries = useAllConstructions();
+
+  // Auto-copy-on-assign: when assigning a catalogue entry, copy it to the
+  // project library first and assign the project copy.
+  const resolveProjectId = useCallback(
+    (entryId: string | null): string | null => {
+      if (!entryId) return null;
+      if (entryId.startsWith("proj-")) return entryId;
+      // It's a catalogue entry — find it and copy to project
+      const entry = allConstructionEntries.find((e) => e.id === entryId);
+      if (!entry?.layers?.length) return entryId; // No layers (e.g. glazing) — assign directly
+      return copyFromCatalogue(entry);
+    },
+    [allConstructionEntries, copyFromCatalogue],
+  );
+
+  const assignWallConstruction = useCallback(
+    (roomId: string, wallIndex: number, entryId: string | null) =>
+      assignWallConstructionRaw(roomId, wallIndex, resolveProjectId(entryId)),
+    [assignWallConstructionRaw, resolveProjectId],
+  );
+  const assignFloorConstruction = useCallback(
+    (roomId: string, entryId: string | null) =>
+      assignFloorConstructionRaw(roomId, resolveProjectId(entryId)),
+    [assignFloorConstructionRaw, resolveProjectId],
+  );
+  const assignRoofConstruction = useCallback(
+    (roomId: string, entryId: string | null) =>
+      assignRoofConstructionRaw(roomId, resolveProjectId(entryId)),
+    [assignRoofConstructionRaw, resolveProjectId],
+  );
   const catalogueUValues = useMemo(() => {
     const map: Record<string, number> = {};
     for (const e of allConstructionEntries) {
@@ -668,7 +700,7 @@ interface ProjectBrowserProps {
   onAssignRoof: (roomId: string, entryId: string | null) => void;
 }
 
-type SidebarTab = "project" | "bibliotheek";
+type SidebarTab = "vertrekken" | "bibliotheek" | "project";
 
 function ProjectBrowser({
   rooms,
@@ -681,7 +713,7 @@ function ProjectBrowser({
   wallConstructions,
 }: ProjectBrowserProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("project");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("vertrekken");
 
   const toggle = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -694,41 +726,44 @@ function ProjectBrowser({
 
   const catalogueEntries = useAllConstructions();
 
+  const tabClass = (tab: SidebarTab) =>
+    `flex-1 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+      sidebarTab === tab
+        ? "border-b-2 border-amber-500 text-amber-900"
+        : "text-stone-400 hover:text-stone-600"
+    }`;
+
   return (
     <div className="flex w-64 shrink-0 flex-col border-r border-stone-200 bg-white text-xs">
       {/* Tab strip */}
       <div className="flex border-b border-stone-200">
-        <button
-          onClick={() => setSidebarTab("project")}
-          className={`flex-1 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-            sidebarTab === "project"
-              ? "border-b-2 border-amber-500 text-amber-900"
-              : "text-stone-400 hover:text-stone-600"
-          }`}
-        >
-          Project
+        <button onClick={() => setSidebarTab("vertrekken")} className={tabClass("vertrekken")}>
+          Vertrekken
         </button>
-        <button
-          onClick={() => setSidebarTab("bibliotheek")}
-          className={`flex-1 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-            sidebarTab === "bibliotheek"
-              ? "border-b-2 border-amber-500 text-amber-900"
-              : "text-stone-400 hover:text-stone-600"
-          }`}
-        >
+        <button onClick={() => setSidebarTab("bibliotheek")} className={tabClass("bibliotheek")}>
           Bibliotheek
+        </button>
+        <button onClick={() => setSidebarTab("project")} className={tabClass("project")}>
+          Project
         </button>
       </div>
 
-      {/* Bibliotheek tab */}
+      {/* Bibliotheek tab — standard catalogue browser */}
       {sidebarTab === "bibliotheek" && (
+        <div className="flex-1 overflow-y-auto">
+          <CatalogueBrowserPanel />
+        </div>
+      )}
+
+      {/* Project tab — project-specific constructions */}
+      {sidebarTab === "project" && (
         <div className="flex-1 overflow-y-auto">
           <ProjectLibraryPanel />
         </div>
       )}
 
-      {/* Project tab */}
-      {sidebarTab === "project" && (<>
+      {/* Vertrekken tab — room/floor/wall tree */}
+      {sidebarTab === "vertrekken" && (<>
       <div className="flex-1 overflow-y-auto">
       {floorGroups.map(({ label, floor, rooms: floorRooms }) => {
         const floorKey = `floor-${floor}`;
