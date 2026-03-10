@@ -1,0 +1,8 @@
+title: WFS Geo-data
+tooltip: >-
+  Haal geo-data op van WFS bronnen (PDOK Kadaster, BAG) en teken in Revit.
+  Perceelgrenzen, perceelnummers, straatnamen en huisnummers.
+  Vereist ingestelde projectlocatie (RD coordinaten).
+author: 3BM Bouwkunde
+highlight: new
+context: zero-doc

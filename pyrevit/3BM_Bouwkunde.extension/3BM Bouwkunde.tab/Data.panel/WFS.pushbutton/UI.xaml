@@ -1,0 +1,125 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="WFS Geo-data Ophalen"
+    Width="420"
+    Height="480"
+    WindowStartupLocation="CenterScreen"
+    ResizeMode="NoResize"
+    Background="#FAFAFA">
+
+    <Window.Resources>
+        <Style x:Key="HeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#333"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style x:Key="GroupStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#DDD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Titel -->
+        <TextBlock Grid.Row="0" FontSize="15" FontWeight="Bold"
+                   Foreground="#1a1a1a" Margin="0,0,0,12">
+            WFS Geo-data Ophalen
+        </TextBlock>
+
+        <!-- Locatie -->
+        <Border Grid.Row="1" Style="{StaticResource GroupStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource HeaderStyle}">Locatie</TextBlock>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                               Margin="0,0,6,0" Foreground="#666" FontSize="11">RD X:</TextBlock>
+                    <TextBox x:Name="tbRdX" Grid.Column="1" Margin="0,0,12,0"
+                             FontSize="11" Padding="4,3" IsReadOnly="True"
+                             Background="#F5F5F5"/>
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                               Margin="0,0,6,0" Foreground="#666" FontSize="11">RD Y:</TextBlock>
+                    <TextBox x:Name="tbRdY" Grid.Column="3"
+                             FontSize="11" Padding="4,3" IsReadOnly="True"
+                             Background="#F5F5F5"/>
+                </Grid>
+                <TextBlock x:Name="tbLocationSource" FontSize="10"
+                           Foreground="#999" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Layers -->
+        <Border Grid.Row="2" Style="{StaticResource GroupStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource HeaderStyle}">Layers</TextBlock>
+                <StackPanel x:Name="spLayers" Margin="0,0,0,0">
+                    <!-- Dynamisch gevuld vanuit script -->
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Instellingen -->
+        <Border Grid.Row="3" Style="{StaticResource GroupStyle}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource HeaderStyle}">Instellingen</TextBlock>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                               Margin="0,0,10,0" Foreground="#666" FontSize="11">
+                        Bounding box:
+                    </TextBlock>
+                    <ComboBox x:Name="cbBbox" Grid.Column="1"
+                              FontSize="11" Padding="4,3" SelectedIndex="1">
+                        <ComboBoxItem Content="50 × 50 m" Tag="25"/>
+                        <ComboBoxItem Content="100 × 100 m" Tag="50"/>
+                        <ComboBoxItem Content="200 × 200 m" Tag="100"/>
+                        <ComboBoxItem Content="500 × 500 m" Tag="250"/>
+                    </ComboBox>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Status -->
+        <TextBlock x:Name="tbStatus" Grid.Row="4"
+                   FontSize="10" Foreground="#888"
+                   TextWrapping="Wrap" VerticalAlignment="Bottom"
+                   Margin="0,0,0,10"/>
+
+        <!-- Knoppen -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button x:Name="btnCancel" Content="Annuleren"
+                    Width="90" Height="30" Margin="0,0,8,0"
+                    FontSize="11" Click="cancel_click"/>
+            <Button x:Name="btnExecute" Content="Ophalen"
+                    Width="110" Height="30"
+                    FontSize="11" FontWeight="SemiBold"
+                    Background="#2563EB" Foreground="White"
+                    BorderThickness="0"
+                    Click="execute_click"/>
+        </StackPanel>
+    </Grid>
+</Window>
