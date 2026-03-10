@@ -269,6 +269,11 @@ export function PropertiesPanel({
             </div>
             <Row label="Vloeroppervlak" value={`${area.toFixed(2)} m\u00B2`} />
             <EditableNumberField label="Hoogte (mm)" value={room.height} onChange={(val) => onUpdateRoom?.(room.id, { height: val })} />
+            <ElevationField
+              value={room.elevation}
+              fallback={room.floor * (room.height + 300)}
+              onChange={(val) => onUpdateRoom?.(room.id, { elevation: val })}
+            />
             <EditableNumberField
               label="Temperatuur (°C)"
               value={room.temperature ?? 20}
@@ -394,6 +399,74 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
     <div className="flex items-center justify-between text-xs">
       <span className="text-stone-500">{label}</span>
       <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-stone-800 hover:text-amber-700 hover:underline">{value}</button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Elevation (peil) field — allows negative/zero, shows fallback as placeholder
+// ---------------------------------------------------------------------------
+
+function ElevationField({ value, fallback, onChange }: {
+  value: number | undefined;
+  fallback: number;
+  onChange?: (val: number | undefined) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value !== undefined ? String(value) : "");
+  const display = value !== undefined ? String(value) : `${fallback} (auto)`;
+
+  if (!onChange) return <Row label="Peil (mm)" value={display} />;
+
+  if (editing) {
+    return (
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-stone-500">Peil (mm)</span>
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            type="number"
+            value={draft}
+            placeholder={String(fallback)}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              if (draft.trim() === "") { onChange(undefined); }
+              else { const n = parseInt(draft, 10); if (!isNaN(n)) onChange(n); }
+              setEditing(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (draft.trim() === "") { onChange(undefined); }
+                else { const n = parseInt(draft, 10); if (!isNaN(n)) onChange(n); }
+                setEditing(false);
+              }
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
+          />
+          {value !== undefined && (
+            <button
+              onClick={() => { onChange(undefined); setEditing(false); }}
+              className="text-[10px] text-stone-400 hover:text-stone-600"
+              title="Reset naar automatisch"
+            >
+              x
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-stone-500">Peil (mm)</span>
+      <button
+        onClick={() => { setDraft(value !== undefined ? String(value) : ""); setEditing(true); }}
+        className={`font-mono hover:text-amber-700 hover:underline ${value !== undefined ? "text-stone-800" : "text-stone-400"}`}
+      >
+        {display}
+      </button>
     </div>
   );
 }

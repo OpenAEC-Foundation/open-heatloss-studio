@@ -146,12 +146,18 @@ function extractStoreys(
   return storeyMap;
 }
 
+interface FloorAssignment {
+  floorIndex: number;
+  /** Storey elevation in meters (IFC units). */
+  elevationMeters: number | undefined;
+}
+
 function findFloorForSpace(
   api: WebIfc.IfcAPI,
   modelId: number,
   spaceId: number,
   storeyMap: Map<number, StoreyInfo>,
-): number {
+): FloorAssignment {
   // Walk spatial containment: IfcSpace is typically contained in IfcBuildingStorey
   // via IfcRelContainedInSpatialStructure or IfcRelAggregates.
   // We check the space's ObjectPlacement decomposes chain.
@@ -166,7 +172,8 @@ function findFloorForSpace(
         if (relObj?.RelatingObject?.value != null) {
           const parentId = relObj.RelatingObject.value;
           if (storeyMap.has(parentId)) {
-            return storeyMap.get(parentId)!.floorIndex;
+            const storey = storeyMap.get(parentId)!;
+            return { floorIndex: storey.floorIndex, elevationMeters: storey.elevation };
           }
         }
       }
@@ -175,8 +182,8 @@ function findFloorForSpace(
     // Spatial lookup failed — fall through to fallback
   }
 
-  // Fallback: floor 0
-  return 0;
+  // Fallback: floor 0, no elevation
+  return { floorIndex: 0, elevationMeters: undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -714,18 +721,25 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
         continue;
       }
 
-      // Determine floor
-      const floor = findFloorForSpace(api, modelId, spaceId, storeyMap);
+      // Determine floor and elevation
+      const { floorIndex, elevationMeters } = findFloorForSpace(api, modelId, spaceId, storeyMap);
+      const elevation = elevationMeters !== undefined
+        ? Math.round(elevationMeters * IFC_TO_MM)
+        : undefined;
 
       // Build room
       const roomFunction = matchRoomFunction(spaceName);
-      result.rooms.push({
+      const room: Omit<ModelRoom, "id"> = {
         name: spaceName,
         function: roomFunction,
         polygon: extracted.polygon,
-        floor,
+        floor: floorIndex,
         height: Math.round(extracted.height),
-      });
+      };
+      if (elevation !== undefined) {
+        room.elevation = elevation;
+      }
+      result.rooms.push(room);
       result.stats.spacesImported++;
     }
   } finally {

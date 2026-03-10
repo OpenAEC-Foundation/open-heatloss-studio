@@ -65,6 +65,19 @@ const WINDOW_HEAD_H = 2.1;  // m
 const DOOR_HEAD_H = 2.1;    // m
 const WIREFRAME_COLOR = 0xffffff;
 const WIREFRAME_WIDTH = 2;
+const INTER_FLOOR_GAP_M = 0.3;
+
+// ---------------------------------------------------------------------------
+// Elevation helper
+// ---------------------------------------------------------------------------
+
+/** Compute the Y position (meters) of a room's floor in the 3D scene. */
+function roomFloorY(room: ModelRoom): number {
+  if (room.elevation !== undefined) {
+    return room.elevation / 1000;
+  }
+  return room.floor * (room.height / 1000 + INTER_FLOOR_GAP_M);
+}
 
 // ---------------------------------------------------------------------------
 // U-value → color mapping (thermal performance)
@@ -152,7 +165,7 @@ export function FloorCanvas3D({
         if (z < minZ) minZ = z;
         if (z > maxZ) maxZ = z;
       }
-      const top = room.floor * (room.height / 1000 + 0.3) + room.height / 1000;
+      const top = roomFloorY(room) + room.height / 1000;
       if (top > maxY) maxY = top;
     }
     const m = 1;
@@ -269,7 +282,7 @@ export function FloorCanvas3D({
 
     for (const room of rooms) {
       const isRoomSelected = room.id === selectedRoomId;
-      const floorY = room.floor * (room.height / 1000 + 0.3);
+      const floorY = roomFloorY(room);
       const h = room.height / 1000;
       const poly = room.polygon;
       const n = poly.length;

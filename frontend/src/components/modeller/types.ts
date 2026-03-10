@@ -12,6 +12,8 @@ export interface ModelRoom {
   floor: number;
   /** Room height in mm. */
   height: number;
+  /** Absolute floor elevation in mm relative to reference level +0.00. */
+  elevation?: number;
   /** Design temperature in °C (default based on function). */
   temperature?: number;
 }
