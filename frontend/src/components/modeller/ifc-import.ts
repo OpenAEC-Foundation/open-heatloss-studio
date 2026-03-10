@@ -264,6 +264,8 @@ function findFloorForSpace(
 interface ExtractionResult {
   polygon: Point2D[];
   height: number;
+  /** Floor elevation in mm (from mesh Y-axis). Used for storey matching. */
+  floorElevationMm?: number;
 }
 
 function tryExtractProfile(
@@ -606,6 +608,7 @@ function tryExtractMesh(
       if (v.y > maxY) maxY = v.y;
     }
     const height = (maxY - minY) * MESH_UNIT_TO_MM;
+    const floorElevationMm = Math.round(minY * MESH_UNIT_TO_MM);
     const yTol = Z_TOLERANCE_MM / MESH_UNIT_TO_MM; // 0.05m = 50mm
 
     // Try to extract accurate floor polygon outline from mesh triangles
@@ -616,6 +619,7 @@ function tryExtractMesh(
       return {
         polygon: outline,
         height: height > 0 ? height : FLOOR_HEIGHT_DEFAULT_MM,
+        floorElevationMm,
       };
     }
 
@@ -636,6 +640,7 @@ function tryExtractMesh(
       return {
         polygon: hull,
         height: height > 0 ? height : FLOOR_HEIGHT_DEFAULT_MM,
+        floorElevationMm,
       };
     }
   } catch (err) {
@@ -1086,10 +1091,33 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
       }
 
       // Determine floor and elevation
-      const { floorIndex, elevationMeters } = findFloorForSpace(api, modelId, spaceId, storeyMap);
-      const elevation = elevationMeters !== undefined
-        ? Math.round(elevationMeters * unitToMm)
-        : undefined;
+      let floorIndex: number;
+      let elevation: number | undefined;
+
+      if (extracted.floorElevationMm !== undefined && storeyMap.size > 0) {
+        // Match mesh floor elevation against storey elevations
+        const meshElev = extracted.floorElevationMm;
+        let bestStorey: StoreyInfo | undefined;
+        let bestDist = Infinity;
+        for (const storey of storeyMap.values()) {
+          // Storey elevation is in IFC file units
+          const storeyMm = storey.elevation * unitToMm;
+          const dist = Math.abs(meshElev - storeyMm);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestStorey = storey;
+          }
+        }
+        floorIndex = bestStorey?.floorIndex ?? 0;
+        elevation = meshElev;
+      } else {
+        // Fallback: IFC spatial containment
+        const spatial = findFloorForSpace(api, modelId, spaceId, storeyMap);
+        floorIndex = spatial.floorIndex;
+        elevation = spatial.elevationMeters !== undefined
+          ? Math.round(spatial.elevationMeters * unitToMm)
+          : undefined;
+      }
 
       // Build room
       const roomFunction = matchRoomFunction(spaceName);
