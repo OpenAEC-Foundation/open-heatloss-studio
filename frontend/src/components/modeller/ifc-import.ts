@@ -548,7 +548,12 @@ function tryExtractMesh(
 ): ExtractionResult | null {
   try {
     const flatMesh = api.GetFlatMesh(modelId, spaceId);
-    if (!flatMesh || flatMesh.geometries.size() === 0) return null;
+    if (!flatMesh || flatMesh.geometries.size() === 0) {
+      console.log(`[IFC-DBG] space #${spaceId}: GetFlatMesh returned no geometries`);
+      return null;
+    }
+
+    console.log(`[IFC-DBG] space #${spaceId}: ${flatMesh.geometries.size()} geometries`);
 
     // Collect all vertices and triangle indices, applying flatTransformation
     const allVertices: { x: number; y: number; z: number }[] = [];
@@ -570,6 +575,25 @@ function tryExtractMesh(
       // 4x4 column-major transformation matrix (local → global)
       const m = geom.flatTransformation;
       const baseIndex = allVertices.length;
+
+      // Debug: log transform matrix and raw vs transformed first vertex
+      if (g === 0) {
+        console.log(`[IFC-DBG] space #${spaceId} transform:`, [
+          [m[0], m[4], m[8], m[12]],
+          [m[1], m[5], m[9], m[13]],
+          [m[2], m[6], m[10], m[14]],
+          [m[3], m[7], m[11], m[15]],
+        ]);
+        if (vertexData.length >= VERTEX_STRIDE) {
+          console.log(`[IFC-DBG] space #${spaceId} raw vertex[0]:`,
+            vertexData[0], vertexData[1], vertexData[2]);
+          const tx = m[0]! * vertexData[0]! + m[4]! * vertexData[1]! + m[8]! * vertexData[2]! + m[12]!;
+          const ty = m[1]! * vertexData[0]! + m[5]! * vertexData[1]! + m[9]! * vertexData[2]! + m[13]!;
+          const tz = m[2]! * vertexData[0]! + m[6]! * vertexData[1]! + m[10]! * vertexData[2]! + m[14]!;
+          console.log(`[IFC-DBG] space #${spaceId} transformed vertex[0]:`, tx, ty, tz);
+        }
+        console.log(`[IFC-DBG] space #${spaceId} vertices: ${vertexData.length / VERTEX_STRIDE}, indices: ${indexData.length}`);
+      }
 
       for (let v = 0; v + 2 < vertexData.length; v += VERTEX_STRIDE) {
         const lx = vertexData[v]!;
@@ -1029,16 +1053,22 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
       // flatTransformation, making it the most reliable for positioning.
       // Profile/Brep are fallbacks — their manual placement chain can fail.
       let extracted: ExtractionResult | null = null;
+      let strategy = "none";
 
       extracted = tryExtractMesh(api, modelId, spaceId, unitToMm);
+      if (extracted) strategy = "mesh";
 
       if (!extracted) {
         extracted = tryExtractProfile(api, modelId, spaceId, unitToMm);
+        if (extracted) strategy = "profile";
       }
 
       if (!extracted) {
         extracted = tryExtractBrep(api, modelId, spaceId, unitToMm);
+        if (extracted) strategy = "brep";
       }
+
+      console.log(`[IFC-DBG] "${spaceName}" (#${spaceId}): strategy=${strategy}, unitToMm=${unitToMm}`);
 
       if (!extracted) {
         result.warnings.push({
@@ -1060,6 +1090,10 @@ export async function importIfcFile(file: File): Promise<IfcImportResult> {
       }
 
       const area = polygonAreaMm2(extracted.polygon);
+      // Debug: log polygon centroid
+      const cx = extracted.polygon.reduce((s, p) => s + p.x, 0) / extracted.polygon.length;
+      const cy = extracted.polygon.reduce((s, p) => s + p.y, 0) / extracted.polygon.length;
+      console.log(`[IFC-DBG] "${spaceName}": centroid=(${cx.toFixed(0)}, ${cy.toFixed(0)}) area=${(area / 1e6).toFixed(2)}m2 pts=${extracted.polygon.length}`);
       if (area < MIN_ROOM_AREA_MM2) {
         result.warnings.push({
           spaceName,
