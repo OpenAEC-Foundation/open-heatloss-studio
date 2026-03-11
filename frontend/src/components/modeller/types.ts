@@ -52,6 +52,10 @@ export interface ModelWindow {
   offset: number;
   /** Window width in mm. */
   width: number;
+  /** Window height in mm (from IFC OverallHeight). */
+  height?: number;
+  /** Sill height above floor level in mm. */
+  sillHeight?: number;
 }
 
 export interface ModelDoor {
@@ -59,6 +63,8 @@ export interface ModelDoor {
   wallIndex: number;
   offset: number;
   width: number;
+  /** Door height in mm (from IFC OverallHeight). */
+  height?: number;
   swing: "left" | "right";
 }
 

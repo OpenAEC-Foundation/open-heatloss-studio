@@ -23,12 +23,15 @@ export interface IfcSidecarResult {
     wallIndex: number;
     offset: number;
     width: number;
+    height?: number | null;
+    sillHeight?: number | null;
   }>;
   doors: Array<{
     roomId: string;
     wallIndex: number;
     offset: number;
     width: number;
+    height?: number | null;
     swing: "left" | "right";
   }>;
   wallTypes: Array<{

@@ -51,7 +51,7 @@ def extract_openings(
         if result is None:
             continue
 
-        room_idx, wall_index, offset, width = result
+        room_idx, wall_index, offset, width, height, sill_height = result
         room = rooms[room_idx]
 
         # Use room name as roomId (actual ID assignment happens in frontend)
@@ -61,6 +61,8 @@ def extract_openings(
                 wall_index=wall_index,
                 offset=offset,
                 width=width,
+                height=height,
+                sill_height=sill_height,
             )
         )
 
@@ -72,7 +74,7 @@ def extract_openings(
         if result is None:
             continue
 
-        room_idx, wall_index, offset, width = result
+        room_idx, wall_index, offset, width, height, _sill = result
         room = rooms[room_idx]
 
         # Determine swing from door properties (default: left)
@@ -84,6 +86,7 @@ def extract_openings(
                 wall_index=wall_index,
                 offset=offset,
                 width=width,
+                height=height,
                 swing=swing,
             )
         )
@@ -99,15 +102,18 @@ def _extract_opening(
     rooms: list[ModelRoom],
     unit_to_mm: float,
     room_by_name: dict[str, int],
-) -> tuple[int, int, float, float] | None:
+) -> tuple[int, int, float, float, float | None, float | None] | None:
     """Extract a single opening (window or door).
 
-    Returns (room_index, wall_index, offset_mm, width_mm) or None.
+    Returns (room_index, wall_index, offset_mm, width_mm, height_mm, sill_height_mm)
+    or None.
     """
     # Get overall dimensions
     width = _get_dimension(element, "OverallWidth", unit_to_mm)
     if width is None or width <= 0:
         return None
+
+    height = _get_dimension(element, "OverallHeight", unit_to_mm)
 
     # Find host wall via IfcRelFillsElement
     host_wall = _get_host_wall(element)
@@ -119,6 +125,9 @@ def _extract_opening(
     if position is None:
         return None
 
+    # Sill height: Z offset of the opening relative to the host storey
+    sill_height = _get_sill_height(element, unit_to_mm)
+
     # Transform to screen coordinates (Y flip)
     screen_pos = Point2D(x=position.x, y=-position.y)
 
@@ -128,7 +137,7 @@ def _extract_opening(
         return None
 
     room_idx, wall_index, offset = match
-    return room_idx, wall_index, offset, width
+    return room_idx, wall_index, offset, width, height, sill_height
 
 
 def _get_dimension(
@@ -246,6 +255,32 @@ def _point_to_segment(
     offset = t * math.sqrt(seg_len_sq)
 
     return dist, offset
+
+
+def _get_sill_height(
+    element: ifcopenshell.entity_instance,
+    unit_to_mm: float,
+) -> float | None:
+    """Extract sill height from the opening's local placement Z offset."""
+    placement = getattr(element, "ObjectPlacement", None)
+    if placement is None:
+        return None
+
+    try:
+        # The local placement Z relative to the host wall/storey gives the sill height
+        rel_placement = placement.RelativePlacement
+        if rel_placement and hasattr(rel_placement, "Location"):
+            loc = rel_placement.Location
+            if loc and hasattr(loc, "Coordinates"):
+                coords = loc.Coordinates
+                if len(coords) >= 3:
+                    z = float(coords[2]) * unit_to_mm
+                    if z >= 0:
+                        return z
+    except Exception:
+        pass
+
+    return None
 
 
 def _detect_door_swing(

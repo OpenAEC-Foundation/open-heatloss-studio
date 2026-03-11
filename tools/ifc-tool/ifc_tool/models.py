@@ -55,6 +55,15 @@ class ModelWindow(BaseModel):
     wall_index: int = Field(alias="wallIndex")
     offset: float = Field(description="Offset from wall start to center, mm")
     width: float = Field(description="Window width in mm")
+    height: float | None = Field(
+        default=None,
+        description="Window height in mm (from OverallHeight)",
+    )
+    sill_height: float | None = Field(
+        default=None,
+        alias="sillHeight",
+        description="Sill height above floor in mm",
+    )
 
 
 class ModelDoor(BaseModel):
@@ -66,6 +75,10 @@ class ModelDoor(BaseModel):
     wall_index: int = Field(alias="wallIndex")
     offset: float = Field(description="Offset from wall start to center, mm")
     width: float = Field(description="Door width in mm")
+    height: float | None = Field(
+        default=None,
+        description="Door height in mm (from OverallHeight)",
+    )
     swing: str = Field(description="'left' or 'right'")
 
 

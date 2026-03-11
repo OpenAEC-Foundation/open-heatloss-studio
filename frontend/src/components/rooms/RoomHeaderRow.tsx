@@ -68,12 +68,8 @@ export function RoomHeaderCells({
                 className={`rounded p-0.5 ${ventOpen ? "text-blue-600 bg-blue-50" : "text-stone-400 hover:text-stone-600"}`}
                 title="Ventilatie-instellingen"
               >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M5.05 3.636a1 1 0 011.414 0l2.122 2.121a1 1 0 010 1.414L6.464 9.293a1 1 0 01-1.414 0L2.929 7.172a1 1 0 010-1.414L5.05 3.636zm9.9 0a1 1 0 011.414 0l2.122 2.121a1 1 0 010 1.414l-2.122 2.122a1 1 0 01-1.414 0l-2.121-2.122a1 1 0 010-1.414L14.95 3.636zM10 9a1 1 0 011 1v7a1 1 0 11-2 0v-7a1 1 0 011-1zm-4 4a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm8 0a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" />
                 </svg>
               </button>
             )}
