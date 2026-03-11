@@ -138,12 +138,11 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
             {/* Room label */}
             <text
               x={x + barWidth / 2}
-              y={yScale(0) + 8}
-              textAnchor="middle"
-              dominantBaseline="hanging"
+              y={yScale(0) + 6}
+              textAnchor="end"
               className="fill-stone-600"
               fontSize="9"
-              transform={`rotate(35, ${x + barWidth / 2}, ${yScale(0) + 8})`}
+              transform={`rotate(-35, ${x + barWidth / 2}, ${yScale(0) + 6})`}
             >
               {room.room_name.length > 12
                 ? room.room_name.slice(0, 11) + "\u2026"
