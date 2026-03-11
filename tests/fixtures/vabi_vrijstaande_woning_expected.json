@@ -1,0 +1,102 @@
+{
+  "description": "Verwachte resultaten Vabi Elements Vrijstaande woning (Vabi 3.8.1.14, rekenkern Warmteverlies 2.30)",
+  "notes": [
+    "Bron: Vabi Elements rapport, ISSO 51/53/57 (2017)",
+    "Theta_e = -9.0°C (basis -10 + 1K correctie zware bouw tau=99.7h)",
+    "Ventilatie systeem C, continu bedrijf (geen nachtverlaging)",
+    "Thermische bruggen: 0.05 W/(m2·K) (nieuw gebouw)",
+    "Alleen verwarmde ruimten (totaal > 0 W) opgenomen",
+    "Onverwarmde ruimten: Meterkast (12.6°C), Toilet BG (18.2°C), Garage (1.1°C), Overloop (18.9°C), Toilet 1e (20.5°C), Inloopkast (10.2°C), Kast (12.4°C), Berging (12.1°C)",
+    "Zone aansluitvermogen: 9160 W (kwadratische sommatie)"
+  ],
+  "rooms": [
+    {
+      "room_id": "0.1",
+      "room_name": "Hal",
+      "theta_i": 18.0,
+      "phi_t": 188,
+      "phi_v": 57,
+      "phi_hu": 0,
+      "phi_hl_i": 245
+    },
+    {
+      "room_id": "0.4",
+      "room_name": "Keuken",
+      "theta_i": 20.0,
+      "phi_t": 182,
+      "phi_v": 731,
+      "phi_hu": 0,
+      "phi_hl_i": 912
+    },
+    {
+      "room_id": "0.5",
+      "room_name": "Bijkeuken",
+      "theta_i": 20.0,
+      "phi_t": 684,
+      "phi_v": 244,
+      "phi_hu": 0,
+      "phi_hl_i": 927
+    },
+    {
+      "room_id": "0.6",
+      "room_name": "Woonkamer",
+      "theta_i": 20.0,
+      "phi_t": 1545,
+      "phi_v": 935,
+      "phi_hu": 0,
+      "phi_hl_i": 2480
+    },
+    {
+      "room_id": "1.3",
+      "room_name": "Badkamer",
+      "theta_i": 22.0,
+      "phi_t": 382,
+      "phi_v": 117,
+      "phi_hu": 0,
+      "phi_hl_i": 499
+    },
+    {
+      "room_id": "1.4",
+      "room_name": "Slaapkamer 1",
+      "theta_i": 20.0,
+      "phi_t": 365,
+      "phi_v": 259,
+      "phi_hu": 0,
+      "phi_hl_i": 623
+    },
+    {
+      "room_id": "1.5",
+      "room_name": "Slaapkamer 2",
+      "theta_i": 20.0,
+      "phi_t": 352,
+      "phi_v": 350,
+      "phi_hu": 0,
+      "phi_hl_i": 702
+    },
+    {
+      "room_id": "1.6",
+      "room_name": "Slaapkamer 3",
+      "theta_i": 20.0,
+      "phi_t": 1390,
+      "phi_v": 397,
+      "phi_hu": 0,
+      "phi_hl_i": 1787
+    },
+    {
+      "room_id": "2.1",
+      "room_name": "Studeerkamer",
+      "theta_i": 20.0,
+      "phi_t": 712,
+      "phi_v": 309,
+      "phi_hu": 0,
+      "phi_hl_i": 1021
+    }
+  ],
+  "building": {
+    "phi_t_total": 5798,
+    "phi_v_total": 3398,
+    "phi_hu_total": 0,
+    "phi_hl_sum": 9197,
+    "phi_hl_build": 9160
+  }
+}
