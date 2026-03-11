@@ -114,18 +114,22 @@ export function Results() {
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.connection_capacity)}</div>
             <div className="metric-card-label">Aansluitvermogen</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Totaal benodigd vermogen van de warmteopwekker</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_envelope_loss)}</div>
             <div className="metric-card-label">Transmissie (schil)</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies door wanden, dak, vloer en ramen</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_ventilation_loss)}</div>
             <div className="metric-card-label">Ventilatie</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies door mechanische ventilatie</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.collective_contribution)}</div>
             <div className="metric-card-label">Collectief</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Bijdrage van collectieve verwarmingsvoorzieningen</div>
           </div>
         </div>
 
@@ -134,14 +138,17 @@ export function Results() {
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_neighbor_loss)}</div>
             <div className="metric-card-label">Buurwoningverlies</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies naar aangrenzende woningen</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_heating_up)}</div>
             <div className="metric-card-label">Opwarmtoeslag</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Extra vermogen om op te warmen na nachtsetback</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_system_losses)}</div>
             <div className="metric-card-label">Systeemverliezen</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Verliezen in leidingen en afgiftesysteem</div>
           </div>
         </div>
 
@@ -160,16 +167,46 @@ export function Results() {
           <Table>
             <thead>
               <tr>
-                <Th>Vertrek</Th>
-                <Th className="text-right">&theta;_i</Th>
-                <Th className="text-right">&Phi;_T</Th>
-                <Th className="text-right">&Phi;_i</Th>
-                <Th className="text-right">&Phi;_v</Th>
-                <Th className="text-right">&Phi;_hu</Th>
-                <Th className="text-right">&Phi;_sys</Th>
-                <Th className="text-right">&Phi;_basis</Th>
-                <Th className="text-right">&Phi;_extra</Th>
-                <Th className="text-right font-bold">&Phi;_totaal</Th>
+                <Th>
+                  Vertrek
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Ruimtenaam</span>
+                </Th>
+                <Th className="text-right">
+                  &theta;_i
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Binnentemp.</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_T
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Transmissie</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_i
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Infiltratie</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_v
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Ventilatie</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_hu
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Opwarmtoeslag</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_sys
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Systeemverl.</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_basis
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Trans.+vent.+inf.</span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_extra
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Opwarm+systeem</span>
+                </Th>
+                <Th className="text-right font-bold">
+                  &Phi;_totaal
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Totaal verlies</span>
+                </Th>
               </tr>
             </thead>
             <tbody>
@@ -201,12 +238,12 @@ export function Results() {
                   Transmissie
                 </h4>
                 <dl className="space-y-1 text-sm">
-                  <DetailRow label="H_T,ie (schil)" value={`${fmt2(room.transmission.h_t_exterior)} W/K`} />
-                  <DetailRow label="H_T,ia (intern)" value={`${fmt2(room.transmission.h_t_adjacent_rooms)} W/K`} />
-                  <DetailRow label="H_T,io (onverwarmd)" value={`${fmt2(room.transmission.h_t_unheated)} W/K`} />
-                  <DetailRow label="H_T,ib (buurwoning)" value={`${fmt2(room.transmission.h_t_adjacent_buildings)} W/K`} />
-                  <DetailRow label="H_T,ig (grond)" value={`${fmt2(room.transmission.h_t_ground)} W/K`} />
-                  <DetailRow label={<strong>&Phi;_T totaal</strong>} value={<strong>{fmtW(room.transmission.phi_t)}</strong>} />
+                  <DetailRow label="H_T,ie (schil)" value={`${fmt2(room.transmission.h_t_exterior)} W/K`} description="Warmtegeleiding naar buitenlucht" />
+                  <DetailRow label="H_T,ia (intern)" value={`${fmt2(room.transmission.h_t_adjacent_rooms)} W/K`} description="Warmtegeleiding naar verwarmde buurruimten" />
+                  <DetailRow label="H_T,io (onverwarmd)" value={`${fmt2(room.transmission.h_t_unheated)} W/K`} description="Warmtegeleiding naar onverwarmde ruimten" />
+                  <DetailRow label="H_T,ib (buurwoning)" value={`${fmt2(room.transmission.h_t_adjacent_buildings)} W/K`} description="Warmtegeleiding naar aangrenzende woningen" />
+                  <DetailRow label="H_T,ig (grond)" value={`${fmt2(room.transmission.h_t_ground)} W/K`} description="Warmtegeleiding naar de grond" />
+                  <DetailRow label={<strong>&Phi;_T totaal</strong>} value={<strong>{fmtW(room.transmission.phi_t)}</strong>} description="Totaal transmissieverlies van dit vertrek" />
                 </dl>
               </div>
 
@@ -216,12 +253,12 @@ export function Results() {
                   Ventilatie &amp; infiltratie
                 </h4>
                 <dl className="space-y-1 text-sm">
-                  <DetailRow label="q_v" value={`${fmt2(room.ventilation.q_v)} dm³/s`} />
-                  <DetailRow label="H_v" value={`${fmt2(room.ventilation.h_v)} W/K`} />
-                  <DetailRow label="f_v" value={fmt2(room.ventilation.f_v)} />
-                  <DetailRow label={<strong>&Phi;_v</strong>} value={<strong>{fmtW(room.ventilation.phi_v)}</strong>} />
-                  <DetailRow label="H_i" value={`${fmt2(room.infiltration.h_i)} W/K`} />
-                  <DetailRow label="&Phi;_i" value={fmtW(room.infiltration.phi_i)} />
+                  <DetailRow label="q_v" value={`${fmt2(room.ventilation.q_v)} dm³/s`} description="Ventilatieluchtstroom" />
+                  <DetailRow label="H_v" value={`${fmt2(room.ventilation.h_v)} W/K`} description="Warmteoverdrachtscoëfficiënt ventilatie" />
+                  <DetailRow label="f_v" value={fmt2(room.ventilation.f_v)} description="Verwarmingsfactor ventilatie" />
+                  <DetailRow label={<strong>&Phi;_v</strong>} value={<strong>{fmtW(room.ventilation.phi_v)}</strong>} description="Totaal ventilatieverlies" />
+                  <DetailRow label="H_i" value={`${fmt2(room.infiltration.h_i)} W/K`} description="Warmteoverdrachtscoëfficiënt infiltratie" />
+                  <DetailRow label="&Phi;_i" value={fmtW(room.infiltration.phi_i)} description="Warmteverlies door luchtlekkage" />
                 </dl>
               </div>
             </div>
@@ -232,11 +269,14 @@ export function Results() {
   );
 }
 
-function DetailRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
+function DetailRow({ label, value, description }: { label: React.ReactNode; value: React.ReactNode; description?: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <dt className="text-stone-600">{label}</dt>
-      <dd className="font-mono text-stone-900">{value}</dd>
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-stone-600">
+        {label}
+        {description && <span className="block text-[10px] leading-tight text-stone-400">{description}</span>}
+      </dt>
+      <dd className="shrink-0 font-mono text-stone-900">{value}</dd>
     </div>
   );
 }
