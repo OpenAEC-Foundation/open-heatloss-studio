@@ -1,0 +1,16 @@
+[package]
+name = "isso51-ifcx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "IFCX (IFC5 JSON) reader/writer with isso51:: namespace for warmteverliesberekening"
+
+[dependencies]
+isso51-core = { path = "../isso51-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+approx = "0.5"
