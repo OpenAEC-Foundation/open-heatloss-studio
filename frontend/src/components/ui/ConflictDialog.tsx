@@ -3,9 +3,8 @@ import { useCallback } from "react";
 import { Button } from "./Button";
 import { useProjectStore } from "../../store/projectStore";
 import { fetchProject } from "../../lib/backend";
-import { validateProject } from "../../lib/importExport";
+import { validateProject, validateProjectResult } from "../../lib/importExport";
 import { useToastStore } from "../../store/toastStore";
-import type { ProjectResult } from "../../types";
 
 export function ConflictDialog() {
   const hasConflict = useProjectStore((s) => s.hasConflict);
@@ -20,7 +19,7 @@ export function ConflictDialog() {
       useProjectStore.getState().loadServerProject(
         activeProjectId,
         projectData,
-        response.result_data as ProjectResult | null,
+        validateProjectResult(response.result_data),
         response.updated_at,
       );
       addToast("Laatste versie geladen", "info", 2000);

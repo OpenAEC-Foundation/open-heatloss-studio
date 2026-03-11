@@ -53,9 +53,9 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 ---
 
 ## Bugs & correctheid
-- [ ] **PerFloorArea infiltratie bug** — `room_load.rs` gebruikt `qi_spec_per_exterior_area()` ipv `qi_spec_per_floor_area()` voor `InfiltrationMethod::PerFloorArea`
-- [ ] **BBL ventilatie magic numbers** — `bbl_minimum_ventilation_rate()` gebruikt literals ipv de gedefinieerde `BBL_QV_*` constanten
-- [ ] **Runtime validatie server-responses** — `Projects.tsx`, `ConflictDialog.tsx` en `importExport.ts` casten blind naar Project type zonder validatie
+- [x] **PerFloorArea infiltratie bug** — gefixed (commit 7464e78)
+- [x] **BBL ventilatie magic numbers** — gefixed, gebruikt nu `BBL_QV_*` constanten
+- [x] **Runtime validatie server-responses** — `validateProjectResult()` toegevoegd, blinde casts vervangen in Projects.tsx, ConflictDialog.tsx, importExport.ts
 
 ## Verificatie & testing
 - [x] Vabi vrijstaande woning test fixture (9 kamers, 110 constructies, verwachte resultaten)

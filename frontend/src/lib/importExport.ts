@@ -80,13 +80,37 @@ export function importProject(jsonString: string): ImportResult {
   // Detect envelope format.
   if (obj.schema === SCHEMA_ID && obj.project) {
     const project = validateProject(obj.project);
-    const result = obj.result as ProjectResult | null ?? null;
+    const result = validateProjectResult(obj.result);
     return { project, result };
   }
 
   // Try as raw Project JSON.
   const project = validateProject(data);
   return { project, result: null };
+}
+
+/**
+ * Validate that the data looks like a ProjectResult (basic structural checks).
+ * Returns null for null/undefined input, validated ProjectResult otherwise.
+ */
+export function validateProjectResult(data: unknown): ProjectResult | null {
+  if (data == null) return null;
+
+  if (typeof data !== "object") {
+    throw new Error("Result data is geen geldig object");
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  if (!Array.isArray(obj.rooms)) {
+    throw new Error("Result mist verplicht veld 'rooms' of is geen array");
+  }
+
+  if (!obj.summary || typeof obj.summary !== "object") {
+    throw new Error("Result mist verplicht veld 'summary'");
+  }
+
+  return data as ProjectResult;
 }
 
 /**

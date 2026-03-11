@@ -11,7 +11,7 @@ import {
   createProject,
   deleteProject,
 } from "../lib/backend";
-import { validateProject } from "../lib/importExport";
+import { validateProject, validateProjectResult } from "../lib/importExport";
 import type { ProjectSummary } from "../types";
 
 export function Projects() {
@@ -48,7 +48,7 @@ export function Projects() {
         loadServerProject(
           id,
           projectData,
-          response.result_data as import("../types").ProjectResult | null,
+          validateProjectResult(response.result_data),
           response.updated_at,
         );
         navigate("/project");
