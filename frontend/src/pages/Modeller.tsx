@@ -892,9 +892,29 @@ async function _handleImportIfcNative(
     }));
 
     const roomsWithIds = _assignRoomIds(cleanRooms);
-    importModel(roomsWithIds);
 
-    addToast(`${result.stats.spacesImported} ruimten geimporteerd`, "success");
+    // Build name→id mapping so we can remap window/door roomIds
+    const nameToId = new Map<string, string>();
+    for (let i = 0; i < cleanRooms.length; i++) {
+      nameToId.set(cleanRooms[i]!.name, roomsWithIds[i]!.id);
+    }
+
+    // Remap windows: replace room name with assigned room ID
+    const mappedWindows = result.windows
+      .filter((w) => w.wallIndex >= 0 && nameToId.has(w.roomId))
+      .map((w) => ({ ...w, roomId: nameToId.get(w.roomId)! }));
+
+    // Remap doors: replace room name with assigned room ID
+    const mappedDoors = result.doors
+      .filter((d) => d.wallIndex >= 0 && nameToId.has(d.roomId))
+      .map((d) => ({ ...d, roomId: nameToId.get(d.roomId)! }));
+
+    importModel(roomsWithIds, mappedWindows, mappedDoors);
+
+    const parts = [`${result.stats.spacesImported} ruimten`];
+    if (mappedWindows.length > 0) parts.push(`${mappedWindows.length} ramen`);
+    if (mappedDoors.length > 0) parts.push(`${mappedDoors.length} deuren`);
+    addToast(`${parts.join(", ")} geimporteerd`, "success");
 
     if (result.warnings.length > 0) {
       const warnMsg = result.warnings
