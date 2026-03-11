@@ -60,7 +60,8 @@ def extract_spaces(
     logger.info("Found %d IfcSpace entities", len(spaces))
 
     settings = ifcopenshell.geom.settings()
-    settings.set("use-python-opencascade", False)
+    # Note: do NOT set "use-python-opencascade" — even setting it to False
+    # raises if OCC is not installed. The default is already False.
     settings.set("apply-default-materials", False)
     settings.set("use-world-coords", True)
 
@@ -140,8 +141,10 @@ def _extract_single_space(
     if len(verts_flat) == 0:
         return None
 
-    # Reshape to Nx3 and convert to mm
-    vertices = np.array(verts_flat).reshape(-1, 3) * unit_to_mm
+    # Reshape to Nx3 and convert to mm.
+    # IfcOpenShell create_shape always returns coordinates in meters,
+    # regardless of the file's native units, so multiply by 1000.
+    vertices = np.array(verts_flat).reshape(-1, 3) * 1000.0
 
     # Extract floor polygon from bottom face
     polygon, height = extract_floor_polygon(vertices)

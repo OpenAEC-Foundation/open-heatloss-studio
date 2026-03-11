@@ -899,15 +899,29 @@ async function _handleImportIfcNative(
       nameToId.set(cleanRooms[i]!.name, roomsWithIds[i]!.id);
     }
 
-    // Remap windows: replace room name with assigned room ID
+    // Remap windows: replace room name with assigned room ID, convert null→undefined
     const mappedWindows = result.windows
       .filter((w) => w.wallIndex >= 0 && nameToId.has(w.roomId))
-      .map((w) => ({ ...w, roomId: nameToId.get(w.roomId)! }));
+      .map((w) => ({
+        roomId: nameToId.get(w.roomId)!,
+        wallIndex: w.wallIndex,
+        offset: w.offset,
+        width: w.width,
+        height: w.height ?? undefined,
+        sillHeight: w.sillHeight ?? undefined,
+      }));
 
-    // Remap doors: replace room name with assigned room ID
+    // Remap doors: replace room name with assigned room ID, convert null→undefined
     const mappedDoors = result.doors
       .filter((d) => d.wallIndex >= 0 && nameToId.has(d.roomId))
-      .map((d) => ({ ...d, roomId: nameToId.get(d.roomId)! }));
+      .map((d) => ({
+        roomId: nameToId.get(d.roomId)!,
+        wallIndex: d.wallIndex,
+        offset: d.offset,
+        width: d.width,
+        height: d.height ?? undefined,
+        swing: d.swing,
+      }));
 
     importModel(roomsWithIds, mappedWindows, mappedDoors);
 
