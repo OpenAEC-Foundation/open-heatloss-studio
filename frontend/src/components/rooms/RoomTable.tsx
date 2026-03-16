@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import type { CatalogueEntry } from "../../lib/constructionCatalogue";
+import { calculateRc } from "../../lib/rcCalculation";
 import {
   createConstruction,
   createConstructionFromCatalogue,
@@ -8,6 +9,8 @@ import {
 } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { ConstructionElement, Room } from "../../types";
+import { useModellerStore } from "../modeller/modellerStore";
+import type { ProjectConstruction } from "../modeller/types";
 import { ConstructionCells } from "./ConstructionRow";
 import { ConstructionPicker } from "./ConstructionPicker";
 import { RoomHeaderCells } from "./RoomHeaderRow";
@@ -124,6 +127,9 @@ function RoomGroup({
   const [ventOpen, setVentOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const addBtnRef = useRef<HTMLTableCellElement>(null);
+  const ensureProjectConstruction = useModellerStore(
+    (s) => s.ensureProjectConstruction,
+  );
   const { constructions } = room;
   const firstConstruction = constructions[0];
 
@@ -136,7 +142,45 @@ function RoomGroup({
 
   const handleSelectCatalogue = useCallback(
     (entry: CatalogueEntry) => {
-      onAddConstruction(createConstructionFromCatalogue(entry));
+      const ce = createConstructionFromCatalogue(entry);
+      // Auto-register as project construction if it has layers
+      if (entry.layers && entry.layers.length > 0) {
+        const pcId = ensureProjectConstruction({
+          name: entry.name,
+          category: entry.category,
+          materialType: entry.materialType,
+          verticalPosition: entry.verticalPosition,
+          layers: entry.layers.map((l) => ({ ...l })),
+          catalogueSourceId: entry.id,
+        });
+        ce.project_construction_id = pcId;
+      }
+      onAddConstruction(ce);
+      setPickerOpen(false);
+    },
+    [onAddConstruction, ensureProjectConstruction],
+  );
+
+  const handleSelectProject = useCallback(
+    (pc: ProjectConstruction) => {
+      const rcResult = pc.layers.length > 0
+        ? calculateRc(pc.layers, pc.verticalPosition)
+        : null;
+      const ce: ConstructionElement = {
+        id: crypto.randomUUID(),
+        description: pc.name,
+        area: 0,
+        u_value: rcResult
+          ? Math.round(rcResult.uValue * 1000) / 1000
+          : 0,
+        boundary_type: "exterior",
+        material_type: pc.materialType,
+        vertical_position: pc.verticalPosition,
+        use_forfaitaire_thermal_bridge: true,
+        layers: pc.layers.map((l) => ({ ...l })),
+        project_construction_id: pc.id,
+      };
+      onAddConstruction(ce);
       setPickerOpen(false);
     },
     [onAddConstruction],
@@ -207,6 +251,7 @@ function RoomGroup({
         <ConstructionPicker
           anchorRect={anchorRect}
           onSelectCatalogue={handleSelectCatalogue}
+          onSelectProject={handleSelectProject}
           onSelectBlank={handleSelectBlank}
           onClose={() => setPickerOpen(false)}
         />

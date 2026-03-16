@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         "/api/v1/report": {
           target: env.REPORTS_API_URL || "https://report.open-aec.com",
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/v1\/report\/generate/, "/api/generate/v2"),
+          rewrite: (path) => path.replace(/^\/api\/v1\/report\/generate\/?/, "/api/generate/v2"),
           configure: (proxy) => {
             const apiKey = env.REPORTS_API_KEY || "";
             if (apiKey) {

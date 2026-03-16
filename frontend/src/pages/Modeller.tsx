@@ -933,6 +933,7 @@ async function _processIfcResult(
   // The server detects shared edges between adjacent rooms separated by
   // wall thickness — we mark both sides as "interior" so the thermal
   // calculation uses the correct boundary condition.
+  const assignedInterior = new Set<string>();
   if (assignBoundaryType && result.sharedEdges?.length > 0) {
     for (const edge of result.sharedEdges) {
       const roomA = roomsWithIds[edge.roomAIndex];
@@ -940,9 +941,24 @@ async function _processIfcResult(
       if (roomA && roomB) {
         assignBoundaryType(roomA.id, edge.wallAIndex, "interior");
         assignBoundaryType(roomB.id, edge.wallBIndex, "interior");
+        assignedInterior.add(`${roomA.id}:${edge.wallAIndex}`);
+        assignedInterior.add(`${roomB.id}:${edge.wallBIndex}`);
       }
     }
     addToast(`${result.sharedEdges.length} gedeelde wanden gedetecteerd`, "info");
+  }
+
+  // Default all non-interior edges to "exterior" so users don't have to
+  // manually assign every wall after IFC import.
+  if (assignBoundaryType) {
+    for (const room of roomsWithIds) {
+      for (let wi = 0; wi < room.polygon.length; wi++) {
+        const key = `${room.id}:${wi}`;
+        if (!assignedInterior.has(key)) {
+          assignBoundaryType(room.id, wi, "exterior");
+        }
+      }
+    }
   }
 
   const parts = [`${result.stats.spacesImported} ruimten`];

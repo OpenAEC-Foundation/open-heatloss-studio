@@ -9,7 +9,8 @@ import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konv
 import Konva from "konva";
 
 import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection, WallBoundaryType } from "./types";
-import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges, segmentsShareEdge } from "./geometry";
+import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges, segmentsShareEdge, computeWallSegments, edgeToSegmentMap } from "./geometry";
+import type { WallSegment } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
 
 // ---------------------------------------------------------------------------
@@ -362,6 +363,15 @@ export function FloorCanvas({
   // Shared edges between rooms (interior walls — rendered as thin lines)
   const sharedEdges = useMemo(() => getSharedEdges(rooms), [rooms]);
 
+  // Memoized wall segments per room (groups polygon edges into logical walls)
+  const roomSegmentsMap = useMemo(() => {
+    const map = new Map<string, WallSegment[]>();
+    for (const room of rooms) {
+      map.set(room.id, computeWallSegments(room.polygon));
+    }
+    return map;
+  }, [rooms]);
+
   // Split tool helper: resolve wall hit from direct wall Line click (exact) or
   // findWallHit fallback (tolerant). Returns { roomId, wallIndex, worldPt } or null.
   const resolveSplitWall = useCallback((
@@ -683,11 +693,17 @@ export function FloorCanvas({
             ))}
 
             {/* Room edges — style depends on boundary type override or auto-detection */}
-            {rooms.map((room) =>
-              room.polygon.map((_, wi) => {
+            {rooms.map((room) => {
+              const segments = roomSegmentsMap.get(room.id) ?? [];
+              const segMap = edgeToSegmentMap(segments);
+              return room.polygon.map((_, wi) => {
                 const ni = (wi + 1) % room.polygon.length;
+                const seg = segments[segMap.get(wi) ?? 0];
                 const isWallSelected = selection?.type === "wall"
-                  && selection.roomId === room.id && selection.wallIndex === wi;
+                  && selection.roomId === room.id
+                  && (selection.segmentEdges
+                    ? selection.segmentEdges.includes(wi)
+                    : selection.wallIndex === wi);
                 const isShared = sharedEdges.has(`${room.id}:${wi}`);
                 const a = room.polygon[wi]!;
                 const b = room.polygon[ni]!;
@@ -695,11 +711,14 @@ export function FloorCanvas({
                 const boundary = wallBoundaryTypes[boundaryKey] ?? "auto";
 
                 // Determine if this wall renders as "interior" (thin/light) or "exterior" (thick/dark)
+                const isCurtainWall = boundary === "curtain_wall";
                 const isInteriorStyle = boundary === "auto"
                   ? isShared
                   : boundary === "interior" || boundary === "neighbor" || boundary === "unheated";
 
                 const wallColor = isWallSelected ? "#d97706"
+                  : isCurtainWall ? "#06b6d4"
+                  : (isShared && isInteriorStyle) ? "#d97706"
                   : isInteriorStyle ? "#d6d3d1"
                   : "#1c1917";
 
@@ -709,15 +728,29 @@ export function FloorCanvas({
                     points={[a.x, a.y, b.x, b.y]}
                     stroke={wallColor}
                     strokeWidth={isInteriorStyle ? Math.max(40, 1 / zoom) : Math.max(80, 2 / zoom)}
+                    dash={
+                      isCurtainWall && !isWallSelected ? [60, 30]
+                      : isShared && isInteriorStyle && !isWallSelected ? [80, 40]
+                      : undefined
+                    }
                     hitStrokeWidth={Math.max(WALL_THICKNESS_MM, 400)}
                     onClick={(e) => {
-                      if (tool === "select") { e.cancelBubble = true; onSelect({ type: "wall", roomId: room.id, wallIndex: wi }); }
-                      else if (tool === "split_room") { splitClickedWallRef.current = { roomId: room.id, wallIndex: wi }; }
+                      if (tool === "select") {
+                        e.cancelBubble = true;
+                        onSelect({
+                          type: "wall",
+                          roomId: room.id,
+                          wallIndex: seg?.edgeIndices[0] ?? wi,
+                          segmentEdges: seg?.edgeIndices ?? [wi],
+                        });
+                      } else if (tool === "split_room") {
+                        splitClickedWallRef.current = { roomId: room.id, wallIndex: wi };
+                      }
                     }}
                   />
                 );
-              }),
-            )}
+              });
+            })}
 
             {/* Windows */}
             {windows.map((win) => {
@@ -794,17 +827,25 @@ export function FloorCanvas({
               }),
             )}
 
-            {/* Dimension annotations on selected room — only interactive in select mode */}
+            {/* Dimension annotations on selected room — one per wall segment */}
             {selectedRoomId && tool === "select" && (() => {
               const sel = rooms.find((r) => r.id === selectedRoomId);
-              return sel ? <DimensionAnnotations room={sel} invZoom={invZoom} onSelectWall={(wallIndex) => onSelect({ type: "wall", roomId: selectedRoomId, wallIndex })} onStartEdit={(wallIndex) => {
-                const r = rooms.find((r) => r.id === selectedRoomId);
-                if (!r) return;
-                const a = r.polygon[wallIndex]!;
-                const b = r.polygon[(wallIndex + 1) % r.polygon.length]!;
-                const len = Math.hypot(b.x - a.x, b.y - a.y);
-                setEditingDim({ roomId: selectedRoomId, wallIndex, draft: (len / 1000).toFixed(2) });
-              }} /> : null;
+              if (!sel) return null;
+              const segs = roomSegmentsMap.get(selectedRoomId) ?? [];
+              return <DimensionAnnotations room={sel} invZoom={invZoom} onSelectWall={(wallIndex) => {
+                const segIdx = edgeToSegmentMap(segs).get(wallIndex);
+                const seg = segIdx !== undefined ? segs[segIdx] : undefined;
+                onSelect({
+                  type: "wall",
+                  roomId: selectedRoomId,
+                  wallIndex: seg?.edgeIndices[0] ?? wallIndex,
+                  segmentEdges: seg?.edgeIndices ?? [wallIndex],
+                });
+              }} onStartEdit={(wallIndex) => {
+                const seg = segs.find((s) => s.edgeIndices.includes(wallIndex));
+                if (!seg) return;
+                setEditingDim({ roomId: selectedRoomId, wallIndex: seg.edgeIndices[0]!, draft: (seg.length / 1000).toFixed(2) });
+              }} />;
             })()}
 
             {/* Vertex grips on selected room */}
@@ -1399,28 +1440,32 @@ function RoomLabel({ room, invZoom, isSelected }: { room: ModelRoom; invZoom: nu
   );
 }
 
-/** Dimension annotations on all edges of a room. */
+/** Dimension annotations — one annotation per wall segment. */
 function DimensionAnnotations({ room, invZoom, onSelectWall, onStartEdit }: { room: ModelRoom; invZoom: number; onSelectWall?: (wallIndex: number) => void; onStartEdit?: (wallIndex: number) => void }) {
   const poly = room.polygon;
   const n = poly.length;
+  const segments = computeWallSegments(poly);
 
   return (
     <Group>
-      {Array.from({ length: n }, (_, i) => {
-        const a = poly[i]!;
-        const b = poly[(i + 1) % n]!;
-        const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+      {segments.map((seg) => {
+        const firstEdge = seg.edgeIndices[0]!;
+        const lastEdge = seg.edgeIndices[seg.edgeIndices.length - 1]!;
+        const a = poly[firstEdge]!;
+        const b = poly[(lastEdge + 1) % n]!;
+
+        // Midpoint of the segment span
         const mx = (a.x + b.x) / 2;
         const my = (a.y + b.y) / 2;
 
-        // Outward offset
+        // Outward offset based on segment direction
         const angle = Math.atan2(b.y - a.y, b.x - a.x);
         const off = 18 * invZoom;
         const nx = Math.cos(angle - Math.PI / 2) * off;
         const ny = Math.sin(angle - Math.PI / 2) * off;
 
         return (
-          <Group key={i} onClick={() => { onSelectWall?.(i); onStartEdit?.(i); }} onTap={() => { onSelectWall?.(i); onStartEdit?.(i); }}>
+          <Group key={seg.segmentIndex} onClick={() => { onSelectWall?.(firstEdge); onStartEdit?.(firstEdge); }} onTap={() => { onSelectWall?.(firstEdge); onStartEdit?.(firstEdge); }}>
             {/* Dimension line */}
             <Line
               points={[a.x + nx, a.y + ny, b.x + nx, b.y + ny]}
@@ -1440,11 +1485,11 @@ function DimensionAnnotations({ room, invZoom, onSelectWall, onStartEdit }: { ro
               stroke="#d97706"
               strokeWidth={invZoom}
             />
-            {/* Label */}
+            {/* Label — total segment length */}
             <Text
               x={mx + nx * 1.8}
               y={my + ny * 1.8}
-              text={(length / 1000).toFixed(2)}
+              text={(seg.length / 1000).toFixed(2)}
               fontSize={10 * invZoom}
               fontStyle="bold"
               fontFamily="Inter, system-ui, sans-serif"

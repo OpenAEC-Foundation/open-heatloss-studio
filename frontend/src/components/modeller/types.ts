@@ -74,12 +74,13 @@ export interface ModelDoor {
 
 /** How a wall relates to the building boundary — determines which temperature applies. */
 export type WallBoundaryType =
-  | "auto"       // Determine automatically from geometry (default)
-  | "exterior"   // Gevel — buitenwand (θe)
-  | "interior"   // Binnenwand — naar verwarmde ruimte (θi)
-  | "neighbor"   // Scheidingsmuur — wand naar buren (θadj)
-  | "unheated"   // Naar onverwarmde ruimte (θu)
-  | "ground";    // Grenzend aan grond
+  | "auto"          // Determine automatically from geometry (default)
+  | "exterior"      // Gevel — buitenwand (θe)
+  | "interior"      // Binnenwand — naar verwarmde ruimte (θi)
+  | "neighbor"      // Scheidingsmuur — wand naar buren (θadj)
+  | "unheated"      // Naar onverwarmde ruimte (θu)
+  | "ground"        // Grenzend aan grond
+  | "curtain_wall"; // Vliesgevel — volledig beglazing (θe)
 
 export const BOUNDARY_TYPE_LABELS: Record<WallBoundaryType, string> = {
   auto: "Automatisch",
@@ -88,6 +89,7 @@ export const BOUNDARY_TYPE_LABELS: Record<WallBoundaryType, string> = {
   neighbor: "Scheidingsmuur (buren)",
   unheated: "Naar onverwarmd",
   ground: "Naar grond",
+  curtain_wall: "Vliesgevel",
 };
 
 // ---------------------------------------------------------------------------
@@ -116,7 +118,7 @@ export type ViewMode = "2d" | "3d";
 
 export type Selection =
   | { type: "room"; roomId: string }
-  | { type: "wall"; roomId: string; wallIndex: number }
+  | { type: "wall"; roomId: string; wallIndex: number; segmentEdges?: number[] }
   | { type: "window"; roomId: string; wallIndex: number; offset: number }
   | { type: "door"; roomId: string; wallIndex: number; offset: number }
   | null;

@@ -14,7 +14,7 @@ const REPORTS_URL = "/api/v1/report/generate";
  */
 async function getBearerToken(): Promise<string | null> {
   try {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
     const tokenPromise = (async () => {
       const { getOidc } = await import("./oidc");
       const oidc = await getOidc();
@@ -58,10 +58,16 @@ export async function generateReportDirect(
   console.log("[report] Response:", res.status, res.statusText);
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(
-      (err as { detail?: string }).detail ?? `Rapport generatie mislukt (${res.status})`,
-    );
+    const body = await res.text().catch(() => "");
+    let detail: string;
+    try {
+      const json = JSON.parse(body) as { detail?: string };
+      detail = json.detail ?? `Rapport generatie mislukt (${res.status})`;
+    } catch {
+      detail = body || res.statusText || `HTTP ${res.status}`;
+    }
+    console.error("[report] Fout response:", res.status, detail);
+    throw new Error(detail);
   }
 
   const contentType = res.headers.get("content-type") || "";

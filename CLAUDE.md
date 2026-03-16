@@ -54,3 +54,37 @@ Complete tool voor warmteverliesberekeningen volgens de ISSO 51 norm, bruikbaar 
 - Erratum 2023: kwadratische sommatie voor niet-gelijktijdige verliezen
 - Factor 1.2 kJ/(m3*K) = rho * c_p lucht
 - qi_spec in dm3/s per m2 (niet m3/s)
+
+---
+
+## Orchestrator — Sessie afsluiting
+
+**ALTIJD uitvoeren aan het einde van elke sessie** (of na een significante mijlpaal):
+
+Schrijf een update naar:
+`C:\Users\JochemK\.claude\orchestrator\sessions\warmteverlies_latest.md`
+
+Gebruik dit formaat:
+```markdown
+# Warmteverlies — Sessie update
+**Datum:** YYYY-MM-DD HH:MM
+**Branch:** (git branch naam)
+
+## Wat is gedaan
+- (bullet per afgeronde taak)
+
+## Huidige staat
+(1-3 zinnen over de staat van het project)
+
+## Gewijzigde bestanden
+- (relevante paden)
+
+## Openstaande issues / next steps
+- (wat nog moet gebeuren)
+
+## Cross-project notities
+(iets wat relevant is voor pyrevit of report integratie)
+```
+
+**Orchestrator context:** `C:\Users\JochemK\.claude\orchestrator\context\warmteverlies.md`
+**Project registry:** `C:\Users\JochemK\.claude\orchestrator\project-registry.json`

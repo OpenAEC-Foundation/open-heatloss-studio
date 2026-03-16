@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { ModelRoom, ModelWindow, Point2D, Selection, WallBoundaryType } from "./types";
 import { BOUNDARY_TYPE_LABELS } from "./types";
-import { polygonArea, segmentsShareEdge } from "./geometry";
+import { polygonArea, segmentsShareEdge, computeWallSegments } from "./geometry";
 import { useAllConstructions, type UnifiedConstructionEntry } from "../../hooks/useAllConstructions";
 import type { CatalogueCategory } from "../../lib/constructionCatalogue";
 import { CATALOGUE_CATEGORY_LABELS } from "../../lib/constructionCatalogue";
@@ -116,47 +116,71 @@ export function PropertiesPanel({
     }
   }
 
-  // Wall selected: show wall details
+  // Wall selected: show wall segment details
   if (selection?.type === "wall" && room) {
-    const wi = selection.wallIndex;
+    const segEdges = selection.segmentEdges ?? [selection.wallIndex];
     const poly = room.polygon;
-    const a = poly[wi]!;
-    const b = poly[(wi + 1) % poly.length]!;
-    const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
-    const dir = wallDirection(poly, wi);
+    const n = poly.length;
+
+    // Compute segment-level properties
+    const segLength = segEdges.reduce((sum, ei) => {
+      const a = poly[ei]!;
+      const b = poly[(ei + 1) % n]!;
+      return sum + Math.hypot(b.x - a.x, b.y - a.y);
+    }, 0);
+
+    // Direction from first to last point of segment
+    const firstPt = poly[segEdges[0]!]!;
+    const lastPt = poly[(segEdges[segEdges.length - 1]! + 1) % n]!;
+    const cx = poly.reduce((s, p) => s + p.x, 0) / n;
+    const cy = poly.reduce((s, p) => s + p.y, 0) / n;
+    const mx = (firstPt.x + lastPt.x) / 2 - cx;
+    const my = (firstPt.y + lastPt.y) / 2 - cy;
+    const dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? "Oost" : "West") : (my > 0 ? "Zuid" : "Noord");
 
     let autoType: "exterior" | "interior" = "exterior";
     let adjacentName: string | null = null;
-    for (const other of rooms) {
-      if (other.id === room.id) continue;
-      if (hasSharedWall(a, b, other.polygon)) { autoType = "interior"; adjacentName = other.name; break; }
+    for (const ei of segEdges) {
+      const a = poly[ei]!;
+      const b = poly[(ei + 1) % n]!;
+      for (const other of rooms) {
+        if (other.id === room.id) continue;
+        if (hasSharedWall(a, b, other.polygon)) { autoType = "interior"; adjacentName = other.name; break; }
+      }
+      if (autoType === "interior") break;
     }
 
-    const boundaryKey = `${room.id}:${wi}`;
-    const currentBoundary = wallBoundaryTypes[boundaryKey] ?? "auto";
-
-    const wallWindows = windows.filter((w) => w.roomId === room.id && w.wallIndex === wi);
-    const assignedId = wallConstructions[`${room.id}:${wi}`];
+    const currentBoundary = wallBoundaryTypes[`${room.id}:${segEdges[0]}`] ?? "auto";
+    const wallWindows = windows.filter((w) => w.roomId === room.id && segEdges.includes(w.wallIndex));
+    const assignedId = wallConstructions[`${room.id}:${segEdges[0]}`];
     const assigned = assignedId ? catalogueEntries.find((e) => e.id === assignedId) : null;
 
     return (
       <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
         <div className="border-b border-stone-100 px-4 py-3">
           <span className="text-sm font-bold text-stone-800">Wand {dir}</span>
-          <div className="mt-1 text-xs text-stone-500">{room.id} {room.name}</div>
+          <div className="mt-1 text-xs text-stone-500">
+            {room.id} {room.name}
+            {segEdges.length > 1 && <span className="ml-1 text-stone-400">({segEdges.length} edges)</span>}
+          </div>
         </div>
         <div className="space-y-3 px-4 py-3">
           <Section title="Eigenschappen">
             <dl className="space-y-1 text-xs">
               <Row label="Richting" value={dir} />
-              <Row label="Lengte" value={`${(length / 1000).toFixed(2)} m`} />
+              <Row label="Lengte" value={`${(segLength / 1000).toFixed(2)} m`} />
               <Row label="Hoogte" value={`${room.height} mm`} />
-              <Row label="Oppervlak" value={`${((length / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
+              <Row label="Oppervlak" value={`${((segLength / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-500">Grenstype</span>
                 <select
                   value={currentBoundary}
-                  onChange={(e) => onAssignBoundaryType?.(room.id, wi, e.target.value as WallBoundaryType)}
+                  onChange={(e) => {
+                    const bt = e.target.value as WallBoundaryType;
+                    for (const ei of segEdges) {
+                      onAssignBoundaryType?.(room.id, ei, bt);
+                    }
+                  }}
                   className="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-800"
                 >
                   {Object.entries(BOUNDARY_TYPE_LABELS).map(([key, label]) => (
@@ -194,7 +218,7 @@ export function PropertiesPanel({
               <div className="rounded border border-green-200 bg-green-50 px-2 py-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-green-800">{assigned.name}</span>
-                  <button onClick={() => onAssignWall?.(room.id, wi, null)} className="text-red-400 hover:text-red-600">x</button>
+                  <button onClick={() => { for (const ei of segEdges) onAssignWall?.(room.id, ei, null); }} className="text-red-400 hover:text-red-600">x</button>
                 </div>
                 <div className="mt-0.5 text-green-600">U = {assigned.uValue} W/(m²·K)</div>
               </div>
@@ -202,7 +226,7 @@ export function PropertiesPanel({
               <ConstructionPickerInline
                 entries={catalogueEntries}
                 filterCategory="wanden"
-                onSelect={(entryId) => onAssignWall?.(room.id, wi, entryId)}
+                onSelect={(entryId) => { for (const ei of segEdges) onAssignWall?.(room.id, ei, entryId); }}
               />
             )}
           </Section>
@@ -292,8 +316,16 @@ export function PropertiesPanel({
                 wall={w}
                 assignedEntryId={wallConstructions[`${room.id}:${w.wallIndex}`]}
                 catalogueEntries={catalogueEntries}
-                onAssign={(entryId) => onAssignWall?.(room.id, w.wallIndex, entryId)}
-                onChangeBoundary={(wi, bt) => onAssignBoundaryType?.(room.id, wi, bt)}
+                onAssign={(entryId) => {
+                  for (const ei of w.edgeIndices) {
+                    onAssignWall?.(room.id, ei, entryId);
+                  }
+                }}
+                onChangeBoundary={(_wi, bt) => {
+                  for (const ei of w.edgeIndices) {
+                    onAssignBoundaryType?.(room.id, ei, bt);
+                  }
+                }}
               />
             ))}
           </div>
@@ -482,7 +514,10 @@ interface WallInfo {
   adjacentName: string | null;
   adjacentId: string | null;
   windowCount: number;
+  /** Representative edge index (first edge in the segment). */
   wallIndex: number;
+  /** All polygon edge indices that belong to this wall segment. */
+  edgeIndices: number[];
   boundaryType: WallBoundaryType;
 }
 
@@ -493,6 +528,7 @@ function wallTarget(wall: WallInfo): string {
     : wall.boundaryType;
   if (bt === "interior" && wall.adjacentName) return wall.adjacentName;
   if (bt === "exterior") return "Buiten";
+  if (bt === "curtain_wall") return "Buiten (vliesgevel)";
   if (bt === "neighbor") return "Buren";
   if (bt === "unheated") return "Onverwarmde ruimte";
   if (bt === "ground") return "Grond";
@@ -509,6 +545,7 @@ function boundaryBadge(wall: WallInfo): { label: string; colors: string } {
     return { label: "Gevel", colors: "bg-red-50 text-red-700" };
   }
   if (bt === "interior") return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-50 text-blue-700" };
+  if (bt === "curtain_wall") return { label: "Vliesgevel", colors: "bg-cyan-50 text-cyan-700" };
   if (bt === "neighbor") return { label: "Buren", colors: "bg-orange-50 text-orange-700" };
   if (bt === "unheated") return { label: "Onverwarmd", colors: "bg-purple-50 text-purple-700" };
   if (bt === "ground") return { label: "Grond", colors: "bg-green-50 text-green-700" };
@@ -716,24 +753,50 @@ function getWallInfo(room: ModelRoom, allRooms: ModelRoom[], allWindows: ModelWi
   const poly = room.polygon;
   const n = poly.length;
   const roomWindows = allWindows.filter((w) => w.roomId === room.id);
+  const segments = computeWallSegments(poly);
   const walls: WallInfo[] = [];
 
-  for (let i = 0; i < n; i++) {
-    const a = poly[i]!;
-    const b = poly[(i + 1) % n]!;
-    const length = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
-    const direction = wallDirection(poly, i);
-
+  for (const seg of segments) {
+    // Auto type: if ANY edge in the segment is shared → interior
     let autoType: "exterior" | "interior" = "exterior";
     let adjacentName: string | null = null;
     let adjacentId: string | null = null;
-    for (const other of allRooms) {
-      if (other.id === room.id) continue;
-      if (hasSharedWall(a, b, other.polygon)) { autoType = "interior"; adjacentName = other.name; adjacentId = other.id; break; }
+
+    for (const ei of seg.edgeIndices) {
+      const a = poly[ei]!;
+      const b = poly[(ei + 1) % n]!;
+      for (const other of allRooms) {
+        if (other.id === room.id) continue;
+        if (hasSharedWall(a, b, other.polygon)) {
+          autoType = "interior";
+          adjacentName = other.name;
+          adjacentId = other.id;
+          break;
+        }
+      }
+      if (autoType === "interior") break;
     }
 
-    const boundaryType = boundaryTypes[`${room.id}:${i}`] ?? "auto";
-    walls.push({ direction, length, autoType, adjacentName, adjacentId, windowCount: roomWindows.filter((w) => w.wallIndex === i).length, wallIndex: i, boundaryType });
+    // Window count: sum of windows on all edges in the segment
+    const windowCount = seg.edgeIndices.reduce(
+      (sum, ei) => sum + roomWindows.filter((w) => w.wallIndex === ei).length,
+      0,
+    );
+
+    // Boundary type: use the first edge's override as representative
+    const boundaryType = boundaryTypes[`${room.id}:${seg.edgeIndices[0]}`] ?? "auto";
+
+    walls.push({
+      direction: seg.direction,
+      length: seg.length,
+      autoType,
+      adjacentName,
+      adjacentId,
+      windowCount,
+      wallIndex: seg.edgeIndices[0]!,
+      edgeIndices: seg.edgeIndices,
+      boundaryType,
+    });
   }
   return walls;
 }

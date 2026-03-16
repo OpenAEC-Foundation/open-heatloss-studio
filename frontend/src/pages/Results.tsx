@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { ConstructionLossChart } from "../components/charts/ConstructionLossChart";
 import { StackedBarChart } from "../components/charts/StackedBarChart";
 import { SummaryDonut } from "../components/charts/SummaryDonut";
+import { ChartZoomModal } from "../components/ui/ChartZoomModal";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Table, Th, Td } from "../components/ui/Table";
@@ -28,6 +30,7 @@ export function Results() {
   const { project, result } = useProjectStore();
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [zoomedChart, setZoomedChart] = useState<"bar" | "donut" | "construction" | null>(null);
 
   const handleExport = useCallback(() => {
     exportProject(project, result);
@@ -155,12 +158,73 @@ export function Results() {
         {/* Charts */}
         <div className="grid grid-cols-2 gap-6">
           <Card title="Verliezen per vertrek">
-            <StackedBarChart rooms={rooms} />
+            <div
+              className="cursor-pointer"
+              onClick={() => setZoomedChart("bar")}
+              title="Klik om te vergroten"
+            >
+              <StackedBarChart rooms={rooms} />
+            </div>
+            <p className="mt-1 text-center text-[10px] text-stone-400">
+              Klik om te vergroten
+            </p>
           </Card>
           <Card title="Gebouwtotaal">
-            <SummaryDonut summary={summary} />
+            <div
+              className="cursor-pointer"
+              onClick={() => setZoomedChart("donut")}
+              title="Klik om te vergroten"
+            >
+              <SummaryDonut summary={summary} />
+            </div>
+            <p className="mt-1 text-center text-[10px] text-stone-400">
+              Klik om te vergroten
+            </p>
           </Card>
         </div>
+
+        {/* Chart zoom modals */}
+        <ChartZoomModal
+          open={zoomedChart === "bar"}
+          onClose={() => setZoomedChart(null)}
+          title="Verliezen per vertrek"
+        >
+          <StackedBarChart rooms={rooms} />
+        </ChartZoomModal>
+        <ChartZoomModal
+          open={zoomedChart === "donut"}
+          onClose={() => setZoomedChart(null)}
+          title="Gebouwtotaal"
+        >
+          <SummaryDonut summary={summary} />
+        </ChartZoomModal>
+
+        {/* Construction type loss chart */}
+        <Card title="Verlies per constructietype">
+          <div
+            className="cursor-pointer"
+            onClick={() => setZoomedChart("construction")}
+            title="Klik om te vergroten"
+          >
+            <ConstructionLossChart
+              rooms={project.rooms}
+              thetaE={project.climate.theta_e ?? -10}
+            />
+          </div>
+          <p className="mt-1 text-center text-[10px] text-stone-400">
+            Klik om te vergroten
+          </p>
+        </Card>
+        <ChartZoomModal
+          open={zoomedChart === "construction"}
+          onClose={() => setZoomedChart(null)}
+          title="Verlies per constructietype"
+        >
+          <ConstructionLossChart
+            rooms={project.rooms}
+            thetaE={project.climate.theta_e ?? -10}
+          />
+        </ChartZoomModal>
 
         {/* Room results table */}
         <Card title="Resultaten per vertrek">

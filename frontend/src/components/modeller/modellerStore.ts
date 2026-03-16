@@ -124,6 +124,20 @@ interface ModellerStore {
    */
   copyFromCatalogue: (entry: CatalogueEntry) => string;
 
+  /**
+   * Ensure a ProjectConstruction exists for a given fingerprint.
+   * If one already matches (name + category + materialType), returns its ID.
+   * Otherwise creates a new one and returns the ID.
+   */
+  ensureProjectConstruction: (data: {
+    name: string;
+    category: import("../../lib/constructionCatalogue").CatalogueCategory;
+    materialType: import("../../types").MaterialType;
+    verticalPosition: import("../../types").VerticalPosition;
+    layers: import("../../lib/constructionCatalogue").CatalogueLayer[];
+    catalogueSourceId?: string;
+  }) => string;
+
   // History
   undo: () => void;
   redo: () => void;
@@ -369,6 +383,31 @@ export const useModellerStore = create<ModellerStore>()(
               layers: structuredClone(entry.layers ?? []),
               catalogueSourceId: entry.id,
             },
+          ],
+        });
+        return id;
+      },
+
+      ensureProjectConstruction: (data) => {
+        const state = get();
+        // Check for existing match by catalogueSourceId or by name+category
+        const existing = data.catalogueSourceId
+          ? state.projectConstructions.find(
+              (c) => c.catalogueSourceId === data.catalogueSourceId,
+            )
+          : state.projectConstructions.find(
+              (c) =>
+                c.name === data.name &&
+                c.category === data.category &&
+                c.materialType === data.materialType,
+            );
+        if (existing) return existing.id;
+
+        const id = `proj-${crypto.randomUUID()}`;
+        set({
+          projectConstructions: [
+            ...state.projectConstructions,
+            { ...data, id },
           ],
         });
         return id;

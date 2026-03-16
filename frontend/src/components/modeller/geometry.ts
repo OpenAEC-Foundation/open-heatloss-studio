@@ -1,6 +1,154 @@
 /** Shared geometry helpers for the modeller. */
 import type { ModelRoom, Point2D } from "./types";
 
+// ---------------------------------------------------------------------------
+// Wall segment grouping
+// ---------------------------------------------------------------------------
+
+/** Angle threshold (degrees) — edges differing by less are part of the same segment. */
+const SEGMENT_ANGLE_THRESHOLD_DEG = 15;
+
+/** Edges shorter than this (mm) never start a new segment. */
+const MIN_SEGMENT_EDGE_MM = 100;
+
+export interface WallSegment {
+  segmentIndex: number;
+  /** Which polygon edge indices belong to this segment. */
+  edgeIndices: number[];
+  /** Total length of all edges in mm. */
+  length: number;
+  /** Cardinal direction label based on first→last point. */
+  direction: string;
+}
+
+/**
+ * Group polygon edges into logical wall segments.
+ *
+ * Two consecutive edges belong to the same segment when their angle
+ * difference is below the threshold OR the next edge is shorter than the
+ * minimum edge length.
+ */
+export function computeWallSegments(polygon: Point2D[]): WallSegment[] {
+  const n = polygon.length;
+  if (n < 3) return [];
+
+  const edgeLengths: number[] = [];
+  const edgeAngles: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i]!;
+    const b = polygon[(i + 1) % n]!;
+    edgeLengths.push(Math.hypot(b.x - a.x, b.y - a.y));
+    edgeAngles.push(Math.atan2(b.y - a.y, b.x - a.x));
+  }
+
+  // Start first segment with edge 0
+  const segments: WallSegment[] = [];
+  let currentEdges: number[] = [0];
+
+  for (let i = 1; i < n; i++) {
+    const prevAngle = edgeAngles[i - 1]!;
+    const currAngle = edgeAngles[i]!;
+
+    // Angle difference in degrees, wrapped to [0, 180]
+    let angleDiff = Math.abs(currAngle - prevAngle) * (180 / Math.PI);
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+    const isShortEdge = edgeLengths[i]! < MIN_SEGMENT_EDGE_MM;
+    const isSameDirection = angleDiff < SEGMENT_ANGLE_THRESHOLD_DEG;
+
+    if (isSameDirection || isShortEdge) {
+      // Continue current segment
+      currentEdges.push(i);
+    } else {
+      // Finish current segment and start a new one
+      segments.push(buildSegment(segments.length, currentEdges, polygon, edgeLengths));
+      currentEdges = [i];
+    }
+  }
+
+  // Finish last segment
+  segments.push(buildSegment(segments.length, currentEdges, polygon, edgeLengths));
+
+  // Wrap-around: check if first and last segment should merge
+  if (segments.length > 1) {
+    const first = segments[0]!;
+    const last = segments[segments.length - 1]!;
+    const lastEdgeIdx = last.edgeIndices[last.edgeIndices.length - 1]!;
+    const firstEdgeIdx = first.edgeIndices[0]!;
+
+    const lastAngle = edgeAngles[lastEdgeIdx]!;
+    const firstAngle = edgeAngles[firstEdgeIdx]!;
+    let angleDiff = Math.abs(firstAngle - lastAngle) * (180 / Math.PI);
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+    const firstIsShort = edgeLengths[firstEdgeIdx]! < MIN_SEGMENT_EDGE_MM;
+
+    if (angleDiff < SEGMENT_ANGLE_THRESHOLD_DEG || firstIsShort) {
+      // Merge: last absorbs first
+      const mergedEdges = [...last.edgeIndices, ...first.edgeIndices];
+      segments[segments.length - 1] = buildSegment(
+        last.segmentIndex,
+        mergedEdges,
+        polygon,
+        edgeLengths,
+      );
+      segments.shift();
+    }
+  }
+
+  // Re-index after potential merge
+  for (let i = 0; i < segments.length; i++) {
+    segments[i]!.segmentIndex = i;
+  }
+
+  return segments;
+}
+
+/** Build a WallSegment from a list of edge indices. */
+function buildSegment(
+  index: number,
+  edgeIndices: number[],
+  polygon: Point2D[],
+  edgeLengths: number[],
+): WallSegment {
+  const n = polygon.length;
+  const totalLength = edgeIndices.reduce((sum, ei) => sum + edgeLengths[ei]!, 0);
+
+  // Direction: from the start of the first edge to the end of the last edge
+  const firstEdge = edgeIndices[0]!;
+  const lastEdge = edgeIndices[edgeIndices.length - 1]!;
+  const start = polygon[firstEdge]!;
+  const end = polygon[(lastEdge + 1) % n]!;
+
+  // Cardinal direction based on outward normal (midpoint relative to centroid)
+  const mx = (start.x + end.x) / 2;
+  const my = (start.y + end.y) / 2;
+  const cx = polygon.reduce((s, p) => s + p.x, 0) / n;
+  const cy = polygon.reduce((s, p) => s + p.y, 0) / n;
+  const nx = mx - cx;
+  const ny = my - cy;
+  const direction = Math.abs(nx) > Math.abs(ny)
+    ? (nx > 0 ? "Oost" : "West")
+    : (ny > 0 ? "Zuid" : "Noord");
+
+  return { segmentIndex: index, edgeIndices, length: totalLength, direction };
+}
+
+/**
+ * Map each edge index to its parent segment index.
+ * Returns a Map<edgeIndex, segmentIndex>.
+ */
+export function edgeToSegmentMap(segments: WallSegment[]): Map<number, number> {
+  const map = new Map<number, number>();
+  for (const seg of segments) {
+    for (const ei of seg.edgeIndices) {
+      map.set(ei, seg.segmentIndex);
+    }
+  }
+  return map;
+}
+
 export function polygonCenter(polygon: Point2D[]): Point2D {
   const n = polygon.length;
   return {
@@ -103,9 +251,10 @@ export function segmentsShareEdge(
   c: Point2D, d: Point2D,
 ): boolean {
   // Use perpendicular distance (not raw cross product) so tolerance is
-  // independent of wall length. 5 mm perpendicular tolerance.
-  const PERP_TOL = 5;
-  const OVERLAP_TOL = 50;
+  // independent of wall length. 10 mm perpendicular tolerance catches
+  // typical BIM/IFC offsets; 20 mm overlap is enough for small geometry gaps.
+  const PERP_TOL = 10;
+  const OVERLAP_TOL = 20;
 
   const abLen = Math.hypot(b.x - a.x, b.y - a.y);
   if (abLen < 1) return false;

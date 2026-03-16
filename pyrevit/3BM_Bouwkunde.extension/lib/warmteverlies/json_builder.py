@@ -163,6 +163,31 @@ def _build_room(room_data, config):
         total_opening_area = sum(o["area_m2"] for o in wall_openings)
         net_area = max(0.0, total_area - total_opening_area)
 
+        # Skip wanden met 0 m2 netto (volledig bedekt door openings)
+        if net_area < 0.01 and position_type == "wall":
+            # Openings nog wel toevoegen als aparte constructies
+            if wall_openings:
+                opening_groups = _group_openings(wall_openings)
+                for o_key, o_group in opening_groups.items():
+                    o_cat, o_u = o_key
+                    o_area = sum(o["area_m2"] for o in o_group)
+                    o_suffix = "ext-{0}".format(o_cat)
+                    o_id = "{0}-{1}".format(room_id, o_suffix)
+
+                    o_construction = {
+                        "id": o_id,
+                        "description": _opening_description(o_cat, o_group),
+                        "area": round(o_area, 2),
+                        "u_value": o_u,
+                        "boundary_type": boundary_type,
+                        "material_type": "non_masonry",
+                        "vertical_position": "wall",
+                        "use_forfaitaire_thermal_bridge": True,
+                        "has_embedded_heating": False,
+                    }
+                    room["constructions"].append(o_construction)
+            continue
+
         suffix = _make_suffix(boundary_type, position_type, group)
         c_id = "{0}-{1}".format(room_id, suffix)
 
