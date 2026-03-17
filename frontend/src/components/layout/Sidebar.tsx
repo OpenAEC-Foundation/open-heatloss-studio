@@ -192,7 +192,7 @@ export function Sidebar() {
   const isWeb = !isTauri();
 
   return (
-    <aside className="fixed left-0 top-topbar z-30 flex h-[calc(100vh-56px)] w-sidebar flex-col border-r border-stone-200 bg-concrete text-stone-600">
+    <aside className="flex w-sidebar shrink-0 flex-col border-r border-stone-200 bg-concrete text-stone-600 overflow-hidden">
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {/* Main section */}

@@ -1,0 +1,41 @@
+{
+  "file": "File",
+  "new": "New",
+  "open": "Open",
+  "save": "Save",
+  "saveAs": "Save As...",
+  "print": "Print",
+  "import": "Import",
+  "export": "Export",
+  "preferences": "Preferences",
+  "about": "About",
+  "exit": "Exit",
+  "aboutPanel": {
+    "title": "About",
+    "appName": "ISSO 51 Warmteverliesberekening",
+    "version": "Version",
+    "tagline": "Heat loss calculation according to ISSO 51:2023",
+    "description": "Complete tool for heat loss calculations according to the ISSO 51 standard. Available as web application, desktop app (Tauri) and calculation library.",
+    "companyName": "OpenAEC",
+    "companyDescription": "Open source engineering tools for the built environment.",
+    "website": "Website",
+    "github": "GitHub",
+    "copyright": "© 2025 3BM Bouwkunde Cooperatie. Licensed under MIT."
+  },
+  "importPanel": {
+    "title": "Import",
+    "fromFile": "Import from File",
+    "fromFileDesc": "Import data from supported file formats",
+    "fromTemplate": "Import from Template",
+    "fromTemplateDesc": "Load a pre-built template as a starting point"
+  },
+  "exportPanel": {
+    "title": "Export",
+    "asPdf": "Export as PDF",
+    "asPdfDesc": "Save the current document as a PDF file",
+    "asImage": "Export as Image",
+    "asImageDesc": "Save as PNG or JPEG image files",
+    "asHtml": "Export as HTML",
+    "asHtmlDesc": "Export the document as an HTML file"
+  }
+}

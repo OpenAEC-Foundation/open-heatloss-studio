@@ -1,0 +1,41 @@
+{
+  "file": "Bestand",
+  "new": "Nieuw",
+  "open": "Openen",
+  "save": "Opslaan",
+  "saveAs": "Opslaan als...",
+  "print": "Afdrukken",
+  "import": "Importeren",
+  "export": "Exporteren",
+  "preferences": "Voorkeuren",
+  "about": "Over",
+  "exit": "Afsluiten",
+  "aboutPanel": {
+    "title": "Over",
+    "appName": "ISSO 51 Warmteverliesberekening",
+    "version": "Versie",
+    "tagline": "Warmteverliesberekening volgens ISSO 51:2023",
+    "description": "Complete tool voor warmteverliesberekeningen volgens de ISSO 51 norm. Bruikbaar als web applicatie, desktop app (Tauri) en rekenbibliotheek.",
+    "companyName": "OpenAEC",
+    "companyDescription": "Open source engineering tools voor de gebouwde omgeving.",
+    "website": "Website",
+    "github": "GitHub",
+    "copyright": "© 2025 3BM Bouwkunde Cooperatie. Gelicentieerd onder MIT."
+  },
+  "importPanel": {
+    "title": "Importeren",
+    "fromFile": "Importeren uit bestand",
+    "fromFileDesc": "Gegevens importeren uit ondersteunde bestandsindelingen",
+    "fromTemplate": "Importeren uit sjabloon",
+    "fromTemplateDesc": "Laad een vooraf gemaakt sjabloon als startpunt"
+  },
+  "exportPanel": {
+    "title": "Exporteren",
+    "asPdf": "Exporteren als PDF",
+    "asPdfDesc": "Sla het huidige document op als een PDF-bestand",
+    "asImage": "Exporteren als afbeelding",
+    "asImageDesc": "Opslaan als PNG- of JPEG-afbeeldingsbestanden",
+    "asHtml": "Exporteren als HTML",
+    "asHtmlDesc": "Exporteer het document als een HTML-bestand"
+  }
+}

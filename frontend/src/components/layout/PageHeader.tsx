@@ -15,7 +15,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeaderProps) {
   return (
-    <header className="sticky top-topbar z-20 border-b border-stone-200 bg-white">
+    <header className="sticky top-0 z-20 border-b border-stone-200 bg-white">
       {/* Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 && (
         <div className="flex items-center gap-1.5 border-b border-stone-100 px-6 py-1.5 text-xs text-scaffold-gray">

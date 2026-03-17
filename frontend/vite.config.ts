@@ -10,11 +10,23 @@ export default defineConfig(({ mode }) => {
   // Load all env vars (incl. without VITE_ prefix) for proxy config
   const env = loadEnv(mode, __dirname, "");
 
+  // Tauri plugin modules are only available at runtime in Tauri desktop builds.
+  // Mark them as external so Rollup doesn't fail when building for web.
+  const tauriExternals = [
+    "@tauri-apps/plugin-store",
+    "@tauri-apps/plugin-os",
+  ];
+
   return {
     plugins: [
       react(),
       oidcSpa({ sessionRestorationMethod: "full page redirect" }),
     ],
+    build: {
+      rollupOptions: {
+        external: tauriExternals,
+      },
+    },
     resolve: {
       alias: {
         "@": resolve(__dirname, "src"),
