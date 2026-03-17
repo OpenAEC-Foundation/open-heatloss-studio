@@ -49,9 +49,9 @@ getSetting("language", "nl").then((lang) => {
 
 export function changeLanguage(lang: string) {
   if (lang === "auto") {
-    const detected = navigator.language?.split("-")[0] || "en";
+    const detected = navigator.language?.split("-")[0] || "nl";
     const supported = Object.keys(i18next.options.resources || {});
-    const finalLang = supported.includes(detected) ? detected : "en";
+    const finalLang = supported.includes(detected) ? detected : "nl";
     return i18next.changeLanguage(finalLang);
   }
   return i18next.changeLanguage(lang);
