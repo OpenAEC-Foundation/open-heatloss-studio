@@ -6,6 +6,7 @@ import { updateProject, createProject } from "../../lib/backend";
 import { exportProject } from "../../lib/importExport";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
+import i18next from "../../i18n/config";
 import { getSetting } from "../../tauriStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import TitleBar from "../TitleBar";
@@ -62,7 +63,7 @@ export function AppShell({ children }: AppShellProps) {
         useProjectStore.getState().reset();
         useModellerStore.getState().resetToExample();
         navigate("/project");
-        addToast("Nieuw project", "info");
+        addToast(i18next.t("newProject"), "info");
         return;
       }
 
@@ -82,35 +83,35 @@ export function AppShell({ children }: AppShellProps) {
           })
             .then((resp) => {
               useProjectStore.getState().setServerUpdatedAt(resp.updated_at);
-              addToast("Opgeslagen op server", "success");
+              addToast(i18next.t("savedToServer"), "success");
             })
             .catch((err) => {
               addToast(
-                `Opslaan mislukt: ${err instanceof Error ? err.message : String(err)}`,
+                `${i18next.t("saveFailed")}: ${err instanceof Error ? err.message : String(err)}`,
                 "error",
               );
             });
         } else if (isLoggedIn) {
           const name = window.prompt(
-            "Projectnaam:",
+            i18next.t("projectNamePrompt"),
             state.project.info.name || "",
           );
           if (name) {
             createProject(name, state.project)
               .then((resp) => {
                 useProjectStore.getState().setActiveProjectId(resp.id);
-                addToast("Opgeslagen op server", "success");
+                addToast(i18next.t("savedToServer"), "success");
               })
               .catch((err) => {
                 addToast(
-                  `Opslaan mislukt: ${err instanceof Error ? err.message : String(err)}`,
+                  `${i18next.t("saveFailed")}: ${err instanceof Error ? err.message : String(err)}`,
                   "error",
                 );
               });
           }
         } else {
           exportProject(state.project, state.result);
-          addToast("Lokaal opgeslagen", "success");
+          addToast(i18next.t("savedLocally"), "success");
         }
         return;
       }

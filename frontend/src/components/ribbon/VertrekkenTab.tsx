@@ -13,6 +13,7 @@ const backend = createBackend();
 
 export default function VertrekkenTab() {
   const { t } = useTranslation("ribbon");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const addRoom = useProjectStore((s) => s.addRoom);
   const project = useProjectStore((s) => s.project);
@@ -33,10 +34,10 @@ export default function VertrekkenTab() {
     try {
       const result = await backend.calculate(project);
       setResult(result);
-      addToast("Berekening voltooid", "success");
+      addToast(tc("calculationComplete"), "success");
       navigate("/results");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Berekening mislukt";
+      const msg = err instanceof Error ? err.message : tc("calculationFailed");
       setError(msg);
       addToast(msg, "error");
     }

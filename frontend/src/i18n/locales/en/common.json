@@ -36,5 +36,32 @@
   "contentPlaceholder": "Content here",
   "sendFeedback": "Send Feedback",
   "explorer": "Explorer",
-  "properties": "Properties"
+  "properties": "Properties",
+  "login": "Login",
+  "logout": "Logout",
+  "newProject": "New project",
+  "savedToServer": "Saved to server",
+  "saveFailed": "Save failed",
+  "savedLocally": "Saved locally",
+  "projectNamePrompt": "Project name:",
+  "calculationComplete": "Calculation complete",
+  "calculationFailed": "Calculation failed",
+  "reportGenerated": "Report generated",
+  "reportFailed": "Report generation failed",
+  "projectExported": "Project exported",
+  "sidebar": {
+    "calculation": "Calculation",
+    "tools": "Tools",
+    "project": "Project",
+    "rooms": "Rooms",
+    "constructions": "Constructions",
+    "modeller": "Modeller",
+    "results": "Results",
+    "library": "Library",
+    "rcValue": "R-value",
+    "materials": "Materials",
+    "projects": "Projects",
+    "unsaved": "Unsaved",
+    "saved": "Saved"
+  }
 }

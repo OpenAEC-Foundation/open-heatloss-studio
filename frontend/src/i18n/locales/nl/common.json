@@ -36,5 +36,32 @@
   "contentPlaceholder": "Inhoud hier",
   "sendFeedback": "Feedback verzenden",
   "explorer": "Verkenner",
-  "properties": "Eigenschappen"
+  "properties": "Eigenschappen",
+  "login": "Inloggen",
+  "logout": "Uitloggen",
+  "newProject": "Nieuw project",
+  "savedToServer": "Opgeslagen op server",
+  "saveFailed": "Opslaan mislukt",
+  "savedLocally": "Lokaal opgeslagen",
+  "projectNamePrompt": "Projectnaam:",
+  "calculationComplete": "Berekening voltooid",
+  "calculationFailed": "Berekening mislukt",
+  "reportGenerated": "Rapport gegenereerd",
+  "reportFailed": "Rapport genereren mislukt",
+  "projectExported": "Project geexporteerd",
+  "sidebar": {
+    "calculation": "Berekening",
+    "tools": "Gereedschap",
+    "project": "Project",
+    "rooms": "Vertrekken",
+    "constructions": "Constructies",
+    "modeller": "Modeller",
+    "results": "Resultaten",
+    "library": "Bibliotheek",
+    "rcValue": "Rc-waarde",
+    "materials": "Materialen",
+    "projects": "Projecten",
+    "unsaved": "Niet opgeslagen",
+    "saved": "Opgeslagen"
+  }
 }

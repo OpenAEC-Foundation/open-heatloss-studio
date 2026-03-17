@@ -267,7 +267,7 @@ function UserBadge() {
         onClick={state.login}
         tabIndex={-1}
       >
-        {t("login", "Inloggen")}
+        {t("login")}
       </button>
     );
   }
@@ -294,7 +294,7 @@ function UserBadge() {
               state.logout();
             }}
           >
-            {t("logout", "Uitloggen")}
+            {t("logout")}
           </button>
         </div>
       )}

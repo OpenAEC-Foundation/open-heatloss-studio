@@ -53,7 +53,10 @@
     "underlay": "Underlay",
     "import": "Import",
     "export": "Export",
-    "project": "Project"
+    "project": "Project",
+    "snap": "Snap",
+    "snapOn": "ON",
+    "snapOff": "OFF"
   },
   "resultaten": {
     "report": "Report",

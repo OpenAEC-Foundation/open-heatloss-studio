@@ -9,6 +9,7 @@ import { useToastStore } from "../../store/toastStore";
 import { exportProject } from "../../lib/importExport";
 import { buildReportData } from "../../lib/reportBuilder";
 import { generateReportDirect } from "../../lib/reportClient";
+import i18next from "../../i18n/config";
 
 export default function ResultatenTab() {
   const { t } = useTranslation("ribbon");
@@ -29,9 +30,9 @@ export default function ResultatenTab() {
       a.download = `${project.info.name || "rapport"}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      addToast("Rapport gegenereerd", "success");
+      addToast(i18next.t("reportGenerated"), "success");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Rapport genereren mislukt";
+      const msg = err instanceof Error ? err.message : i18next.t("reportFailed");
       addToast(msg, "error");
     } finally {
       setIsGenerating(false);
@@ -40,7 +41,7 @@ export default function ResultatenTab() {
 
   const handleExport = useCallback(() => {
     exportProject(project, result);
-    addToast("Project geexporteerd", "success");
+    addToast(i18next.t("projectExported"), "success");
   }, [project, result, addToast]);
 
   return (

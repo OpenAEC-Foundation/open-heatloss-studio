@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { isTauri } from "../../lib/backend";
 import { useProjectStore } from "../../store/projectStore";
@@ -98,22 +99,23 @@ function IconClipboardList({ className }: { className?: string }) {
 }
 
 const NAV_MAIN = [
-  { to: "/project", label: "Project", Icon: IconHome },
-  { to: "/rooms", label: "Vertrekken", Icon: IconGrid },
-  { to: "/constructies", label: "Constructies", Icon: IconClipboardList },
-  { to: "/modeller", label: "Modeller", Icon: IconCube },
-  { to: "/results", label: "Resultaten", Icon: IconBarChart },
+  { to: "/project", labelKey: "sidebar.project", Icon: IconHome },
+  { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
+  { to: "/constructies", labelKey: "sidebar.constructions", Icon: IconClipboardList },
+  { to: "/modeller", labelKey: "sidebar.modeller", Icon: IconCube },
+  { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
 ] as const;
 
 const NAV_LIBRARY = [
-  { to: "/library", label: "Bibliotheek", Icon: IconBook },
-  { to: "/rc", label: "Rc-waarde", Icon: IconLayers },
-  { to: "/materialen", label: "Materialen", Icon: IconSwatches },
+  { to: "/library", labelKey: "sidebar.library", Icon: IconBook },
+  { to: "/rc", labelKey: "sidebar.rcValue", Icon: IconLayers },
+  { to: "/materialen", labelKey: "sidebar.materials", Icon: IconSwatches },
 ] as const;
 
 /* ─── Components ─── */
 
-function NavItem({ to, label, Icon }: { to: string; label: string; Icon: React.ComponentType<{ className?: string }> }) {
+function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: React.ComponentType<{ className?: string }> }) {
+  const { t } = useTranslation();
   return (
     <li>
       <NavLink
@@ -130,7 +132,7 @@ function NavItem({ to, label, Icon }: { to: string; label: string; Icon: React.C
         {({ isActive }) => (
           <>
             <Icon className={isActive ? "text-white" : "text-scaffold-gray"} />
-            {label}
+            {t(labelKey)}
           </>
         )}
       </NavLink>
@@ -143,12 +145,13 @@ function ProjectsNavLink() {
   return (
     <>
       <li className="mx-3 my-3 border-t border-stone-200" />
-      <NavItem to="/projects" label="Projecten" Icon={IconFolder} />
+      <NavItem to="/projects" labelKey="sidebar.projects" Icon={IconFolder} />
     </>
   );
 }
 
 function SaveStatus() {
+  const { t } = useTranslation();
   const isDirty = useProjectStore((s) => s.isDirty);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
 
@@ -159,12 +162,13 @@ function SaveStatus() {
       <span
         className={`inline-block h-2 w-2 rounded-full ${isDirty ? "bg-amber-500" : "bg-green-500"}`}
       />
-      <span>{isDirty ? "Niet opgeslagen" : "Opgeslagen"}</span>
+      <span>{isDirty ? t("sidebar.unsaved") : t("sidebar.saved")}</span>
     </div>
   );
 }
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const isWeb = !isTauri();
 
   return (
@@ -173,7 +177,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {/* Main section */}
         <p className="px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray">
-          Berekening
+          {t("sidebar.calculation")}
         </p>
         <ul className="space-y-0.5">
           {NAV_MAIN.map((item) => (
@@ -187,7 +191,7 @@ export function Sidebar() {
 
         {/* Library section */}
         <p className="px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray">
-          Gereedschap
+          {t("sidebar.tools")}
         </p>
         <ul className="space-y-0.5">
           {NAV_LIBRARY.map((item) => (

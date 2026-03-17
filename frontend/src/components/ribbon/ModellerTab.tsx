@@ -232,7 +232,7 @@ function BeeldSubTab() {
         </div>
       </Group>
 
-      <Group label="Snap">
+      <Group label={t("modeller.snap")}>
         <div className="flex h-full items-center gap-3">
           <button
             onClick={toggleSnapEnabled}
@@ -242,7 +242,7 @@ function BeeldSubTab() {
               color: snap.enabled ? "var(--theme-ribbon-btn-active-text)" : "var(--theme-ribbon-group-label)",
             }}
           >
-            {snap.enabled ? "AAN" : "UIT"}
+            {snap.enabled ? t("modeller.snapOn") : t("modeller.snapOff")}
           </button>
           <div className="grid grid-cols-3 gap-x-3 gap-y-0">
             {SNAP_OPTIONS.map((opt) => (
