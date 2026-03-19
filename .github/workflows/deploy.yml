@@ -1,4 +1,4 @@
-name: Deploy to Hetzner
+name: Build & Deploy
 
 on:
   push:
@@ -8,8 +8,57 @@ concurrency:
   group: deploy
   cancel-in-progress: true
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: openaec-foundation/warmteverliesberekening
+
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_OIDC_ISSUER=https://auth.open-aec.com/application/o/warmteverlies/
+            VITE_OIDC_CLIENT_ID=warmteverlies
+            SOURCE_HASH=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
@@ -22,7 +71,9 @@ jobs:
             set -euo pipefail
             REMOTE_DIR="/opt/warmteverlies"
             REPO="https://github.com/OpenAEC-Foundation/warmteverliesberekening.git"
+            IMAGE="ghcr.io/openaec-foundation/warmteverliesberekening:latest"
 
+            # Update docker-compose.yml en .env.production van repo
             if [ -d "${REMOTE_DIR}/.git" ]; then
                 cd "${REMOTE_DIR}"
                 git fetch origin
@@ -32,8 +83,10 @@ jobs:
                 cd "${REMOTE_DIR}"
             fi
 
-            SOURCE_HASH=$(git rev-parse --short HEAD)
-            docker compose build --build-arg SOURCE_HASH="${SOURCE_HASH}"
+            # Pull het gebouwde image van GHCR
+            docker pull "${IMAGE}"
+
+            # Start/herstart met het gepulde image
             docker compose up -d
 
             echo "Waiting for container..."

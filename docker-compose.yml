@@ -1,5 +1,6 @@
 services:
   warmteverlies:
+    image: ghcr.io/openaec-foundation/warmteverliesberekening:latest
     build:
       context: .
       args:
