@@ -8,6 +8,7 @@
 import { useMemo } from "react";
 
 import type { Room, BoundaryType } from "../../types";
+import { CONSTRUCTION_CATEGORY_COLORS } from "../../lib/chartColors";
 
 // ---------------------------------------------------------------------------
 // Category grouping
@@ -22,7 +23,7 @@ interface CategoryGroup {
 const CATEGORIES: CategoryGroup[] = [
   {
     label: "Buitenwanden",
-    color: "#ef4444",
+    color: CONSTRUCTION_CATEGORY_COLORS.walls,
     matchFn: (ce) =>
       ce.boundary_type === "exterior" &&
       (ce.vertical_position === "wall" || !ce.vertical_position) &&
@@ -30,25 +31,25 @@ const CATEGORIES: CategoryGroup[] = [
   },
   {
     label: "Beglazing / kozijnen",
-    color: "#3b82f6",
+    color: CONSTRUCTION_CATEGORY_COLORS.glazing,
     matchFn: (ce) =>
       ce.boundary_type === "exterior" && isGlazing(ce.description),
   },
   {
     label: "Daken / plafonds",
-    color: "#f59e0b",
+    color: CONSTRUCTION_CATEGORY_COLORS.roofs,
     matchFn: (ce) =>
       ce.boundary_type === "exterior" && ce.vertical_position === "ceiling",
   },
   {
     label: "Vloeren / grond",
-    color: "#22c55e",
+    color: CONSTRUCTION_CATEGORY_COLORS.floors,
     matchFn: (ce) =>
       ce.boundary_type === "ground" || ce.vertical_position === "floor",
   },
   {
     label: "Binnenwanden / buren",
-    color: "#8b5cf6",
+    color: CONSTRUCTION_CATEGORY_COLORS.internalWalls,
     matchFn: (ce) =>
       ce.boundary_type === "adjacent_room" ||
       ce.boundary_type === "adjacent_building" ||
@@ -57,7 +58,7 @@ const CATEGORIES: CategoryGroup[] = [
 ];
 
 const FALLBACK_LABEL = "Overig";
-const FALLBACK_COLOR = "#78716c";
+const FALLBACK_COLOR = CONSTRUCTION_CATEGORY_COLORS.other;
 
 function isGlazing(description: string): boolean {
   const d = description.toLowerCase();

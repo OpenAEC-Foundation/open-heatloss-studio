@@ -5,13 +5,14 @@
  */
 
 import type { BuildingSummary } from "../../types";
+import { LOSS_TYPE_COLORS } from "../../lib/chartColors";
 
 const SEGMENTS = [
-  { key: "total_envelope_loss", label: "Transmissie", color: "#3b82f6" },
-  { key: "total_ventilation_loss", label: "Ventilatie", color: "#22c55e" },
-  { key: "total_heating_up", label: "Opwarmtoeslag", color: "#f59e0b" },
-  { key: "total_system_losses", label: "Systeemverliezen", color: "#78716c" },
-  { key: "total_neighbor_loss", label: "Buurwoningverlies", color: "#8b5cf6" },
+  { key: "total_envelope_loss", label: "Transmissie", color: LOSS_TYPE_COLORS.transmission },
+  { key: "total_ventilation_loss", label: "Ventilatie", color: LOSS_TYPE_COLORS.ventilation },
+  { key: "total_heating_up", label: "Opwarmtoeslag", color: LOSS_TYPE_COLORS.heatingUp },
+  { key: "total_system_losses", label: "Systeemverliezen", color: LOSS_TYPE_COLORS.system },
+  { key: "total_neighbor_loss", label: "Buurwoningverlies", color: LOSS_TYPE_COLORS.neighbor },
 ] as const;
 
 type SegmentKey = (typeof SEGMENTS)[number]["key"];

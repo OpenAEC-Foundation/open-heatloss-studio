@@ -9,8 +9,8 @@
     --sidebar-width: 260px;
   }
 
-  [data-theme="dark"] {
-    --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #B45309 100%);
+  [data-theme="openaec"] {
+    --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #EA580C 100%);
   }
 }
 

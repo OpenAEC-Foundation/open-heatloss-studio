@@ -5,13 +5,14 @@
  */
 
 import type { RoomResult } from "../../types";
+import { STACKED_BAR_COLORS, CHART_GRID_COLORS } from "../../lib/chartColors";
 
 const CATEGORIES = [
-  { key: "transmission", label: "Transmissie", color: "#3b82f6" },
-  { key: "ventilation", label: "Ventilatie", color: "#22c55e" },
-  { key: "infiltration", label: "Infiltratie", color: "#8b5cf6" },
-  { key: "heating_up", label: "Opwarmtoeslag", color: "#f59e0b" },
-  { key: "system", label: "Systeemverliezen", color: "#78716c" },
+  { key: "transmission", label: "Transmissie", color: STACKED_BAR_COLORS.transmission },
+  { key: "ventilation", label: "Ventilatie", color: STACKED_BAR_COLORS.ventilation },
+  { key: "infiltration", label: "Infiltratie", color: STACKED_BAR_COLORS.infiltration },
+  { key: "heating_up", label: "Opwarmtoeslag", color: STACKED_BAR_COLORS.heatingUp },
+  { key: "system", label: "Systeemverliezen", color: STACKED_BAR_COLORS.system },
 ] as const;
 
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
@@ -81,7 +82,7 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
             x2={chartWidth - CHART_RIGHT}
             y1={yScale(tick)}
             y2={yScale(tick)}
-            stroke="#e7e5e4"
+            stroke={CHART_GRID_COLORS.grid}
             strokeDasharray="3,3"
           />
           <text
@@ -103,7 +104,7 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
         x2={chartWidth - CHART_RIGHT}
         y1={yScale(0)}
         y2={yScale(0)}
-        stroke="#d6d3d1"
+        stroke={CHART_GRID_COLORS.gridStrong}
       />
 
       {/* Bars */}
