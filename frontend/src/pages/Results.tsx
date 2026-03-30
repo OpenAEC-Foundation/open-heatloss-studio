@@ -75,7 +75,7 @@ export function Results() {
         />
         <div className="p-6">
           <Card>
-            <p className="text-center text-sm text-stone-500">
+            <p className="text-center text-sm text-on-surface-muted">
               Nog geen berekening uitgevoerd. Ga naar Project en klik op Berekenen.
             </p>
           </Card>
@@ -117,22 +117,22 @@ export function Results() {
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.connection_capacity)}</div>
             <div className="metric-card-label">Aansluitvermogen</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Totaal benodigd vermogen van de warmteopwekker</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Totaal benodigd vermogen van de warmteopwekker</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_envelope_loss)}</div>
             <div className="metric-card-label">Transmissie (schil)</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies door wanden, dak, vloer en ramen</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Warmteverlies door wanden, dak, vloer en ramen</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_ventilation_loss)}</div>
             <div className="metric-card-label">Ventilatie</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies door mechanische ventilatie</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Warmteverlies door mechanische ventilatie</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.collective_contribution)}</div>
             <div className="metric-card-label">Collectief</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Bijdrage van collectieve verwarmingsvoorzieningen</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Bijdrage van collectieve verwarmingsvoorzieningen</div>
           </div>
         </div>
 
@@ -141,17 +141,17 @@ export function Results() {
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_neighbor_loss)}</div>
             <div className="metric-card-label">Buurwoningverlies</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Warmteverlies naar aangrenzende woningen</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Warmteverlies naar aangrenzende woningen</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_heating_up)}</div>
             <div className="metric-card-label">Opwarmtoeslag</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Extra vermogen om op te warmen na nachtsetback</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Extra vermogen om op te warmen na nachtsetback</div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.total_system_losses)}</div>
             <div className="metric-card-label">Systeemverliezen</div>
-            <div className="mt-0.5 text-[10px] leading-tight text-stone-400">Verliezen in leidingen en afgiftesysteem</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">Verliezen in leidingen en afgiftesysteem</div>
           </div>
         </div>
 
@@ -165,7 +165,7 @@ export function Results() {
             >
               <StackedBarChart rooms={rooms} />
             </div>
-            <p className="mt-1 text-center text-[10px] text-stone-400">
+            <p className="mt-1 text-center text-[10px] text-on-surface-muted">
               Klik om te vergroten
             </p>
           </Card>
@@ -177,7 +177,7 @@ export function Results() {
             >
               <SummaryDonut summary={summary} />
             </div>
-            <p className="mt-1 text-center text-[10px] text-stone-400">
+            <p className="mt-1 text-center text-[10px] text-on-surface-muted">
               Klik om te vergroten
             </p>
           </Card>
@@ -211,7 +211,7 @@ export function Results() {
               thetaE={project.climate.theta_e ?? -10}
             />
           </div>
-          <p className="mt-1 text-center text-[10px] text-stone-400">
+          <p className="mt-1 text-center text-[10px] text-on-surface-muted">
             Klik om te vergroten
           </p>
         </Card>
@@ -233,49 +233,49 @@ export function Results() {
               <tr>
                 <Th>
                   Vertrek
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Ruimtenaam</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Ruimtenaam</span>
                 </Th>
                 <Th className="text-right">
                   &theta;_i
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Binnentemp.</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Binnentemp.</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_T
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Transmissie</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Transmissie</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_i
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Infiltratie</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Infiltratie</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_v
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Ventilatie</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Ventilatie</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_hu
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Opwarmtoeslag</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Opwarmtoeslag</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_sys
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Systeemverl.</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Systeemverl.</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_basis
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Trans.+vent.+inf.</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Trans.+vent.+inf.</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_extra
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Opwarm+systeem</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Opwarm+systeem</span>
                 </Th>
                 <Th className="text-right font-bold">
                   &Phi;_totaal
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-stone-400">Totaal verlies</span>
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Totaal verlies</span>
                 </Th>
               </tr>
             </thead>
             <tbody>
               {rooms.map((room) => (
-                <tr key={room.room_id} className="hover:bg-stone-50">
+                <tr key={room.room_id} className="hover:bg-[var(--oaec-hover)]">
                   <Td className="font-medium">{room.room_name}</Td>
                   <Td numeric>{fmt2(room.theta_i)} &deg;C</Td>
                   <Td numeric>{fmtW(room.transmission.phi_t)}</Td>
@@ -298,7 +298,7 @@ export function Results() {
             <div className="grid grid-cols-2 gap-6">
               {/* Transmission */}
               <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                   Transmissie
                 </h4>
                 <dl className="space-y-1 text-sm">
@@ -313,7 +313,7 @@ export function Results() {
 
               {/* Ventilation & infiltration */}
               <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                   Ventilatie &amp; infiltratie
                 </h4>
                 <dl className="space-y-1 text-sm">
@@ -336,11 +336,11 @@ export function Results() {
 function DetailRow({ label, value, description }: { label: React.ReactNode; value: React.ReactNode; description?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-stone-600">
+      <dt className="text-on-surface-secondary">
         {label}
-        {description && <span className="block text-[10px] leading-tight text-stone-400">{description}</span>}
+        {description && <span className="block text-[10px] leading-tight text-on-surface-muted">{description}</span>}
       </dt>
-      <dd className="shrink-0 font-mono text-stone-900">{value}</dd>
+      <dd className="shrink-0 font-mono text-on-surface">{value}</dd>
     </div>
   );
 }

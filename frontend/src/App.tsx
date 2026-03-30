@@ -55,7 +55,7 @@ function OidcBootstrap({ children }: { children: ReactNode }) {
 
   if (state === "loading") {
     return (
-      <div className="flex h-screen items-center justify-center text-stone-400">
+      <div className="flex h-screen items-center justify-center text-on-surface-muted bg-surface">
         Laden...
       </div>
     );

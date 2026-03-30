@@ -1,9 +1,9 @@
 import { useToastStore, type ToastType } from "../../store/toastStore";
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  success: "bg-green-600 text-white",
-  error: "bg-red-600 text-white",
-  info: "bg-blue-600 text-white",
+  success: "bg-[var(--oaec-bg-lighter)] border border-l-[3px] border-[var(--oaec-border)] border-l-green-500 text-on-surface",
+  error: "bg-[var(--oaec-bg-lighter)] border border-l-[3px] border-[var(--oaec-border)] border-l-red-500 text-on-surface",
+  info: "bg-[var(--oaec-bg-lighter)] border border-l-[3px] border-[var(--oaec-border)] border-l-blue-500 text-on-surface",
 };
 
 export function ToastContainer() {

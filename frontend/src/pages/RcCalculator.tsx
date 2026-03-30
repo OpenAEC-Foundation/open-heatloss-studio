@@ -307,7 +307,7 @@ export function RcCalculator() {
             <button
               type="button"
               onClick={() => navigate("/library")}
-              className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100"
+              className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
             >
               Terug naar bibliotheek
             </button>
@@ -321,7 +321,7 @@ export function RcCalculator() {
           <div className="grid grid-cols-2 gap-4">
             {/* Categorie */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
+              <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                 Categorie
               </label>
               <select
@@ -329,7 +329,7 @@ export function RcCalculator() {
                 onChange={(e) =>
                   setCategory(e.target.value as CatalogueCategory)
                 }
-                className="w-full rounded border border-stone-200 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                className="w-full rounded border border-[var(--oaec-border)] px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none"
               >
                 {RC_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -341,7 +341,7 @@ export function RcCalculator() {
 
             {/* Materiaaltype */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
+              <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                 Materiaaltype
               </label>
               <select
@@ -349,7 +349,7 @@ export function RcCalculator() {
                 onChange={(e) =>
                   setMaterialType(e.target.value as MaterialType)
                 }
-                className="w-full rounded border border-stone-200 px-2.5 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                className="w-full rounded border border-[var(--oaec-border)] px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none"
               >
                 {(Object.entries(MATERIAL_TYPE_LABELS) as [MaterialType, string][]).map(
                   ([val, label]) => (
@@ -363,9 +363,9 @@ export function RcCalculator() {
           </div>
 
           {/* Lagen tabel */}
-          <div className="rounded-lg border border-stone-200 bg-white">
-            <div className="border-b border-stone-200 px-4 py-2.5">
-              <h3 className="text-sm font-semibold text-stone-700">
+          <div className="rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)]">
+            <div className="border-b border-[var(--oaec-border)] px-4 py-2.5">
+              <h3 className="text-sm font-semibold text-on-surface-secondary">
                 Constructie-opbouw
               </h3>
             </div>
@@ -373,7 +373,7 @@ export function RcCalculator() {
             <div className="px-4 py-3">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-stone-200 text-left text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  <tr className="border-b border-[var(--oaec-border)] text-left text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                     <th className="w-8 pb-2" />
                     <th className="pb-2">Materiaal</th>
                     <th className="w-24 pb-2 text-right">Dikte [mm]</th>
@@ -385,7 +385,7 @@ export function RcCalculator() {
                 </thead>
                 <tbody>
                   {/* Rsi */}
-                  <tr className="text-stone-400">
+                  <tr className="text-on-surface-muted">
                     <td />
                     <td className="py-1 text-xs italic">
                       Binnenoppervlakteweerstand (Rsi)
@@ -407,7 +407,7 @@ export function RcCalculator() {
                     return (
                       <tr
                         key={index}
-                        className="border-b border-stone-100 hover:bg-stone-50/50"
+                        className="border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]/50"
                       >
                         {/* Volgorde knoppen */}
                         <td className="py-1">
@@ -415,7 +415,7 @@ export function RcCalculator() {
                             <button
                               onClick={() => handleMoveUp(index)}
                               disabled={index === 0}
-                              className="rounded p-0.5 text-stone-400 hover:text-stone-600 disabled:opacity-30"
+                              className="rounded p-0.5 text-on-surface-muted hover:text-on-surface-secondary disabled:opacity-30"
                               title="Omhoog"
                             >
                               <svg
@@ -433,7 +433,7 @@ export function RcCalculator() {
                             <button
                               onClick={() => handleMoveDown(index)}
                               disabled={index === layers.length - 1}
-                              className="rounded p-0.5 text-stone-400 hover:text-stone-600 disabled:opacity-30"
+                              className="rounded p-0.5 text-on-surface-muted hover:text-on-surface-secondary disabled:opacity-30"
                               title="Omlaag"
                             >
                               <svg
@@ -460,14 +460,14 @@ export function RcCalculator() {
                               else materialBtnRefs.current.delete(index);
                             }}
                             onClick={() => handleOpenPicker(index)}
-                            className="w-full rounded border border-stone-200 px-2 py-1 text-left text-sm hover:border-stone-300 hover:bg-stone-50"
+                            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-left text-sm hover:border-[var(--oaec-border)] hover:bg-[var(--oaec-hover)]"
                           >
                             {material ? (
-                              <span className="text-stone-700">
+                              <span className="text-on-surface-secondary">
                                 {material.name}
                               </span>
                             ) : (
-                              <span className="text-stone-400">
+                              <span className="text-on-surface-muted">
                                 Kies materiaal...
                               </span>
                             )}
@@ -479,7 +479,7 @@ export function RcCalculator() {
                           {material?.sdFixed !== null &&
                           material?.sdFixed !== undefined ? (
                             <span
-                              className="text-xs tabular-nums text-stone-500"
+                              className="text-xs tabular-nums text-on-surface-muted"
                               title="Vaste sd-waarde (productspecificatie)"
                             >
                               {"sd=" + material.sdFixed + " m"}
@@ -493,14 +493,14 @@ export function RcCalculator() {
                               onChange={(e) =>
                                 handleThicknessChange(index, e.target.value)
                               }
-                              className="w-20 rounded border border-stone-200 px-2 py-1 text-right text-sm focus:border-blue-400 focus:outline-none"
+                              className="w-20 rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm focus:border-primary focus:outline-none"
                               placeholder="0"
                             />
                           )}
                         </td>
 
                         {/* R-waarde */}
-                        <td className="py-1 text-right tabular-nums text-stone-600">
+                        <td className="py-1 text-right tabular-nums text-on-surface-secondary">
                           {layerResult ? layerResult.r.toFixed(3) : "\u2014"}
                         </td>
 
@@ -508,7 +508,7 @@ export function RcCalculator() {
                         <td className="py-1 text-center">
                           <button
                             onClick={() => handleRemoveLayer(index)}
-                            className="rounded p-0.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
+                            className="rounded p-0.5 text-on-surface-muted hover:bg-red-600/15 hover:text-red-400"
                             title="Verwijder laag"
                           >
                             <svg
@@ -529,7 +529,7 @@ export function RcCalculator() {
                   })}
 
                   {/* Rse */}
-                  <tr className="text-stone-400">
+                  <tr className="text-on-surface-muted">
                     <td />
                     <td className="py-1 text-xs italic">
                       Buitenoppervlakteweerstand (Rse)
@@ -546,7 +546,7 @@ export function RcCalculator() {
               {/* Laag toevoegen */}
               <button
                 onClick={handleAddLayer}
-                className="mt-2 w-full rounded border border-dashed border-stone-300 px-3 py-1.5 text-sm text-stone-500 hover:border-stone-400 hover:bg-stone-50 hover:text-stone-700"
+                className="mt-2 w-full rounded border border-dashed border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-muted hover:border-[var(--oaec-border)] hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
               >
                 + Laag toevoegen
               </button>
@@ -554,20 +554,20 @@ export function RcCalculator() {
           </div>
 
           {/* Dampspanning (Glaser) */}
-          <div className="rounded-lg border border-stone-200 bg-white">
-            <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2.5">
-              <h3 className="text-sm font-semibold text-stone-700">
+          <div className="rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)]">
+            <div className="flex items-center justify-between border-b border-[var(--oaec-border)] px-4 py-2.5">
+              <h3 className="text-sm font-semibold text-on-surface-secondary">
                 Dampspanning (Glaser-methode)
               </h3>
               {glaserResult.hasCondensation ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                <span className="flex items-center gap-1.5 rounded-full bg-red-600/20 px-2.5 py-0.5 text-xs font-medium text-red-400">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-600/150" />
                   Condensatierisico
                 </span>
               ) : (
                 glaserResult.totalThickness > 0 && (
-                  <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span className="flex items-center gap-1.5 rounded-full bg-green-600/15 px-2.5 py-0.5 text-xs font-medium text-green-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-600/100" />
                     Geen condensatie
                   </span>
                 )
@@ -577,7 +577,7 @@ export function RcCalculator() {
             <div className="px-4 py-3">
               {/* Klimaatcondities */}
               <div className="mb-4 grid grid-cols-4 gap-3">
-                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
                   <span>
                     Temp. binnen [°C]
                   </span>
@@ -586,10 +586,10 @@ export function RcCalculator() {
                     step="1"
                     value={thetaI}
                     onChange={(e) => setThetaI(Number(e.target.value) || 0)}
-                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                    className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm tabular-nums focus:border-primary focus:outline-none"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
                   <span>
                     RV binnen [%]
                   </span>
@@ -600,10 +600,10 @@ export function RcCalculator() {
                     max="100"
                     value={rhI}
                     onChange={(e) => setRhI(Number(e.target.value) || 0)}
-                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                    className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm tabular-nums focus:border-primary focus:outline-none"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
                   <span>
                     Temp. buiten [°C]
                   </span>
@@ -612,10 +612,10 @@ export function RcCalculator() {
                     step="1"
                     value={thetaE}
                     onChange={(e) => setThetaE(Number(e.target.value) || 0)}
-                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                    className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm tabular-nums focus:border-primary focus:outline-none"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-stone-500">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
                   <span>
                     RV buiten [%]
                   </span>
@@ -626,7 +626,7 @@ export function RcCalculator() {
                     max="100"
                     value={rhE}
                     onChange={(e) => setRhE(Number(e.target.value) || 0)}
-                    className="rounded border border-stone-200 px-2 py-1 text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+                    className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm tabular-nums focus:border-primary focus:outline-none"
                   />
                 </label>
               </div>
@@ -642,24 +642,24 @@ export function RcCalculator() {
 
           {/* Jaarlijkse vochtbalans */}
           {moistureResult && (
-            <div className="rounded-lg border border-stone-200 bg-white">
-              <div className="flex items-center justify-between border-b border-stone-200 px-4 py-2.5">
-                <h3 className="text-sm font-semibold text-stone-700">
+            <div className="rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)]">
+              <div className="flex items-center justify-between border-b border-[var(--oaec-border)] px-4 py-2.5">
+                <h3 className="text-sm font-semibold text-on-surface-secondary">
                   Jaarlijkse vochtbalans (NEN-EN-ISO 13788)
                 </h3>
                 {moistureResult.hasRisk ? (
-                  <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500" />
+                  <span className="flex items-center gap-1.5 rounded-full bg-red-600/20 px-2.5 py-0.5 text-xs font-medium text-red-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-600/150" />
                     Schimmelrisico
                   </span>
                 ) : moistureResult.maxMa > 0.1 ? (
-                  <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span className="flex items-center gap-1.5 rounded-full bg-amber-600/15 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-600/150" />
                     Tijdelijk vocht
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span className="flex items-center gap-1.5 rounded-full bg-green-600/15 px-2.5 py-0.5 text-xs font-medium text-green-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-600/100" />
                     Geen vocht
                   </span>
                 )}
@@ -671,27 +671,27 @@ export function RcCalculator() {
           )}
 
           {/* Resultaten */}
-          <div className="rounded-lg border border-stone-200 bg-white px-4 py-3">
+          <div className="rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-6 text-sm">
-                  <span className="text-stone-500">
+                  <span className="text-on-surface-muted">
                     Rc ={" "}
-                    <strong className="text-stone-800">
+                    <strong className="text-on-surface">
                       {rcResult.rc.toFixed(2)}
                     </strong>{" "}
                     m{"²"}K/W
                   </span>
-                  <span className="text-stone-500">
+                  <span className="text-on-surface-muted">
                     R<sub>totaal</sub> ={" "}
-                    <strong className="text-stone-800">
+                    <strong className="text-on-surface">
                       {rcResult.rTotal.toFixed(2)}
                     </strong>{" "}
                     m{"²"}K/W
                   </span>
-                  <span className="text-stone-500">
+                  <span className="text-on-surface-muted">
                     U ={" "}
-                    <strong className="text-stone-800">
+                    <strong className="text-on-surface">
                       {rcResult.uValue.toFixed(3)}
                     </strong>{" "}
                     W/m{"²"}K
@@ -700,10 +700,10 @@ export function RcCalculator() {
                 <div className="flex items-center gap-2">
                   <span
                     className={`inline-block h-2 w-2 rounded-full ${
-                      meetsRequirement ? "bg-green-500" : "bg-red-500"
+                      meetsRequirement ? "bg-green-600/100" : "bg-red-600/150"
                     }`}
                   />
-                  <span className="text-xs text-stone-500">
+                  <span className="text-xs text-on-surface-muted">
                     Bouwbesluit 2024: Rc {"≥"} {rcMin} m{"²"}K/W
                     {meetsRequirement ? " \u2714" : " \u2718"}
                   </span>
@@ -712,7 +712,7 @@ export function RcCalculator() {
 
               <div className="flex items-center gap-2">
                 {saved && (
-                  <span className="text-xs text-green-600">
+                  <span className="text-xs text-green-400">
                     Opgeslagen!
                   </span>
                 )}

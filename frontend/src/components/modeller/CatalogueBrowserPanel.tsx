@@ -44,12 +44,12 @@ export function CatalogueBrowserPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Search */}
-      <div className="border-b border-stone-100 px-3 py-2">
+      <div className="border-b border-[var(--oaec-border-subtle)] px-3 py-2">
         <input
           placeholder="Zoeken..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-stone-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-amber-400"
+          className="w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-2 py-1 text-[11px] outline-none focus:border-amber-400"
         />
       </div>
 
@@ -61,7 +61,7 @@ export function CatalogueBrowserPanel() {
 
           return (
             <div key={cat} className="mb-3">
-              <div className="mb-1 text-[10px] font-medium text-stone-400">
+              <div className="mb-1 text-[10px] font-medium text-on-surface-muted">
                 {CATALOGUE_CATEGORY_LABELS[cat]}
               </div>
               <div className="space-y-1">
@@ -72,14 +72,14 @@ export function CatalogueBrowserPanel() {
                   return (
                     <div
                       key={entry.id}
-                      className="rounded border border-stone-100 px-2 py-1.5"
+                      className="rounded border border-[var(--oaec-border-subtle)] px-2 py-1.5"
                     >
                       <div className="flex items-start justify-between gap-1">
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[10px] font-medium text-stone-700">
+                          <div className="truncate text-[10px] font-medium text-on-surface-secondary">
                             {entry.name}
                           </div>
-                          <div className="mt-0.5 text-[10px] text-stone-500">
+                          <div className="mt-0.5 text-[10px] text-on-surface-muted">
                             U = {entry.uValue} W/(m{"\u00B2"}{"\u00B7"}K)
                             {entry.layers && (
                               <>
@@ -97,7 +97,7 @@ export function CatalogueBrowserPanel() {
                           ) : hasLayers ? (
                             <button
                               onClick={() => copyFromCatalogue(entry)}
-                              className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 hover:bg-amber-100"
+                              className="rounded bg-amber-600/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400 hover:bg-amber-600/15"
                             >
                               Toevoegen
                             </button>
@@ -113,7 +113,7 @@ export function CatalogueBrowserPanel() {
         })}
 
         {byCategory.size === 0 && (
-          <p className="text-[10px] text-stone-400">Geen resultaten.</p>
+          <p className="text-[10px] text-on-surface-muted">Geen resultaten.</p>
         )}
       </div>
     </div>

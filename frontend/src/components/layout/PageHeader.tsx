@@ -15,10 +15,10 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-stone-200 bg-white">
+    <header className="sticky top-0 z-20 border-b border-[var(--oaec-border-subtle)] bg-surface">
       {/* Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <div className="flex items-center gap-1.5 border-b border-stone-100 px-6 py-1.5 text-xs text-scaffold-gray">
+        <div className="flex items-center gap-1.5 border-b border-[var(--oaec-border-subtle)] px-6 py-1.5 text-xs text-scaffold-gray">
           {breadcrumbs.map((crumb, i) => (
             <span key={crumb.label} className="flex items-center gap-1.5">
               {i > 0 && (
@@ -31,7 +31,7 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeader
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="text-stone-500">{crumb.label}</span>
+                <span className="text-on-surface-muted">{crumb.label}</span>
               )}
             </span>
           ))}
@@ -41,8 +41,8 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeader
       {/* Title bar */}
       <div className="flex h-header items-center justify-between px-6">
         <div className="flex items-baseline gap-3">
-          <h1 className="font-heading text-lg font-bold text-stone-900">{title}</h1>
-          {subtitle && <span className="text-xs text-stone-400">{subtitle}</span>}
+          <h1 className="font-heading text-lg font-bold text-on-surface">{title}</h1>
+          {subtitle && <span className="text-xs text-on-surface-muted">{subtitle}</span>}
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>

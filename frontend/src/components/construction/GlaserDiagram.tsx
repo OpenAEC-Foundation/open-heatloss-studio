@@ -289,7 +289,7 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
 
   if (!hasLayers) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-stone-300 text-sm text-stone-400">
+      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[var(--oaec-border)] text-sm text-on-surface-muted">
         Voeg lagen toe om het dampspanningsdiagram te zien.
       </div>
     );

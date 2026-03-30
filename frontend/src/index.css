@@ -1,3 +1,6 @@
+@import "@openaec/ui/css/tokens.css";
+@import "@openaec/ui/css/components.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,18 +19,24 @@
 
 @layer components {
   .input-unit {
-    @apply pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 font-mono;
+    @apply pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono;
+    color: var(--oaec-text-muted);
   }
 
   .metric-card {
-    @apply rounded-lg border border-stone-200 bg-white p-5 shadow-sm;
+    @apply rounded-lg p-5;
+    background: var(--oaec-bg-lighter);
+    border: 1px solid var(--oaec-border-subtle);
+    box-shadow: var(--oaec-shadow-sm);
   }
 
   .metric-card-value {
-    @apply font-mono text-2xl font-bold text-stone-900;
+    @apply font-mono text-2xl font-bold;
+    color: var(--oaec-text);
   }
 
   .metric-card-label {
-    @apply text-xs text-stone-500 mt-1;
+    @apply text-xs mt-1;
+    color: var(--oaec-text-muted);
   }
 }

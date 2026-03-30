@@ -70,7 +70,7 @@ export function SummaryDonut({ summary }: SummaryDonutProps) {
           y={CENTER - 6}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-stone-800"
+          className="fill-on-surface"
           fontSize="16"
           fontWeight="bold"
         >
@@ -81,7 +81,7 @@ export function SummaryDonut({ summary }: SummaryDonutProps) {
           y={CENTER + 12}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-stone-400"
+          className="fill-on-surface-muted"
           fontSize="10"
         >
           aansluitvermogen
@@ -96,11 +96,11 @@ export function SummaryDonut({ summary }: SummaryDonutProps) {
               className="inline-block h-3 w-3 shrink-0 rounded"
               style={{ backgroundColor: arc.color }}
             />
-            <span className="text-stone-600">{arc.label}</span>
-            <span className="ml-auto tabular-nums text-stone-800">
+            <span className="text-on-surface-secondary">{arc.label}</span>
+            <span className="ml-auto tabular-nums text-on-surface">
               {Math.round(arc.value)} W
             </span>
-            <span className="w-12 text-right tabular-nums text-stone-400">
+            <span className="w-12 text-right tabular-nums text-on-surface-muted">
               {(arc.fraction * 100).toFixed(0)}%
             </span>
           </div>

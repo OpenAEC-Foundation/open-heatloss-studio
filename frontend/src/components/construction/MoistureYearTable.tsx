@@ -45,7 +45,7 @@ function statusLabel(status: string): string {
 function statusDot(status: string): string {
   switch (status) {
     case "condensation":
-      return "bg-red-500";
+      return "bg-red-600/150";
     case "drying":
       return "bg-blue-500";
     default:
@@ -63,8 +63,8 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
   return (
     <div className="space-y-3">
       {/* Condensatievlak info */}
-      <div className="flex items-center gap-2 text-xs text-stone-500">
-        <span className="font-medium text-stone-700">Condensatievlak:</span>
+      <div className="flex items-center gap-2 text-xs text-on-surface-muted">
+        <span className="font-medium text-on-surface-secondary">Condensatievlak:</span>
         <span>
           tussen {planeInnerLayer} en {planeOuterLayer}
         </span>
@@ -72,8 +72,8 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
 
       {/* Waarschuwingen */}
       {hasRisk && (
-        <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
-          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-500" />
+        <div className="flex items-start gap-2 rounded-md border border-red-600/30 bg-red-600/15 px-3 py-2">
+          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600/150" />
           <div className="text-xs text-red-800">
             <strong>Schimmelrisico:</strong> vocht aanwezig gedurende ca.{" "}
             {wetDays} dagen ({Math.ceil(wetDays / 30)} maanden).
@@ -83,9 +83,9 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
       )}
 
       {!driesOut && hasAnyMoisture && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-          <div className="text-xs text-amber-800">
+        <div className="flex items-start gap-2 rounded-md border border-amber-600/30 bg-amber-600/15 px-3 py-2">
+          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-600/150" />
+          <div className="text-xs text-amber-400">
             <strong>Onvoldoende droging:</strong> de constructie droogt niet
             volledig uit binnen een jaar. Vochtophoping neemt jaarlijks toe.
           </div>
@@ -116,7 +116,7 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-stone-200 text-left text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+            <tr className="border-b border-[var(--oaec-border)] text-left text-[10px] font-semibold uppercase tracking-wider text-on-surface-muted">
               <th className="pb-1.5 pr-2">Maand</th>
               <th className="pb-1.5 pr-2 text-right">{"θ"}e [°C]</th>
               <th className="pb-1.5 pr-2 text-right">RV [%]</th>
@@ -140,23 +140,23 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
               return (
                 <tr
                   key={row.month}
-                  className={`border-b border-stone-100 ${
-                    isMax ? "bg-red-50/50" : ""
+                  className={`border-b border-[var(--oaec-border-subtle)] ${
+                    isMax ? "bg-red-600/10" : ""
                   }`}
                 >
-                  <td className="py-1 pr-2 font-medium text-stone-700">
+                  <td className="py-1 pr-2 font-medium text-on-surface-secondary">
                     {row.month}
                   </td>
-                  <td className="py-1 pr-2 text-right tabular-nums text-stone-600">
+                  <td className="py-1 pr-2 text-right tabular-nums text-on-surface-secondary">
                     {row.thetaE.toFixed(1)}
                   </td>
-                  <td className="py-1 pr-2 text-right tabular-nums text-stone-600">
+                  <td className="py-1 pr-2 text-right tabular-nums text-on-surface-secondary">
                     {row.rhE}
                   </td>
-                  <td className="py-1 pr-2 text-right tabular-nums text-stone-600">
+                  <td className="py-1 pr-2 text-right tabular-nums text-on-surface-secondary">
                     {row.thetaC.toFixed(1)}
                   </td>
-                  <td className="py-1 pr-2 text-right tabular-nums text-stone-600">
+                  <td className="py-1 pr-2 text-right tabular-nums text-on-surface-secondary">
                     {Math.round(row.pSatC)}
                   </td>
                   <td
@@ -165,7 +165,7 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
                         ? "text-red-700"
                         : row.gc < -0.1
                           ? "text-blue-700"
-                          : "text-stone-400"
+                          : "text-on-surface-muted"
                     }`}
                   >
                     {formatGc(row.gc)}
@@ -175,8 +175,8 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
                       row.ma > 0.1
                         ? isMax
                           ? "text-red-800"
-                          : "text-stone-700"
-                        : "text-stone-400"
+                          : "text-on-surface-secondary"
+                        : "text-on-surface-muted"
                     }`}
                   >
                     {row.ma > 0.1 ? row.ma.toFixed(1) : "0"}
@@ -200,17 +200,17 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
 
       {/* Samenvatting */}
       {hasAnyMoisture && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-stone-200 pt-2 text-xs text-stone-500">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-[var(--oaec-border)] pt-2 text-xs text-on-surface-muted">
           <span>
             Max. vocht:{" "}
-            <strong className="text-stone-800">
+            <strong className="text-on-surface">
               {maxMa.toFixed(1)} g/m{"²"}
             </strong>
           </span>
           <span>
             Vochtperiode:{" "}
             <strong
-              className={hasRisk ? "text-red-700" : "text-stone-800"}
+              className={hasRisk ? "text-red-700" : "text-on-surface"}
             >
               ca. {wetDays} dagen
             </strong>

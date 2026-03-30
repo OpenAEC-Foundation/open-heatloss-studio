@@ -11,6 +11,7 @@
     "postinstall": "node -e \"const fs=require('fs');const s='node_modules/web-ifc/web-ifc.wasm';const d='public/wasm';fs.mkdirSync(d,{recursive:true});fs.copyFileSync(s,d+'/web-ifc.wasm');console.log('Copied web-ifc.wasm to public/wasm/');\""
   },
   "dependencies": {
+    "@openaec/ui": "github:OpenAEC-Foundation/openaec-ui",
     "@tauri-apps/api": "^2.10.1",
     "@thatopen/components": "^3.3.3",
     "@thatopen/fragments": "^3.3.6",

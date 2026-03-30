@@ -134,16 +134,16 @@ export function ConstructionPicker({
         left: pos.left,
         zIndex: 50,
       }}
-      className="w-80 rounded-lg border border-stone-200 bg-white shadow-xl"
+      className="w-80 rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] shadow-xl"
     >
       {/* Search */}
-      <div className="border-b border-stone-200 p-2">
+      <div className="border-b border-[var(--oaec-border-subtle)] p-2">
         <input
           type="text"
           placeholder="Zoek constructie..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-stone-300 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
           autoFocus
         />
       </div>
@@ -152,7 +152,7 @@ export function ConstructionPicker({
       <button
         type="button"
         onClick={onSelectBlank}
-        className="w-full border-b border-stone-200 px-3 py-2 text-left text-sm text-stone-600 hover:bg-stone-50"
+        className="w-full border-b border-[var(--oaec-border-subtle)] px-3 py-2 text-left text-sm text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
       >
         Leeg grensvlak
       </button>
@@ -161,7 +161,7 @@ export function ConstructionPicker({
         {/* Project constructions section */}
         {filteredProject.length > 0 && (
           <>
-            <div className="sticky top-0 bg-teal-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-teal-700">
+            <div className="sticky top-0 bg-teal-600/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-teal-400">
               Project constructies
             </div>
             {filteredProject.map((pc) => {
@@ -177,26 +177,26 @@ export function ConstructionPicker({
                   key={pc.id}
                   type="button"
                   onClick={() => handleSelectProject(pc)}
-                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-teal-50"
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-[var(--oaec-hover)]"
                 >
-                  <span className="flex items-center gap-1.5 text-stone-700">
-                    <span className="rounded bg-teal-100 px-1 py-0.5 text-[10px] text-teal-700">
+                  <span className="flex items-center gap-1.5 text-on-surface-secondary">
+                    <span className="rounded bg-teal-600/20 px-1 py-0.5 text-[10px] text-teal-400">
                       P
                     </span>
                     {pc.name}
                     {pc.layers.length > 0 && (
-                      <span className="rounded bg-blue-50 px-1 py-0.5 text-[10px] text-blue-500">
+                      <span className="rounded bg-blue-600/15 px-1 py-0.5 text-[10px] text-blue-400">
                         {pc.layers.length} lagen
                       </span>
                     )}
                   </span>
-                  <span className="ml-2 tabular-nums text-stone-400">
+                  <span className="ml-2 tabular-nums text-on-surface-muted">
                     {uVal.toFixed(2)} W/m²K
                   </span>
                 </button>
               );
             })}
-            <div className="border-b border-stone-200" />
+            <div className="border-b border-[var(--oaec-border-subtle)]" />
           </>
         )}
 
@@ -206,7 +206,7 @@ export function ConstructionPicker({
           if (!entries) return null;
           return (
             <div key={cat}>
-              <div className="sticky top-0 bg-stone-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">
+              <div className="sticky top-0 bg-surface-alt px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                 {CATALOGUE_CATEGORY_LABELS[cat]}
               </div>
               {entries.map((entry) => (
@@ -214,17 +214,17 @@ export function ConstructionPicker({
                   key={entry.id}
                   type="button"
                   onClick={() => handleSelectCatalogue(entry)}
-                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-blue-50"
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-[var(--oaec-hover)]"
                 >
-                  <span className="flex items-center gap-1.5 text-stone-700">
+                  <span className="flex items-center gap-1.5 text-on-surface-secondary">
                     {entry.name}
                     {entry.layers && entry.layers.length > 0 && (
-                      <span className="rounded bg-blue-50 px-1 py-0.5 text-[10px] text-blue-500">
+                      <span className="rounded bg-blue-600/15 px-1 py-0.5 text-[10px] text-blue-400">
                         {entry.layers.length} lagen
                       </span>
                     )}
                   </span>
-                  <span className="ml-2 tabular-nums text-stone-400">
+                  <span className="ml-2 tabular-nums text-on-surface-muted">
                     {entry.uValue.toFixed(2)} W/m²K
                   </span>
                 </button>
@@ -233,7 +233,7 @@ export function ConstructionPicker({
           );
         })}
         {filteredCatalogue.size === 0 && filteredProject.length === 0 && (
-          <div className="px-3 py-3 text-center text-sm text-stone-400">
+          <div className="px-3 py-3 text-center text-sm text-on-surface-muted">
             Geen resultaten
           </div>
         )}

@@ -32,7 +32,7 @@ export function ProjectLibraryPanel() {
   if (projectConstructions.length === 0) {
     return (
       <div className="px-3 py-3">
-        <p className="text-[10px] text-stone-400">
+        <p className="text-[10px] text-on-surface-muted">
           Nog geen constructies in dit project. Voeg ze toe vanuit de
           Bibliotheek, importeer via IFC, of maak een nieuwe aan via de
           Rc-calculator.
@@ -57,7 +57,7 @@ export function ProjectLibraryPanel() {
 
         return (
           <div key={cat} className="mb-3">
-            <div className="mb-1 text-[10px] font-medium text-stone-400">
+            <div className="mb-1 text-[10px] font-medium text-on-surface-muted">
               {CATALOGUE_CATEGORY_LABELS[cat]}
             </div>
             <div className="space-y-1">
@@ -72,25 +72,25 @@ export function ProjectLibraryPanel() {
                 return (
                   <div
                     key={pc.id}
-                    className="rounded border border-stone-100 px-2 py-1.5"
+                    className="rounded border border-[var(--oaec-border-subtle)] px-2 py-1.5"
                   >
                     <div className="flex items-start justify-between gap-1">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[10px] font-medium text-stone-700">
+                        <div className="truncate text-[10px] font-medium text-on-surface-secondary">
                           {pc.name}
                         </div>
-                        <div className="mt-0.5 text-[10px] text-stone-500">
+                        <div className="mt-0.5 text-[10px] text-on-surface-muted">
                           U = {uValue} W/(m{"\u00B2"}{"\u00B7"}K)
                           {" \u2022 "}
                           {pc.layers.length} lagen
                         </div>
                         {pc.catalogueSourceId && (
-                          <div className="mt-0.5 text-[9px] text-stone-400">
+                          <div className="mt-0.5 text-[9px] text-on-surface-muted">
                             Bron: standaard catalogus
                           </div>
                         )}
                         {pc.ifcSource && (
-                          <div className="mt-0.5 text-[9px] text-stone-400">
+                          <div className="mt-0.5 text-[9px] text-on-surface-muted">
                             IFC: {pc.ifcSource.wallTypeName}
                           </div>
                         )}
@@ -109,7 +109,7 @@ export function ProjectLibraryPanel() {
                             </button>
                             <button
                               onClick={() => setConfirmDelete(null)}
-                              className="rounded px-1 py-0.5 text-[9px] text-stone-400 hover:bg-stone-50"
+                              className="rounded px-1 py-0.5 text-[9px] text-on-surface-muted hover:bg-[var(--oaec-hover)]"
                             >
                               Annuleer
                             </button>
@@ -117,7 +117,7 @@ export function ProjectLibraryPanel() {
                         ) : (
                           <button
                             onClick={() => setConfirmDelete(pc.id)}
-                            className="rounded p-0.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
+                            className="rounded p-0.5 text-on-surface-muted hover:bg-red-50 hover:text-red-600"
                             title="Verwijderen"
                           >
                             <svg

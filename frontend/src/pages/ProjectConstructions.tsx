@@ -97,19 +97,19 @@ export function ProjectConstructions() {
     `px-4 py-2 text-sm font-medium transition-colors ${
       tab === t
         ? "border-b-2 border-amber-500 text-amber-900"
-        : "text-stone-400 hover:text-stone-600"
+        : "text-on-surface-muted hover:text-on-surface-secondary"
     }`;
 
   return (
     <div className="mx-auto max-w-4xl p-6">
-      <h1 className="mb-1 text-xl font-bold text-stone-800">Constructies</h1>
-      <p className="mb-4 text-sm text-stone-500">
+      <h1 className="mb-1 text-xl font-bold text-on-surface">Constructies</h1>
+      <p className="mb-4 text-sm text-on-surface-muted">
         Beheer de constructies voor dit project. Kopieer vanuit de standaard
         bibliotheek of maak nieuwe constructies aan via de Rc-waarde tool.
       </p>
 
       {/* Tab strip */}
-      <div className="mb-4 flex border-b border-stone-200">
+      <div className="mb-4 flex border-b border-[var(--oaec-border)]">
         <button onClick={() => setTab("project")} className={tabClass("project")}>
           Project ({projectConstructions.length})
         </button>
@@ -124,7 +124,7 @@ export function ProjectConstructions() {
           placeholder="Zoeken op naam..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm rounded border border-stone-200 px-3 py-1.5 text-sm outline-none focus:border-amber-400"
+          className="w-full max-w-sm rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         />
       </div>
 
@@ -132,14 +132,14 @@ export function ProjectConstructions() {
       {tab === "project" && (
         <>
           {projectConstructions.length === 0 ? (
-            <div className="rounded border border-dashed border-stone-300 px-6 py-8 text-center">
-              <p className="text-sm text-stone-500">
+            <div className="rounded border border-dashed border-[var(--oaec-border)] px-6 py-8 text-center">
+              <p className="text-sm text-on-surface-muted">
                 Nog geen constructies in dit project.
               </p>
-              <p className="mt-1 text-xs text-stone-400">
+              <p className="mt-1 text-xs text-on-surface-muted">
                 Ga naar het tabblad "Standaard bibliotheek" om constructies toe
                 te voegen, of maak een nieuwe aan via de{" "}
-                <a href="/rc" className="text-amber-600 hover:underline">
+                <a href="/rc" className="text-amber-400 hover:underline">
                   Rc-waarde tool
                 </a>
                 .
@@ -152,7 +152,7 @@ export function ProjectConstructions() {
 
               return (
                 <div key={cat} className="mb-6">
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                     {CATALOGUE_CATEGORY_LABELS[cat]}
                   </h2>
                   <div className="space-y-2">
@@ -195,7 +195,7 @@ export function ProjectConstructions() {
 
             return (
               <div key={cat} className="mb-6">
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                   {CATALOGUE_CATEGORY_LABELS[cat]}
                 </h2>
                 <div className="space-y-2">
@@ -206,13 +206,13 @@ export function ProjectConstructions() {
                     return (
                       <div
                         key={entry.id}
-                        className="flex items-center gap-4 rounded border border-stone-200 bg-white px-4 py-3"
+                        className="flex items-center gap-4 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] px-4 py-3"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-stone-800">
+                          <div className="text-sm font-medium text-on-surface">
                             {entry.name}
                           </div>
-                          <div className="mt-0.5 flex items-center gap-3 text-xs text-stone-500">
+                          <div className="mt-0.5 flex items-center gap-3 text-xs text-on-surface-muted">
                             <span>
                               U = {entry.uValue} W/(m{"\u00B2"}{"\u00B7"}K)
                             </span>
@@ -229,12 +229,12 @@ export function ProjectConstructions() {
                           ) : hasLayers ? (
                             <button
                               onClick={() => copyFromCatalogue(entry)}
-                              className="rounded bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                              className="rounded bg-amber-600/15 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-600/15"
                             >
                               Toevoegen aan project
                             </button>
                           ) : (
-                            <span className="text-xs text-stone-400">
+                            <span className="text-xs text-on-surface-muted">
                               Geen laagopbouw
                             </span>
                           )}
@@ -287,7 +287,7 @@ function ProjectConstructionCard({
     : null;
 
   return (
-    <div className="rounded border border-stone-200 bg-white">
+    <div className="rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)]">
       {/* Header — clickable for expand */}
       <div
         className="flex cursor-pointer items-center gap-4 px-4 py-3"
@@ -295,14 +295,14 @@ function ProjectConstructionCard({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-stone-400">
+            <span className="text-xs text-on-surface-muted">
               {isExpanded ? "\u25BC" : "\u25B6"}
             </span>
-            <span className="text-sm font-medium text-stone-800">
+            <span className="text-sm font-medium text-on-surface">
               {pc.name}
             </span>
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-stone-500">
+          <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-on-surface-muted">
             {uValue !== null && (
               <span>
                 U = {uValue} W/(m{"\u00B2"}{"\u00B7"}K)
@@ -320,10 +320,10 @@ function ProjectConstructionCard({
               <span>{pc.layers.length} lagen</span>
             )}
             {pc.catalogueSourceId && (
-              <span className="text-stone-400">Bron: catalogus</span>
+              <span className="text-on-surface-muted">Bron: catalogus</span>
             )}
             {pc.ifcSource && (
-              <span className="text-stone-400">
+              <span className="text-on-surface-muted">
                 IFC: {pc.ifcSource.wallTypeName}
               </span>
             )}
@@ -333,7 +333,7 @@ function ProjectConstructionCard({
               {roomNames.map((name) => (
                 <span
                   key={name}
-                  className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-600"
+                  className="rounded bg-surface-alt px-1.5 py-0.5 text-[10px] text-on-surface-secondary"
                 >
                   {name}
                 </span>
@@ -347,7 +347,7 @@ function ProjectConstructionCard({
         >
           <a
             href="/rc"
-            className="rounded border border-stone-200 px-2.5 py-1 text-xs text-stone-600 hover:bg-stone-50"
+            className="rounded border border-[var(--oaec-border)] px-2.5 py-1 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
           >
             Bewerken
           </a>
@@ -355,13 +355,13 @@ function ProjectConstructionCard({
             <div className="flex gap-1">
               <button
                 onClick={onDelete}
-                className="rounded bg-red-50 px-2.5 py-1 text-xs text-red-600 hover:bg-red-100"
+                className="rounded bg-red-600/15 px-2.5 py-1 text-xs text-red-400 hover:bg-red-600/20"
               >
                 Bevestig
               </button>
               <button
                 onClick={onCancelDelete}
-                className="rounded px-2.5 py-1 text-xs text-stone-400 hover:bg-stone-50"
+                className="rounded px-2.5 py-1 text-xs text-on-surface-muted hover:bg-[var(--oaec-hover)]"
               >
                 Annuleer
               </button>
@@ -369,7 +369,7 @@ function ProjectConstructionCard({
           ) : (
             <button
               onClick={onConfirmDelete}
-              className="rounded border border-stone-200 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50"
+              className="rounded border border-[var(--oaec-border)] px-2.5 py-1 text-xs text-red-400 hover:bg-red-600/15"
             >
               Verwijderen
             </button>
@@ -379,10 +379,10 @@ function ProjectConstructionCard({
 
       {/* Expanded layer details */}
       {isExpanded && hasLayers && rcResult && (
-        <div className="border-t border-stone-100 px-4 py-3">
+        <div className="border-t border-[var(--oaec-border-subtle)] px-4 py-3">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-left text-stone-400">
+              <tr className="text-left text-on-surface-muted">
                 <th className="pb-1 font-medium">Laag</th>
                 <th className="pb-1 text-right font-medium">d [mm]</th>
                 <th className="pb-1 text-right font-medium">
@@ -397,7 +397,7 @@ function ProjectConstructionCard({
               {rcResult.layers.map((layer, i) => (
                 <tr
                   key={i}
-                  className="border-t border-stone-50 text-stone-700"
+                  className="border-t border-[var(--oaec-border-subtle)] text-on-surface-secondary"
                 >
                   <td className="py-0.5">{layer.name}</td>
                   <td className="py-0.5 text-right tabular-nums">
@@ -413,7 +413,7 @@ function ProjectConstructionCard({
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-stone-200 font-medium text-stone-800">
+              <tr className="border-t border-[var(--oaec-border)] font-medium text-on-surface">
                 <td className="pt-1">Totaal</td>
                 <td className="pt-1 text-right tabular-nums">
                   {totalThickness !== null ? Math.round(totalThickness) : "-"}
@@ -423,7 +423,7 @@ function ProjectConstructionCard({
                   {rcResult.rc.toFixed(3)}
                 </td>
               </tr>
-              <tr className="text-stone-500">
+              <tr className="text-on-surface-muted">
                 <td className="py-0.5">Rsi + Rse</td>
                 <td />
                 <td />
@@ -431,7 +431,7 @@ function ProjectConstructionCard({
                   {(rcResult.rSi + rcResult.rSe).toFixed(3)}
                 </td>
               </tr>
-              <tr className="font-medium text-stone-800">
+              <tr className="font-medium text-on-surface">
                 <td className="py-0.5">R_totaal</td>
                 <td />
                 <td />

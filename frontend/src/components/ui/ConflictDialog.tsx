@@ -36,11 +36,11 @@ export function ConflictDialog() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-        <h2 className="font-heading text-lg font-bold text-stone-900">
+      <div className="mx-4 w-full max-w-md rounded-lg bg-[var(--oaec-bg-lighter)] border border-[var(--oaec-border)] p-6 shadow-lg">
+        <h2 className="font-heading text-lg font-bold text-on-surface">
           Conflict gedetecteerd
         </h2>
-        <p className="mt-2 text-sm text-stone-600">
+        <p className="mt-2 text-sm text-on-surface-secondary">
           Dit project is ondertussen elders gewijzigd. Je kunt de laatste versie
           van de server laden (lokale wijzigingen gaan verloren) of de melding
           negeren en handmatig opslaan.

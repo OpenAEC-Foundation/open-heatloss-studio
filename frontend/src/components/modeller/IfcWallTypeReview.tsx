@@ -49,7 +49,7 @@ const CONFIDENCE_LABELS: Record<string, string> = {
 function ConfidenceDot({ confidence }: { confidence: string }) {
   return (
     <span
-      className={`inline-block h-2 w-2 rounded-full ${CONFIDENCE_COLORS[confidence] ?? "bg-stone-300"}`}
+      className={`inline-block h-2 w-2 rounded-full ${CONFIDENCE_COLORS[confidence] ?? "bg-[var(--oaec-hover)]"}`}
       title={CONFIDENCE_LABELS[confidence] ?? confidence}
     />
   );
@@ -73,7 +73,7 @@ function MaterialOverrideSelect({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded border border-stone-200 px-1.5 py-0.5 text-[10px] text-amber-600 hover:border-amber-300 hover:bg-amber-50"
+        className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-[10px] text-amber-400 hover:border-amber-500/30 hover:bg-amber-600/15"
       >
         Wijzig
       </button>
@@ -96,14 +96,14 @@ function MaterialOverrideSelect({
   }
 
   return (
-    <div className="absolute right-0 top-6 z-50 w-64 rounded-lg border border-stone-200 bg-white shadow-lg">
-      <div className="border-b border-stone-100 p-2">
+    <div className="absolute right-0 top-6 z-50 w-64 rounded-lg border border-[var(--oaec-border)] bg-surface-alt shadow-lg">
+      <div className="border-b border-[var(--oaec-border-subtle)] p-2">
         <input
           autoFocus
           placeholder="Zoek materiaal..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-stone-200 px-2 py-1 text-[11px] outline-none focus:border-amber-400"
+          className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-[11px] outline-none focus:border-amber-400"
         />
       </div>
       <div className="max-h-48 overflow-y-auto p-1">
@@ -112,14 +112,14 @@ function MaterialOverrideSelect({
             onChange(null);
             setOpen(false);
           }}
-          className="block w-full rounded px-2 py-1 text-left text-[10px] text-stone-400 hover:bg-stone-50"
+          className="block w-full rounded px-2 py-1 text-left text-[10px] text-on-surface-muted hover:bg-[var(--oaec-hover)]"
         >
           Geen match (overslaan)
         </button>
         {MATERIAL_CATEGORY_ORDER.filter((cat) => grouped.has(cat)).map(
           (cat) => (
             <div key={cat}>
-              <div className="mt-1 px-2 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
+              <div className="mt-1 px-2 text-[9px] font-semibold uppercase tracking-wider text-on-surface-muted">
                 {MATERIAL_CATEGORY_LABELS[cat]}
               </div>
               {grouped.get(cat)!.map((m) => (
@@ -129,10 +129,10 @@ function MaterialOverrideSelect({
                     onChange(m.id);
                     setOpen(false);
                   }}
-                  className={`block w-full rounded px-2 py-1 text-left text-[10px] hover:bg-amber-50 ${
+                  className={`block w-full rounded px-2 py-1 text-left text-[10px] hover:bg-amber-600/15 ${
                     m.id === currentId
-                      ? "bg-amber-100 font-medium text-amber-800"
-                      : "text-stone-700"
+                      ? "bg-amber-600/15 font-medium text-amber-400"
+                      : "text-on-surface-secondary"
                   }`}
                 >
                   {m.name}
@@ -142,10 +142,10 @@ function MaterialOverrideSelect({
           ),
         )}
       </div>
-      <div className="border-t border-stone-100 p-1">
+      <div className="border-t border-[var(--oaec-border-subtle)] p-1">
         <button
           onClick={() => setOpen(false)}
-          className="w-full rounded px-2 py-1 text-[10px] text-stone-400 hover:bg-stone-50"
+          className="w-full rounded px-2 py-1 text-[10px] text-on-surface-muted hover:bg-[var(--oaec-hover)]"
         >
           Sluiten
         </button>
@@ -264,21 +264,21 @@ export function IfcWallTypeReview({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="max-h-[80vh] w-[700px] overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="max-h-[80vh] w-[700px] overflow-hidden rounded-lg bg-surface-alt shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--oaec-border)] px-5 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-stone-800">
+            <h2 className="text-sm font-semibold text-on-surface">
               IFC wandtypen importeren
             </h2>
-            <p className="mt-0.5 text-xs text-stone-500">
+            <p className="mt-0.5 text-xs text-on-surface-muted">
               {wallTypes.length} wandtype(n) gevonden — controleer de
               materiaalmatching
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="rounded p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+            className="rounded p-1 text-on-surface-muted hover:bg-surface-alt hover:text-on-surface-secondary"
           >
             <svg
               className="h-4 w-4"
@@ -298,16 +298,16 @@ export function IfcWallTypeReview({
         <div className="max-h-[55vh] overflow-y-auto px-5 py-3">
           {/* Select all toggle */}
           <div className="mb-3 flex items-center gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-stone-600">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-on-surface-secondary">
               <input
                 type="checkbox"
                 checked={selectedCount === wallTypes.length}
                 onChange={toggleAll}
-                className="rounded border-stone-300"
+                className="rounded border-[var(--oaec-border)]"
               />
               Alles selecteren
             </label>
-            <span className="text-[10px] text-stone-400">
+            <span className="text-[10px] text-on-surface-muted">
               {selectedCount} van {wallTypes.length} geselecteerd
             </span>
           </div>
@@ -322,7 +322,7 @@ export function IfcWallTypeReview({
                   className={`rounded-lg border p-3 transition-colors ${
                     isSelected
                       ? "border-teal-200 bg-teal-50/30"
-                      : "border-stone-200 opacity-60"
+                      : "border-[var(--oaec-border)] opacity-60"
                   }`}
                 >
                   {/* Wall type header */}
@@ -331,12 +331,12 @@ export function IfcWallTypeReview({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(wt.globalId)}
-                      className="rounded border-stone-300"
+                      className="rounded border-[var(--oaec-border)]"
                     />
-                    <span className="text-xs font-medium text-stone-800">
+                    <span className="text-xs font-medium text-on-surface">
                       {wt.name}
                     </span>
-                    <span className="text-[10px] text-stone-400">
+                    <span className="text-[10px] text-on-surface-muted">
                       {wt.layers.length} lagen
                     </span>
                   </div>
@@ -345,7 +345,7 @@ export function IfcWallTypeReview({
                   {isSelected && (
                     <table className="mt-2 w-full text-[10px]">
                       <thead>
-                        <tr className="border-b border-stone-200 text-left text-[9px] font-semibold uppercase tracking-wider text-stone-400">
+                        <tr className="border-b border-[var(--oaec-border)] text-left text-[9px] font-semibold uppercase tracking-wider text-on-surface-muted">
                           <th className="w-5 pb-1" />
                           <th className="pb-1">IFC materiaal</th>
                           <th className="w-16 pb-1 text-right">
@@ -381,28 +381,28 @@ export function IfcWallTypeReview({
                           return (
                             <tr
                               key={li}
-                              className="border-b border-stone-50"
+                              className="border-b border-[var(--oaec-border-subtle)]"
                             >
                               <td className="py-1">
                                 <ConfidenceDot
                                   confidence={confidence}
                                 />
                               </td>
-                              <td className="py-1 text-stone-600">
+                              <td className="py-1 text-on-surface-secondary">
                                 {layer.ifcMaterialName}
                               </td>
-                              <td className="py-1 text-right tabular-nums text-stone-500">
+                              <td className="py-1 text-right tabular-nums text-on-surface-muted">
                                 {layer.thickness > 0
                                   ? `${layer.thickness} mm`
                                   : "\u2014"}
                               </td>
                               <td className="relative py-1 pl-2">
                                 {matchedMaterial ? (
-                                  <span className="text-stone-700">
+                                  <span className="text-on-surface-secondary">
                                     {matchedMaterial.name}
                                   </span>
                                 ) : (
-                                  <span className="italic text-stone-400">
+                                  <span className="italic text-on-surface-muted">
                                     Geen match
                                   </span>
                                 )}
@@ -432,14 +432,14 @@ export function IfcWallTypeReview({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-stone-200 px-5 py-3">
-          <span className="text-xs text-stone-500">
+        <div className="flex items-center justify-between border-t border-[var(--oaec-border)] px-5 py-3">
+          <span className="text-xs text-on-surface-muted">
             {importableCount} constructie(s) importeerbaar
           </span>
           <div className="flex gap-2">
             <button
               onClick={onCancel}
-              className="rounded-md border border-stone-300 px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50"
+              className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
             >
               Annuleren
             </button>

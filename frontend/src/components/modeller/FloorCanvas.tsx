@@ -615,7 +615,7 @@ export function FloorCanvas({
     : isDrawingTool(tool) ? "crosshair" : "default";
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-stone-50" style={{ cursor }}>
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-[var(--oaec-hover)]" style={{ cursor }}>
       <Stage
         ref={stageRef}
         width={size.width}
@@ -1112,7 +1112,7 @@ export function FloorCanvas({
                 if (e.key === "Escape") setEditingDim(null);
               }}
               onBlur={() => setEditingDim(null)}
-              className="w-20 rounded border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-center text-xs font-mono font-bold text-amber-800 outline-none shadow-lg"
+              className="w-20 rounded border border-amber-500/40 bg-amber-600/15 px-1.5 py-0.5 text-center text-xs font-mono font-bold text-amber-400 outline-none shadow-lg"
             />
           </div>
         );
@@ -1121,13 +1121,13 @@ export function FloorCanvas({
       {/* Right-click context menu */}
       {ctxMenu && (
         <div
-          className="fixed z-50 min-w-[160px] rounded-lg bg-white/95 py-1 shadow-xl backdrop-blur-sm text-xs"
+          className="fixed z-50 min-w-[160px] rounded-lg bg-surface-alt/95 py-1 shadow-xl backdrop-blur-sm text-xs"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={() => setCtxMenu(null)}
         >
           {selection?.type === "room" && (
             <button
-              className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+              className="w-full px-3 py-1.5 text-left hover:bg-surface-alt text-on-surface-secondary"
               onClick={() => { onRemoveRoom?.(selection.roomId); setCtxMenu(null); }}
             >
               Verwijder ruimte
@@ -1135,7 +1135,7 @@ export function FloorCanvas({
           )}
           {selection?.type === "window" && (
             <button
-              className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+              className="w-full px-3 py-1.5 text-left hover:bg-surface-alt text-on-surface-secondary"
               onClick={() => { onRemoveWindow?.(selection.roomId, selection.wallIndex, selection.offset); setCtxMenu(null); }}
             >
               Verwijder raam
@@ -1150,7 +1150,7 @@ export function FloorCanvas({
               <>
                 {partner && (
                   <button
-                    className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+                    className="w-full px-3 py-1.5 text-left hover:bg-surface-alt text-on-surface-secondary"
                     onClick={() => {
                       onMergeRooms?.(selection.roomId, selection.wallIndex, partner.roomId, partner.wallIndex);
                       setCtxMenu(null);
@@ -1160,7 +1160,7 @@ export function FloorCanvas({
                   </button>
                 )}
                 <button
-                  className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+                  className="w-full px-3 py-1.5 text-left hover:bg-surface-alt text-on-surface-secondary"
                   onClick={() => { onRemoveRoom?.(selection.roomId); setCtxMenu(null); }}
                 >
                   Verwijder ruimte
@@ -1169,7 +1169,7 @@ export function FloorCanvas({
             );
           })()}
           {!selection && (
-            <div className="px-3 py-1.5 text-stone-400 italic">Geen selectie</div>
+            <div className="px-3 py-1.5 text-on-surface-muted italic">Geen selectie</div>
           )}
         </div>
       )}

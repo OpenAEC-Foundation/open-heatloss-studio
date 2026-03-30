@@ -124,8 +124,8 @@ function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: R
           `flex items-center gap-3 rounded px-3 py-2 text-sm transition-colors
           ${
             isActive
-              ? "bg-primary font-medium text-white"
-              : "text-[#57534E] hover:bg-stone-200 hover:text-deep-forge"
+              ? "bg-primary font-medium text-on-accent"
+              : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
           }`
         }
       >
@@ -144,7 +144,7 @@ function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: R
 function ProjectsNavLink() {
   return (
     <>
-      <li className="mx-3 my-3 border-t border-stone-200" />
+      <li className="mx-3 my-3 border-t border-[var(--oaec-border-subtle)]" />
       <NavItem to="/projects" labelKey="sidebar.projects" Icon={IconFolder} />
     </>
   );
@@ -172,7 +172,7 @@ export function Sidebar() {
   const isWeb = !isTauri();
 
   return (
-    <aside className="flex w-sidebar shrink-0 flex-col border-r border-stone-200 bg-concrete text-stone-600 overflow-hidden">
+    <aside className="flex w-sidebar shrink-0 flex-col border-r border-[var(--oaec-border-subtle)] bg-surface-alt text-on-surface-secondary overflow-hidden">
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {/* Main section */}
@@ -187,7 +187,7 @@ export function Sidebar() {
         </ul>
 
         {/* Divider */}
-        <div className="mx-3 my-3 border-t border-stone-200" />
+        <div className="mx-3 my-3 border-t border-[var(--oaec-border-subtle)]" />
 
         {/* Library section */}
         <p className="px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray">
@@ -204,7 +204,7 @@ export function Sidebar() {
       <SaveStatus />
 
       {/* Footer */}
-      <div className="border-t border-stone-200 px-4 py-3">
+      <div className="border-t border-[var(--oaec-border-subtle)] px-4 py-3">
         <p className="text-2xs text-scaffold-gray">v0.1.0</p>
       </div>
     </aside>

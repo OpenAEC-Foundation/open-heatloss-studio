@@ -54,7 +54,7 @@ export function RoomHeaderCells({
 
   return (
     <>
-      <td className="border-r border-stone-200 px-2 py-1 font-medium">
+      <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 font-medium">
         <div className="flex items-center justify-between gap-1">
           <EditableCell
             value={room.name}
@@ -65,7 +65,7 @@ export function RoomHeaderCells({
             {onToggleVent && (
               <button
                 onClick={onToggleVent}
-                className={`rounded p-0.5 ${ventOpen ? "text-blue-600 bg-blue-50" : "text-stone-400 hover:text-stone-600"}`}
+                className={`rounded p-0.5 ${ventOpen ? "text-blue-400 bg-blue-600/15" : "text-on-surface-muted hover:text-on-surface"}`}
                 title="Ventilatie-instellingen"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,7 +75,7 @@ export function RoomHeaderCells({
             )}
             <button
               onClick={onRemove}
-              className="shrink-0 rounded p-0.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
+              className="shrink-0 rounded p-0.5 text-on-surface-muted hover:bg-red-600/15 hover:text-red-400"
               title="Verwijder vertrek"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -89,14 +89,14 @@ export function RoomHeaderCells({
           </div>
         </div>
       </td>
-      <td className="border-r border-stone-200 px-2 py-1">
+      <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1">
         <EditableSelect
           value={room.function}
           onChange={handleFunctionChange}
           options={ROOM_FUNCTION_LABELS}
         />
       </td>
-      <td className="border-r border-stone-200 px-2 py-1 text-right">
+      <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">
         <EditableCell
           value={thetaI}
           onChange={handleThetaChange}
@@ -104,7 +104,7 @@ export function RoomHeaderCells({
           unit={"°C"}
         />
       </td>
-      <td className="border-r border-stone-200 px-2 py-1 text-right">
+      <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">
         <EditableCell
           value={room.floor_area}
           onChange={(v) => onUpdate({ floor_area: Number(v) || 0 })}
@@ -112,7 +112,7 @@ export function RoomHeaderCells({
           unit="m²"
         />
       </td>
-      <td className="border-r border-stone-200 px-2 py-1 text-right">
+      <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">
         <EditableCell
           value={room.height ?? 2.6}
           onChange={(v) => onUpdate({ height: Number(v) || 2.6 })}

@@ -272,7 +272,7 @@ export function ProjectSetup() {
                 type="checkbox"
                 checked={building.has_night_setback ?? false}
                 onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
-                className="rounded border-stone-300 text-primary focus:ring-primary"
+                className="rounded border-[var(--oaec-border)] accent-primary"
               />
               Nachtreductie
             </label>
@@ -336,7 +336,7 @@ export function ProjectSetup() {
                   type="checkbox"
                   checked={ventilation.has_heat_recovery ?? false}
                   onChange={(e) => updateVentilation({ has_heat_recovery: e.target.checked })}
-                  className="rounded border-stone-300 text-primary focus:ring-primary"
+                  className="rounded border-[var(--oaec-border)] accent-primary"
                 />
                 Warmteterugwinning (WTW)
               </label>
@@ -366,7 +366,7 @@ export function ProjectSetup() {
         {project.rooms.length === 0 && (
           <Card>
             <div className="flex flex-col items-center gap-2 py-2">
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-on-surface-muted">
                 Voeg vertrekken toe om de berekening te kunnen starten.
               </p>
               <Button variant="secondary" size="sm" onClick={() => navigate("/rooms")}>
@@ -383,10 +383,10 @@ export function ProjectSetup() {
               {project.rooms.map((room) => (
                 <li
                   key={room.id}
-                  className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-stone-50"
+                  className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--oaec-hover)]"
                 >
                   <span className="font-medium">{room.name}</span>
-                  <span className="font-mono text-xs text-stone-400">
+                  <span className="font-mono text-xs text-on-surface-muted">
                     {room.floor_area} m²
                   </span>
                 </li>

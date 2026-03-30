@@ -59,7 +59,7 @@ export function EditableCell({
           if (e.key === "Escape") cancel();
         }}
         step={type === "number" ? "any" : undefined}
-        className={`w-full rounded border border-primary bg-white px-1.5 py-0.5 text-sm
+        className={`w-full rounded border border-primary bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-sm text-on-surface
           outline-none focus:ring-1 focus:ring-primary ${className}`}
       />
     );
@@ -72,11 +72,11 @@ export function EditableCell({
     <span
       onClick={() => setEditing(true)}
       className={`inline-block w-full cursor-text rounded px-1.5 py-0.5 text-sm
-        hover:bg-stone-100 ${isEmpty ? "text-stone-400" : "text-stone-900"} ${className}`}
+        hover:bg-[var(--oaec-hover)] ${isEmpty ? "text-on-surface-muted" : "text-on-surface"} ${className}`}
     >
       {isEmpty ? (placeholder ?? "\u2014") : displayValue}
       {unit && !isEmpty && (
-        <span className="ml-0.5 text-xs text-stone-400">{unit}</span>
+        <span className="ml-0.5 text-xs text-on-surface-muted">{unit}</span>
       )}
     </span>
   );

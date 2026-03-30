@@ -46,10 +46,10 @@
   --theme-file-tab-text: #36363E;
 
   /* ─── Content ─── */
-  --theme-content-bg: #ffffff;
+  --theme-content-bg: #36363E;
   --theme-placeholder-icon: rgba(217, 119, 6, 0.2);
-  --theme-placeholder-heading: rgba(54, 54, 62, 0.3);
-  --theme-placeholder-text: rgba(54, 54, 62, 0.25);
+  --theme-placeholder-heading: rgba(250, 250, 249, 0.3);
+  --theme-placeholder-text: rgba(250, 250, 249, 0.25);
 
   /* ─── Ribbon ─── */
   --theme-ribbon-btn-hover: rgba(217, 119, 6, 0.15);
@@ -112,15 +112,15 @@
 
   /* ─── Domain: Boundary types ─── */
   --domain-boundary-exterior: #3b82f6;
-  --domain-boundary-exterior-bg: #dbeafe;
+  --domain-boundary-exterior-bg: rgba(59, 130, 246, 0.15);
   --domain-boundary-unheated: #8b5cf6;
-  --domain-boundary-unheated-bg: #ede9fe;
+  --domain-boundary-unheated-bg: rgba(139, 92, 246, 0.15);
   --domain-boundary-adjacent-room: #22c55e;
-  --domain-boundary-adjacent-room-bg: #dcfce7;
+  --domain-boundary-adjacent-room-bg: rgba(34, 197, 94, 0.15);
   --domain-boundary-adjacent-building: #F59E0B;
-  --domain-boundary-adjacent-building-bg: #fef3c7;
+  --domain-boundary-adjacent-building-bg: rgba(245, 158, 11, 0.15);
   --domain-boundary-ground: #92400e;
-  --domain-boundary-ground-bg: #fef3c7;
+  --domain-boundary-ground-bg: rgba(146, 64, 14, 0.15);
 
   /* ─── Domain: Chart categories ─── */
   --domain-chart-transmission: #3b82f6;
@@ -134,17 +134,17 @@
   --domain-chart-floors: #22c55e;
   --domain-chart-internal-walls: #8b5cf6;
   --domain-chart-other: #78716c;
-  --domain-chart-grid: #e7e5e4;
-  --domain-chart-grid-strong: #d6d3d1;
+  --domain-chart-grid: rgba(250, 250, 249, 0.1);
+  --domain-chart-grid-strong: rgba(250, 250, 249, 0.2);
 
   /* ─── Domain: Diagram (Glaser) ─── */
   --domain-diagram-psat: #2563eb;
   --domain-diagram-pactual: #D97706;
   --domain-diagram-condensation: #fca5a5;
-  --domain-diagram-text: #57534e;
-  --domain-diagram-grid: #e7e5e4;
-  --domain-diagram-grid-strong: #d6d3d1;
-  --domain-diagram-grid-subtle: #a8a29e;
+  --domain-diagram-text: rgba(250, 250, 249, 0.6);
+  --domain-diagram-grid: rgba(250, 250, 249, 0.1);
+  --domain-diagram-grid-strong: rgba(250, 250, 249, 0.2);
+  --domain-diagram-grid-subtle: rgba(250, 250, 249, 0.15);
 }
 
 /* ============================================================

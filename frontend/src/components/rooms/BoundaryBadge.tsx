@@ -2,11 +2,11 @@ import { BOUNDARY_COLORS, BOUNDARY_TYPE_LABELS } from "../../lib/constants";
 import type { BoundaryType } from "../../types";
 
 const COLOR_CLASSES: Record<string, string> = {
-  blue: "bg-blue-100 text-blue-800",
-  purple: "bg-purple-100 text-purple-800",
-  green: "bg-green-100 text-green-800",
-  amber: "bg-amber-100 text-amber-800",
-  stone: "bg-stone-200 text-stone-700",
+  blue: "bg-blue-600/15 text-blue-400",
+  purple: "bg-purple-600/15 text-purple-400",
+  green: "bg-green-600/15 text-green-400",
+  amber: "bg-amber-600/15 text-amber-400",
+  stone: "bg-[var(--oaec-hover)] text-on-surface-muted",
 };
 
 interface BoundaryBadgeProps {

@@ -12,7 +12,7 @@ const config: Config = {
            ═══════════════════════════════════════════════════════ */
         surface:        "var(--theme-bg)",
         "surface-alt":  "var(--theme-bg-lighter)",
-        content:        "var(--theme-content-bg)",
+        content:        "var(--theme-bg)",
         "on-surface":   "var(--theme-text)",
         "on-surface-secondary": "var(--theme-text-secondary)",
         "on-surface-muted": "var(--theme-text-muted)",
@@ -41,15 +41,15 @@ const config: Config = {
            ═══════════════════════════════════════════════════════ */
         boundary: {
           exterior:              "var(--domain-boundary-exterior, #3b82f6)",
-          "exterior-bg":         "var(--domain-boundary-exterior-bg, #dbeafe)",
+          "exterior-bg":         "var(--domain-boundary-exterior-bg, rgba(59, 130, 246, 0.15))",
           unheated:              "var(--domain-boundary-unheated, #8b5cf6)",
-          "unheated-bg":         "var(--domain-boundary-unheated-bg, #ede9fe)",
+          "unheated-bg":         "var(--domain-boundary-unheated-bg, rgba(139, 92, 246, 0.15))",
           "adjacent-room":       "var(--domain-boundary-adjacent-room, #22c55e)",
-          "adjacent-room-bg":    "var(--domain-boundary-adjacent-room-bg, #dcfce7)",
+          "adjacent-room-bg":    "var(--domain-boundary-adjacent-room-bg, rgba(34, 197, 94, 0.15))",
           "adjacent-building":   "var(--domain-boundary-adjacent-building, #F59E0B)",
-          "adjacent-building-bg":"var(--domain-boundary-adjacent-building-bg, #fef3c7)",
+          "adjacent-building-bg":"var(--domain-boundary-adjacent-building-bg, rgba(245, 158, 11, 0.15))",
           ground:                "var(--domain-boundary-ground, #92400e)",
-          "ground-bg":           "var(--domain-boundary-ground-bg, #fef3c7)",
+          "ground-bg":           "var(--domain-boundary-ground-bg, rgba(146, 64, 14, 0.15))",
         },
       },
       fontFamily: {

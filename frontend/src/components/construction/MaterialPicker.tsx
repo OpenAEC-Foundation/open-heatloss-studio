@@ -72,16 +72,16 @@ export function MaterialPicker({
         left: pos.left,
         zIndex: 60,
       }}
-      className="w-80 rounded-lg border border-stone-200 bg-white shadow-xl"
+      className="w-80 rounded-lg border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] shadow-xl"
     >
       {/* Zoekbalk */}
-      <div className="border-b border-stone-200 p-2">
+      <div className="border-b border-[var(--oaec-border)] p-2">
         <input
           type="text"
           placeholder="Zoek materiaal..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-stone-300 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
           autoFocus
         />
       </div>
@@ -93,7 +93,7 @@ export function MaterialPicker({
           if (!materials) return null;
           return (
             <div key={cat}>
-              <div className="sticky top-0 bg-stone-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500">
+              <div className="sticky top-0 bg-surface-alt px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                 {MATERIAL_CATEGORY_LABELS[cat]}
               </div>
               {materials.map((mat) => (
@@ -101,10 +101,10 @@ export function MaterialPicker({
                   key={mat.id}
                   type="button"
                   onClick={() => handleSelect(mat)}
-                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-blue-50"
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-blue-600/15"
                 >
-                  <span className="text-stone-700">{mat.name}</span>
-                  <span className="ml-2 tabular-nums text-stone-400">
+                  <span className="text-on-surface-secondary">{mat.name}</span>
+                  <span className="ml-2 tabular-nums text-on-surface-muted">
                     {mat.lambda !== null
                       ? `\u03BB=${mat.lambda}`
                       : mat.rdFixed !== null
@@ -117,7 +117,7 @@ export function MaterialPicker({
           );
         })}
         {filtered.size === 0 && (
-          <div className="px-3 py-3 text-center text-sm text-stone-400">
+          <div className="px-3 py-3 text-center text-sm text-on-surface-muted">
             Geen resultaten
           </div>
         )}

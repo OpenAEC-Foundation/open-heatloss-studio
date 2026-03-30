@@ -571,7 +571,7 @@ export function Modeller() {
 
           {/* IFC import loading overlay */}
           {isImporting && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-surface/80 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-3">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/30 border-t-primary" />
                 <p className="text-sm font-medium text-deep-forge">IFC wordt verwerkt...</p>
@@ -581,7 +581,7 @@ export function Modeller() {
           )}
 
           {/* 2D / 3D toggle — top left overlay */}
-          <div className="pointer-events-auto absolute left-3 top-3 z-20 flex overflow-hidden rounded-lg border border-primary/25 bg-white/95 shadow-sm backdrop-blur-sm text-xs">
+          <div className="pointer-events-auto absolute left-3 top-3 z-20 flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm text-xs">
             <button
               onClick={() => setViewMode("2d")}
               className={`px-3 py-1.5 font-medium transition-colors ${
@@ -694,7 +694,7 @@ function ProjectBrowser({
     }`;
 
   return (
-    <div className="flex w-64 shrink-0 flex-col border-r border-primary/15 bg-white text-xs">
+    <div className="flex w-64 shrink-0 flex-col border-r border-primary/15 bg-surface-alt text-xs">
       {/* Tab strip */}
       <div className="flex border-b border-primary/15">
         <button onClick={() => setSidebarTab("vertrekken")} className={tabClass("vertrekken")}>

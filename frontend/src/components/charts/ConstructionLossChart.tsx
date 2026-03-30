@@ -162,7 +162,7 @@ export function ConstructionLossChart({ rooms, thetaE }: ConstructionLossChartPr
               y={y + BAR_HEIGHT / 2}
               textAnchor="end"
               dominantBaseline="middle"
-              className="fill-stone-600"
+              className="fill-on-surface-secondary"
               fontSize="11"
             >
               {bar.label}
@@ -185,7 +185,7 @@ export function ConstructionLossChart({ rooms, thetaE }: ConstructionLossChartPr
               x={LABEL_WIDTH + BAR_AREA_WIDTH + 8}
               y={y + BAR_HEIGHT / 2}
               dominantBaseline="middle"
-              className="fill-stone-700"
+              className="fill-on-surface"
               fontSize="11"
               fontWeight="500"
             >

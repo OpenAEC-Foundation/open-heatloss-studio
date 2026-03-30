@@ -81,10 +81,10 @@ export function PropertiesPanel({
       const wallLen = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 
       return (
-        <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
-          <div className="border-b border-stone-100 px-4 py-3">
+        <div className="w-72 shrink-0 overflow-y-auto border-l border-[var(--oaec-border)] bg-surface-alt">
+          <div className="border-b border-[var(--oaec-border-subtle)] px-4 py-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-stone-800">Raam</span>
+              <span className="text-sm font-bold text-on-surface">Raam</span>
               {onRemoveWindow && (
                 <button
                   onClick={() => onRemoveWindow(win.roomId, win.wallIndex, win.offset)}
@@ -94,7 +94,7 @@ export function PropertiesPanel({
                 </button>
               )}
             </div>
-            <div className="mt-1 text-xs text-stone-500">
+            <div className="mt-1 text-xs text-on-surface-muted">
               Wand {wallDirection(room.polygon, win.wallIndex)} van {room.name}
             </div>
           </div>
@@ -156,12 +156,12 @@ export function PropertiesPanel({
     const assigned = assignedId ? catalogueEntries.find((e) => e.id === assignedId) : null;
 
     return (
-      <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
-        <div className="border-b border-stone-100 px-4 py-3">
-          <span className="text-sm font-bold text-stone-800">Wand {dir}</span>
-          <div className="mt-1 text-xs text-stone-500">
+      <div className="w-72 shrink-0 overflow-y-auto border-l border-[var(--oaec-border)] bg-surface-alt">
+        <div className="border-b border-[var(--oaec-border-subtle)] px-4 py-3">
+          <span className="text-sm font-bold text-on-surface">Wand {dir}</span>
+          <div className="mt-1 text-xs text-on-surface-muted">
             {room.id} {room.name}
-            {segEdges.length > 1 && <span className="ml-1 text-stone-400">({segEdges.length} edges)</span>}
+            {segEdges.length > 1 && <span className="ml-1 text-on-surface-muted">({segEdges.length} edges)</span>}
           </div>
         </div>
         <div className="space-y-3 px-4 py-3">
@@ -172,7 +172,7 @@ export function PropertiesPanel({
               <Row label="Hoogte" value={`${room.height} mm`} />
               <Row label="Oppervlak" value={`${((segLength / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
               <div className="flex items-center justify-between text-xs">
-                <span className="text-stone-500">Grenstype</span>
+                <span className="text-on-surface-muted">Grenstype</span>
                 <select
                   value={currentBoundary}
                   onChange={(e) => {
@@ -181,7 +181,7 @@ export function PropertiesPanel({
                       onAssignBoundaryType?.(room.id, ei, bt);
                     }
                   }}
-                  className="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-800"
+                  className="rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-xs text-on-surface"
                 >
                   {Object.entries(BOUNDARY_TYPE_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
@@ -204,9 +204,9 @@ export function PropertiesPanel({
             <Section title={`Ramen (${wallWindows.length})`}>
               <div className="space-y-1">
                 {wallWindows.map((w, i) => (
-                  <div key={i} className="flex items-center justify-between rounded border border-stone-100 px-2 py-1 text-xs">
+                  <div key={i} className="flex items-center justify-between rounded border border-[var(--oaec-border-subtle)] px-2 py-1 text-xs">
                     <span>Raam — {w.width} mm breed</span>
-                    <span className="text-stone-400">op {(w.offset / 1000).toFixed(2)} m</span>
+                    <span className="text-on-surface-muted">op {(w.offset / 1000).toFixed(2)} m</span>
                   </div>
                 ))}
               </div>
@@ -220,7 +220,7 @@ export function PropertiesPanel({
                   <span className="font-medium text-green-800">{assigned.name}</span>
                   <button onClick={() => { for (const ei of segEdges) onAssignWall?.(room.id, ei, null); }} className="text-red-400 hover:text-red-600">x</button>
                 </div>
-                <div className="mt-0.5 text-green-600">U = {assigned.uValue} W/(m²·K)</div>
+                <div className="mt-0.5 text-green-400">U = {assigned.uValue} W/(m²·K)</div>
               </div>
             ) : (
               <ConstructionPickerInline
@@ -238,13 +238,13 @@ export function PropertiesPanel({
   // No room selected
   if (!room) {
     return (
-      <div className="w-72 shrink-0 border-l border-stone-200 bg-white p-4">
-        <p className="text-xs text-stone-400">Selecteer een ruimte of wand om de eigenschappen te bekijken.</p>
+      <div className="w-72 shrink-0 border-l border-[var(--oaec-border)] bg-surface-alt p-4">
+        <p className="text-xs text-on-surface-muted">Selecteer een ruimte of wand om de eigenschappen te bekijken.</p>
         <div className="mt-6">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">Ruimten ({rooms.length})</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">Ruimten ({rooms.length})</h3>
           <ul className="space-y-1">
             {rooms.map((r) => (
-              <li key={r.id} className="text-xs text-stone-600">
+              <li key={r.id} className="text-xs text-on-surface-secondary">
                 <span className="font-mono font-medium">{r.id}</span> {r.name} — {(polygonArea(r.polygon) / 1e6).toFixed(1)} m²
               </li>
             ))}
@@ -259,13 +259,13 @@ export function PropertiesPanel({
   const roomWalls = getWallInfo(room, rooms, windows, wallBoundaryTypes);
 
   return (
-    <div className="w-72 shrink-0 overflow-y-auto border-l border-stone-200 bg-white">
+    <div className="w-72 shrink-0 overflow-y-auto border-l border-[var(--oaec-border)] bg-surface-alt">
       {/* Header */}
-      <div className="border-b border-stone-100 px-4 py-3">
+      <div className="border-b border-[var(--oaec-border-subtle)] px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-sm font-bold text-stone-800">{room.id}</span>
-            <span className="text-sm text-stone-600">{room.name}</span>
+            <span className="font-mono text-sm font-bold text-on-surface">{room.id}</span>
+            <span className="text-sm text-on-surface-secondary">{room.name}</span>
           </div>
           {onRemoveRoom && (
             <button onClick={() => onRemoveRoom(room.id)} className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50" title="Verwijderen">
@@ -280,11 +280,11 @@ export function PropertiesPanel({
           <div className="space-y-2">
             <EditableField label="Naam" value={room.name} onChange={(val) => onUpdateRoom?.(room.id, { name: val })} />
             <div className="flex items-center justify-between text-xs">
-              <span className="text-stone-500">Functie</span>
+              <span className="text-on-surface-muted">Functie</span>
               <select
                 value={room.function}
                 onChange={(e) => onUpdateRoom?.(room.id, { function: e.target.value })}
-                className="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-xs text-stone-800"
+                className="rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-xs text-on-surface"
               >
                 {FUNCTION_OPTIONS.map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
@@ -364,7 +364,7 @@ export function PropertiesPanel({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-400">{title}</h3>
+      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">{title}</h3>
       {children}
     </div>
   );
@@ -373,8 +373,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between text-xs">
-      <dt className="text-stone-500">{label}</dt>
-      <dd className="font-mono text-stone-800">{value}</dd>
+      <dt className="text-on-surface-muted">{label}</dt>
+      <dd className="font-mono text-on-surface">{value}</dd>
     </div>
   );
 }
@@ -386,7 +386,7 @@ function EditableField({ label, value, onChange }: { label: string; value: strin
   if (editing) {
     return (
       <div className="flex items-center justify-between text-xs">
-        <span className="text-stone-500">{label}</span>
+        <span className="text-on-surface-muted">{label}</span>
         <input
           autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
           onBlur={() => { if (draft.trim()) onChange(draft.trim()); setEditing(false); }}
@@ -394,15 +394,15 @@ function EditableField({ label, value, onChange }: { label: string; value: strin
             if (e.key === "Enter") { if (draft.trim()) onChange(draft.trim()); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
-          className="w-28 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
+          className="w-28 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
         />
       </div>
     );
   }
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="text-stone-500">{label}</span>
-      <button onClick={() => { setDraft(value); setEditing(true); }} className="font-mono text-stone-800 hover:text-amber-700 hover:underline">{value}</button>
+      <span className="text-on-surface-muted">{label}</span>
+      <button onClick={() => { setDraft(value); setEditing(true); }} className="font-mono text-on-surface hover:text-amber-400 hover:underline">{value}</button>
     </div>
   );
 }
@@ -414,7 +414,7 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
   if (editing) {
     return (
       <div className="flex items-center justify-between text-xs">
-        <span className="text-stone-500">{label}</span>
+        <span className="text-on-surface-muted">{label}</span>
         <input
           autoFocus type="number" value={draft} onChange={(e) => setDraft(e.target.value)}
           onBlur={() => { const n = parseInt(draft, 10); if (!isNaN(n) && n > 0) onChange(n); setEditing(false); }}
@@ -422,15 +422,15 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
             if (e.key === "Enter") { const n = parseInt(draft, 10); if (!isNaN(n) && n > 0) onChange(n); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
-          className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
+          className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
         />
       </div>
     );
   }
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="text-stone-500">{label}</span>
-      <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-stone-800 hover:text-amber-700 hover:underline">{value}</button>
+      <span className="text-on-surface-muted">{label}</span>
+      <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-on-surface hover:text-amber-400 hover:underline">{value}</button>
     </div>
   );
 }
@@ -453,7 +453,7 @@ function ElevationField({ value, fallback, onChange }: {
   if (editing) {
     return (
       <div className="flex items-center justify-between text-xs">
-        <span className="text-stone-500">Peil (mm)</span>
+        <span className="text-on-surface-muted">Peil (mm)</span>
         <div className="flex items-center gap-1">
           <input
             autoFocus
@@ -474,12 +474,12 @@ function ElevationField({ value, fallback, onChange }: {
               }
               if (e.key === "Escape") setEditing(false);
             }}
-            className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-stone-800 outline-none"
+            className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
           />
           {value !== undefined && (
             <button
               onClick={() => { onChange(undefined); setEditing(false); }}
-              className="text-[10px] text-stone-400 hover:text-stone-600"
+              className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary"
               title="Reset naar automatisch"
             >
               x
@@ -492,10 +492,10 @@ function ElevationField({ value, fallback, onChange }: {
 
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="text-stone-500">Peil (mm)</span>
+      <span className="text-on-surface-muted">Peil (mm)</span>
       <button
         onClick={() => { setDraft(value !== undefined ? String(value) : ""); setEditing(true); }}
-        className={`font-mono hover:text-amber-700 hover:underline ${value !== undefined ? "text-stone-800" : "text-stone-400"}`}
+        className={`font-mono hover:text-amber-400 hover:underline ${value !== undefined ? "text-on-surface" : "text-on-surface-muted"}`}
       >
         {display}
       </button>
@@ -540,16 +540,16 @@ function boundaryBadge(wall: WallInfo): { label: string; colors: string } {
   const bt = wall.boundaryType;
   if (bt === "auto" || bt === "exterior") {
     if (bt === "auto" && wall.autoType === "interior") {
-      return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-50 text-blue-700" };
+      return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-600/15 text-blue-400" };
     }
-    return { label: "Gevel", colors: "bg-red-50 text-red-700" };
+    return { label: "Gevel", colors: "bg-red-50 text-red-400" };
   }
-  if (bt === "interior") return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-50 text-blue-700" };
+  if (bt === "interior") return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-600/15 text-blue-400" };
   if (bt === "curtain_wall") return { label: "Vliesgevel", colors: "bg-cyan-50 text-cyan-700" };
   if (bt === "neighbor") return { label: "Buren", colors: "bg-orange-50 text-orange-700" };
   if (bt === "unheated") return { label: "Onverwarmd", colors: "bg-purple-50 text-purple-700" };
-  if (bt === "ground") return { label: "Grond", colors: "bg-green-50 text-green-700" };
-  return { label: "Gevel", colors: "bg-red-50 text-red-700" };
+  if (bt === "ground") return { label: "Grond", colors: "bg-green-50 text-green-400" };
+  return { label: "Gevel", colors: "bg-red-50 text-red-400" };
 }
 
 function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeBoundary }: {
@@ -562,9 +562,9 @@ function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeB
   const badge = boundaryBadge(wall);
 
   return (
-    <div className="rounded border border-stone-100 px-2 py-1.5 text-xs">
+    <div className="rounded border border-[var(--oaec-border-subtle)] px-2 py-1.5 text-xs">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-stone-700">{wall.direction} — {(wall.length / 1000).toFixed(2)} m</span>
+        <span className="font-medium text-on-surface-secondary">{wall.direction} — {(wall.length / 1000).toFixed(2)} m</span>
         <select
           value={wall.boundaryType}
           onChange={(e) => onChangeBoundary?.(wall.wallIndex, e.target.value as WallBoundaryType)}
@@ -577,17 +577,17 @@ function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeB
           ))}
         </select>
       </div>
-      <div className="mt-0.5 text-stone-400">→ {wallTarget(wall)}</div>
-      {wall.windowCount > 0 && <div className="mt-0.5 text-blue-600">{wall.windowCount} kozijn{wall.windowCount > 1 ? "en" : ""}</div>}
+      <div className="mt-0.5 text-on-surface-muted">→ {wallTarget(wall)}</div>
+      {wall.windowCount > 0 && <div className="mt-0.5 text-blue-400">{wall.windowCount} kozijn{wall.windowCount > 1 ? "en" : ""}</div>}
       {assigned ? (
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-[10px] text-green-700">{assigned.name} (U={assigned.uValue})</span>
+          <span className="text-[10px] text-green-400">{assigned.name} (U={assigned.uValue})</span>
           <button onClick={() => onAssign?.(null)} className="text-[10px] text-red-400 hover:text-red-600">x</button>
         </div>
       ) : picking ? (
         <ConstructionPicker entries={catalogueEntries} filterCategory="wanden" onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>
       )}
     </div>
   );
@@ -603,23 +603,23 @@ function ConstructionCard({ label, badge, badgeColor, assignedEntryId, catalogue
 }) {
   const [picking, setPicking] = useState(false);
   const assigned = assignedEntryId ? catalogueEntries.find((e) => e.id === assignedEntryId) : null;
-  const colors = badgeColor === "green" ? "bg-green-50 text-green-700" : "bg-purple-50 text-purple-700";
+  const colors = badgeColor === "green" ? "bg-green-50 text-green-400" : "bg-purple-50 text-purple-700";
 
   return (
-    <div className="rounded border border-stone-100 px-2 py-1.5 text-xs">
+    <div className="rounded border border-[var(--oaec-border-subtle)] px-2 py-1.5 text-xs">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-stone-700">{label}</span>
+        <span className="font-medium text-on-surface-secondary">{label}</span>
         <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colors}`}>{badge}</span>
       </div>
       {assigned ? (
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-[10px] text-green-700">{assigned.name} (U={assigned.uValue})</span>
+          <span className="text-[10px] text-green-400">{assigned.name} (U={assigned.uValue})</span>
           <button onClick={() => onAssign?.(null)} className="text-[10px] text-red-400 hover:text-red-600">x</button>
         </div>
       ) : picking ? (
         <ConstructionPicker entries={catalogueEntries} filterCategory={filterCategory} onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>
       )}
     </div>
   );
@@ -631,7 +631,7 @@ function PickerEntryButton({ entry, onSelect }: {
   return (
     <button
       onClick={() => onSelect(entry.id)}
-      className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-stone-700 hover:bg-amber-100"
+      className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-on-surface-secondary hover:bg-amber-600/15"
     >
       {entry.isProjectEntry && (
         <span className="mr-1 rounded bg-teal-50 px-1 py-0.5 text-[8px] font-medium text-teal-700">
@@ -639,7 +639,7 @@ function PickerEntryButton({ entry, onSelect }: {
         </span>
       )}
       <span className="font-medium">{entry.name}</span>{" "}
-      <span className="text-stone-400">U={entry.uValue}</span>
+      <span className="text-on-surface-muted">U={entry.uValue}</span>
     </button>
   );
 }
@@ -662,7 +662,7 @@ function PickerList({ entries, filterCategory, search, onSelect }: {
 
   if (filtered.length === 0) {
     return (
-      <div className="py-1 text-center text-[10px] text-stone-400">
+      <div className="py-1 text-center text-[10px] text-on-surface-muted">
         Geen resultaten
       </div>
     );
@@ -679,14 +679,14 @@ function PickerList({ entries, filterCategory, search, onSelect }: {
             <PickerEntryButton key={e.id} entry={e} onSelect={onSelect} />
           ))}
           {catalogueOnly.length > 0 && (
-            <div className="my-0.5 border-t border-stone-200" />
+            <div className="my-0.5 border-t border-[var(--oaec-border)]" />
           )}
         </>
       )}
       {catalogueOnly.length > 0 && (
         <>
           {projectEntries.length > 0 && (
-            <div className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-stone-400">
+            <div className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-on-surface-muted">
               Catalogus
             </div>
           )}
@@ -706,7 +706,7 @@ function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
   const [open, setOpen] = useState(false);
 
   if (!open) {
-    return <button onClick={() => setOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-800">Constructie toewijzen...</button>;
+    return <button onClick={() => setOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>;
   }
 
   return (
@@ -714,7 +714,7 @@ function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
       <input
         autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
         value={search} onChange={(e) => setSearch(e.target.value)}
-        className="mb-1 w-full rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
+        className="mb-1 w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
       />
       <div className="max-h-40 overflow-y-auto">
         <PickerList entries={entries} filterCategory={filterCategory} search={search} onSelect={onSelect} />
@@ -734,9 +734,9 @@ function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
         <input
           autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
           value={search} onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
+          className="flex-1 rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
         />
-        <button onClick={onCancel} className="text-[10px] text-stone-400 hover:text-stone-600">Annuleer</button>
+        <button onClick={onCancel} className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary">Annuleer</button>
       </div>
       <div className="max-h-40 overflow-y-auto">
         <PickerList entries={entries} filterCategory={filterCategory} search={search} onSelect={onSelect} />

@@ -95,14 +95,14 @@ export function Library({ initialSection = "constructies" }: { initialSection?: 
 
       <div className="p-4">
         {/* Top-level toggle */}
-        <div className="mb-4 flex gap-1 rounded-lg border border-stone-200 bg-stone-100 p-1">
+        <div className="mb-4 flex gap-1 rounded-lg border border-[var(--oaec-border)] bg-surface-alt p-1">
           <button
             type="button"
             onClick={() => setSection("constructies")}
             className={`rounded-md px-5 py-2 text-sm font-medium transition-colors ${
               section === "constructies"
-                ? "bg-white text-stone-900 shadow-sm"
-                : "text-stone-500 hover:text-stone-700"
+                ? "bg-[var(--oaec-bg-lighter)] text-on-surface shadow-sm"
+                : "text-on-surface-muted hover:text-on-surface-secondary"
             }`}
           >
             Constructies
@@ -112,8 +112,8 @@ export function Library({ initialSection = "constructies" }: { initialSection?: 
             onClick={() => setSection("materialen")}
             className={`rounded-md px-5 py-2 text-sm font-medium transition-colors ${
               section === "materialen"
-                ? "bg-white text-stone-900 shadow-sm"
-                : "text-stone-500 hover:text-stone-700"
+                ? "bg-[var(--oaec-bg-lighter)] text-on-surface shadow-sm"
+                : "text-on-surface-muted hover:text-on-surface-secondary"
             }`}
           >
             Materialen
@@ -191,7 +191,7 @@ function ConstructionsView() {
                 setShowAddForm(false);
               }
             }}
-            className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100"
+            className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
           >
             Standaardwaarden herstellen
           </button>
@@ -200,7 +200,7 @@ function ConstructionsView() {
       </div>
 
       {/* Category tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg border border-stone-200 bg-stone-100 p-1">
+      <div className="mb-4 flex gap-1 rounded-lg border border-[var(--oaec-border)] bg-surface-alt p-1">
         {CONSTR_CATEGORY_ORDER.map((cat) => (
           <button
             key={cat}
@@ -213,13 +213,13 @@ function ConstructionsView() {
             className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors
               ${
                 activeTab === cat
-                  ? "bg-white text-stone-900 shadow-sm"
-                  : "text-stone-500 hover:text-stone-700"
+                  ? "bg-[var(--oaec-bg-lighter)] text-on-surface shadow-sm"
+                  : "text-on-surface-muted hover:text-on-surface-secondary"
               }`}
           >
             <span>{CONSTR_CATEGORY_ICONS[cat]}</span>
             {CATALOGUE_CATEGORY_LABELS[cat]}
-            <span className="ml-1 rounded-full bg-stone-200/80 px-1.5 py-0.5 text-xs tabular-nums text-stone-500">
+            <span className="ml-1 rounded-full bg-[var(--oaec-hover)] px-1.5 py-0.5 text-xs tabular-nums text-on-surface-muted">
               {categoryCounts[cat] ?? 0}
             </span>
           </button>
@@ -228,8 +228,8 @@ function ConstructionsView() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="mb-4 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/50 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-stone-700">
+        <div className="mb-4 rounded-lg border-2 border-dashed border-blue-300 bg-blue-600/15/50 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-on-surface-secondary">
             Nieuwe constructie toevoegen aan {CATALOGUE_CATEGORY_LABELS[activeTab]}
           </h3>
           <ConstructionForm
@@ -243,10 +243,10 @@ function ConstructionsView() {
       )}
 
       {/* Entry table */}
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="overflow-hidden rounded-lg border border-[var(--oaec-border)]">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b-2 border-stone-300 bg-stone-100 text-left text-xs font-semibold uppercase tracking-wider text-stone-600">
+            <tr className="border-b-2 border-[var(--oaec-border)] bg-surface-alt text-left text-xs font-semibold uppercase tracking-wider text-on-surface-secondary">
               <th className="px-3 py-2.5">Beschrijving</th>
               <th className="w-[120px] px-3 py-2.5 text-right">U-waarde</th>
               <th className="w-[140px] px-3 py-2.5">Materiaal</th>
@@ -280,7 +280,7 @@ function ConstructionsView() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-sm text-stone-400">
+                <td colSpan={5} className="px-3 py-8 text-center text-sm text-on-surface-muted">
                   Geen constructies in deze categorie.
                 </td>
               </tr>
@@ -360,7 +360,7 @@ function MaterialsView() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Zoek materiaal..."
-          className="w-64 rounded-md border border-stone-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-64 rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
         />
         <div className="flex gap-2">
           <button
@@ -370,7 +370,7 @@ function MaterialsView() {
                 resetAll();
               }
             }}
-            className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100"
+            className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
           >
             Standaardwaarden herstellen
           </button>
@@ -382,8 +382,8 @@ function MaterialsView() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="mb-4 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/50 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-stone-700">
+        <div className="mb-4 rounded-lg border-2 border-dashed border-blue-300 bg-blue-600/15/50 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-on-surface-secondary">
             Nieuw materiaal toevoegen
           </h3>
           <MaterialAddForm
@@ -399,10 +399,10 @@ function MaterialsView() {
       )}
 
       {/* Grouped table */}
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="overflow-hidden rounded-lg border border-[var(--oaec-border)]">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b-2 border-stone-300 bg-stone-100 text-left text-xs font-semibold uppercase tracking-wider text-stone-600">
+            <tr className="border-b-2 border-[var(--oaec-border)] bg-surface-alt text-left text-xs font-semibold uppercase tracking-wider text-on-surface-secondary">
               <th className="px-3 py-2.5">Naam</th>
               <th className="w-[120px] px-3 py-2.5">Merk</th>
               <th className="w-[100px] px-3 py-2.5 text-right">{"\u03C1"} [kg/m{"\u00B3"}]</th>
@@ -429,7 +429,7 @@ function MaterialsView() {
             ))}
             {grouped.size === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-sm text-stone-400">
+                <td colSpan={7} className="px-3 py-8 text-center text-sm text-on-surface-muted">
                   Geen materialen gevonden.
                 </td>
               </tr>
@@ -471,18 +471,18 @@ function MaterialCategoryGroup({
   return (
     <>
       <tr
-        className="cursor-pointer select-none bg-stone-50 hover:bg-stone-100"
+        className="cursor-pointer select-none bg-[var(--oaec-hover)] hover:bg-surface-alt"
         onClick={() => setCollapsed((v) => !v)}
       >
         <td
           colSpan={7}
-          className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-stone-500"
+          className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-on-surface-muted"
         >
           <span className="mr-1.5 inline-block w-3 text-center text-[10px]">
             {collapsed ? "\u25B6" : "\u25BC"}
           </span>
           {MATERIAL_CATEGORY_LABELS[category]}
-          <span className="ml-2 font-normal text-stone-400">({materials.length})</span>
+          <span className="ml-2 font-normal text-on-surface-muted">({materials.length})</span>
         </td>
       </tr>
       {!collapsed && materials.map((m) => (
@@ -572,13 +572,13 @@ function MaterialRow({
 
   if (isEditing) {
     return (
-      <tr className="border-b border-stone-100 bg-amber-50/50">
+      <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-accent-soft)]">
         <td className="px-2 py-1.5">
           <input
             type="text"
             value={draft.name}
             onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-            className="w-full rounded border border-stone-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface px-2 py-1 text-sm focus:border-primary focus:outline-none"
             autoFocus
           />
           <input
@@ -586,7 +586,7 @@ function MaterialRow({
             value={draft.keywords}
             onChange={(e) => setDraft((p) => ({ ...p, keywords: e.target.value }))}
             placeholder="Zoekwoorden (kommagescheiden)"
-            className="mt-1 w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 focus:border-blue-400 focus:outline-none"
+            className="mt-1 w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-xs text-on-surface-secondary focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -595,7 +595,7 @@ function MaterialRow({
             value={draft.brand}
             onChange={(e) => setDraft((p) => ({ ...p, brand: e.target.value }))}
             placeholder="-"
-            className="w-full rounded border border-stone-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface px-2 py-1 text-sm focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -604,7 +604,7 @@ function MaterialRow({
             value={draft.rho}
             onChange={(e) => setDraft((p) => ({ ...p, rho: e.target.value }))}
             step="any"
-            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm tabular-nums focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -613,7 +613,7 @@ function MaterialRow({
             value={draft.lambda}
             onChange={(e) => setDraft((p) => ({ ...p, lambda: e.target.value }))}
             step="any"
-            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm tabular-nums focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -622,7 +622,7 @@ function MaterialRow({
             value={draft.lambdaWet}
             onChange={(e) => setDraft((p) => ({ ...p, lambdaWet: e.target.value }))}
             step="any"
-            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm tabular-nums focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -631,7 +631,7 @@ function MaterialRow({
             value={draft.mu}
             onChange={(e) => setDraft((p) => ({ ...p, mu: e.target.value }))}
             step="any"
-            className="w-full rounded border border-stone-300 px-2 py-1 text-right text-sm tabular-nums focus:border-blue-400 focus:outline-none"
+            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm tabular-nums focus:border-primary focus:outline-none"
           />
         </td>
         <td className="px-2 py-1.5">
@@ -646,7 +646,7 @@ function MaterialRow({
             <button
               type="button"
               onClick={handleCancel}
-              className="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:bg-stone-100"
+              className="rounded border border-[var(--oaec-border)] px-2 py-0.5 text-xs text-on-surface-secondary hover:bg-surface-alt"
             >
               Annuleer
             </button>
@@ -657,33 +657,33 @@ function MaterialRow({
   }
 
   return (
-    <tr className="group border-b border-stone-100 hover:bg-stone-50/50">
-      <td className="px-3 py-2 font-medium text-stone-800">
+    <tr className="group border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]/50">
+      <td className="px-3 py-2 font-medium text-on-surface">
         {material.name}
         {!material.isBuiltIn && (
-          <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600">
+          <span className="ml-2 rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-400">
             Aangepast
           </span>
         )}
         {modified && (
-          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-600">
+          <span className="ml-2 rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
             Gewijzigd
           </span>
         )}
       </td>
-      <td className="px-3 py-2 text-stone-500">
-        {material.brand ?? <span className="text-stone-300">-</span>}
+      <td className="px-3 py-2 text-on-surface-muted">
+        {material.brand ?? <span className="text-on-surface-muted">-</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-        {material.rho !== null ? material.rho : <span className="text-stone-300">-</span>}
+      <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
+        {material.rho !== null ? material.rho : <span className="text-on-surface-muted">-</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-        {material.lambda !== null ? material.lambda : <span className="text-stone-300">-</span>}
+      <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
+        {material.lambda !== null ? material.lambda : <span className="text-on-surface-muted">-</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
-        {material.lambdaWet !== null ? material.lambdaWet : <span className="text-stone-300">-</span>}
+      <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
+        {material.lambdaWet !== null ? material.lambdaWet : <span className="text-on-surface-muted">-</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-stone-700">
+      <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
         {material.mu}
       </td>
       <td className="px-3 py-2">
@@ -691,7 +691,7 @@ function MaterialRow({
           <button
             type="button"
             onClick={handleStartEdit}
-            className="rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+            className="rounded px-2 py-0.5 text-xs text-on-surface-muted hover:bg-surface-alt hover:text-on-surface-secondary"
             title="Bewerken"
           >
             Bewerk
@@ -700,7 +700,7 @@ function MaterialRow({
             <button
               type="button"
               onClick={onReset}
-              className="rounded px-2 py-0.5 text-xs text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              className="rounded px-2 py-0.5 text-xs text-amber-400 hover:bg-amber-600/15 hover:text-amber-400"
               title="Herstel naar standaardwaarden"
             >
               Herstel
@@ -709,7 +709,7 @@ function MaterialRow({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-600/15 hover:text-red-400"
             title="Verwijderen"
           >
             Verwijder
@@ -735,87 +735,87 @@ function MaterialAddForm({
 }) {
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Naam
         <input
           type="text"
           value={draft.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Bijv. PIR 023"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
           autoFocus
         />
       </label>
-      <label className="flex w-32 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-32 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Categorie
         <select
           value={draft.category}
           onChange={(e) => onChange({ category: e.target.value as MaterialCategory })}
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
         >
           {MATERIAL_CATEGORY_ORDER.map((cat) => (
             <option key={cat} value={cat}>{MATERIAL_CATEGORY_LABELS[cat]}</option>
           ))}
         </select>
       </label>
-      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Merk
         <input
           type="text"
           value={draft.brand}
           onChange={(e) => onChange({ brand: e.target.value })}
           placeholder="of leeg"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         {"\u03C1"} [kg/m{"\u00B3"}]
         <input
           type="number"
           value={draft.rho}
           onChange={(e) => onChange({ rho: e.target.value })}
           step="any"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         {"\u03BB"} [W/mK]
         <input
           type="number"
           value={draft.lambda}
           onChange={(e) => onChange({ lambda: e.target.value })}
           step="any"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         {"\u03BB"} nat
         <input
           type="number"
           value={draft.lambdaWet}
           onChange={(e) => onChange({ lambdaWet: e.target.value })}
           step="any"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-20 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         {"\u03BC"} [-]
         <input
           type="number"
           value={draft.mu}
           onChange={(e) => onChange({ mu: e.target.value })}
           step="any"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Zoekwoorden
         <input
           type="text"
           value={draft.keywords}
           onChange={(e) => onChange({ keywords: e.target.value })}
           placeholder="kommagescheiden, bijv. pir, isolatie"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
       <div className="flex gap-2">
@@ -823,7 +823,7 @@ function MaterialAddForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100"
+          className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
         >
           Annuleer
         </button>
@@ -889,7 +889,7 @@ function ConstructionRow({
 
   if (isEditing) {
     return (
-      <tr className="border-b border-stone-100 bg-amber-50/50">
+      <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-accent-soft)]">
         <td className="px-3 py-2" colSpan={4}>
           <ConstructionForm
             draft={{
@@ -911,28 +911,28 @@ function ConstructionRow({
   }
 
   return (
-    <tr className="group border-b border-stone-100 hover:bg-stone-50/50">
-      <td className="px-3 py-2.5 font-medium text-stone-800">
+    <tr className="group border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]/50">
+      <td className="px-3 py-2.5 font-medium text-on-surface">
         {entry.name}
         {!entry.isBuiltIn && (
-          <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600">
+          <span className="ml-2 rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-400">
             Aangepast
           </span>
         )}
         {modified && (
-          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-600">
+          <span className="ml-2 rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
             Gewijzigd
           </span>
         )}
       </td>
-      <td className="px-3 py-2.5 text-right tabular-nums text-stone-700">
+      <td className="px-3 py-2.5 text-right tabular-nums text-on-surface-secondary">
         {entry.uValue.toFixed(2)}
-        <span className="ml-1 text-xs text-stone-400">W/m²K</span>
+        <span className="ml-1 text-xs text-on-surface-muted">W/m²K</span>
       </td>
-      <td className="px-3 py-2.5 text-stone-600">
+      <td className="px-3 py-2.5 text-on-surface-secondary">
         {MATERIAL_TYPE_LABELS[entry.materialType]}
       </td>
-      <td className="px-3 py-2.5 text-stone-600">
+      <td className="px-3 py-2.5 text-on-surface-secondary">
         {VERTICAL_POSITION_LABELS[entry.verticalPosition]}
       </td>
       <td className="px-3 py-2.5">
@@ -940,7 +940,7 @@ function ConstructionRow({
           <button
             type="button"
             onClick={handleStartEdit}
-            className="rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+            className="rounded px-2 py-0.5 text-xs text-on-surface-muted hover:bg-surface-alt hover:text-on-surface-secondary"
             title="Bewerken"
           >
             Bewerk
@@ -948,7 +948,7 @@ function ConstructionRow({
           <button
             type="button"
             onClick={onDuplicate}
-            className="rounded px-2 py-0.5 text-xs text-stone-500 hover:bg-blue-100 hover:text-blue-700"
+            className="rounded px-2 py-0.5 text-xs text-on-surface-muted hover:bg-blue-600/20 hover:text-blue-400"
             title="Dupliceren"
           >
             Kopieer
@@ -957,7 +957,7 @@ function ConstructionRow({
             <button
               type="button"
               onClick={onReset}
-              className="rounded px-2 py-0.5 text-xs text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              className="rounded px-2 py-0.5 text-xs text-amber-400 hover:bg-amber-600/15 hover:text-amber-400"
               title="Herstel naar standaardwaarden"
             >
               Herstel
@@ -966,7 +966,7 @@ function ConstructionRow({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-600/15 hover:text-red-400"
             title="Verwijderen"
           >
             Verwijder
@@ -990,18 +990,18 @@ interface ConstructionFormProps {
 function ConstructionForm({ draft, onChange, onSubmit, onCancel, submitLabel }: ConstructionFormProps) {
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Naam
         <input
           type="text"
           value={draft.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Bijv. Buitenwand (metselwerk)"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
           autoFocus
         />
       </label>
-      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         U-waarde [W/m²K]
         <input
           type="number"
@@ -1009,27 +1009,27 @@ function ConstructionForm({ draft, onChange, onSubmit, onCancel, submitLabel }: 
           onChange={(e) => onChange({ uValue: Number(e.target.value) || 0 })}
           step="0.01"
           min="0"
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>
-      <label className="flex w-36 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-36 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Materiaal
         <select
           value={draft.materialType}
           onChange={(e) => onChange({ materialType: e.target.value as MaterialType })}
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
         >
           {Object.entries(MATERIAL_TYPE_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
       </label>
-      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-stone-600">
+      <label className="flex w-28 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
         Positie
         <select
           value={draft.verticalPosition}
           onChange={(e) => onChange({ verticalPosition: e.target.value as VerticalPosition })}
-          className="rounded border border-stone-300 px-2 py-1.5 text-sm text-stone-900 focus:border-blue-400 focus:outline-none"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none"
         >
           {Object.entries(VERTICAL_POSITION_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
@@ -1041,7 +1041,7 @@ function ConstructionForm({ draft, onChange, onSubmit, onCancel, submitLabel }: 
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100"
+          className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
         >
           Annuleer
         </button>

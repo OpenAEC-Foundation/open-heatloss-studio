@@ -90,7 +90,7 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
             y={yScale(tick)}
             textAnchor="end"
             dominantBaseline="middle"
-            className="fill-stone-400"
+            className="fill-on-surface-muted"
             fontSize="9"
           >
             {tick >= 1000 ? `${(tick / 1000).toFixed(1)}k` : String(tick)}
@@ -141,7 +141,7 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
               x={x + barWidth / 2}
               y={yScale(0) + 6}
               textAnchor="end"
-              className="fill-stone-600"
+              className="fill-on-surface-secondary"
               fontSize="9"
               transform={`rotate(-35, ${x + barWidth / 2}, ${yScale(0) + 6})`}
             >
@@ -162,7 +162,7 @@ export function StackedBarChart({ rooms }: StackedBarChartProps) {
               x={14}
               y={5}
               dominantBaseline="middle"
-              className="fill-stone-500"
+              className="fill-on-surface-muted"
               fontSize="9"
             >
               {cat.label}

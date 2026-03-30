@@ -163,13 +163,13 @@ export function AppShell({ children }: AppShellProps) {
 
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-auto bg-white">
+        <main className="flex-1 overflow-auto bg-surface text-on-surface">
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+            <div className="flex items-center gap-2 bg-red-600/15 border-b border-red-600/30 px-4 py-2.5 text-sm text-red-400">
               <span className="flex-1">{error}</span>
               <button
                 onClick={clearError}
-                className="shrink-0 rounded p-0.5 hover:bg-red-100"
+                className="shrink-0 rounded p-0.5 hover:bg-red-600/20"
                 aria-label="Sluiten"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">

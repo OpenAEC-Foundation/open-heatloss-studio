@@ -2,13 +2,13 @@ import { type ButtonHTMLAttributes, forwardRef } from "react";
 
 const VARIANTS = {
   primary:
-    "bg-primary text-white hover:bg-primary-hover focus-visible:ring-primary",
+    "bg-primary text-on-accent hover:bg-primary-hover focus-visible:ring-primary",
   secondary:
-    "border-2 border-deep-forge bg-white text-deep-forge hover:bg-deep-forge hover:text-white focus-visible:ring-deep-forge",
+    "border-2 border-[var(--oaec-border)] bg-[var(--oaec-hover)] text-on-surface hover:bg-[var(--oaec-hover-strong)] hover:text-on-surface focus-visible:ring-primary",
   ghost:
-    "border-2 border-primary text-primary hover:bg-primary hover:text-white focus-visible:ring-primary",
+    "border-2 border-primary text-primary hover:bg-primary hover:text-on-accent focus-visible:ring-primary",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+    "bg-red-600/20 text-red-400 border border-red-600/30 hover:bg-red-600/30 focus-visible:ring-red-500",
 } as const;
 
 const SIZES = {

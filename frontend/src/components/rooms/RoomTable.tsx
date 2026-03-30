@@ -18,11 +18,11 @@ import { VentilationRow } from "./VentilationRow";
 
 const EMPTY_ROOM_CELLS = (
   <>
-    <td className="border-r border-stone-200" />
-    <td className="border-r border-stone-200" />
-    <td className="border-r border-stone-200" />
-    <td className="border-r border-stone-200" />
-    <td className="border-r border-stone-200" />
+    <td className="border-r border-[var(--oaec-border-subtle)]" />
+    <td className="border-r border-[var(--oaec-border-subtle)]" />
+    <td className="border-r border-[var(--oaec-border-subtle)]" />
+    <td className="border-r border-[var(--oaec-border-subtle)]" />
+    <td className="border-r border-[var(--oaec-border-subtle)]" />
   </>
 );
 
@@ -47,19 +47,19 @@ export function RoomTable() {
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-stone-200">
+    <div className="overflow-x-auto rounded-lg border border-[var(--oaec-border)]">
       <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 z-10 bg-stone-100">
-          <tr className="border-b-2 border-stone-300 text-left text-xs font-semibold uppercase tracking-wider text-stone-600">
-            <th className="w-[140px] border-r border-stone-200 px-2 py-2">Vertrek</th>
-            <th className="w-[120px] border-r border-stone-200 px-2 py-2">Functie</th>
-            <th className="w-[70px] border-r border-stone-200 px-2 py-2 text-right">
+        <thead className="sticky top-0 z-10 bg-surface-alt">
+          <tr className="border-b-2 border-[var(--oaec-border)] text-left text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
+            <th className="w-[140px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Vertrek</th>
+            <th className="w-[120px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Functie</th>
+            <th className="w-[70px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               {"θ"}i
             </th>
-            <th className="w-[80px] border-r border-stone-200 px-2 py-2 text-right">
+            <th className="w-[80px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               A<sub>v</sub> [m{"²"}]
             </th>
-            <th className="w-[70px] border-r border-stone-200 px-2 py-2 text-right">
+            <th className="w-[70px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               h [m]
             </th>
             <th className="w-[160px] px-2 py-2">Grensvlak</th>
@@ -91,7 +91,7 @@ export function RoomTable() {
           {/* Add room ghost row */}
           <tr
             onClick={handleAddRoom}
-            className="cursor-pointer border-t-2 border-stone-200 text-stone-400 hover:bg-amber-50 hover:text-stone-600"
+            className="cursor-pointer border-t-2 border-[var(--oaec-border)] text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
           >
             <td colSpan={11} className="px-3 py-2 text-sm font-medium">
               + vertrek toevoegen
@@ -194,7 +194,7 @@ function RoomGroup({
   return (
     <>
       {/* First row: room info + first construction (or empty) */}
-      <tr className="border-b border-stone-100 bg-stone-50/50">
+      <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-hover)]">
         <RoomHeaderCells
           room={room}
           onUpdate={onUpdateRoom}
@@ -210,7 +210,7 @@ function RoomGroup({
           />
         ) : (
           <>
-            <td colSpan={5} className="px-2 py-1 text-xs text-stone-400">
+            <td colSpan={5} className="px-2 py-1 text-xs text-on-surface-muted">
               Geen grensvlakken
             </td>
             <td />
@@ -220,7 +220,7 @@ function RoomGroup({
 
       {/* Additional construction rows (index 1+) */}
       {constructions.slice(1).map((c) => (
-        <tr key={c.id} className="border-b border-stone-100 hover:bg-stone-50/30">
+        <tr key={c.id} className="border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]">
           {EMPTY_ROOM_CELLS}
           <ConstructionCells
             construction={c}
@@ -238,7 +238,7 @@ function RoomGroup({
       {/* Add construction ghost row */}
       <tr
         onClick={handleOpenPicker}
-        className="cursor-pointer border-b-2 border-stone-200 text-stone-400 hover:bg-blue-50 hover:text-stone-600"
+        className="cursor-pointer border-b-2 border-[var(--oaec-border)] text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
       >
         {EMPTY_ROOM_CELLS}
         <td ref={addBtnRef} colSpan={5} className="px-3 py-1 text-xs font-medium">

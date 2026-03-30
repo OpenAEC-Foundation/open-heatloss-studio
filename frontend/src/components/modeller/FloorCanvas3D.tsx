@@ -480,13 +480,13 @@ export function FloorCanvas3D({
     >
       {/* Render mode toggle */}
       <div
-        className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-lg border border-stone-200 bg-white/95 shadow-sm backdrop-blur-sm text-xs select-none"
+        className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-lg border border-[var(--oaec-border)] bg-surface-alt/95 shadow-sm backdrop-blur-sm text-xs select-none"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => setRenderMode("normal")}
           className={`px-3 py-1.5 font-medium transition-colors ${
-            renderMode === "normal" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+            renderMode === "normal" ? "bg-primary text-on-accent" : "text-on-surface-muted hover:bg-surface-alt"
           }`}
         >
           Normaal
@@ -494,7 +494,7 @@ export function FloorCanvas3D({
         <button
           onClick={() => setRenderMode("uvalue")}
           className={`px-3 py-1.5 font-medium transition-colors ${
-            renderMode === "uvalue" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+            renderMode === "uvalue" ? "bg-primary text-on-accent" : "text-on-surface-muted hover:bg-surface-alt"
           }`}
         >
           U-waarde
@@ -504,10 +504,10 @@ export function FloorCanvas3D({
       {/* U-value legend */}
       {renderMode === "uvalue" && (
         <div
-          className="absolute right-3 top-12 z-10 rounded-lg bg-white/95 p-2.5 shadow-lg backdrop-blur-sm text-[10px] select-none"
+          className="absolute right-3 top-12 z-10 rounded-lg bg-surface-alt/95 p-2.5 shadow-lg backdrop-blur-sm text-[10px] select-none"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="mb-1 font-semibold text-stone-700 text-[11px]">U-waarde (W/m²K)</div>
+          <div className="mb-1 font-semibold text-on-surface-secondary text-[11px]">U-waarde (W/m²K)</div>
           <div className="flex flex-col gap-0.5">
             <LegendRow color="#22c55e" label="< 0.5 (goed)" />
             <LegendRow color="#a3e635" label="0.5 – 1.0" />
@@ -522,10 +522,10 @@ export function FloorCanvas3D({
 
       {/* Section plane controls */}
       <div
-        className="absolute left-3 bottom-3 z-10 flex flex-col gap-1.5 rounded-lg bg-white/95 p-3 shadow-lg backdrop-blur-sm text-xs select-none"
+        className="absolute left-3 bottom-3 z-10 flex flex-col gap-1.5 rounded-lg bg-surface-alt/95 p-3 shadow-lg backdrop-blur-sm text-xs select-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="font-semibold text-stone-700 text-[11px] tracking-wide uppercase">Doorsnede</div>
+        <div className="font-semibold text-on-surface-secondary text-[11px] tracking-wide uppercase">Doorsnede</div>
 
         <SectionRow label="X" enabled={sectionX !== null}
           value={sectionX ?? (bounds.minX + bounds.maxX) / 2}
@@ -547,7 +547,7 @@ export function FloorCanvas3D({
         />
 
         <button
-          className="mt-1 rounded bg-stone-100 px-2 py-1 text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+          className="mt-1 rounded bg-surface-alt px-2 py-1 text-[10px] text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
           onClick={() => {
             setSectionX(null); setSectionY(null); setSectionZ(null);
           }}
@@ -559,23 +559,23 @@ export function FloorCanvas3D({
       {/* Right-click context menu */}
       {ctxMenu && (
         <div
-          className="fixed z-50 min-w-[140px] rounded-lg bg-white/95 py-1 shadow-xl backdrop-blur-sm text-xs"
+          className="fixed z-50 min-w-[140px] rounded-lg bg-surface-alt/95 py-1 shadow-xl backdrop-blur-sm text-xs"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={() => setCtxMenu(null)}
         >
           {selectedRoomId && (
             <>
               <button
-                className="w-full px-3 py-1.5 text-left hover:bg-stone-100 text-stone-700"
+                className="w-full px-3 py-1.5 text-left hover:bg-surface-alt text-on-surface-secondary"
                 onClick={() => onDeleteRoom?.(selectedRoomId)}
               >
                 Verwijder ruimte
               </button>
-              <div className="my-0.5 border-t border-stone-200" />
+              <div className="my-0.5 border-t border-[var(--oaec-border)]" />
             </>
           )}
           {!selectedRoomId && (
-            <div className="px-3 py-1.5 text-stone-400 italic">Geen selectie</div>
+            <div className="px-3 py-1.5 text-on-surface-muted italic">Geen selectie</div>
           )}
         </div>
       )}
@@ -598,9 +598,9 @@ function SectionRow({ label, enabled, value, min, max, onToggle, onChange }: {
           type="checkbox"
           checked={enabled}
           onChange={(e) => onToggle(e.target.checked)}
-          className="h-3.5 w-3.5 rounded border-stone-300 accent-amber-500"
+          className="h-3.5 w-3.5 rounded border-[var(--oaec-border)] accent-amber-500"
         />
-        <span className="font-mono font-semibold text-stone-600 w-3">{label}</span>
+        <span className="font-mono font-semibold text-on-surface-secondary w-3">{label}</span>
       </label>
       {enabled && (
         <input
@@ -625,7 +625,7 @@ function LegendRow({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-2.5 w-4 rounded-sm" style={{ backgroundColor: color }} />
-      <span className="text-stone-600">{label}</span>
+      <span className="text-on-surface-secondary">{label}</span>
     </div>
   );
 }

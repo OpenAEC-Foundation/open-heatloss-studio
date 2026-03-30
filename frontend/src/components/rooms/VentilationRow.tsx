@@ -52,12 +52,12 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
   );
 
   return (
-    <tr className="border-b border-stone-100 bg-amber-50/30">
+    <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-accent-soft)]">
       <td colSpan={11} className="px-3 py-2">
         <div className="flex items-center gap-6 text-xs">
           {/* q_v */}
           <label className="flex items-center gap-1.5">
-            <span className="font-medium text-stone-500">
+            <span className="font-medium text-on-surface-muted">
               q<sub>v</sub> [dm³/s]
             </span>
             <input
@@ -66,39 +66,39 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               min="0"
               value={room.ventilation_rate ?? ""}
               onChange={handleQvChange}
-              className="w-16 rounded border border-stone-200 px-1.5 py-0.5 text-right text-xs tabular-nums focus:border-blue-400 focus:outline-none"
+              className="w-16 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder={bblMinimum > 0 ? bblMinimum.toFixed(1) : "0"}
             />
             {bblMinimum > 0 && room.ventilation_rate == null && (
-              <span className="text-[10px] text-stone-400">BBL min.</span>
+              <span className="text-[10px] text-on-surface-muted">BBL min.</span>
             )}
           </label>
 
           {/* Mech. afvoer */}
-          <label className="flex items-center gap-1.5 text-stone-500">
+          <label className="flex items-center gap-1.5 text-on-surface-muted">
             <input
               type="checkbox"
               checked={room.has_mechanical_exhaust ?? false}
               onChange={handleExhaustChange}
-              className="h-3.5 w-3.5 rounded border-stone-300 text-blue-600 focus:ring-blue-400"
+              className="h-3.5 w-3.5 rounded border-[var(--oaec-border)] accent-primary"
             />
             <span className="font-medium">Mech. afvoer</span>
           </label>
 
           {/* Mech. toevoer */}
-          <label className="flex items-center gap-1.5 text-stone-500">
+          <label className="flex items-center gap-1.5 text-on-surface-muted">
             <input
               type="checkbox"
               checked={room.has_mechanical_supply ?? false}
               onChange={handleSupplyChange}
-              className="h-3.5 w-3.5 rounded border-stone-300 text-blue-600 focus:ring-blue-400"
+              className="h-3.5 w-3.5 rounded border-[var(--oaec-border)] accent-primary"
             />
             <span className="font-medium">Mech. toevoer</span>
           </label>
 
           {/* f_buitenlucht */}
           <label className="flex items-center gap-1.5">
-            <span className="font-medium text-stone-500">
+            <span className="font-medium text-on-surface-muted">
               f<sub>buitenlucht</sub>
             </span>
             <input
@@ -108,7 +108,7 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               max="1"
               value={room.fraction_outside_air ?? ""}
               onChange={handleFractionChange}
-              className="w-14 rounded border border-stone-200 px-1.5 py-0.5 text-right text-xs tabular-nums focus:border-blue-400 focus:outline-none"
+              className="w-14 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder="1.0"
             />
           </label>

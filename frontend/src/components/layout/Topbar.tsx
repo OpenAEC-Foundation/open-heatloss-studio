@@ -83,15 +83,15 @@ function UserAvatar() {
         {initial}
       </button>
       {dropdownOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 rounded-md border border-stone-200 bg-white py-1 shadow-lg">
-          <div className="border-b border-stone-100 px-3 py-2">
-            <p className="truncate text-sm font-medium text-stone-900">
+        <div className="absolute right-0 top-full mt-2 w-48 rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] py-1 shadow-lg">
+          <div className="border-b border-[var(--oaec-border-subtle)] px-3 py-2">
+            <p className="truncate text-sm font-medium text-on-surface">
               {oidcState.name}
             </p>
           </div>
           <button
             onClick={oidcState.logout}
-            className="w-full px-3 py-2 text-left text-sm text-stone-600 transition-colors hover:bg-stone-50"
+            className="w-full px-3 py-2 text-left text-sm text-on-surface-secondary transition-colors hover:bg-[var(--oaec-hover)]"
           >
             Uitloggen
           </button>

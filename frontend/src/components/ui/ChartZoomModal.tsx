@@ -35,15 +35,15 @@ export function ChartZoomModal({ open, onClose, title, children }: ChartZoomModa
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90vh] w-[90vw] max-w-5xl overflow-auto rounded-lg bg-white p-6 shadow-2xl"
+        className="relative max-h-[90vh] w-[90vw] max-w-5xl overflow-auto rounded-lg bg-[var(--oaec-bg-lighter)] border border-[var(--oaec-border)] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-stone-700">{title}</h3>
+            <h3 className="text-sm font-semibold text-on-surface-secondary">{title}</h3>
             <button
               onClick={onClose}
-              className="rounded px-2 py-1 text-xs text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+              className="rounded px-2 py-1 text-xs text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
             >
               Sluiten
             </button>

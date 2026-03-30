@@ -131,7 +131,7 @@ export function Projects() {
 
       <div className="space-y-4 p-6">
         {error && (
-          <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-md bg-red-600/15 border border-red-600/30 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -142,22 +142,22 @@ export function Projects() {
             placeholder="Zoek op projectnaam..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-sm rounded-md border border-stone-300 px-3 py-1.5 text-sm placeholder:text-stone-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full max-w-sm rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface px-3 py-1.5 text-sm placeholder:text-on-surface-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         )}
 
         {loading ? (
-          <p className="text-sm text-stone-400">Laden...</p>
+          <p className="text-sm text-on-surface-muted">Laden...</p>
         ) : filtered.length === 0 && projects.length === 0 ? (
           <Card>
-            <div className="py-4 text-center text-sm text-stone-500">
+            <div className="py-4 text-center text-sm text-on-surface-muted">
               Nog geen opgeslagen projecten. Sla je huidige project op met de knop
               hierboven.
             </div>
           </Card>
         ) : filtered.length === 0 ? (
           <Card>
-            <div className="py-4 text-center text-sm text-stone-500">
+            <div className="py-4 text-center text-sm text-on-surface-muted">
               Geen projecten gevonden voor &ldquo;{search}&rdquo;.
             </div>
           </Card>
@@ -165,7 +165,7 @@ export function Projects() {
           <Card>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-200 text-left text-xs font-medium uppercase text-stone-400">
+                <tr className="border-b border-[var(--oaec-border)] text-left text-xs font-medium uppercase text-on-surface-muted">
                   <th className="px-3 py-2">Naam</th>
                   <th className="px-3 py-2">Laatst gewijzigd</th>
                   <th className="px-3 py-2">Resultaat</th>
@@ -176,19 +176,19 @@ export function Projects() {
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
-                    className="border-b border-stone-100 transition-colors last:border-0 hover:bg-stone-50"
+                    className="border-b border-[var(--oaec-border-subtle)] transition-colors last:border-0 hover:bg-[var(--oaec-hover)]"
                   >
                     <td className="px-3 py-2.5 font-medium">{p.name}</td>
-                    <td className="px-3 py-2.5 text-stone-500">
+                    <td className="px-3 py-2.5 text-on-surface-muted">
                       {formatDate(p.updated_at)}
                     </td>
                     <td className="px-3 py-2.5">
                       {p.has_result ? (
-                        <span className="inline-block rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
+                        <span className="inline-block rounded bg-green-600/15 px-1.5 py-0.5 text-xs text-green-400">
                           Berekend
                         </span>
                       ) : (
-                        <span className="inline-block rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-500">
+                        <span className="inline-block rounded bg-[var(--oaec-hover)] px-1.5 py-0.5 text-xs text-on-surface-muted">
                           Concept
                         </span>
                       )}

@@ -16,8 +16,8 @@ export function EditableSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`w-full cursor-pointer rounded border-none bg-transparent px-1 py-0.5
-        text-sm text-stone-900 outline-none hover:bg-stone-100
-        focus:bg-white focus:ring-1 focus:ring-primary ${className}`}
+        text-sm text-on-surface outline-none hover:bg-[var(--oaec-hover)]
+        focus:bg-[var(--oaec-bg-input)] focus:ring-1 focus:ring-primary ${className}`}
     >
       {Object.entries(options).map(([key, label]) => (
         <option key={key} value={key}>

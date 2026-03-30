@@ -103,17 +103,17 @@ export function Ribbon(props: RibbonProps) {
   const [activeTab, setActiveTab] = useState<TabId>("model");
 
   return (
-    <div className="flex flex-col border-b border-stone-200 bg-white">
+    <div className="flex flex-col border-b border-[var(--oaec-border)] bg-surface-alt">
       {/* Tab strip */}
-      <div className="flex items-center gap-px border-b border-stone-200 bg-stone-100 px-1">
+      <div className="flex items-center gap-px border-b border-[var(--oaec-border)] bg-surface-alt px-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`rounded-t px-4 py-1.5 text-xs font-medium transition-colors ${
               activeTab === tab.id
-                ? "bg-white text-stone-800 shadow-sm"
-                : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                ? "bg-surface-alt text-on-surface shadow-sm"
+                : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
             }`}
           >
             {tab.label}
@@ -200,11 +200,11 @@ function BeeldTab({
     <>
       <RibbonGroup label="Weergave">
         <div className="flex h-full items-center gap-2">
-          <div className="flex overflow-hidden rounded border border-stone-200">
+          <div className="flex overflow-hidden rounded border border-[var(--oaec-border)]">
             <button
               onClick={() => onViewModeChange("2d")}
               className={`px-3 py-1.5 text-xs font-medium ${
-                viewMode === "2d" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+                viewMode === "2d" ? "bg-primary text-on-accent" : "text-on-surface-muted hover:bg-surface-alt"
               }`}
             >
               2D
@@ -212,7 +212,7 @@ function BeeldTab({
             <button
               onClick={() => onViewModeChange("3d")}
               className={`px-3 py-1.5 text-xs font-medium ${
-                viewMode === "3d" ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"
+                viewMode === "3d" ? "bg-primary text-on-accent" : "text-on-surface-muted hover:bg-surface-alt"
               }`}
             >
               3D
@@ -220,11 +220,11 @@ function BeeldTab({
           </div>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-stone-400">Verdieping:</span>
+              <span className="text-[10px] text-on-surface-muted">Verdieping:</span>
               <select
                 value={activeFloor}
                 onChange={(e) => onFloorChange(Number(e.target.value))}
-                className="rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[11px]"
+                className="rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[11px]"
               >
                 {FLOOR_LABELS.map((label, i) => (
                   <option key={i} value={i}>{label}</option>
@@ -233,7 +233,7 @@ function BeeldTab({
             </div>
             <button
               onClick={onFitView}
-              className="rounded border border-stone-200 px-2 py-0.5 text-[10px] text-stone-500 hover:bg-stone-50"
+              className="rounded border border-[var(--oaec-border)] px-2 py-0.5 text-[10px] text-on-surface-muted hover:bg-[var(--oaec-hover)]"
             >
               Passend (F)
             </button>
@@ -246,7 +246,7 @@ function BeeldTab({
           <button
             onClick={() => onSnapChange({ ...snap, enabled: !snap.enabled })}
             className={`rounded px-2 py-1 text-xs font-bold ${
-              snap.enabled ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-400"
+              snap.enabled ? "bg-amber-100 text-amber-800" : "bg-surface-alt text-on-surface-muted"
             }`}
           >
             {snap.enabled ? "AAN" : "UIT"}
@@ -255,26 +255,26 @@ function BeeldTab({
             {SNAP_OPTIONS.map((opt) => (
               <label
                 key={opt.mode}
-                className="flex cursor-pointer items-center gap-1 text-[10px] text-stone-600"
+                className="flex cursor-pointer items-center gap-1 text-[10px] text-on-surface-secondary"
               >
                 <input
                   type="checkbox"
                   checked={snap.modes.includes(opt.mode)}
                   onChange={() => toggleSnapMode(opt.mode)}
                   disabled={!snap.enabled}
-                  className="h-2.5 w-2.5 rounded border-stone-300 text-amber-600"
+                  className="h-2.5 w-2.5 rounded border-[var(--oaec-border)] text-amber-600"
                 />
                 {opt.label}
               </label>
             ))}
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-stone-400">Raster:</span>
+            <span className="text-[10px] text-on-surface-muted">Raster:</span>
             <select
               value={snap.gridSize}
               onChange={(e) => onSnapChange({ ...snap, gridSize: Number(e.target.value) })}
               disabled={!snap.enabled}
-              className="rounded border border-stone-200 bg-white px-1 py-0.5 text-[10px]"
+              className="rounded border border-[var(--oaec-border)] bg-surface-alt px-1 py-0.5 text-[10px]"
             >
               <option value={10}>10mm</option>
               <option value={50}>50mm</option>
@@ -334,10 +334,10 @@ function InvoegenTab({
 
 function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col border-r border-stone-100 px-2 last:border-r-0">
+    <div className="flex flex-col border-r border-[var(--oaec-border-subtle)] px-2 last:border-r-0">
       <div className="flex flex-1 items-center">{children}</div>
       {label && (
-        <div className="pb-0.5 text-center text-[9px] font-medium uppercase tracking-wider text-stone-400">
+        <div className="pb-0.5 text-center text-[9px] font-medium uppercase tracking-wider text-on-surface-muted">
           {label}
         </div>
       )}
@@ -369,7 +369,7 @@ function ToolRow({
             className={`flex h-[52px] w-11 flex-col items-center justify-center gap-0.5 rounded px-1 transition-colors ${
               active === t.id
                 ? "bg-amber-100 text-amber-800"
-                : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
             }`}
           >
             <Icon size={18} />
@@ -389,7 +389,7 @@ function ToolRow({
                 className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left transition-colors ${
                   active === t.id
                     ? "bg-amber-100 text-amber-800"
-                    : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                    : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
                 }`}
               >
                 <Icon size={14} />
@@ -415,7 +415,7 @@ function LargeButton({
   return (
     <button
       onClick={onClick}
-      className="flex h-[52px] w-14 flex-col items-center justify-center gap-0.5 rounded px-1 text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-700"
+      className="flex h-[52px] w-14 flex-col items-center justify-center gap-0.5 rounded px-1 text-on-surface-muted transition-colors hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
     >
       <Icon size={18} />
       <span className="text-[9px] font-medium leading-tight">{label}</span>
@@ -438,7 +438,7 @@ function SmallButton({
     <button
       onClick={onClick}
       title={title}
-      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-700"
+      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-on-surface-muted transition-colors hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
     >
       <Icon size={14} />
       <span className="text-[9px] font-medium">{label}</span>

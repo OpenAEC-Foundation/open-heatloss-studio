@@ -107,8 +107,8 @@ export const ConstructionCells = memo(function ConstructionCells({
             onChange={(e) => handleSelectConstruction(e.target.value)}
             className={`min-w-0 flex-1 truncate rounded border px-1.5 py-0.5 text-xs ${
               isLinked
-                ? "border-blue-200 bg-blue-50 text-blue-800"
-                : "border-stone-200 bg-white text-stone-700"
+                ? "border-blue-500/30 bg-blue-600/15 text-blue-400"
+                : "border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] text-on-surface-secondary"
             }`}
             title={construction.description || "Kies constructie..."}
           >
@@ -160,8 +160,8 @@ export const ConstructionCells = memo(function ConstructionCells({
             onClick={() => setLayerEditorOpen(true)}
             className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${
               layerCount > 0
-                ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+                ? "bg-blue-600/15 text-blue-400 hover:bg-blue-600/25"
+                : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
             }`}
             title="Constructie-opbouw bewerken"
           >
@@ -179,7 +179,7 @@ export const ConstructionCells = memo(function ConstructionCells({
       <td className="px-1 py-1 text-center">
         <button
           onClick={onRemove}
-          className="rounded p-0.5 text-stone-400 hover:bg-red-50 hover:text-red-600"
+          className="rounded p-0.5 text-on-surface-muted hover:bg-red-600/15 hover:text-red-400"
           title="Verwijder grensvlak"
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
