@@ -8,6 +8,7 @@ description = "REST API for ISSO 51 heat loss calculations"
 [dependencies]
 isso51-core = { path = "../isso51-core" }
 isso51-ifcx = { path = "../isso51-ifcx" }
+openaec-cloud = { git = "https://github.com/OpenAEC-Foundation/openaec-cloud.git" }
 axum = { version = "0.8", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

@@ -85,6 +85,18 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] Dead code verwijderen: `ModellerToolbar.tsx`, `DrawingToolsPanel.tsx` (vervangen door Ribbon)
 - [ ] Store snapshot mist constructie-assignments (undo/redo verliest wall/floor/roof toewijzingen)
 
+## Cloud integratie — BACKEND KLAAR
+- [x] `openaec-cloud` dependency (gedeelde Nextcloud cloud crate)
+- [x] Multi-tenant config (`TENANTS_CONFIG`, `DEFAULT_TENANT` env vars)
+- [x] `GET /api/v1/cloud/status` — cloud storage beschikbaarheid
+- [x] `GET /api/v1/cloud/projects` — projecten uit Nextcloud
+- [x] `GET /api/v1/cloud/projects/{project}/models` — IFC bestanden
+- [x] `GET /api/v1/cloud/projects/{project}/calculations` — berekeningen
+- [x] `POST /api/v1/cloud/projects/{project}/save` — berekening opslaan + manifest update
+- [ ] Server-side deployment: volume mount + env vars in docker-compose
+- [ ] Frontend: cloud storage browser in de UI
+- [ ] Frontend: "Opslaan naar cloud" knop in Backstage/resultaten
+
 ## App features
 - [x] OIDC login/logout op productie
 - [x] Projecten opslaan/laden

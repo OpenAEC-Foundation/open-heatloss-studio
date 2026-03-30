@@ -21,6 +21,10 @@ pub struct Config {
     pub reports_api_key: Option<String>,
     /// Path to the `ifc-tool` executable for server-side IFC import.
     pub ifc_tool_path: Option<String>,
+    /// Path to tenants.json for multi-tenant cloud storage.
+    pub tenants_config: Option<String>,
+    /// Default tenant slug (used when no tenant claim in token).
+    pub default_tenant: Option<String>,
 }
 
 impl Config {
@@ -50,6 +54,12 @@ impl Config {
                 .ok()
                 .filter(|s| !s.is_empty()),
             ifc_tool_path: env::var("IFC_TOOL_PATH")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            tenants_config: env::var("TENANTS_CONFIG")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            default_tenant: env::var("DEFAULT_TENANT")
                 .ok()
                 .filter(|s| !s.is_empty()),
         }

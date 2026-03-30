@@ -19,6 +19,8 @@ use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
+use openaec_cloud::TenantsRegistry;
+
 use crate::auth::JwksCache;
 use crate::config::Config;
 use crate::state::AppState;
@@ -68,12 +70,31 @@ async fn main() {
         });
     }
 
+    // --- Multi-tenant cloud storage ---
+    let tenants = if let Some(ref path) = config.tenants_config {
+        TenantsRegistry::load(path).unwrap_or_default()
+    } else {
+        TenantsRegistry::load_from_env().unwrap_or_default()
+    };
+
+    if tenants.is_configured() {
+        tracing::info!(
+            tenants = ?tenants.slugs(),
+            "Cloud storage enabled for {} tenant(s)",
+            tenants.slugs().len()
+        );
+    } else {
+        tracing::info!("No tenants configured — cloud storage disabled");
+    }
+
     let app_state = AppState::new(
         db,
         jwks,
         config.reports_api_url.clone(),
         config.reports_api_key.clone(),
         config.ifc_tool_path.clone(),
+        tenants,
+        config.default_tenant.clone(),
     );
 
     // --- Routes ---
@@ -100,6 +121,23 @@ async fn main() {
         .route(
             "/projects/{id}/calculate",
             post(handlers::calculate_and_save),
+        );
+
+    // Cloud storage routes (authenticated).
+    let cloud_routes = Router::new()
+        .route("/status", get(handlers::cloud_status))
+        .route("/projects", get(handlers::cloud_list_projects))
+        .route(
+            "/projects/{project}/models",
+            get(handlers::cloud_list_models),
+        )
+        .route(
+            "/projects/{project}/calculations",
+            get(handlers::cloud_list_calculations),
+        )
+        .route(
+            "/projects/{project}/save",
+            post(handlers::cloud_save_calculation),
         );
 
     // IFC import with 100 MB body limit (default is 2 MB).
@@ -129,7 +167,10 @@ async fn main() {
     let mut app = Router::new()
         .nest(
             config::API_PREFIX,
-            public.merge(protected).nest("/ifc", ifc_routes),
+            public
+                .merge(protected)
+                .nest("/cloud", cloud_routes)
+                .nest("/ifc", ifc_routes),
         )
         .with_state(app_state)
         .layer(cors)
