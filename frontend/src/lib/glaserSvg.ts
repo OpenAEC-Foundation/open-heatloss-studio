@@ -59,6 +59,56 @@ function categoryColor(cat: MaterialCategory): string {
   return MATERIAL_CATEGORY_VISUALS[cat]?.color ?? "#e5e7eb";
 }
 
+/** Isolatie-categorieën die een directe zigzag-arcering krijgen (geen tiled pattern). */
+const INSULATION_CATEGORIES: ReadonlySet<MaterialCategory> = new Set([
+  "isolatie_mineraal",
+  "isolatie_kunststof",
+  "isolatie_natuurlijk",
+]);
+
+/** Hoek van de zigzag-lijnen ten opzichte van horizontaal (60°). */
+const ZIGZAG_ANGLE_DEG = 60;
+const ZIGZAG_TAN = Math.tan((ZIGZAG_ANGLE_DEG * Math.PI) / 180); // ~1.732
+
+/** Zigzag styling per isolatietype. */
+const ZIGZAG_STYLE: Record<string, { strokeWidth: number; offset?: number }> = {
+  isolatie_mineraal: { strokeWidth: 0.8 },
+  isolatie_kunststof: { strokeWidth: 0.8, offset: 1.5 },
+  isolatie_natuurlijk: { strokeWidth: 0.8 },
+};
+
+/**
+ * Genereer een SVG path (M/L) voor een doorlopend zigzag-patroon binnen een band.
+ */
+function generateZigzagPath(
+  bandX: number,
+  bandY: number,
+  bandW: number,
+  bandH: number,
+  periodScale = 1.0,
+): string {
+  const halfPeriod = (bandH / ZIGZAG_TAN) * periodScale;
+  if (halfPeriod < 0.5 || bandW < 1) return "";
+
+  const bottom = bandY + bandH;
+  const top = bandY;
+
+  const points: string[] = [];
+  let x = bandX;
+  let goingUp = true;
+
+  points.push(`M${x.toFixed(1)},${bottom.toFixed(1)}`);
+
+  while (x < bandX + bandW + halfPeriod) {
+    x += halfPeriod;
+    const y = goingUp ? top : bottom;
+    points.push(`L${x.toFixed(1)},${y.toFixed(1)}`);
+    goingUp = !goingUp;
+  }
+
+  return points.join(" ");
+}
+
 // ---------- Stud computation ----------
 
 interface StudBand {
@@ -157,15 +207,45 @@ export function generateGlaserSvg(
     const w = (d / totalThickness) * PLOT_W;
     const color = cat ? categoryColor(cat) : "#e5e7eb";
 
-    // Resolve pattern: materiaal-specifiek > categorie default
-    const patternId = cat ? resolvePatternId(cat, hatchOverride) : undefined;
+    // Isolatie-categorieën krijgen directe zigzag-lijnen, geen tiled pattern
+    const isInsulation = cat ? INSULATION_CATEGORIES.has(cat) : false;
+    const patternId = cat && !isInsulation ? resolvePatternId(cat, hatchOverride) : undefined;
 
     // Color fill
     parts.push(`<rect x="${x.toFixed(1)}" y="${MARGIN.top}" width="${Math.max(w, 1).toFixed(1)}" height="${PLOT_H}" fill="${color}" fill-opacity="0.55"/>`);
 
-    // Pattern overlay
+    // Pattern overlay (niet voor isolatie)
     if (patternId) {
       parts.push(`<rect x="${x.toFixed(1)}" y="${MARGIN.top}" width="${Math.max(w, 1).toFixed(1)}" height="${PLOT_H}" fill="url(#${patternId})"/>`);
+    }
+
+    // Directe zigzag-arcering voor isolatie-lagen (NEN 47)
+    if (cat && isInsulation && w > 2) {
+      const clipId = `insulation-clip-${i}`;
+      const style = ZIGZAG_STYLE[cat] ?? { strokeWidth: 0.8 };
+      const periodScale = cat === "isolatie_natuurlijk" ? 1.3 : 1.0;
+      const extraWidth = PLOT_H / ZIGZAG_TAN;
+      const mainPath = generateZigzagPath(
+        x - extraWidth,
+        MARGIN.top,
+        w + 2 * extraWidth,
+        PLOT_H,
+        periodScale,
+      );
+      parts.push(`<clipPath id="${clipId}"><rect x="${x.toFixed(1)}" y="${MARGIN.top}" width="${w.toFixed(1)}" height="${PLOT_H}"/></clipPath>`);
+      parts.push(`<g clip-path="url(#${clipId})">`);
+      parts.push(`<path d="${mainPath}" fill="none" stroke="#555" stroke-width="${style.strokeWidth}" opacity="0.6" stroke-linejoin="round"/>`);
+      if (style.offset) {
+        const offsetPath = generateZigzagPath(
+          x - extraWidth + style.offset,
+          MARGIN.top,
+          w + 2 * extraWidth,
+          PLOT_H,
+          periodScale,
+        );
+        parts.push(`<path d="${offsetPath}" fill="none" stroke="#555" stroke-width="${style.strokeWidth}" opacity="0.6" stroke-linejoin="round"/>`);
+      }
+      parts.push(`</g>`);
     }
 
     // Studs: verticale banden met stijl-patroon
