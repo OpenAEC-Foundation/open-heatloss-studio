@@ -63,6 +63,9 @@ ENV VITE_OIDC_ISSUER=${VITE_OIDC_ISSUER}
 ENV VITE_OIDC_CLIENT_ID=${VITE_OIDC_CLIENT_ID}
 ENV VITE_APP_VERSION=${VITE_APP_VERSION}
 
+# Write version to .env.local so Vite picks it up reliably (overrides .env files)
+RUN echo "VITE_APP_VERSION=${VITE_APP_VERSION}" >> .env.local
+
 # Build for production
 RUN npm run build
 
