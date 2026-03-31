@@ -39,10 +39,8 @@ const AIR_ZONE_W = 15;
 /** Kleur van de binnen/buiten-lucht zones (lichtblauw, zelfde als oude spouw). */
 const AIR_ZONE_COLOR = "#bfdbfe";
 
-/** Minimum aantal zichtbare studs per laag. */
-const MIN_VISIBLE_STUDS = 2;
-/** Maximum aantal zichtbare studs per laag (voorkomt visuele ruis). */
-const MAX_VISIBLE_STUDS = 5;
+/** Aantal schematische studs per laag. */
+const STUD_COUNT = 3;
 
 // ---------- Helpers ----------
 
@@ -178,15 +176,11 @@ function computeStudBands(
 ): StudBand[] {
   if (bandH < 20) return []; // Te laag om studs te tonen
 
-  const fraction = stud.width / stud.spacing;
-  const studPixelH = Math.max(bandH * fraction, 3); // Minimaal 3px hoog
-
-  // Bereken hoeveel studs er passen (realistisch)
-  const realCount = Math.floor(bandH / (stud.spacing / stud.width * studPixelH));
-  const count = Math.min(
-    Math.max(realCount, MIN_VISIBLE_STUDS),
-    MAX_VISIBLE_STUDS,
-  );
+  // Toon studs schematisch, met correcte totale dekking
+  const fraction = stud.width / stud.spacing; // bijv. 38/600 = 0.063
+  const count = STUD_COUNT;
+  // Verdeel totale stud-dekking over de studs
+  const studPixelH = Math.max((bandH * fraction) / count, 2);
 
   // Verdeel evenredig over de hoogte
   const totalStudH = count * studPixelH;
@@ -253,7 +247,7 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
 
     return {
       yTicks: ticks,
-      toX: (xMm: number) => MARGIN.left + (xMm / totalThickness) * PLOT_W,
+      toX: (xMm: number) => MARGIN.left + AIR_ZONE_W + (xMm / totalThickness) * (PLOT_W - 2 * AIR_ZONE_W),
       toY: (pPa: number) => MARGIN.top + PLOT_H - (pPa / nMax) * PLOT_H,
     };
   }, [curvePoints, interfacePoints, totalThickness, hasLayers]);

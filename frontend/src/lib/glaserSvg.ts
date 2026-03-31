@@ -30,10 +30,8 @@ const AIR_ZONE_W = 15;
 /** Kleur van de binnen/buiten-lucht zones (lichtblauw). */
 const AIR_ZONE_COLOR = "#bfdbfe";
 
-/** Minimum aantal zichtbare studs per laag. */
-const MIN_VISIBLE_STUDS = 2;
-/** Maximum aantal zichtbare studs per laag. */
-const MAX_VISIBLE_STUDS = 5;
+/** Aantal schematische studs per laag. */
+const STUD_COUNT = 3;
 
 // ---------- Helpers ----------
 
@@ -131,14 +129,10 @@ function computeStudBands(
 ): StudBand[] {
   if (bandH < 20) return [];
 
-  const fraction = stud.width / stud.spacing;
-  const studPixelH = Math.max(bandH * fraction, 3);
-
-  const realCount = Math.floor(bandH / (stud.spacing / stud.width * studPixelH));
-  const count = Math.min(
-    Math.max(realCount, MIN_VISIBLE_STUDS),
-    MAX_VISIBLE_STUDS,
-  );
+  // Toon studs schematisch, met correcte totale dekking
+  const fraction = stud.width / stud.spacing; // bijv. 38/600 = 0.063
+  const count = STUD_COUNT;
+  const studPixelH = Math.max((bandH * fraction) / count, 2);
 
   const totalStudH = count * studPixelH;
   const totalGapH = bandH - totalStudH;
@@ -184,7 +178,7 @@ export function generateGlaserSvg(
   const rawMax = Math.max(...allP, 100);
   const yMax = niceMax(rawMax * 1.1);
 
-  const toX = (xMm: number) => MARGIN.left + (xMm / totalThickness) * PLOT_W;
+  const toX = (xMm: number) => MARGIN.left + AIR_ZONE_W + (xMm / totalThickness) * (PLOT_W - 2 * AIR_ZONE_W);
   const toY = (pPa: number) => MARGIN.top + PLOT_H - (pPa / yMax) * PLOT_H;
 
   // Y-axis ticks

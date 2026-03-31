@@ -12,6 +12,13 @@
     --sidebar-width: 260px;
   }
 
+  input[type="number"],
+  input[type="text"],
+  select {
+    color: var(--oaec-text);
+    background-color: var(--oaec-surface);
+  }
+
   [data-theme="openaec"] {
     --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #EA580C 100%);
   }
