@@ -58,8 +58,10 @@ COPY schemas/ /build/schemas/
 # OIDC config passed at build time for Vite
 ARG VITE_OIDC_ISSUER
 ARG VITE_OIDC_CLIENT_ID
+ARG VITE_APP_VERSION
 ENV VITE_OIDC_ISSUER=${VITE_OIDC_ISSUER}
 ENV VITE_OIDC_CLIENT_ID=${VITE_OIDC_CLIENT_ID}
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
 
 # Build for production
 RUN npm run build
