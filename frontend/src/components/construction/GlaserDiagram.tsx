@@ -40,7 +40,7 @@ const AIR_ZONE_W = 30;
 const AIR_ZONE_COLOR = "#bfdbfe";
 
 /** Aantal schematische studs per laag. */
-const STUD_COUNT = 3;
+const STUD_COUNT = 1;
 
 // ---------- Helpers ----------
 
@@ -284,16 +284,20 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
       .join(" ");
   }, [interfacePoints, hasLayers, toX, toY]);
 
-  // Temperatuurlijn pad
+  // Temperatuurlijn pad (inclusief Ri/Re verloop in luchtzones)
   const tempPath = useMemo(() => {
     if (!hasLayers) return "";
-    return curvePoints
-      .map(
-        (p, i) =>
-          `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toYTemp(p.temperature).toFixed(1)}`,
-      )
-      .join(" ");
-  }, [curvePoints, hasLayers, toX, toYTemp]);
+    // Start bij binnenluchttemperatuur (linkerrand binnenlucht zone)
+    const parts: string[] = [];
+    parts.push(`M${MARGIN.left.toFixed(1)},${toYTemp(thetaI).toFixed(1)}`);
+    // Ri-verloop: van thetaI naar theta_si (eerste curvePoint)
+    for (const p of curvePoints) {
+      parts.push(`L${toX(p.x).toFixed(1)},${toYTemp(p.temperature).toFixed(1)}`);
+    }
+    // Re-verloop: van theta_se (laatste curvePoint) naar thetaE (rechterrand)
+    parts.push(`L${(MARGIN.left + PLOT_W).toFixed(1)},${toYTemp(thetaE).toFixed(1)}`);
+    return parts.join(" ");
+  }, [curvePoints, hasLayers, toX, toYTemp, thetaI, thetaE]);
 
   // Condensatiezone: gebied waar pActual > pSat
   const condensationPath = useMemo(() => {
@@ -377,7 +381,7 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
 
       bands.push({
         x: toX(xCum),
-        w: (d / totalThickness) * PLOT_W,
+        w: (d / totalThickness) * (PLOT_W - 2 * AIR_ZONE_W),
         name: layerNames[i] ?? "",
         color: cat ? categoryColor(cat) : "#e5e7eb",
         category: cat,
@@ -415,6 +419,15 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
       style={{ maxHeight: 460 }}
     >
       <HatchPatterns />
+
+      {/* Temperatuur gradient: rood (warm/binnen) → blauw (koud/buiten) */}
+      <defs>
+        <linearGradient id="temp-gradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#ef4444" />
+          <stop offset="50%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#3b82f6" />
+        </linearGradient>
+      </defs>
 
       {/* Achtergrond */}
       <rect
@@ -669,14 +682,13 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
         strokeDasharray="6,3"
       />
 
-      {/* Temperatuurlijn (rood) */}
+      {/* Temperatuurlijn (gradient rood→blauw) */}
       <path
         d={tempPath}
         fill="none"
-        stroke="#ef4444"
+        stroke="url(#temp-gradient)"
         strokeWidth={1.8}
         strokeLinejoin="round"
-        strokeDasharray="4,2"
       />
 
       {/* Punten op interfaces */}
@@ -822,14 +834,19 @@ export function GlaserDiagram({ result, thetaI, thetaE }: GlaserDiagramProps) {
         <text x={24} y={27} fontSize={10} fill="#57534e">
           Werkelijke dampdruk (p)
         </text>
+        <defs>
+          <linearGradient id="legend-temp-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
         <line
           x1={0}
           y1={40}
           x2={18}
           y2={40}
-          stroke="#ef4444"
+          stroke="url(#legend-temp-grad)"
           strokeWidth={1.8}
-          strokeDasharray="4,2"
         />
         <text x={24} y={43} fontSize={10} fill="#ef4444">
           Temperatuur (°C)

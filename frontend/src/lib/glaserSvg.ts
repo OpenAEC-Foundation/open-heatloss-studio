@@ -31,7 +31,7 @@ const AIR_ZONE_W = 30;
 const AIR_ZONE_COLOR = "#bfdbfe";
 
 /** Aantal schematische studs per laag. */
-const STUD_COUNT = 3;
+const STUD_COUNT = 1;
 
 // ---------- Helpers ----------
 
@@ -201,6 +201,9 @@ export function generateGlaserSvg(
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}" style="font-family: system-ui, -apple-system, sans-serif;">`);
   parts.push(generateHatchPatternDefs());
 
+  // Temperatuur gradient: rood (warm) → blauw (koud)
+  parts.push(`<defs><linearGradient id="temp-gradient" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ef4444"/><stop offset="50%" stop-color="#a855f7"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs>`);
+
   // Background
   parts.push(`<rect x="${MARGIN.left}" y="${MARGIN.top}" width="${PLOT_W}" height="${PLOT_H}" fill="white" stroke="#e7e5e4" stroke-width="1"/>`);
   // Binnenlucht zone (links)
@@ -216,7 +219,7 @@ export function generateGlaserSvg(
     const hatchOverride = layerHatchPatterns?.[i];
     const stud = layerStuds?.[i];
     const x = toX(xCum);
-    const w = (d / totalThickness) * PLOT_W;
+    const w = (d / totalThickness) * (PLOT_W - 2 * AIR_ZONE_W);
     const color = cat ? categoryColor(cat) : "#e5e7eb";
 
     // Isolatie-categorieën krijgen directe zigzag-lijnen, geen tiled pattern
@@ -324,11 +327,15 @@ export function generateGlaserSvg(
     .join(" ");
   parts.push(`<path d="${pActualPath}" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="6,3"/>`);
 
-  // Temperatuurlijn (rood)
-  const tempPath = curvePoints
-    .map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toYTemp(p.temperature).toFixed(1)}`)
-    .join(" ");
-  parts.push(`<path d="${tempPath}" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linejoin="round" stroke-dasharray="4,2"/>`);
+  // Temperatuurlijn (rood, inclusief Ri/Re verloop in luchtzones)
+  const tempParts: string[] = [];
+  tempParts.push(`M${MARGIN.left.toFixed(1)},${toYTemp(thetaI).toFixed(1)}`);
+  for (const p of curvePoints) {
+    tempParts.push(`L${toX(p.x).toFixed(1)},${toYTemp(p.temperature).toFixed(1)}`);
+  }
+  tempParts.push(`L${(MARGIN.left + PLOT_W).toFixed(1)},${toYTemp(thetaE).toFixed(1)}`);
+  const tempPath = tempParts.join(" ");
+  parts.push(`<path d="${tempPath}" fill="none" stroke="url(#temp-gradient)" stroke-width="1.8" stroke-linejoin="round"/>`);
 
   // Interface points
   for (const p of interfacePoints) {
@@ -372,7 +379,8 @@ export function generateGlaserSvg(
   parts.push(`<line x1="0" y1="24" x2="18" y2="24" stroke="#d97706" stroke-width="2.5" stroke-dasharray="6,3"/>`);
   parts.push(`<circle cx="9" cy="24" r="3" fill="#d97706"/>`);
   parts.push(`<text x="24" y="27" font-size="10" fill="#57534e">Werkelijke dampdruk (p)</text>`);
-  parts.push(`<line x1="0" y1="40" x2="18" y2="40" stroke="#ef4444" stroke-width="1.8" stroke-dasharray="4,2"/>`);
+  parts.push(`<defs><linearGradient id="legend-temp-grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs>`);
+  parts.push(`<line x1="0" y1="40" x2="18" y2="40" stroke="url(#legend-temp-grad)" stroke-width="1.8"/>`);
   parts.push(`<text x="24" y="43" font-size="10" fill="#ef4444">Temperatuur (°C)</text>`);
   parts.push(`</g>`);
 
