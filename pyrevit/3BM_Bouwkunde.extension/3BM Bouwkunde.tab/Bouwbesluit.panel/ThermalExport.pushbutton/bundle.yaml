@@ -1,0 +1,5 @@
+title: Thermal\nExport
+tooltip: Exporteer thermische schil (EAM) naar JSON voor import in warmteverlies tool
+author: 3BM Bouwkunde
+highlight: new
+context: zero-doc
