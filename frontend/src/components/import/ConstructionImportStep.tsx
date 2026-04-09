@@ -25,6 +25,7 @@ import type {
 } from "../../lib/thermalImport";
 import type { Project } from "../../types";
 import { searchMaterials } from "../../lib/materialsDatabase";
+import { matchIfcMaterial } from "../../lib/ifcMaterialMatcher";
 import type { ConstructionElementLayer, VerticalPosition } from "../../types";
 import { LayerEditor } from "../construction/LayerEditor";
 
@@ -78,28 +79,69 @@ function orientationToPosition(o: string): VerticalPosition {
 
 /**
  * Convert backend catalog layers to ConstructionElementLayer format that the
- * LayerEditor understands. Auto-matches materials from the database.
+ * LayerEditor understands. Uses the IFC material matcher to map Revit
+ * material names (e.g. `f2_C25/30`, `i1_hout_bamboe`) to database materials
+ * via exact / keyword / category-heuristic strategies. Air gaps are mapped
+ * to the first `spouw` category entry. When nothing matches, the materialId
+ * is left empty so the LayerEditor shows the raw Revit material name as a
+ * fallback label via `layerDisplayOverrides` (see `catalogLayerDisplayNames`)
+ * and the user can pick a proper database material manually.
+ *
+ * Guarantees: the returned array has exactly the same length as `layers`,
+ * and the `thickness` of each entry comes straight from `thickness_mm`.
  */
 function catalogLayersToEditorLayers(
-  layers: ThermalImportConstructionLayer[],
+  layers: ThermalImportConstructionLayer[] | undefined | null,
 ): ConstructionElementLayer[] {
+  if (!Array.isArray(layers)) {
+    return [];
+  }
   return layers.map((tl) => {
     let materialId = "";
 
     if (tl.type === "air_gap") {
-      const airMatches = searchMaterials("luchtspouw");
-      materialId = airMatches.length > 0 ? airMatches[0]!.id : "";
-    } else {
-      const matches = searchMaterials(tl.material);
-      if (matches.length > 0 && matches[0] != null) {
-        materialId = matches[0].id;
+      // Prefer the IFC matcher's "spouw" heuristic so we land on the same
+      // cavity material as other import paths. Fall back to a direct
+      // category lookup, then to the legacy searchMaterials call.
+      const spouwMatch = matchIfcMaterial("spouw");
+      if (spouwMatch.material) {
+        materialId = spouwMatch.material.id;
+      } else {
+        const airMatches = searchMaterials("spouw");
+        materialId = airMatches.length > 0 ? airMatches[0]!.id : "";
+      }
+    } else if (tl.material && tl.material.trim()) {
+      const match = matchIfcMaterial(tl.material);
+      if (match.material) {
+        materialId = match.material.id;
       }
     }
 
     return {
       materialId,
-      thickness: tl.thickness_mm,
+      thickness: tl.thickness_mm ?? 0,
     };
+  });
+}
+
+/**
+ * Build a parallel array of display-only labels for the LayerEditor. Each
+ * entry is the raw Revit material name (or `"Spouw"` for air gaps). The
+ * LayerEditor shows this next to the material picker so the user can still
+ * identify the imported layer even when no database match was found.
+ */
+function catalogLayerDisplayNames(
+  layers: ThermalImportConstructionLayer[] | undefined | null,
+): (string | null)[] {
+  if (!Array.isArray(layers)) {
+    return [];
+  }
+  return layers.map((tl) => {
+    if (tl.type === "air_gap") {
+      return "Spouw";
+    }
+    const raw = tl.material?.trim() ?? "";
+    return raw.length > 0 ? raw : null;
   });
 }
 
@@ -178,6 +220,9 @@ export function ConstructionImportStep({
     : null;
   const editingLayers = editingEntry
     ? catalogLayersToEditorLayers(editingEntry.layers)
+    : [];
+  const editingDisplayOverrides = editingEntry
+    ? catalogLayerDisplayNames(editingEntry.layers)
     : [];
   // Pick the most representative position from the entry's `used_for` list,
   // defaulting to wall when nothing useful is recorded.
@@ -364,10 +409,12 @@ export function ConstructionImportStep({
       {/* LayerEditor modal */}
       {editingId && editingEntry && (
         <LayerEditor
+          key={editingId}
           layers={editingLayers}
           position={editingPosition}
           onApply={handleLayerApply}
           onClose={handleLayerClose}
+          layerDisplayOverrides={editingDisplayOverrides}
         />
       )}
     </div>
@@ -395,11 +442,22 @@ function CatalogLayerTable({ layers }: CatalogLayerTableProps) {
       </thead>
       <tbody>
         {layers.map((layer, i) => {
-          const matches =
-            layer.type === "air_gap"
-              ? searchMaterials("luchtspouw")
-              : searchMaterials(layer.material);
-          const matchName = matches.length > 0 ? matches[0]!.name : null;
+          // Use the IFC material matcher for consistency with the LayerEditor
+          // conversion — so the preview shows the exact same match the user
+          // will see after clicking "Bewerken in Rc-calculator".
+          let matchName: string | null = null;
+          if (layer.type === "air_gap") {
+            const spouwMatch = matchIfcMaterial("spouw");
+            if (spouwMatch.material) {
+              matchName = spouwMatch.material.name;
+            } else {
+              const airMatches = searchMaterials("spouw");
+              matchName = airMatches.length > 0 ? airMatches[0]!.name : null;
+            }
+          } else if (layer.material.trim()) {
+            const match = matchIfcMaterial(layer.material);
+            matchName = match.material ? match.material.name : null;
+          }
 
           return (
             <tr key={i} className="border-b border-gray-700/30">

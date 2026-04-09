@@ -17,6 +17,14 @@ interface LayerEditorProps {
   position: VerticalPosition;
   onApply: (layers: ConstructionElementLayer[], uValue: number) => void;
   onClose: () => void;
+  /**
+   * Optional display-only fallback labels, indexed per layer. When a layer's
+   * `materialId` does not resolve to a database material (e.g. a Revit
+   * material name that did not match), the UI shows this label instead of
+   * the generic "Kies materiaal..." placeholder so the user at least sees
+   * the original Revit name that came from the import.
+   */
+  layerDisplayOverrides?: (string | null)[];
 }
 
 export function LayerEditor({
@@ -24,6 +32,7 @@ export function LayerEditor({
   position,
   onApply,
   onClose,
+  layerDisplayOverrides,
 }: LayerEditorProps) {
   const [layers, setLayers] = useState<ConstructionElementLayer[]>(
     () => initialLayers.map((l) => ({ ...l })),
@@ -189,6 +198,8 @@ export function LayerEditor({
                   ? getMaterialById(layer.materialId)
                   : undefined;
                 const layerResult = rcResult.layers[index];
+                const displayOverride =
+                  layerDisplayOverrides?.[index] ?? null;
 
                 return (
                   <tr
@@ -241,6 +252,13 @@ export function LayerEditor({
                       >
                         {material ? (
                           <span className="text-on-surface-secondary">{material.name}</span>
+                        ) : displayOverride ? (
+                          <span
+                            className="text-on-surface-muted italic"
+                            title="Geen database match — klik om een materiaal te kiezen"
+                          >
+                            {displayOverride}
+                          </span>
                         ) : (
                           <span className="text-on-surface-muted">Kies materiaal...</span>
                         )}
