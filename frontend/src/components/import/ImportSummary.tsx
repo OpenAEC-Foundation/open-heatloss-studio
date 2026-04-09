@@ -39,7 +39,7 @@ export function ImportSummary({
   const realRooms = editedRooms.filter((r) => !isPseudoRoom(r));
   const heatedRooms = realRooms.filter((r) => r.type === "heated");
   const unheatedRooms = realRooms.filter((r) => r.type === "unheated");
-  const constructionCount = importFile.constructions.length;
+  const constructionCount = importResult.construction_catalog.length;
   const openingCount = editedOpenings.length;
   const warnings = importResult.warnings;
 
@@ -74,13 +74,9 @@ export function ImportSummary({
         />
         <StatCard
           icon={Layers}
-          label="Constructies"
+          label="Constructie-typen"
           value={constructionCount}
-          detail={`${
-            importFile.constructions.filter(
-              (c) => c.layers && c.layers.length > 0,
-            ).length
-          } met laag-opbouw`}
+          detail={`samengevoegd uit ${importFile.constructions.length} grensvlakken`}
         />
         <StatCard
           icon={DoorOpen}
