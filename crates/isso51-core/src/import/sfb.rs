@@ -36,12 +36,68 @@ pub fn sfb_code(boundary_type: BoundaryType, orientation: ThermalOrientation) ->
     }
 }
 
+/// Strip a leading Revit-style code prefix from a material name.
+///
+/// Several Revit libraries prefix material names with short alphanumeric codes
+/// like `f2_`, `i1_`, `AB12_` that encode the material's *function* or
+/// *category* rather than its actual material type. These prefixes pollute
+/// downstream SfB descriptions and confuse users, so we strip them before
+/// keyword matching and fallback truncation.
+///
+/// Pattern matched (at the very start of the string, ASCII only):
+/// 1..=2 letters, followed by 1 or more digits, followed by `_`.
+///
+/// Examples:
+/// - `"f2_C25/30"` → `"C25/30"`
+/// - `"i1_hout_bamboe"` → `"hout_bamboe"`
+/// - `"AB12_something"` → `"something"`
+/// - `"Kalkzandsteen"` → `"Kalkzandsteen"` (unchanged, no prefix)
+/// - `"F2"` → `"F2"` (unchanged, requires trailing `_`)
+fn strip_revit_code_prefix(material: &str) -> &str {
+    let bytes = material.as_bytes();
+    let mut i = 0;
+
+    // 1..=2 ASCII letters
+    let letter_start = i;
+    while i < bytes.len() && i - letter_start < 2 && bytes[i].is_ascii_alphabetic() {
+        i += 1;
+    }
+    let letter_count = i - letter_start;
+    if letter_count == 0 {
+        return material;
+    }
+
+    // 1+ ASCII digits
+    let digit_start = i;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == digit_start {
+        return material;
+    }
+
+    // Trailing underscore
+    if i >= bytes.len() || bytes[i] != b'_' {
+        return material;
+    }
+    i += 1;
+
+    // Safe slice: we only advanced over ASCII bytes, so `i` is a valid char boundary.
+    &material[i..]
+}
+
 /// Map a material name to a short abbreviation.
 ///
 /// Uses case-insensitive substring matching against known Dutch construction materials.
-/// If no match is found, returns the first 6 characters of the material name.
+/// Any leading Revit-style code prefix (e.g. `f2_`, `i1_`) is stripped first so
+/// that material keywords embedded in the name can still be matched, and the
+/// 6-character fallback no longer leaks the code prefix into the description.
+///
+/// If no keyword matches, returns the first 6 characters of the *stripped*
+/// material name.
 pub fn material_abbreviation(material: &str) -> String {
-    let lower = material.to_lowercase();
+    let stripped = strip_revit_code_prefix(material.trim());
+    let lower = stripped.to_lowercase();
 
     // Order matters: more specific matches first
     let mappings: &[(&[&str], &str)] = &[
@@ -75,13 +131,15 @@ pub fn material_abbreviation(material: &str) -> String {
         }
     }
 
-    // Fallback: first 6 characters of the material name
-    let trimmed = material.trim();
-    if trimmed.len() <= 6 {
-        trimmed.to_string()
-    } else {
-        trimmed[..6].to_string()
-    }
+    // Fallback: first 6 characters of the stripped material name.
+    // We slice on char boundaries to stay UTF-8 safe.
+    let trimmed = stripped.trim();
+    let end = trimmed
+        .char_indices()
+        .nth(6)
+        .map(|(idx, _)| idx)
+        .unwrap_or(trimmed.len());
+    trimmed[..end].to_string()
 }
 
 /// Build an SfB-based construction description from boundary type, orientation, and layers.
@@ -121,7 +179,10 @@ mod tests {
 
     #[test]
     fn test_sfb_code_exterior_wall() {
-        assert_eq!(sfb_code(BoundaryType::Exterior, ThermalOrientation::Wall), "21");
+        assert_eq!(
+            sfb_code(BoundaryType::Exterior, ThermalOrientation::Wall),
+            "21"
+        );
     }
 
     #[test]
@@ -138,7 +199,10 @@ mod tests {
 
     #[test]
     fn test_sfb_code_floor() {
-        assert_eq!(sfb_code(BoundaryType::Ground, ThermalOrientation::Floor), "23");
+        assert_eq!(
+            sfb_code(BoundaryType::Ground, ThermalOrientation::Floor),
+            "23"
+        );
         assert_eq!(
             sfb_code(BoundaryType::Exterior, ThermalOrientation::Floor),
             "23"
@@ -195,6 +259,67 @@ mod tests {
         assert_eq!(material_abbreviation("Beton"), "Beton");
         // Long unknown name: truncate to 6 chars
         assert_eq!(material_abbreviation("Onbekend materiaal"), "Onbeke");
+    }
+
+    #[test]
+    fn test_strip_revit_code_prefix_matches() {
+        assert_eq!(strip_revit_code_prefix("f2_C25/30"), "C25/30");
+        assert_eq!(strip_revit_code_prefix("i1_hout_bamboe"), "hout_bamboe");
+        assert_eq!(
+            strip_revit_code_prefix("i2_hout_vuren_C18"),
+            "hout_vuren_C18"
+        );
+        assert_eq!(
+            strip_revit_code_prefix("f7_gips_beplating_wand_610mm"),
+            "gips_beplating_wand_610mm"
+        );
+        assert_eq!(strip_revit_code_prefix("AB12_something"), "something");
+    }
+
+    #[test]
+    fn test_strip_revit_code_prefix_no_match() {
+        // No trailing underscore
+        assert_eq!(strip_revit_code_prefix("F2"), "F2");
+        // No digits
+        assert_eq!(strip_revit_code_prefix("ab_cd"), "ab_cd");
+        // Digits first, not letters
+        assert_eq!(strip_revit_code_prefix("12f_name"), "12f_name");
+        // Too many leading letters
+        assert_eq!(strip_revit_code_prefix("abc2_name"), "abc2_name");
+        // Real material name
+        assert_eq!(strip_revit_code_prefix("Kalkzandsteen"), "Kalkzandsteen");
+        assert_eq!(strip_revit_code_prefix("PIR isolatie"), "PIR isolatie");
+        // Empty
+        assert_eq!(strip_revit_code_prefix(""), "");
+    }
+
+    #[test]
+    fn test_material_abbreviation_strips_revit_prefix() {
+        // f2_C25/30 → strip → "C25/30" → no keyword match →
+        // fallback <=6 chars → returned as-is
+        assert_eq!(material_abbreviation("f2_C25/30"), "C25/30");
+        // f2_C20/25 idem
+        assert_eq!(material_abbreviation("f2_C20/25"), "C20/25");
+        // i1_hout_bamboe → strip → "hout_bamboe" → fallback 6 chars → "hout_b"
+        assert_eq!(material_abbreviation("i1_hout_bamboe"), "hout_b");
+        // i2_hout_vuren_C18 → strip → "hout_vuren_C18" → fallback → "hout_v"
+        assert_eq!(material_abbreviation("i2_hout_vuren_C18"), "hout_v");
+        // f7_gips_beplating_wand_610mm → strip → "gips_beplating_wand_610mm"
+        //   → no keyword match (mapping uses "gipskarton"/"gipsplaat")
+        //   → fallback → "gips_b"
+        assert_eq!(
+            material_abbreviation("f7_gips_beplating_wand_610mm"),
+            "gips_b"
+        );
+    }
+
+    #[test]
+    fn test_material_abbreviation_no_strip_when_not_prefixed() {
+        // Known keyword: unchanged behaviour
+        assert_eq!(material_abbreviation("Kalkzandsteen"), "KZS");
+        assert_eq!(material_abbreviation("PIR isolatie"), "PIR");
+        // No underscore after code → no strip, fallback returns as-is
+        assert_eq!(material_abbreviation("F2"), "F2");
     }
 
     #[test]
