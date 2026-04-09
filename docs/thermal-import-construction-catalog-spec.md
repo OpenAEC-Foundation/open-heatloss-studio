@@ -1,7 +1,7 @@
 # Thermal Import — Construction Catalog refactor (Mini-spec)
 
 **Datum:** 2026-04-09
-**Status:** Draft
+**Status:** Approved (besluiten genomen in review sessie 2026-04-09 met Jochem)
 **Scope:** `crates/isso51-core/src/import/thermal.rs` backend + frontend import wizard
 **Relatie:** Bug A uit review sessie 2026-04-09 (woonboot 3056 testmodel)
 
@@ -96,27 +96,52 @@ De `description` blijft voor backwards-compat en leesbaarheid gevuld (zelfde str
 
 ## Grouping algoritme
 
+**Besluit 1 (vraag 1, optie a):** Grouping sleutel = **alleen layer_fingerprint**. Niet boundary_type of orientation — dezelfde laagopbouw kan in verschillende contexten gebruikt worden (binnenwand, buitenwand, vloer) en telt als één catalog entry. De context staat per room in `ConstructionElement.boundary_type` en `vertical_position`.
+
 ```
 PHASE 1 (per room, bestaand):
   Verzamel raw surfaces met (boundary_type, orientation, layers, adjacent_room_id, area)
 
 PHASE 2 (per room, uitgebreid):
   Groepeer per key = (layer_fingerprint, boundary_type, orientation, adjacent_room_id_if_interior)
-  - layer_fingerprint = gehashte string van [(material, thickness_mm, type) ...]
+  - Deze key is alleen voor per-room merging van identieke surfaces
+  - layer_fingerprint = string van [(material, thickness_mm, type) ...]
   - adjacent_room_id_if_interior = Some(id) voor AdjacentRoom/UnheatedSpace, anders None
   → room-lokale entries met totaal oppervlak + SfB-description
 
 PHASE 3 (nieuw, na alle rooms):
   Bouw globale construction_catalog:
-  - Key = (layer_fingerprint, sfb_code)
-    [bewust GEEN adjacent_room_id in catalog key — catalog is per unieke constructie,
-     adjacent info blijft op room-level ConstructionElement staan]
-  - Entry.description = SfB-naam (eerste voorkomen)
-  - Entry.used_for = alle unieke (boundary_type, orientation) combinaties
-  - Entry.total_area_m2 = som over alle rooms
-  - Entry.surface_count = totaal aantal raw surfaces
-  → Elke ConstructionElement krijgt catalog_ref = Entry.id
+  - Key = layer_fingerprint (ALLEEN fingerprint, per besluit 1a)
+  - Entry.description = SfB-naam van eerste voorkomen;
+    bij collision (zelfde naam, andere fingerprint):
+      → voeg totale dikte toe als suffix: "21_Stuc_KZS_PIR_270mm" (besluit 3c)
+  - Entry.used_for = alle unieke (boundary_type, orientation) combinaties waarin
+    deze fingerprint voorkomt (informatief voor de UI)
+  - Entry.total_area_m2 = som van alle surfaces met deze fingerprint
+  - Entry.surface_count = aantal raw surfaces met deze fingerprint
+  → Elke ConstructionElement krijgt catalog_ref = Entry.id (besluit 4a: Option<String>)
+  → Openings krijgen catalog_ref = None (besluit 2a: openings buiten catalog)
 ```
+
+### Collision handling voor SfB-namen (besluit 3c)
+
+```rust
+/// Resolve naming collisions by appending total thickness as suffix.
+/// Only applied when two different fingerprints generate the same SfB-name.
+fn resolve_description_collision(
+    desc: &str,
+    fingerprint: &str,
+    existing: &HashMap<String, String>,  // fingerprint → assigned description
+    name_users: &HashMap<String, Vec<String>>, // desc → fingerprints already using it
+    total_thickness_mm: f64,
+) -> String {
+    // If this desc is unused, or only we use it, keep it unchanged.
+    // Otherwise append "_{thickness}mm" to both our desc AND re-label
+    // the earlier entry that claimed this name first.
+}
+```
+
+Edge case: als twee fingerprints óók dezelfde totale dikte hebben (onwaarschijnlijk maar mogelijk bij andere verschillen zoals lambda — die niet in de fingerprint zit), dan wordt `_a` / `_b` als tie-breaker toegevoegd. Zie test `test_catalog_description_collision_fallback_letter`.
 
 ### Layer fingerprint algoritme
 
@@ -160,12 +185,12 @@ Wijzigingen aan een catalog entry propageren automatisch naar alle room-surfaces
 
 ## Migratie / breaking change
 
-- **Breaking change** in JSON response van `POST /api/v1/import/thermal`
-- Frontend moet mee — de import wizard is de enige consumer
-- Bestaande projecten (opgeslagen via `/projects/save`) zijn **niet** geraakt: het nieuwe `catalog_ref` veld is optioneel op `ConstructionElement`, oude projecten blijven werken zonder ref
-- API versie bump overwegen: `POST /api/v2/import/thermal`? Of in-place vervangen v1 — wizard is nog niet breed in gebruik
+**Besluit 5 (vraag 5, optie a):** **In-place vervanging** van `POST /api/v1/import/thermal`. Geen v2 endpoint, geen dubbele response.
 
-**Voorstel:** in-place vervangen. De thermal import pipeline is minder dan 24 uur oud en alleen door één gebruiker getest.
+- **Breaking change** in JSON response van `POST /api/v1/import/thermal`
+- Frontend wizard moet mee — de enige consumer
+- Bestaande opgeslagen projecten zijn **niet** geraakt: het nieuwe `catalog_ref` veld is optioneel (`Option<String>`, besluit 4a) op `ConstructionElement`, oude projecten blijven werken zonder ref
+- De thermal import pipeline is ~48 uur oud en alleen door één gebruiker getest — in-place is veilig
 
 ---
 
@@ -195,14 +220,15 @@ Wijzigingen aan een catalog entry propageren automatisch naar alle room-surfaces
 
 ---
 
-## Open vragen
+## Genomen besluiten (review 2026-04-09)
 
-1. Moet `CatalogEntry.used_for` ook openings opnemen (als aparte entries), of blijven openings buiten de catalog?
-   → **Voorstel:** openings blijven buiten catalog. Ze worden per-surface gedefinieerd met U-waarde uit Revit.
-2. Moet SfB-naam uniek zijn per catalog entry of mag er collision zijn?
-   → **Voorstel:** geen collision-check. Twee constructies met identieke materialen maar verschillende dikten kunnen dezelfde SfB-naam hebben (bv beiden `21_Stuc_KZS_PIR`). Dat is informatief, geen ID.
-3. Moet `catalog_ref` verplicht (`String`) of optioneel (`Option<String>`) zijn op `ConstructionElement`?
-   → **Voorstel:** optioneel. Openings en handmatig-toegevoegde elementen hebben geen catalog ref.
+| # | Vraag | Besluit |
+|---|---|---|
+| 1 | Grouping sleutel | **Layer fingerprint alleen** — geen boundary_type/orientation in catalog key. Twee wanden met identieke lagen = 1 catalog entry, ongeacht of ze binnen of buiten gebruikt worden. Context staat per room in `ConstructionElement`. |
+| 2 | Openings in catalog | **Nee, buiten catalog.** Ramen/deuren blijven losse `ConstructionElement` per surface, met U-waarde direct uit Revit. `catalog_ref = None` voor openings. |
+| 3 | SfB-naam uniekheid | **Dikte-suffix bij collision.** Als twee verschillende fingerprints dezelfde SfB-naam genereren, wordt de totale dikte toegevoegd: `21_Stuc_KZS_PIR_270mm`. Bij tie op dikte: fallback op `_a`/`_b` letter suffix. |
+| 4 | catalog_ref verplicht/optioneel | **`Option<String>`.** `None` voor openings en handmatig toegevoegde elementen. Frontend checkt `if let Some(ref) = el.catalog_ref`. |
+| 5 | API v1 in-place vs v2 | **In-place vervanging v1.** Geen versie bump, geen backwards compat. Pipeline is 48u oud. |
 
 ---
 
