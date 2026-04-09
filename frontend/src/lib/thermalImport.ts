@@ -84,16 +84,35 @@ export interface ThermalImportFile {
 export interface ThermalImportConstructionLayer {
   material: string;
   thickness_mm: number;
+  /** "solid" or "air_gap" — air gaps are rendered as Spouw in the SfB name. */
+  type?: "solid" | "air_gap";
+  distance_from_interior_mm?: number;
   lambda?: number;
-  matched_material_id?: string;
 }
 
-export interface ThermalImportConstructionReview {
-  construction_id: string;
-  revit_type_name?: string;
+/**
+ * One unique construction in the project catalog. The Rust backend groups
+ * raw surfaces by layer fingerprint and returns one entry per unique
+ * construction. Each `ConstructionElement.catalog_ref` points to one of these.
+ */
+export interface CatalogEntry {
+  /** Catalog ID, format `cat-{n}`. */
+  id: string;
+  /** SfB-based description, may carry a `_<thickness>mm` collision suffix. */
+  description: string;
+  /** Layer composition from interior to exterior. */
   layers: ThermalImportConstructionLayer[];
-  rc?: number;
-  u_value?: number;
+  /** First-encountered Revit type name (debug info). */
+  revit_type_name?: string;
+  /**
+   * Distinct (BoundaryType, Orientation) combinations in which this entry is
+   * used. Tuples are serialized as 2-element arrays by serde.
+   */
+  used_for: [string, string][];
+  /** Total area in m² across every surface that uses this entry. */
+  total_area_m2: number;
+  /** Number of raw surfaces in the source export that use this entry. */
+  surface_count: number;
 }
 
 export interface ThermalImportRoomPolygon {
@@ -104,7 +123,8 @@ export interface ThermalImportRoomPolygon {
 export interface ThermalImportResult {
   project: Project;
   warnings: string[];
-  construction_layers: ThermalImportConstructionReview[];
+  /** Unique constructions, one entry per layer fingerprint. */
+  construction_catalog: CatalogEntry[];
   room_polygons: ThermalImportRoomPolygon[];
 }
 
@@ -247,12 +267,16 @@ export function toImportedBoundaries(
  * Apply user edits to the backend-mapped project before loading into store.
  * Merges editedRooms (type changes) and editedOpenings (U-value changes)
  * into the project returned by the backend.
+ *
+ * `catalogUValues` is keyed by `CatalogEntry.id`. Every `ConstructionElement`
+ * with a matching `catalog_ref` receives the calculated U-value, so a single
+ * edit in the LayerEditor fans out to every room that uses that construction.
  */
 export function applyEditsToProject(
   project: Project,
   editedRooms: ThermalRoom[],
   editedOpenings: ThermalOpening[],
-  constructionUValues?: Map<string, number>,
+  catalogUValues?: Map<string, number>,
 ): Project {
   // Build lookup of edited room types
   const roomTypeMap = new Map(editedRooms.map((r) => [r.id, r.type]));
@@ -276,12 +300,14 @@ export function applyEditsToProject(
 
       // Update U-values on constructions from LayerEditor and openings
       const updatedConstructions = updatedRoom.constructions.map((ce) => {
-        // Check LayerEditor-calculated U-values first
-        const calcU = constructionUValues?.get(ce.id);
-        if (calcU != null && calcU > 0) {
-          return { ...ce, u_value: calcU };
+        // Catalog-entry U-value applies to every element with the same catalog_ref.
+        if (ce.catalog_ref) {
+          const calcU = catalogUValues?.get(ce.catalog_ref);
+          if (calcU != null && calcU > 0) {
+            return { ...ce, u_value: calcU };
+          }
         }
-        // Then check opening U-values
+        // Opening U-value uses the per-element id (openings have catalog_ref == null).
         const openingU = openingUMap.get(ce.id);
         if (openingU != null && openingU > 0) {
           return { ...ce, u_value: openingU };

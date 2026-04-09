@@ -1,9 +1,12 @@
 /**
- * Step 3 — Construction review with LayerEditor integration.
+ * Step 3 — Construction catalog review with LayerEditor integration.
  *
- * Shows all constructions with room_a -> room_b, orientation, area, layer count.
- * Users can open the LayerEditor to match materials, adjust thicknesses,
- * and calculate Rc/U-values per construction.
+ * Shows the unique construction catalog returned by the thermal import backend.
+ * Each entry represents one layer fingerprint, optionally shared between
+ * multiple room surfaces. Users can open the LayerEditor to match materials,
+ * adjust thicknesses, and calculate Rc/U-values per catalog entry. Edits
+ * automatically propagate to every room that references that entry via
+ * `catalog_ref`.
  */
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -16,24 +19,28 @@ import {
 } from "lucide-react";
 
 import type {
-  ThermalConstruction,
-  ThermalConstructionLayer,
+  CatalogEntry,
+  ThermalImportConstructionLayer,
   ThermalRoom,
-  ThermalImportConstructionReview,
 } from "../../lib/thermalImport";
+import type { Project } from "../../types";
 import { searchMaterials } from "../../lib/materialsDatabase";
 import type { ConstructionElementLayer, VerticalPosition } from "../../types";
 import { LayerEditor } from "../construction/LayerEditor";
 
 interface ConstructionImportStepProps {
-  constructions: ThermalConstruction[];
   rooms: ThermalRoom[];
-  constructionLayers: ThermalImportConstructionReview[];
-  /** Called when user applies LayerEditor results for a construction. */
-  onConstructionUValue?: (constructionId: string, uValue: number) => void;
+  project: Project;
+  catalog: CatalogEntry[];
+  /**
+   * Called when user applies LayerEditor results for a catalog entry.
+   * The U-value is shared between every ConstructionElement with that
+   * `catalog_ref`.
+   */
+  onCatalogUValue?: (catalogId: string, uValue: number) => void;
 }
 
-/** Get room name by ID. */
+/** Get a room's display name by id, falling back to the id. */
 function getRoomName(rooms: ThermalRoom[], id: string): string {
   const room = rooms.find((r) => r.id === id);
   return room?.name ?? id;
@@ -50,6 +57,18 @@ function orientationLabel(o: string): string {
   return labels[o] ?? o;
 }
 
+/** Display label for boundary type. */
+function boundaryLabel(b: string): string {
+  const labels: Record<string, string> = {
+    exterior: "Buiten",
+    ground: "Grond",
+    unheated_space: "Onverwarmd",
+    adjacent_room: "Aangrenzend vertrek",
+    adjacent_building: "Buurpand",
+  };
+  return labels[b] ?? b;
+}
+
 /** Map orientation to VerticalPosition for Rc calculation. */
 function orientationToPosition(o: string): VerticalPosition {
   if (o === "floor") return "floor";
@@ -58,22 +77,19 @@ function orientationToPosition(o: string): VerticalPosition {
 }
 
 /**
- * Convert Revit thermal layers to ConstructionElementLayer format
- * that the LayerEditor understands. Auto-matches materials from the database.
+ * Convert backend catalog layers to ConstructionElementLayer format that the
+ * LayerEditor understands. Auto-matches materials from the database.
  */
-function thermalLayersToEditorLayers(
-  layers: ThermalConstructionLayer[],
+function catalogLayersToEditorLayers(
+  layers: ThermalImportConstructionLayer[],
 ): ConstructionElementLayer[] {
   return layers.map((tl) => {
-    // Try to match the Revit material name to a known material in the database
     let materialId = "";
 
     if (tl.type === "air_gap") {
-      // Air gap layers get the special "luchtspouw" material
       const airMatches = searchMaterials("luchtspouw");
       materialId = airMatches.length > 0 ? airMatches[0]!.id : "";
     } else {
-      // Try matching by Revit material name
       const matches = searchMaterials(tl.material);
       if (matches.length > 0 && matches[0] != null) {
         materialId = matches[0].id;
@@ -88,41 +104,51 @@ function thermalLayersToEditorLayers(
 }
 
 export function ConstructionImportStep({
-  constructions,
   rooms,
-  constructionLayers,
-  onConstructionUValue,
+  project,
+  catalog,
+  onCatalogUValue,
 }: ConstructionImportStepProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Track which construction is being edited in LayerEditor
+  // Track which catalog entry is being edited in LayerEditor
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Store calculated U-values per construction (from LayerEditor)
-  const [calculatedUValues, setCalculatedUValues] = useState<
-    Map<string, number>
-  >(new Map());
+  // Store calculated U-values per catalog entry id
+  const [calculatedUValues, setCalculatedUValues] = useState<Map<string, number>>(
+    new Map(),
+  );
 
-  // Map construction_id -> review data
-  const reviewMap = useMemo(() => {
-    const map = new Map<string, ThermalImportConstructionReview>();
-    for (const cl of constructionLayers) {
-      map.set(cl.construction_id, cl);
+  // Build a per-catalog-entry list of room references for the "gebruikt in" view.
+  // Each element: { roomId, roomName, area }
+  const usageByCatalog = useMemo(() => {
+    const map = new Map<
+      string,
+      { roomId: string; roomName: string; area: number }[]
+    >();
+    for (const room of project.rooms) {
+      for (const ce of room.constructions) {
+        if (!ce.catalog_ref) continue;
+        const list = map.get(ce.catalog_ref) ?? [];
+        list.push({
+          roomId: room.id,
+          roomName: room.name ?? room.id,
+          area: ce.area,
+        });
+        map.set(ce.catalog_ref, list);
+      }
     }
     return map;
-  }, [constructionLayers]);
+  }, [project]);
 
   const handleToggle = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   }, []);
 
-  // Open LayerEditor for a construction
-  const handleEdit = useCallback(
-    (construction: ThermalConstruction) => {
-      setEditingId(construction.id);
-    },
-    [],
-  );
+  // Open LayerEditor for a catalog entry
+  const handleEdit = useCallback((entry: CatalogEntry) => {
+    setEditingId(entry.id);
+  }, []);
 
   // LayerEditor apply: save U-value
   const handleLayerApply = useCallback(
@@ -133,50 +159,50 @@ export function ConstructionImportStep({
           next.set(editingId, uValue);
           return next;
         });
-        onConstructionUValue?.(editingId, uValue);
+        onCatalogUValue?.(editingId, uValue);
       }
       setEditingId(null);
     },
-    [editingId, onConstructionUValue],
+    [editingId, onCatalogUValue],
   );
 
   const handleLayerClose = useCallback(() => {
     setEditingId(null);
   }, []);
 
-  const withoutLayers = constructions.filter(
-    (c) => !c.layers || c.layers.length === 0,
-  );
+  const withoutLayers = catalog.filter((c) => c.layers.length === 0);
 
-  // Find the construction being edited (for LayerEditor)
-  const editingConstruction = editingId
-    ? constructions.find((c) => c.id === editingId)
+  // Find the catalog entry being edited (for LayerEditor)
+  const editingEntry = editingId
+    ? catalog.find((e) => e.id === editingId) ?? null
     : null;
-  const editingLayers = editingConstruction?.layers
-    ? thermalLayersToEditorLayers(editingConstruction.layers)
+  const editingLayers = editingEntry
+    ? catalogLayersToEditorLayers(editingEntry.layers)
     : [];
-  const editingPosition = editingConstruction
-    ? orientationToPosition(editingConstruction.orientation)
-    : ("wall" as VerticalPosition);
+  // Pick the most representative position from the entry's `used_for` list,
+  // defaulting to wall when nothing useful is recorded.
+  const editingPosition: VerticalPosition = editingEntry?.used_for[0]
+    ? orientationToPosition(editingEntry.used_for[0][1])
+    : "wall";
 
   return (
     <div>
       <h2 className="mb-2 text-lg font-semibold text-gray-100">
-        Constructies controleren
+        Constructie catalogus
       </h2>
       <p className="mb-6 text-sm text-gray-400">
-        Controleer de constructie-opbouwen. Klik op{" "}
-        <Pencil className="inline h-3 w-3" /> om de lagen te bewerken,
-        materialen te matchen en de Rc/U-waarde te berekenen.
+        Eén regel per unieke laag-opbouw. Wijzigingen via{" "}
+        <Pencil className="inline h-3 w-3" /> gelden automatisch voor alle
+        ruimtes die deze constructie gebruiken.
       </p>
 
-      {/* Warning for constructions without layers */}
+      {/* Warning for entries without layers */}
       {withoutLayers.length > 0 && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
           <div>
             <p className="text-sm text-amber-300">
-              {withoutLayers.length} constructie(s) zonder laag-opbouw
+              {withoutLayers.length} catalogus-entrie(s) zonder laag-opbouw
             </p>
             <p className="mt-0.5 text-xs text-amber-400/70">
               Deze constructies hebben geen materiaallagen uit Revit. De
@@ -186,23 +212,23 @@ export function ConstructionImportStep({
         </div>
       )}
 
-      {/* Construction list */}
+      {/* Catalog list */}
       <div className="space-y-1">
-        {constructions.map((c) => {
-          const isExpanded = expandedId === c.id;
-          const review = reviewMap.get(c.id);
-          const hasLayers = c.layers && c.layers.length > 0;
-          const calculatedU = calculatedUValues.get(c.id);
+        {catalog.map((entry) => {
+          const isExpanded = expandedId === entry.id;
+          const hasLayers = entry.layers.length > 0;
+          const calculatedU = calculatedUValues.get(entry.id);
           const hasCalculatedU = calculatedU != null && calculatedU > 0;
+          const usage = usageByCatalog.get(entry.id) ?? [];
 
           return (
             <div
-              key={c.id}
+              key={entry.id}
               className="rounded-lg border border-gray-700 bg-gray-800/50"
             >
-              {/* Construction header */}
+              {/* Catalog entry header */}
               <button
-                onClick={() => handleToggle(c.id)}
+                onClick={() => handleToggle(entry.id)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-800"
               >
                 {isExpanded ? (
@@ -214,7 +240,7 @@ export function ConstructionImportStep({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-200">
-                      {c.revit_type_name ?? c.id}
+                      {entry.description}
                     </span>
                     {!hasLayers && (
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
@@ -224,41 +250,67 @@ export function ConstructionImportStep({
                     )}
                   </div>
                   <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
-                    <span>
-                      {getRoomName(rooms, c.room_a)} &rarr;{" "}
-                      {getRoomName(rooms, c.room_b)}
-                    </span>
-                    <span>{orientationLabel(c.orientation)}</span>
-                    {c.compass && <span>{c.compass}</span>}
+                    {entry.used_for.slice(0, 3).map(([bt, or], i) => (
+                      <span
+                        key={i}
+                        className="rounded bg-gray-700/60 px-1.5 py-0.5"
+                      >
+                        {boundaryLabel(bt)} · {orientationLabel(or)}
+                      </span>
+                    ))}
+                    {entry.used_for.length > 3 && (
+                      <span>+{entry.used_for.length - 3}</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4 text-xs">
                   <span className="tabular-nums text-gray-400">
-                    {c.gross_area_m2.toFixed(1)} m²
+                    {entry.total_area_m2.toFixed(1)} m²
                   </span>
                   <span className="flex items-center gap-1 text-gray-500">
                     <Layers className="h-3 w-3" />
-                    {hasLayers ? c.layers!.length : 0}
+                    {entry.layers.length}
                   </span>
-                  {hasCalculatedU ? (
+                  <span className="text-gray-500">
+                    {entry.surface_count}× gebruikt
+                  </span>
+                  {hasCalculatedU && (
                     <span className="rounded bg-green-900/50 px-1.5 py-0.5 tabular-nums text-green-300">
                       U={calculatedU.toFixed(3)}
                     </span>
-                  ) : review?.u_value != null ? (
-                    <span className="rounded bg-gray-700 px-1.5 py-0.5 tabular-nums text-gray-300">
-                      U={review.u_value.toFixed(3)}
-                    </span>
-                  ) : null}
+                  )}
                 </div>
               </button>
 
-              {/* Expanded: layer detail + edit button */}
+              {/* Expanded: layer detail + usage list + edit button */}
               {isExpanded && (
                 <div className="border-t border-gray-700 px-4 py-3">
                   {hasLayers ? (
                     <>
-                      <ConstructionLayerTable layers={c.layers!} />
+                      <CatalogLayerTable layers={entry.layers} />
+
+                      {/* Usage list */}
+                      {usage.length > 0 && (
+                        <div className="mt-3 border-t border-gray-700/50 pt-3">
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                            Gebruikt in
+                          </p>
+                          <ul className="space-y-0.5">
+                            {usage.map((u, i) => (
+                              <li
+                                key={`${u.roomId}-${i}`}
+                                className="flex items-center justify-between text-xs text-gray-400"
+                              >
+                                <span>{getRoomName(rooms, u.roomId)}</span>
+                                <span className="tabular-nums text-gray-500">
+                                  {u.area.toFixed(2)} m²
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       {/* Edit button */}
                       <div className="mt-3 flex items-center justify-between border-t border-gray-700/50 pt-3">
@@ -268,15 +320,13 @@ export function ConstructionImportStep({
                               U = {calculatedU.toFixed(3)} W/m²K (berekend)
                             </span>
                           ) : (
-                            <span>
-                              U-waarde nog niet berekend
-                            </span>
+                            <span>U-waarde nog niet berekend</span>
                           )}
                         </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleEdit(c);
+                            handleEdit(entry);
                           }}
                           className="flex items-center gap-1.5 rounded bg-[#45B6A8] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#3da396]"
                         >
@@ -301,8 +351,8 @@ export function ConstructionImportStep({
       {/* Stats */}
       <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
         <span>
-          {constructions.length} constructies totaal &middot;{" "}
-          {constructions.length - withoutLayers.length} met laag-opbouw
+          {catalog.length} unieke constructies ·{" "}
+          {catalog.length - withoutLayers.length} met laag-opbouw
         </span>
         {calculatedUValues.size > 0 && (
           <span className="text-green-400">
@@ -312,7 +362,7 @@ export function ConstructionImportStep({
       </div>
 
       {/* LayerEditor modal */}
-      {editingId && editingConstruction && (
+      {editingId && editingEntry && (
         <LayerEditor
           layers={editingLayers}
           position={editingPosition}
@@ -328,11 +378,11 @@ export function ConstructionImportStep({
 // Sub-component: read-only layer table for preview
 // ---------------------------------------------------------------------------
 
-interface ConstructionLayerTableProps {
-  layers: NonNullable<ThermalConstruction["layers"]>;
+interface CatalogLayerTableProps {
+  layers: ThermalImportConstructionLayer[];
 }
 
-function ConstructionLayerTable({ layers }: ConstructionLayerTableProps) {
+function CatalogLayerTable({ layers }: CatalogLayerTableProps) {
   return (
     <table className="w-full text-xs">
       <thead>
@@ -345,15 +395,18 @@ function ConstructionLayerTable({ layers }: ConstructionLayerTableProps) {
       </thead>
       <tbody>
         {layers.map((layer, i) => {
-          const matches = layer.type === "air_gap"
-            ? searchMaterials("luchtspouw")
-            : searchMaterials(layer.material);
+          const matches =
+            layer.type === "air_gap"
+              ? searchMaterials("luchtspouw")
+              : searchMaterials(layer.material);
           const matchName = matches.length > 0 ? matches[0]!.name : null;
 
           return (
             <tr key={i} className="border-b border-gray-700/30">
               <td className="py-1.5 pr-3 text-gray-300">
-                {layer.material}
+                {layer.material || (
+                  <span className="italic text-gray-600">(leeg)</span>
+                )}
                 {layer.type === "air_gap" && (
                   <span className="ml-1.5 text-[10px] text-gray-500">
                     (spouw)

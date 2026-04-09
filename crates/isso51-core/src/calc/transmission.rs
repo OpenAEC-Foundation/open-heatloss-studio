@@ -243,6 +243,7 @@ mod tests {
             custom_delta_u_tb: None,
             ground_params: None,
             has_embedded_heating: false,
+            catalog_ref: None,
         }
     }
 
@@ -306,6 +307,7 @@ mod tests {
                 custom_delta_u_tb: None,
                 ground_params: None,
                 has_embedded_heating: false,
+                catalog_ref: None,
             };
             let h = h_t_adjacent_room_element(&element, theta_i, *theta_a, theta_e, 2.0, -1.0);
             assert!(
@@ -358,6 +360,7 @@ mod tests {
                 custom_delta_u_tb: None,
                 ground_params: None,
                 has_embedded_heating: false,
+                catalog_ref: None,
             };
             sum += h_t_adjacent_building_element(&element, theta_i, theta_b, theta_e, delta_1, delta_2);
         }

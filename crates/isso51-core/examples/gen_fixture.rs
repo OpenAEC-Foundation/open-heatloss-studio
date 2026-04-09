@@ -184,6 +184,7 @@ fn ext(id: &str, desc: &str, area: f64, u: f64, mat: MaterialType) -> Constructi
         custom_delta_u_tb: None,
         ground_params: None,
         has_embedded_heating: false,
+        catalog_ref: None,
     }
 }
 
@@ -203,6 +204,7 @@ fn adj(id: &str, desc: &str, area: f64, u: f64, adj_temp: f64) -> ConstructionEl
         custom_delta_u_tb: None,
         ground_params: None,
         has_embedded_heating: false,
+        catalog_ref: None,
     }
 }
 
@@ -222,6 +224,7 @@ fn nb(id: &str, desc: &str, area: f64, u: f64, pos: VerticalPosition) -> Constru
         custom_delta_u_tb: None,
         ground_params: None,
         has_embedded_heating: false,
+        catalog_ref: None,
     }
 }
 
@@ -241,6 +244,7 @@ fn unheated(id: &str, desc: &str, area: f64, u: f64, f_k: f64) -> ConstructionEl
         custom_delta_u_tb: None,
         ground_params: None,
         has_embedded_heating: false,
+        catalog_ref: None,
     }
 }
 

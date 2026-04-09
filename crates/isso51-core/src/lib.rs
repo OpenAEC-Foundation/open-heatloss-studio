@@ -296,6 +296,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c2".to_string(),
@@ -312,6 +313,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c3".to_string(),
@@ -328,6 +330,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c4".to_string(),
@@ -344,6 +347,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 // Adjacent rooms within dwelling
                 ConstructionElement {
@@ -361,6 +365,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c6".to_string(),
@@ -377,6 +382,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c7".to_string(),
@@ -393,6 +399,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c8".to_string(),
@@ -409,6 +416,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c9".to_string(),
@@ -425,6 +433,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 // Adjacent building (neighboring dwellings)
                 ConstructionElement {
@@ -442,6 +451,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c11".to_string(),
@@ -458,6 +468,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
                 ConstructionElement {
                     id: "c12".to_string(),
@@ -474,6 +485,7 @@ mod tests {
                     custom_delta_u_tb: None,
                     ground_params: None,
                     has_embedded_heating: false,
+                    catalog_ref: None,
                 },
             ],
             heating_system: HeatingSystem::RadiatorLt,

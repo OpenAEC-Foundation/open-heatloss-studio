@@ -105,6 +105,8 @@ export interface ConstructionElement {
   layers?: ConstructionElementLayer[];
   /** Verwijzing naar ProjectConstruction in modellerStore. Niet naar Rust core gestuurd. */
   project_construction_id?: string;
+  /** Verwijzing naar een CatalogEntry uit de thermal import (None voor openings/handmatige elementen). */
+  catalog_ref?: string | null;
 }
 
 export interface Room {

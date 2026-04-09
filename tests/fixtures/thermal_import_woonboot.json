@@ -1,0 +1,3608 @@
+{
+  "constructions": [
+    {
+      "room_b": "room-outside",
+      "id": "constr-0",
+      "compass": "E",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        },
+        {
+          "distance_from_interior_mm": 95.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 175
+        },
+        {
+          "distance_from_interior_mm": 270.0,
+          "material": "hout_multiplex_beplating_CE2+",
+          "lambda": 0.0502,
+          "type": "solid",
+          "thickness_mm": 18
+        },
+        {
+          "distance_from_interior_mm": 288.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 3.06
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-1",
+      "compass": "E",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        },
+        {
+          "distance_from_interior_mm": 95.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 3.06
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-2",
+      "compass": "N",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.74
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-3",
+      "compass": "N",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 210.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 47
+        },
+        {
+          "distance_from_interior_mm": 257.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 6.95
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-4",
+      "compass": "S",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 60
+        }
+      ],
+      "gross_area_m2": 10.43
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-5",
+      "room_a": "room-0",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 11.15
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-6",
+      "compass": "N",
+      "room_a": "room-0",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.74
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-7",
+      "room_a": "room-1",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 140
+        }
+      ],
+      "gross_area_m2": 0.69
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-8",
+      "compass": "E",
+      "room_a": "room-1",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 1.56
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-9",
+      "compass": "N",
+      "room_a": "room-1",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 210.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 270
+        },
+        {
+          "distance_from_interior_mm": 480.0,
+          "material": "h2_cortenstaal",
+          "lambda": 21.2935,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 1.13
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-10",
+      "compass": "S",
+      "room_a": "room-1",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 1.13
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-11",
+      "compass": "W",
+      "room_a": "room-1",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 0.88
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-12",
+      "compass": "W",
+      "room_a": "room-1",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 175
+        },
+        {
+          "distance_from_interior_mm": 275.0,
+          "material": "hout_multiplex_beplating_CE2+",
+          "lambda": 0.0502,
+          "type": "solid",
+          "thickness_mm": 18
+        },
+        {
+          "distance_from_interior_mm": 293.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 0.68
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-13",
+      "compass": "E",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 237.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.22
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-14",
+      "compass": "E",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 317.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 363.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 3.91
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-15",
+      "compass": "N",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        }
+      ],
+      "gross_area_m2": 1.69
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-16",
+      "compass": "N",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 237.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 0.94
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-17",
+      "compass": "N",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 317.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 47
+        },
+        {
+          "distance_from_interior_mm": 364.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 1.12
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-18",
+      "compass": "S",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 101.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 2.87
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-19",
+      "compass": "W",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        },
+        {
+          "distance_from_interior_mm": 95.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        }
+      ],
+      "gross_area_m2": 0.25
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-20",
+      "room_a": "room-2",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegels_300x300mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 80.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 330.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 530.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 4.48
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-21",
+      "compass": "E",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 237.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 397.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 0.73
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-22",
+      "compass": "N",
+      "room_a": "room-2",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        },
+        {
+          "distance_from_interior_mm": 61.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 197.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 237.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 397.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 0.56
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-23",
+      "compass": "E",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        },
+        {
+          "distance_from_interior_mm": 105.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 34
+        },
+        {
+          "distance_from_interior_mm": 139.0,
+          "material": "i2_hout_vuren_C18",
+          "lambda": 0.0209,
+          "type": "solid",
+          "thickness_mm": 61
+        }
+      ],
+      "gross_area_m2": 6.73
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-24",
+      "compass": "N",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 220.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 47
+        },
+        {
+          "distance_from_interior_mm": 267.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 0.32
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-25",
+      "compass": "N",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.96
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-26",
+      "compass": "N",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 220.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 47
+        },
+        {
+          "distance_from_interior_mm": 267.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 4.69
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-27",
+      "compass": "S",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 7.49
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-28",
+      "compass": "W",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 2.98
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-29",
+      "compass": "W",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "hout_multiplex_beplating_CE2+",
+          "lambda": 0.0502,
+          "type": "solid",
+          "thickness_mm": 18
+        },
+        {
+          "distance_from_interior_mm": 28.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 175
+        },
+        {
+          "distance_from_interior_mm": 203.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 3.5
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-30",
+      "room_a": "room-3",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegels_300x300mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 80.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 330.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 530.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 7.99
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-31",
+      "compass": "N",
+      "room_a": "room-3",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 300.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.35
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-32",
+      "compass": "E",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        }
+      ],
+      "gross_area_m2": 0.37
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-33",
+      "compass": "E",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.47
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-34",
+      "compass": "N",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 10.56
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-35",
+      "compass": "S",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        },
+        {
+          "distance_from_interior_mm": 139.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        }
+      ],
+      "gross_area_m2": 0.44
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-36",
+      "compass": "S",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.76
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-37",
+      "compass": "W",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 8.8
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-38",
+      "room_a": "room-4",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 16.1
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-39",
+      "compass": "E",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.47
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-40",
+      "compass": "S",
+      "room_a": "room-4",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.76
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-41",
+      "compass": "E",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 0.25
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-42",
+      "compass": "N",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.44
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-43",
+      "compass": "N",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 210.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 256.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 5.76
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-44",
+      "compass": "S",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "j7_beplating_OSB_III",
+          "lambda": 0.0992,
+          "type": "solid",
+          "thickness_mm": 22
+        },
+        {
+          "distance_from_interior_mm": 22.0,
+          "material": "m1_hsb_glaswol",
+          "lambda": 0.017,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 92.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 15
+        },
+        {
+          "distance_from_interior_mm": 107.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 8.65
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-45",
+      "compass": "W",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.02
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-46",
+      "compass": "W",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 210.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 256.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 4.07
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-47",
+      "room_a": "room-5",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 9.17
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-48",
+      "compass": "N",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.44
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-49",
+      "compass": "W",
+      "room_a": "room-5",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.02
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-50",
+      "compass": "E",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 60
+        }
+      ],
+      "gross_area_m2": 0.47
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-51",
+      "compass": "N",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 0.66
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-52",
+      "compass": "N",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 50
+        },
+        {
+          "distance_from_interior_mm": 60.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.68
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-53",
+      "compass": "N",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 50
+        },
+        {
+          "distance_from_interior_mm": 60.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 220.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 266.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 1.98
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-54",
+      "compass": "N",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 220.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 266.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 7.86
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-55",
+      "compass": "S",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 15.47
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-56",
+      "compass": "W",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 0.25
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-57",
+      "room_a": "room-6",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 11.98
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-58",
+      "compass": "N",
+      "room_a": "room-6",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 50
+        },
+        {
+          "distance_from_interior_mm": 60.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 300.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.68
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-59",
+      "compass": "E",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 0.87
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-60",
+      "compass": "E",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "hout_multiplex_beplating_CE2+",
+          "lambda": 0.0502,
+          "type": "solid",
+          "thickness_mm": 18
+        },
+        {
+          "distance_from_interior_mm": 28.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 175
+        },
+        {
+          "distance_from_interior_mm": 203.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 213.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 1.93
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-61",
+      "compass": "N",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 107
+        }
+      ],
+      "gross_area_m2": 3.02
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-62",
+      "compass": "N",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.34
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-63",
+      "compass": "N",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 120
+        },
+        {
+          "distance_from_interior_mm": 220.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 46
+        },
+        {
+          "distance_from_interior_mm": 266.0,
+          "material": "i1_hout_bamboe",
+          "lambda": 0.0568,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 2.34
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-64",
+      "compass": "S",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        }
+      ],
+      "gross_area_m2": 7.68
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-65",
+      "compass": "S",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 0.28
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-66",
+      "compass": "W",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 2.32
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-67",
+      "room_a": "room-7",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegels_300x300mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 80.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 330.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 530.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 2.7
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-68",
+      "compass": "N",
+      "room_a": "room-7",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "keramische_tegel_150x150mm_wit",
+          "lambda": 0.9899,
+          "type": "solid",
+          "thickness_mm": 10
+        },
+        {
+          "distance_from_interior_mm": 10.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 100.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 140.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 300.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.34
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-69",
+      "compass": "E",
+      "room_a": "room-8",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "f7_gips_beplating_wand_610mm",
+          "lambda": 0.0227,
+          "type": "solid",
+          "thickness_mm": 95
+        }
+      ],
+      "gross_area_m2": 0.36
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-70",
+      "compass": "N",
+      "room_a": "room-8",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 15
+        },
+        {
+          "distance_from_interior_mm": 105.0,
+          "material": "m1_hsb_glaswol",
+          "lambda": 0.017,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 175.0,
+          "material": "j7_beplating_OSB_III",
+          "lambda": 0.0992,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 13.45
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-71",
+      "compass": "S",
+      "room_a": "room-8",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        },
+        {
+          "distance_from_interior_mm": 139.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        }
+      ],
+      "gross_area_m2": 0.55
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-72",
+      "compass": "S",
+      "room_a": "room-8",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 2.05
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-73",
+      "room_a": "room-8",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 19.09
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-74",
+      "compass": "S",
+      "room_a": "room-8",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.87
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-75",
+      "compass": "N",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "",
+          "type": "air_gap",
+          "thickness_mm": 15
+        },
+        {
+          "distance_from_interior_mm": 105.0,
+          "material": "m1_hsb_glaswol",
+          "lambda": 0.017,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 175.0,
+          "material": "j7_beplating_OSB_III",
+          "lambda": 0.0992,
+          "type": "solid",
+          "thickness_mm": 22
+        }
+      ],
+      "gross_area_m2": 22.36
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-76",
+      "compass": "S",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        },
+        {
+          "distance_from_interior_mm": 139.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        }
+      ],
+      "gross_area_m2": 0.92
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-77",
+      "compass": "S",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 3.03
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-78",
+      "compass": "W",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 49
+        }
+      ],
+      "gross_area_m2": 0.37
+    },
+    {
+      "room_b": "room-outside",
+      "id": "constr-79",
+      "compass": "W",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        }
+      ],
+      "gross_area_m2": 1.47
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-80",
+      "room_a": "room-9",
+      "orientation": "floor",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "cement_zandcement_generiek_dekvloer",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 70
+        },
+        {
+          "distance_from_interior_mm": 70.0,
+          "material": "n7_isolatie_EPS",
+          "lambda": 0.0166,
+          "type": "solid",
+          "thickness_mm": 250
+        },
+        {
+          "distance_from_interior_mm": 320.0,
+          "material": "f2_C20/25",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 200
+        },
+        {
+          "distance_from_interior_mm": 520.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 29.42
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-81",
+      "compass": "S",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 2.36
+    },
+    {
+      "room_b": "room-water",
+      "id": "constr-82",
+      "compass": "W",
+      "room_a": "room-9",
+      "orientation": "wall",
+      "layers": [
+        {
+          "distance_from_interior_mm": 0.0,
+          "material": "Holz",
+          "type": "solid",
+          "thickness_mm": 90
+        },
+        {
+          "distance_from_interior_mm": 90.0,
+          "material": "isolatie_pir",
+          "lambda": 0.0114,
+          "type": "solid",
+          "thickness_mm": 40
+        },
+        {
+          "distance_from_interior_mm": 130.0,
+          "material": "f2_C25/30",
+          "lambda": 0.495,
+          "type": "solid",
+          "thickness_mm": 160
+        },
+        {
+          "distance_from_interior_mm": 290.0,
+          "material": "z1_water_buiten_20gr",
+          "lambda": 0.2744,
+          "type": "solid",
+          "thickness_mm": 5000
+        }
+      ],
+      "gross_area_m2": 1.47
+    }
+  ],
+  "project_name": "Testmodel woonboot",
+  "openings": [
+    {
+      "id": "opening-0",
+      "u_value": 1.7,
+      "width_mm": 2262,
+      "height_mm": 741,
+      "construction_id": "constr-2",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-1",
+      "u_value": 1.7,
+      "width_mm": 1120,
+      "height_mm": 781,
+      "construction_id": "constr-2",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-2",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 1800,
+      "construction_id": "constr-11",
+      "type": "door"
+    },
+    {
+      "id": "opening-3",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-19",
+      "type": "door"
+    },
+    {
+      "id": "opening-4",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-19",
+      "type": "door"
+    },
+    {
+      "id": "opening-5",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-15",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-6",
+      "u_value": 1.7,
+      "width_mm": 796,
+      "height_mm": 781,
+      "construction_id": "constr-15",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-7",
+      "u_value": 1.7,
+      "width_mm": 1180,
+      "height_mm": 1579,
+      "construction_id": "constr-32",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-8",
+      "u_value": 1.7,
+      "width_mm": 2529,
+      "height_mm": 1596,
+      "construction_id": "constr-32",
+      "type": "door"
+    },
+    {
+      "id": "opening-9",
+      "u_value": 1.6,
+      "width_mm": 1083,
+      "height_mm": 1352,
+      "construction_id": "constr-32",
+      "type": "window"
+    },
+    {
+      "id": "opening-10",
+      "u_value": 1.7,
+      "width_mm": 1180,
+      "height_mm": 1579,
+      "construction_id": "constr-32",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-11",
+      "u_value": 1.7,
+      "width_mm": 2529,
+      "height_mm": 1596,
+      "construction_id": "constr-32",
+      "type": "door"
+    },
+    {
+      "id": "opening-12",
+      "u_value": 1.6,
+      "width_mm": 1083,
+      "height_mm": 1352,
+      "construction_id": "constr-32",
+      "type": "window"
+    },
+    {
+      "id": "opening-13",
+      "u_value": 1.7,
+      "width_mm": 1383,
+      "height_mm": 1579,
+      "construction_id": "constr-35",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-14",
+      "u_value": 1.7,
+      "width_mm": 2874,
+      "height_mm": 1596,
+      "construction_id": "constr-35",
+      "type": "door"
+    },
+    {
+      "id": "opening-15",
+      "u_value": 1.6,
+      "width_mm": 1255,
+      "height_mm": 1352,
+      "construction_id": "constr-35",
+      "type": "window"
+    },
+    {
+      "id": "opening-16",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-45",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-17",
+      "u_value": 1.7,
+      "width_mm": 796,
+      "height_mm": 781,
+      "construction_id": "constr-45",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-18",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-41",
+      "type": "door"
+    },
+    {
+      "id": "opening-19",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-41",
+      "type": "door"
+    },
+    {
+      "id": "opening-20",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-41",
+      "type": "door"
+    },
+    {
+      "id": "opening-21",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-22",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-23",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-24",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-25",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-26",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-27",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-28",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-29",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-30",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-31",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-32",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-33",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-34",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-35",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-36",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-37",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-38",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-39",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-56",
+      "type": "door"
+    },
+    {
+      "id": "opening-40",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-41",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-42",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-43",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-44",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-45",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-46",
+      "u_value": 1.7,
+      "width_mm": 762,
+      "height_mm": 741,
+      "construction_id": "constr-51",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-47",
+      "u_value": 1.6,
+      "width_mm": 680,
+      "height_mm": 677,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-48",
+      "u_value": 1.6,
+      "width_mm": 820,
+      "height_mm": 817,
+      "construction_id": "constr-51",
+      "type": "window"
+    },
+    {
+      "id": "opening-49",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-56",
+      "type": "door"
+    },
+    {
+      "id": "opening-50",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-56",
+      "type": "door"
+    },
+    {
+      "id": "opening-51",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-56",
+      "type": "door"
+    },
+    {
+      "id": "opening-52",
+      "u_value": 1.7,
+      "width_mm": 1442,
+      "height_mm": 1596,
+      "construction_id": "constr-71",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-53",
+      "u_value": 1.7,
+      "width_mm": 1442,
+      "height_mm": 1596,
+      "construction_id": "constr-71",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-54",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-69",
+      "type": "door"
+    },
+    {
+      "id": "opening-55",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-69",
+      "type": "door"
+    },
+    {
+      "id": "opening-56",
+      "u_value": 1.7,
+      "width_mm": 880,
+      "height_mm": 2315,
+      "construction_id": "constr-69",
+      "type": "door"
+    },
+    {
+      "id": "opening-57",
+      "u_value": 1.7,
+      "width_mm": 1239,
+      "height_mm": 1619,
+      "construction_id": "constr-78",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-58",
+      "u_value": 1.7,
+      "width_mm": 1216,
+      "height_mm": 1579,
+      "construction_id": "constr-78",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-59",
+      "u_value": 1.7,
+      "width_mm": 1369,
+      "height_mm": 1579,
+      "construction_id": "constr-76",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-60",
+      "u_value": 1.7,
+      "width_mm": 2860,
+      "height_mm": 1596,
+      "construction_id": "constr-76",
+      "type": "door"
+    },
+    {
+      "id": "opening-61",
+      "u_value": 1.6,
+      "width_mm": 1248,
+      "height_mm": 1352,
+      "construction_id": "constr-76",
+      "type": "window"
+    },
+    {
+      "id": "opening-62",
+      "u_value": 1.7,
+      "width_mm": 1369,
+      "height_mm": 1579,
+      "construction_id": "constr-76",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-63",
+      "u_value": 1.7,
+      "width_mm": 2860,
+      "height_mm": 1596,
+      "construction_id": "constr-76",
+      "type": "door"
+    },
+    {
+      "id": "opening-64",
+      "u_value": 1.6,
+      "width_mm": 1248,
+      "height_mm": 1352,
+      "construction_id": "constr-76",
+      "type": "window"
+    },
+    {
+      "id": "opening-65",
+      "u_value": 1.7,
+      "width_mm": 1239,
+      "height_mm": 1619,
+      "construction_id": "constr-78",
+      "type": "curtain_wall"
+    },
+    {
+      "id": "opening-66",
+      "u_value": 1.7,
+      "width_mm": 1216,
+      "height_mm": 1579,
+      "construction_id": "constr-78",
+      "type": "curtain_wall"
+    }
+  ],
+  "rooms": [
+    {
+      "height_m": 2.44,
+      "revit_id": 6954043,
+      "id": "room-0",
+      "volume_m3": 27.21,
+      "level": "00_begane grond",
+      "area_m2": 11.15,
+      "type": "heated",
+      "name": "Slaapkamer"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954044,
+      "id": "room-1",
+      "volume_m3": 1.68,
+      "level": "00_begane grond",
+      "area_m2": 0.69,
+      "type": "heated",
+      "name": "Mk"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954034,
+      "id": "room-2",
+      "volume_m3": 10.93,
+      "level": "00_begane grond",
+      "area_m2": 4.48,
+      "type": "heated",
+      "name": "Finse sauna"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954035,
+      "id": "room-3",
+      "volume_m3": 19.52,
+      "level": "00_begane grond",
+      "area_m2": 8.0,
+      "type": "heated",
+      "name": "Badkamer 1"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954036,
+      "id": "room-4",
+      "volume_m3": 39.28,
+      "level": "00_begane grond",
+      "area_m2": 16.1,
+      "type": "heated",
+      "name": "Werkkamer"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954037,
+      "id": "room-5",
+      "volume_m3": 22.37,
+      "level": "00_begane grond",
+      "area_m2": 9.17,
+      "type": "heated",
+      "name": "Gastenverblijf"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954038,
+      "id": "room-6",
+      "volume_m3": 29.28,
+      "level": "00_begane grond",
+      "area_m2": 12.0,
+      "type": "heated",
+      "name": "Entree/Hal/"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954039,
+      "id": "room-7",
+      "volume_m3": 6.64,
+      "level": "00_begane grond",
+      "area_m2": 2.72,
+      "type": "heated",
+      "name": "Toilet/Douche"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954040,
+      "id": "room-8",
+      "volume_m3": 46.58,
+      "level": "00_begane grond",
+      "area_m2": 19.09,
+      "type": "heated",
+      "name": "Zithoek"
+    },
+    {
+      "height_m": 2.44,
+      "revit_id": 6954041,
+      "id": "room-9",
+      "volume_m3": 71.78,
+      "level": "00_begane grond",
+      "area_m2": 29.42,
+      "type": "heated",
+      "name": "Leefkeuken"
+    },
+    {
+      "id": "room-outside",
+      "name": "Buiten",
+      "type": "outside"
+    },
+    {
+      "id": "room-water",
+      "name": "Water",
+      "type": "water"
+    }
+  ],
+  "exported_at": "2026-04-09T00:00:00",
+  "version": "1.0",
+  "open_connections": [
+    {
+      "room_b": "room-outside",
+      "room_a": "room-0",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-0",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-0",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-0",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-2",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-2",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-4",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-4",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-4",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-5",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-5",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-5",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-5",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 2.1
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 2.1
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 0.9
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-6",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-8",
+      "area_m2": 2.3
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.5
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.6
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 2.4
+    },
+    {
+      "room_b": "room-outside",
+      "room_a": "room-9",
+      "area_m2": 1.5
+    }
+  ],
+  "source": "revit-raycast"
+}

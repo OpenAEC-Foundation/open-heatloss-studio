@@ -73,8 +73,11 @@ export function ThermalImportWizard() {
   // Editable copies of rooms and openings
   const [editedRooms, setEditedRooms] = useState<ThermalRoom[]>([]);
   const [editedOpenings, setEditedOpenings] = useState<ThermalOpening[]>([]);
-  // U-values calculated via LayerEditor in step 3
-  const [constructionUValues, setConstructionUValues] = useState<Map<string, number>>(new Map());
+  // U-values calculated via LayerEditor in step 3, keyed by CatalogEntry.id.
+  // applyEditsToProject propagates these to every ConstructionElement whose
+  // catalog_ref points at that catalog entry, so a single edit fans out to
+  // all rooms that share that construction.
+  const [catalogUValues, setCatalogUValues] = useState<Map<string, number>>(new Map());
 
   // Step 1 complete handler: parse file, call backend
   const handleFileAccepted = useCallback(
@@ -127,7 +130,7 @@ export function ThermalImportWizard() {
       importResult.project,
       editedRooms,
       editedOpenings,
-      constructionUValues,
+      catalogUValues,
     );
     setProject(mergedProject);
 
@@ -138,13 +141,13 @@ export function ThermalImportWizard() {
 
     // 3. Navigate to modeller
     navigate("/modeller");
-  }, [importResult, importFile, editedRooms, editedOpenings, constructionUValues, setProject, setImportedBoundaries, navigate]);
+  }, [importResult, importFile, editedRooms, editedOpenings, catalogUValues, setProject, setImportedBoundaries, navigate]);
 
-  // LayerEditor U-value callback
-  const handleConstructionUValue = useCallback((constructionId: string, uValue: number) => {
-    setConstructionUValues((prev) => {
+  // LayerEditor U-value callback — keyed by CatalogEntry.id
+  const handleConstructionUValue = useCallback((catalogId: string, uValue: number) => {
+    setCatalogUValues((prev) => {
       const next = new Map(prev);
-      next.set(constructionId, uValue);
+      next.set(catalogId, uValue);
       return next;
     });
   }, []);
@@ -246,10 +249,10 @@ export function ThermalImportWizard() {
         )}
         {currentStep === 2 && importFile && importResult && (
           <ConstructionImportStep
-            constructions={importFile.constructions}
             rooms={editedRooms}
-            constructionLayers={importResult.construction_layers}
-            onConstructionUValue={handleConstructionUValue}
+            project={importResult.project}
+            catalog={importResult.construction_catalog}
+            onCatalogUValue={handleConstructionUValue}
           />
         )}
         {currentStep === 3 && importFile && (

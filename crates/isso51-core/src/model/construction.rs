@@ -72,6 +72,12 @@ pub struct ConstructionElement {
     /// Relevant for system loss calculations (§2.9).
     #[serde(default)]
     pub has_embedded_heating: bool,
+
+    /// Reference to a `CatalogEntry.id` produced by the thermal import.
+    /// `None` for openings, manually-added elements and projects from
+    /// before the catalog refactor (legacy projects keep working).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog_ref: Option<String>,
 }
 
 /// Parameters for ground heat loss calculation.
