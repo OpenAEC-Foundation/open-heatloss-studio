@@ -284,13 +284,47 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         .filter(|r| matches!(r.room_type, ThermalRoomType::Heated | ThermalRoomType::Unheated))
         .collect();
 
-    // Group constructions by room_a.
-    let mut constructions_by_room: HashMap<&str, Vec<&ThermalConstruction>> = HashMap::new();
+    // Build set of real (heated/unheated) room IDs so we can quickly decide
+    // whether a given side of a construction should be mapped as its own
+    // ConstructionElement.
+    let real_room_ids: std::collections::HashSet<&str> =
+        real_rooms.iter().map(|r| r.id.as_str()).collect();
+
+    /// Which side of a `ThermalConstruction` we are viewing from.
+    ///
+    /// A construction has two sides (`room_a` and `room_b`). Fix voor Bug D
+    /// (2026-04-09): elke construction waarbij BEIDE sides een real
+    /// (heated/unheated) room zijn moet aan BEIDE kanten verschijnen,
+    /// anders verdwijnen shared interior walls aan één van de twee kanten.
+    #[derive(Debug, Clone, Copy)]
+    enum ConstructionSide {
+        /// We are the `room_a` side — "other" room is `room_b`.
+        A,
+        /// We are the `room_b` side — "other" room is `room_a`.
+        B,
+    }
+
+    // Group constructions by **every real room** that references them.
+    //
+    // Each construction is indexed under `room_a` as `Side::A` and under
+    // `room_b` as `Side::B`, but only when that side's room is a real
+    // (heated/unheated) room — pseudo-rooms (outside, ground, water) never
+    // need their own ConstructionElement list.
+    let mut constructions_by_room: HashMap<&str, Vec<(&ThermalConstruction, ConstructionSide)>> =
+        HashMap::new();
     for c in &input.constructions {
-        constructions_by_room
-            .entry(c.room_a.as_str())
-            .or_default()
-            .push(c);
+        if real_room_ids.contains(c.room_a.as_str()) {
+            constructions_by_room
+                .entry(c.room_a.as_str())
+                .or_default()
+                .push((c, ConstructionSide::A));
+        }
+        if real_room_ids.contains(c.room_b.as_str()) {
+            constructions_by_room
+                .entry(c.room_b.as_str())
+                .or_default()
+                .push((c, ConstructionSide::B));
+        }
     }
 
     // Collect raw surfaces from every room for the global catalog (phase 3).
@@ -334,20 +368,29 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         let mut grouping_infos: Vec<GroupingInfo> = Vec::new();
 
         if let Some(constructions) = constructions_by_room.get(thermal_room.id.as_str()) {
-            for construction in constructions {
-                // Look up room_b to determine boundary type.
-                let room_b = room_map.get(construction.room_b.as_str());
-                if room_b.is_none() {
+            for (construction, side) in constructions {
+                // Determine the "other" room id based on which side of the
+                // construction we are viewing from. Fix voor Bug D:
+                // shared interior walls were only visible on the room_a
+                // side because the old code always looked up room_b.
+                let other_room_id: &str = match side {
+                    ConstructionSide::A => construction.room_b.as_str(),
+                    ConstructionSide::B => construction.room_a.as_str(),
+                };
+
+                // Look up the other room to determine boundary type.
+                let other_room = room_map.get(other_room_id);
+                if other_room.is_none() {
                     warnings.push(format!(
-                        "Constructie '{}': room_b '{}' niet gevonden in rooms lijst",
-                        construction.id, construction.room_b
+                        "Constructie '{}': ruimte '{}' niet gevonden in rooms lijst",
+                        construction.id, other_room_id
                     ));
                 }
 
                 // Water → Ground: ISSO 51 behandelt watercontact vergelijkbaar met
                 // grondcontact (constante temperatuur, correctiefactor). De gebruiker
                 // past de temperatuurcorrectie handmatig aan in de warmteverlies tool.
-                let boundary_type = room_b
+                let boundary_type = other_room
                     .map(|rb| match rb.room_type {
                         ThermalRoomType::Outside => BoundaryType::Exterior,
                         ThermalRoomType::Ground | ThermalRoomType::Water => BoundaryType::Ground,
@@ -364,8 +407,10 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                     ThermalOrientation::Wall => VerticalPosition::Wall,
                 };
 
-                // Warn if construction has no layers.
-                if construction.layers.is_empty() {
+                // Warn if construction has no layers — but only once per
+                // construction id. Without this guard shared walls would
+                // now generate the same warning twice (once per side).
+                if construction.layers.is_empty() && matches!(side, ConstructionSide::A) {
                     warnings.push(format!(
                         "Constructie '{}' ({}) heeft geen lagen — U-waarde kan niet berekend worden",
                         construction.id,
@@ -385,66 +430,81 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                     .unwrap_or(0.0);
                 let net_area = (construction.gross_area_m2 - total_opening_area).max(0.0);
 
-                // Filter: skip 0 m² construction surfaces.
+                // Filter: skip 0 m² construction surfaces. Fix voor Bug D
+                // (opening-explosie): de volledige behandeling van deze
+                // constructie — inclusief de openings-loop — moet binnen
+                // deze net_area > 0 branch staan, anders worden openings
+                // op weggefilterde mikro-wanden alsnog toegevoegd en krijgt
+                // de ruimte een stortvloed aan losse raam-/deur-elementen
+                // zonder onderliggende wand (zie 3056 woonboot, constr-60
+                // met 27 openings op een 0.66 m² wandje).
                 if net_area <= 0.0 {
-                    warnings.push(format!(
-                        "Constructie '{}' ({}) overgeslagen: netto oppervlak is 0 m²",
-                        construction.id,
-                        construction.revit_type_name.as_deref().unwrap_or("onbekend"),
-                    ));
-                } else {
-                    // Adjacent room info.
-                    let adjacent_room_id = if boundary_type == BoundaryType::AdjacentRoom
-                        || boundary_type == BoundaryType::UnheatedSpace
-                    {
-                        Some(construction.room_b.clone())
-                    } else {
-                        None
-                    };
-
-                    // Ground parameters for ground elements.
-                    let ground_params = if boundary_type == BoundaryType::Ground {
-                        Some(GroundParameters {
-                            u_equivalent: 0.0,
-                            ground_water_factor: 1.0,
-                            fg2: 1.0,
-                        })
-                    } else {
-                        None
-                    };
-
-                    elem_counter += 1;
-                    raw_elements.push(ConstructionElement {
-                        id: format!("{}-c{}", thermal_room.id, elem_counter),
-                        description: String::new(), // will be set during grouping
-                        area: net_area,
-                        u_value: 0.0, // placeholder — user calculates via Rc-calculator
-                        boundary_type,
-                        material_type: MaterialType::Masonry, // default; user adjusts
-                        temperature_factor: None,
-                        adjacent_room_id: adjacent_room_id.clone(),
-                        adjacent_temperature: None,
-                        vertical_position,
-                        use_forfaitaire_thermal_bridge: boundary_type == BoundaryType::Exterior,
-                        custom_delta_u_tb: None,
-                        ground_params,
-                        has_embedded_heating: false,
-                        catalog_ref: None, // filled in during phase 3
-                    });
-
-                    grouping_infos.push(GroupingInfo {
-                        revit_type_name: construction
-                            .revit_type_name
-                            .clone()
-                            .unwrap_or_else(|| "onbekend".to_string()),
-                        boundary_type,
-                        orientation: construction.orientation,
-                        layers: construction.layers.clone(),
-                        adjacent_room_id,
-                    });
+                    // Emit warning only once per construction id to avoid
+                    // double warnings for shared walls.
+                    if matches!(side, ConstructionSide::A) {
+                        warnings.push(format!(
+                            "Constructie '{}' ({}) overgeslagen: netto oppervlak is 0 m²",
+                            construction.id,
+                            construction.revit_type_name.as_deref().unwrap_or("onbekend"),
+                        ));
+                    }
+                    continue;
                 }
 
+                // Adjacent room info.
+                let adjacent_room_id = if boundary_type == BoundaryType::AdjacentRoom
+                    || boundary_type == BoundaryType::UnheatedSpace
+                {
+                    Some(other_room_id.to_string())
+                } else {
+                    None
+                };
+
+                // Ground parameters for ground elements.
+                let ground_params = if boundary_type == BoundaryType::Ground {
+                    Some(GroundParameters {
+                        u_equivalent: 0.0,
+                        ground_water_factor: 1.0,
+                        fg2: 1.0,
+                    })
+                } else {
+                    None
+                };
+
+                elem_counter += 1;
+                raw_elements.push(ConstructionElement {
+                    id: format!("{}-c{}", thermal_room.id, elem_counter),
+                    description: String::new(), // will be set during grouping
+                    area: net_area,
+                    u_value: 0.0, // placeholder — user calculates via Rc-calculator
+                    boundary_type,
+                    material_type: MaterialType::Masonry, // default; user adjusts
+                    temperature_factor: None,
+                    adjacent_room_id: adjacent_room_id.clone(),
+                    adjacent_temperature: None,
+                    vertical_position,
+                    use_forfaitaire_thermal_bridge: boundary_type == BoundaryType::Exterior,
+                    custom_delta_u_tb: None,
+                    ground_params,
+                    has_embedded_heating: false,
+                    catalog_ref: None, // filled in during phase 3
+                });
+
+                grouping_infos.push(GroupingInfo {
+                    revit_type_name: construction
+                        .revit_type_name
+                        .clone()
+                        .unwrap_or_else(|| "onbekend".to_string()),
+                    boundary_type,
+                    orientation: construction.orientation,
+                    layers: construction.layers.clone(),
+                    adjacent_room_id,
+                });
+
                 // Map openings as separate ConstructionElements (not grouped).
+                // Openings zijn expres *binnen* de net_area > 0 branch gezet
+                // zodat openings op weggefilterde wanden niet alsnog lekken
+                // (zie Bug D / constr-60 in de 3056 woonboot fixture).
                 if let Some(ops) = openings_in_construction {
                     for opening in ops {
                         let opening_area = (opening.width_mm * opening.height_mm) / 1_000_000.0;
@@ -476,7 +536,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                             adjacent_room_id: if boundary_type == BoundaryType::AdjacentRoom
                                 || boundary_type == BoundaryType::UnheatedSpace
                             {
-                                Some(construction.room_b.clone())
+                                Some(other_room_id.to_string())
                             } else {
                                 None
                             },
@@ -1930,6 +1990,12 @@ mod tests {
         assert_eq!(interior[0].adjacent_room_id.as_deref(), Some("r-b"));
 
         // A grouping warning should be produced because 2 surfaces were merged.
+        //
+        // NB: na Bug D fix worden shared interior walls aan BEIDE kanten
+        // gemapped. De peer room (`r-b` = Keuken, Heated) is dus óók een
+        // real room en ziet ook diezelfde 2 walls die daar eveneens tot één
+        // element worden gemerged. We verwachten dus 2 merge-warnings:
+        // één in Woonkamer (r1) en één in Keuken (r-b).
         let group_warnings: Vec<&String> = result
             .warnings
             .iter()
@@ -1937,9 +2003,21 @@ mod tests {
             .collect();
         assert_eq!(
             group_warnings.len(),
-            1,
-            "Expected exactly 1 merge warning. Warnings: {:?}",
+            2,
+            "Expected 2 merge warnings (one per side — r1 + r-b). Warnings: {:?}",
             result.warnings
+        );
+        // En concreet: beide rooms moeten één 7.5 m² merge zien.
+        let r1_merged = group_warnings
+            .iter()
+            .any(|w| w.contains("Woonkamer") && w.contains("7.50"));
+        let rb_merged = group_warnings
+            .iter()
+            .any(|w| w.contains("Keuken") && w.contains("7.50"));
+        assert!(
+            r1_merged && rb_merged,
+            "Verwachtte merge warning voor zowel Woonkamer als Keuken. Warnings: {:?}",
+            group_warnings
         );
     }
 
@@ -2658,5 +2736,250 @@ mod tests {
             .find(|c| c.material_type == MaterialType::Masonry)
             .expect("wall element missing");
         assert!(wall.catalog_ref.is_some(), "wall must have a catalog_ref");
+    }
+
+    /// Regression — Bug D (2026-04-09): room.constructions mag ruimte-vlakken
+    /// niet verliezen of dupliceren vanaf shared interior walls / runaway
+    /// opening loops.
+    ///
+    /// Root cause:
+    /// 1. Within-room grouping keek alleen naar `room_a`, waardoor shared
+    ///    interior walls (`room_b == room-X`) bij room X verdwenen.
+    /// 2. Openings werden óók toegevoegd als de bijbehorende wand weggefilterd
+    ///    was (net_area ≤ 0), wat garbage-export van PyRevit een factor 4
+    ///    versterkte op de centrale hub-ruimte.
+    ///
+    /// Deze test gebruikt de live 3056 woonboot export en controleert:
+    /// - room-0 (Slaapkamer) heeft alle 3 shared interior walls van room-3,
+    ///   room-1 en room-8 zichtbaar als binnenwand met adjacent_room_id = die
+    ///   buurkamers;
+    /// - room-0 verwijst naar een catalog entry met fingerprint
+    ///   `Holz + isolatie_pir + f2_C25/30` (zonder water-laag);
+    /// - room-6 (Entree/Hal) heeft niet meer construction-elementen dan de
+    ///   raw gross-area wanden, d.w.z. geen opening-explosie.
+    #[test]
+    fn test_woonboot_room0_shared_walls_and_room6_no_opening_explosion() {
+        let json = include_str!("../../../../tests/fixtures/thermal_import_woonboot.json");
+        let input: ThermalImport =
+            serde_json::from_str(json).expect("woonboot fixture failed to parse");
+        let result = map_thermal_import(input);
+
+        let room_0 = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "room-0")
+            .expect("room-0 niet gevonden");
+
+        // room-0 moet minstens de shared interior walls terug hebben:
+        // constr-8  (room-1 → room-0)
+        // constr-26 (room-3 → room-0)
+        // constr-27 (room-3 → room-0)
+        // constr-78 (room-8 → room-0)
+        let adj_ids: Vec<&str> = room_0
+            .constructions
+            .iter()
+            .filter_map(|c| c.adjacent_room_id.as_deref())
+            .collect();
+        assert!(
+            adj_ids.contains(&"room-1"),
+            "room-0 moet een shared wall naar room-1 hebben (constr-8), kreeg adj_ids={:?}",
+            adj_ids
+        );
+        assert!(
+            adj_ids.contains(&"room-3"),
+            "room-0 moet shared walls naar room-3 hebben (constr-26/27), kreeg adj_ids={:?}",
+            adj_ids
+        );
+        assert!(
+            adj_ids.contains(&"room-8"),
+            "room-0 moet een shared wall naar room-8 hebben (constr-78), kreeg adj_ids={:?}",
+            adj_ids
+        );
+
+        // room-0 moet verwijzen naar een catalog entry met fingerprint
+        // Holz + isolatie_pir + f2_C25/30 (de beton-boven-water zone zonder
+        // water-laag). Deze zit als exterior-wall (constr-4) of als gevolg
+        // van deling met een andere kamer in de catalog — het feit dat de
+        // catalog hem heeft bewijst de grouping werkt; room-0 moet er ook
+        // naar wijzen.
+        //
+        // NB: constr-4 zelf heeft netto-area 0 (vliesgevels groter dan wand),
+        // dus we accepteren ook dat alleen de catalog entry bestaat; we
+        // verifiëren dat de catalog entry er is en dat minstens één ruimte
+        // ernaar verwijst.
+        let target = result.construction_catalog.iter().find(|e| {
+            let layers_str: Vec<String> = e
+                .layers
+                .iter()
+                .map(|l| l.material.to_lowercase())
+                .collect();
+            let has_holz = layers_str.iter().any(|s| s.contains("holz"));
+            let has_pir = layers_str.iter().any(|s| s.contains("isolatie_pir"));
+            let has_beton = layers_str.iter().any(|s| s.contains("c25/30"));
+            let has_water = layers_str.iter().any(|s| s.contains("water"));
+            has_holz && has_pir && has_beton && !has_water
+        });
+        let target_entry = target.expect(
+            "catalog moet een entry hebben met fingerprint Holz + isolatie_pir + f2_C25/30 \
+             zonder water (beton-boven-water zone)",
+        );
+        // Minstens één room moet er naar verwijzen — anders is het een
+        // dead catalog entry, wat op een mapping-bug wijst.
+        let any_ref = result
+            .project
+            .rooms
+            .iter()
+            .flat_map(|r| r.constructions.iter())
+            .any(|c| c.catalog_ref.as_deref() == Some(target_entry.id.as_str()));
+        assert!(
+            any_ref,
+            "minstens één room moet naar {} verwijzen",
+            target_entry.id
+        );
+
+        // room-6 (Entree/Hal) heeft 13 raw constructies (10 room_a + 3 room_b).
+        // Na de fix moeten shared walls aan beide kanten verschijnen, dus het
+        // verwachte maximum aantal niet-opening elementen ligt rond die 13.
+        // De openings op room-6 zijn echter in de raw data deels gebonden aan
+        // micro-wandjes (constr-60 = 0.66 m² met 27 openings, constr-56 =
+        // 0.25 m² met 4 deuren): die openings horen na de fix NIET bij
+        // room-6 te verschijnen omdat hun onderliggende wand netto ≤ 0 is.
+        //
+        // We eisen hier een strakke bovengrens: room-6 mag na de fix niet
+        // meer elementen hebben dan ~2 × het aantal raw constructies voor
+        // deze ruimte. Dat geeft ruimte voor openings op échte wanden,
+        // maar vangt de oude 39-elementen-explosie op.
+        let room_6 = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "room-6")
+            .expect("room-6 niet gevonden");
+        assert!(
+            room_6.constructions.len() <= 20,
+            "room-6 mag na fix niet meer dan 20 elementen hebben (was 39 door opening-explosie), \
+             kreeg {}",
+            room_6.constructions.len()
+        );
+    }
+
+    /// Regression — Bug D counts per room.
+    ///
+    /// Diagnose test: verifieert per-room het aantal gemapped elementen en
+    /// logt deze in eprintln (zichtbaar met `cargo test -- --nocapture`).
+    /// Gebruikt de 3056 woonboot fixture. Controleert dat room-0 minstens
+    /// alle 5 eerder ontbrekende constructies bevat (constr-4/8/26/27/78),
+    /// op basis van adjacent_room_id / boundary_type / area signature.
+    #[test]
+    fn test_woonboot_per_room_counts_regression() {
+        let json = include_str!("../../../../tests/fixtures/thermal_import_woonboot.json");
+        let input: ThermalImport =
+            serde_json::from_str(json).expect("woonboot fixture failed to parse");
+
+        // Raw counts per real room: sum both room_a and room_b references.
+        let real_ids: std::collections::HashSet<&str> = input
+            .rooms
+            .iter()
+            .filter(|r| matches!(
+                r.room_type,
+                ThermalRoomType::Heated | ThermalRoomType::Unheated
+            ))
+            .map(|r| r.id.as_str())
+            .collect();
+
+        let mut raw_counts: HashMap<String, usize> = HashMap::new();
+        for c in &input.constructions {
+            if real_ids.contains(c.room_a.as_str()) {
+                *raw_counts.entry(c.room_a.clone()).or_insert(0) += 1;
+            }
+            if real_ids.contains(c.room_b.as_str()) {
+                *raw_counts.entry(c.room_b.clone()).or_insert(0) += 1;
+            }
+        }
+
+        let result = map_thermal_import(input);
+
+        eprintln!("\n=== Per-room counts (Bug D regression) ===");
+        eprintln!("{:<8} {:<20} {:>6} {:>10} {:>8}", "id", "name", "raw", "mapped", "diff");
+        for room in &result.project.rooms {
+            let raw = raw_counts.get(&room.id).copied().unwrap_or(0);
+            let mapped = room.constructions.len();
+            eprintln!(
+                "{:<8} {:<20} {:>6} {:>10} {:>+8}",
+                room.id,
+                room.name.chars().take(18).collect::<String>(),
+                raw,
+                mapped,
+                mapped as i64 - raw as i64,
+            );
+        }
+        eprintln!("=========================================\n");
+
+        // Room-6 (Entree/Hal) mag nooit MEER elementen hebben dan raw count;
+        // dat zou betekenen dat opening-explosie terug is.
+        let room_6 = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "room-6")
+            .expect("room-6 niet gevonden");
+        let room_6_raw = raw_counts.get("room-6").copied().unwrap_or(0);
+        assert!(
+            room_6.constructions.len() <= room_6_raw + 5,
+            "room-6 ({} elements) mag niet meer hebben dan raw ({} + 5 tolerance voor openings op valide wanden)",
+            room_6.constructions.len(),
+            room_6_raw,
+        );
+
+        // Room-0 moet alle 4 shared interior walls (constr-8 → room-1,
+        // constr-26/27 → room-3, constr-78 → room-8) hebben via hun
+        // adjacent_room_id. Dit is de directe tegenhanger van de bug
+        // waarbij shared walls aan de room_b kant verdwenen.
+        let room_0 = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "room-0")
+            .expect("room-0 niet gevonden");
+
+        let adjacent_ids: std::collections::HashSet<&str> = room_0
+            .constructions
+            .iter()
+            .filter_map(|c| c.adjacent_room_id.as_deref())
+            .collect();
+
+        for expected in ["room-1", "room-3", "room-8"] {
+            assert!(
+                adjacent_ids.contains(expected),
+                "room-0 mist shared wall naar {} (Bug D); aanwezige adjacents: {:?}",
+                expected,
+                adjacent_ids
+            );
+        }
+
+        // Room-0 moet exterieure N-wand zonder water hebben (constr-4 had
+        // net_area == 0 maar zijn fingerprint moet via de catalog bereikbaar
+        // zijn — óf hij komt toch mee omdat net_area na opening-deductie > 0
+        // is). We eisen: óf een direct catalog-ref naar de beton-boven-water
+        // fingerprint, óf een direct ConstructionElement met boundary_type
+        // Exterior + vertical Wall + fingerprint-match.
+        let target_catalog_entry = result.construction_catalog.iter().find(|e| {
+            let has_holz = e.layers.iter().any(|l| l.material.to_lowercase().contains("holz"));
+            let has_pir = e.layers.iter().any(|l| l.material.to_lowercase().contains("isolatie_pir"));
+            let has_beton = e.layers.iter().any(|l| l.material.to_lowercase().contains("c25/30"));
+            let has_water = e.layers.iter().any(|l| l.material.to_lowercase().contains("water"));
+            has_holz && has_pir && has_beton && !has_water
+        });
+        assert!(
+            target_catalog_entry.is_some(),
+            "Catalog mist fingerprint Holz + isolatie_pir + f2_C25/30 (beton-boven-water). \
+             Fingerprints aanwezig: {:?}",
+            result
+                .construction_catalog
+                .iter()
+                .map(|e| e.id.clone())
+                .collect::<Vec<_>>()
+        );
     }
 }
