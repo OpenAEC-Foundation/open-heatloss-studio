@@ -495,8 +495,17 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         }
 
         // Phase 2: Group construction surfaces by
-        // (revit_type_name, boundary_type, orientation, adjacent_room_id?).
+        // (layer_fingerprint, boundary_type, orientation, adjacent_room_id?).
         // Surfaces with the same key are merged: areas summed, SfB-based name assigned.
+        //
+        // The first component is the **layer fingerprint** (not `revit_type_name`).
+        // Rationale: PyRevit's ThermalExport does not always populate
+        // `revit_type_name` — in the 3056 woonboot fixture all 83 surfaces have
+        // `None`, which previously collapsed onto a single `"onbekend"` key and
+        // merged fysiek ongelijke wanden (b.v. spouwmuur + drijflichaam + binnenwand)
+        // tot één ConstructionElement per ruimte. Door te groeperen op de stabiele
+        // layer fingerprint worden surfaces met verschillende samenstellingen nu
+        // als aparte elementen behandeld, ook wanneer hun `revit_type_name` leeg is.
         //
         // The `adjacent_room_id` component is only included for interior boundaries
         // (`AdjacentRoom` / `UnheatedSpace`) so walls that look identical but separate
@@ -508,7 +517,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         // dus dan is deze component simpelweg `None` en verandert het gedrag niet.
         let mut elements: Vec<ConstructionElement> = Vec::new();
 
-        // Group key: (revit_type_name, boundary_type discriminant, orientation
+        // Group key: (layer_fingerprint, boundary_type discriminant, orientation
         // discriminant, adjacent_room_id for interior boundaries only).
         type GroupKey = (String, u8, u8, Option<String>);
 
@@ -563,7 +572,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             // paths stay behaviour-compatible with the pre-fix grouping.
             let adj_key = adjacency_key(info.boundary_type, &info.adjacent_room_id);
             let key: GroupKey = (
-                info.revit_type_name.clone(),
+                layer_fingerprint(&info.layers),
                 boundary_discriminant(info.boundary_type),
                 orientation_discriminant(info.orientation),
                 adj_key,
@@ -608,10 +617,9 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             // Log grouping info when multiple surfaces are merged.
             if indices.len() > 1 {
                 warnings.push(format!(
-                    "Ruimte '{}': {} grensvlakken van type '{}' samengevoegd tot '{}' (totaal {:.2} m²)",
+                    "Ruimte '{}': {} grensvlakken samengevoegd tot '{}' (totaal {:.2} m²)",
                     thermal_room.name,
                     indices.len(),
-                    first_info.revit_type_name,
                     description,
                     total_area,
                 ));
@@ -1658,7 +1666,7 @@ mod tests {
                 },
             ],
             constructions: vec![
-                // Same revit_type_name but different boundary_type → should NOT group.
+                // Same layer fingerprint but different boundary_type → should NOT group.
                 ThermalConstruction {
                     id: "c1".to_string(),
                     room_a: "r1".to_string(),
@@ -1668,7 +1676,13 @@ mod tests {
                     gross_area_m2: 5.0,
                     revit_element_id: None,
                     revit_type_name: Some("Spouwmuur".to_string()),
-                    layers: vec![],
+                    layers: vec![ThermalLayer {
+                        material: "Kalkzandsteen".to_string(),
+                        thickness_mm: 100.0,
+                        distance_from_interior_mm: Some(0.0),
+                        layer_type: ThermalLayerType::Solid,
+                        lambda: Some(1.0),
+                    }],
                 },
                 ThermalConstruction {
                     id: "c2".to_string(),
@@ -1679,9 +1693,15 @@ mod tests {
                     gross_area_m2: 6.0,
                     revit_element_id: None,
                     revit_type_name: Some("Spouwmuur".to_string()),
-                    layers: vec![],
+                    layers: vec![ThermalLayer {
+                        material: "Kalkzandsteen".to_string(),
+                        thickness_mm: 100.0,
+                        distance_from_interior_mm: Some(0.0),
+                        layer_type: ThermalLayerType::Solid,
+                        lambda: Some(1.0),
+                    }],
                 },
-                // Different revit_type_name, same boundary_type → should NOT group.
+                // Different layer fingerprint (different material), same boundary_type → should NOT group.
                 ThermalConstruction {
                     id: "c3".to_string(),
                     room_a: "r1".to_string(),
@@ -1691,7 +1711,13 @@ mod tests {
                     gross_area_m2: 4.0,
                     revit_element_id: None,
                     revit_type_name: Some("Binnenwand 100mm".to_string()),
-                    layers: vec![],
+                    layers: vec![ThermalLayer {
+                        material: "Gipsplaat".to_string(),
+                        thickness_mm: 12.5,
+                        distance_from_interior_mm: Some(0.0),
+                        layer_type: ThermalLayerType::Solid,
+                        lambda: Some(0.25),
+                    }],
                 },
             ],
             openings: vec![],
@@ -2063,6 +2089,210 @@ mod tests {
             revit_type_name: None,
             layers,
         }
+    }
+
+    #[test]
+    fn test_phase2_splits_by_layer_fingerprint_when_revit_type_name_empty() {
+        // Regression: PyRevit ThermalExport often emits surfaces with
+        // `revit_type_name = None`. Previously all such surfaces in one room
+        // collapsed onto the key `("onbekend", Exterior, Wall, None)` and got
+        // merged into one ConstructionElement, regardless of their physical
+        // composition. With layer-fingerprint based grouping they must stay
+        // distinct when their layer stacks differ.
+        let layers_spouwmuur = vec![
+            solid("Kalkzandsteen", 100.0, 1.0),
+            solid("PIR isolatie", 120.0, 0.023),
+            solid("Baksteen", 100.0, 0.9),
+        ];
+        let layers_houtskelet = vec![
+            solid("Gipsplaat", 12.5, 0.25),
+            solid("Minerale wol", 140.0, 0.035),
+            solid("Multiplex", 18.0, 0.14),
+        ];
+        let layers_drijflichaam = vec![
+            solid("Beton", 200.0, 2.0),
+            solid("PUR isolatie", 80.0, 0.025),
+        ];
+
+        let input = ThermalImport {
+            version: "1.0".to_string(),
+            source: "test".to_string(),
+            exported_at: "2026-04-09".to_string(),
+            project_name: Some("Fingerprint split test".to_string()),
+            rooms: vec![
+                heated_room("r1", "Woonkamer"),
+                ThermalRoom {
+                    id: "r-out".to_string(),
+                    revit_id: None,
+                    name: "Buiten".to_string(),
+                    room_type: ThermalRoomType::Outside,
+                    level: None,
+                    area_m2: None,
+                    height_m: None,
+                    volume_m3: None,
+                    boundary_polygon: None,
+                },
+            ],
+            constructions: vec![
+                // All 3 walls: revit_type_name = None, Exterior, Wall — but 3
+                // different layer fingerprints.
+                wall_with_layers("c1", "r1", "r-out", 6.0, layers_spouwmuur),
+                wall_with_layers("c2", "r1", "r-out", 4.0, layers_houtskelet),
+                wall_with_layers("c3", "r1", "r-out", 5.0, layers_drijflichaam),
+            ],
+            openings: vec![],
+            open_connections: vec![],
+        };
+
+        let result = map_thermal_import(input);
+        let room = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "r1")
+            .expect("r1 not found");
+
+        let exterior_walls: Vec<&ConstructionElement> = room
+            .constructions
+            .iter()
+            .filter(|c| {
+                c.boundary_type == BoundaryType::Exterior
+                    && c.vertical_position == VerticalPosition::Wall
+            })
+            .collect();
+        assert_eq!(
+            exterior_walls.len(),
+            3,
+            "3 walls with distinct layer fingerprints must stay separate, got: {:?}",
+            exterior_walls
+                .iter()
+                .map(|c| (&c.description, c.area))
+                .collect::<Vec<_>>(),
+        );
+
+        // Areas must match the inputs (nothing summed).
+        let areas: std::collections::HashSet<u64> = exterior_walls
+            .iter()
+            .map(|c| (c.area * 100.0).round() as u64)
+            .collect();
+        assert_eq!(
+            areas,
+            std::collections::HashSet::from([600u64, 400u64, 500u64]),
+            "Each wall must keep its original area",
+        );
+
+        // Every wall must have its own catalog_ref, and all 3 must differ.
+        let catalog_refs: Vec<&str> = exterior_walls
+            .iter()
+            .map(|c| {
+                c.catalog_ref
+                    .as_deref()
+                    .expect("wall must carry a catalog_ref")
+            })
+            .collect();
+        let unique_refs: std::collections::HashSet<&str> =
+            catalog_refs.iter().copied().collect();
+        assert_eq!(
+            unique_refs.len(),
+            3,
+            "3 distinct fingerprints must map to 3 distinct catalog entries, got refs {:?}",
+            catalog_refs,
+        );
+
+        // No phase-2 merge warnings: every group has exactly 1 entry.
+        let group_warnings: Vec<&String> = result
+            .warnings
+            .iter()
+            .filter(|w| w.contains("samengevoegd"))
+            .collect();
+        assert!(
+            group_warnings.is_empty(),
+            "No grouping should have happened, got warnings: {:?}",
+            group_warnings,
+        );
+    }
+
+    #[test]
+    fn test_phase2_merges_walls_with_same_layer_fingerprint() {
+        // Two exterior walls, both with revit_type_name = None, but sharing the
+        // same layer stack → must merge into a single ConstructionElement with
+        // summed area.
+        let layers = vec![
+            solid("Kalkzandsteen", 100.0, 1.0),
+            solid("PIR isolatie", 120.0, 0.023),
+            solid("Baksteen", 100.0, 0.9),
+        ];
+
+        let input = ThermalImport {
+            version: "1.0".to_string(),
+            source: "test".to_string(),
+            exported_at: "2026-04-09".to_string(),
+            project_name: Some("Fingerprint merge test".to_string()),
+            rooms: vec![
+                heated_room("r1", "Woonkamer"),
+                ThermalRoom {
+                    id: "r-out".to_string(),
+                    revit_id: None,
+                    name: "Buiten".to_string(),
+                    room_type: ThermalRoomType::Outside,
+                    level: None,
+                    area_m2: None,
+                    height_m: None,
+                    volume_m3: None,
+                    boundary_polygon: None,
+                },
+            ],
+            constructions: vec![
+                wall_with_layers("c1", "r1", "r-out", 6.0, layers.clone()),
+                wall_with_layers("c2", "r1", "r-out", 4.5, layers.clone()),
+            ],
+            openings: vec![],
+            open_connections: vec![],
+        };
+
+        let result = map_thermal_import(input);
+        let room = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "r1")
+            .expect("r1 not found");
+
+        let exterior_walls: Vec<&ConstructionElement> = room
+            .constructions
+            .iter()
+            .filter(|c| {
+                c.boundary_type == BoundaryType::Exterior
+                    && c.vertical_position == VerticalPosition::Wall
+            })
+            .collect();
+        assert_eq!(
+            exterior_walls.len(),
+            1,
+            "2 walls with identical layer fingerprints must merge into 1, got: {:?}",
+            exterior_walls
+                .iter()
+                .map(|c| (&c.description, c.area))
+                .collect::<Vec<_>>(),
+        );
+        assert!(
+            (exterior_walls[0].area - 10.5).abs() < 0.01,
+            "Merged area must be 10.5 m², got {}",
+            exterior_walls[0].area,
+        );
+
+        // Exactly one merge warning expected.
+        let group_warnings: Vec<&String> = result
+            .warnings
+            .iter()
+            .filter(|w| w.contains("samengevoegd"))
+            .collect();
+        assert_eq!(
+            group_warnings.len(),
+            1,
+            "Expected exactly 1 merge warning. Warnings: {:?}",
+            result.warnings,
+        );
     }
 
     #[test]
