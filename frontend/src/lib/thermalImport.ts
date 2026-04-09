@@ -5,6 +5,7 @@
  */
 import { API_PREFIX } from "./constants";
 import { authFetch } from "./backend";
+import { matchIfcMaterial } from "./ifcMaterialMatcher";
 import type { Project } from "../types";
 import type { ImportedBoundary } from "../components/modeller/types";
 import type {
@@ -394,12 +395,19 @@ function catalogEntryToProjectConstruction(
         : "ceiling";
 
   // Convert ThermalImportConstructionLayer[] → CatalogueLayer[].
-  // materialId = trimmed lowercased Revit material name. Unknown ids fall
-  // back to the raw string in SHORT_NAMES lookups (see constructionCatalogue).
-  const layers: CatalogueLayer[] = entry.layers.map((l) => ({
-    materialId: l.material.trim().toLowerCase() || "onbekend",
-    thickness: l.thickness_mm,
-  }));
+  // Try to match each Revit material name against the materials database
+  // (existing IFC material matcher); fall back to the raw lowercased name
+  // so the layer is still visible even when no match exists.
+  const layers: CatalogueLayer[] = entry.layers.map((l) => {
+    const match = matchIfcMaterial(l.material);
+    const materialId = match.material
+      ? match.material.id
+      : l.material.trim().toLowerCase() || "onbekend";
+    return {
+      materialId,
+      thickness: l.thickness_mm,
+    };
+  });
 
   return {
     name: entry.description,
