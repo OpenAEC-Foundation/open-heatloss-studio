@@ -15,7 +15,7 @@ import {
   buildConstructionLossSvg,
   buildStackedBarSvg,
   buildSummaryDonutSvg,
-  svgToBase64,
+  rasterizeSvgToPng,
 } from "./reportCharts";
 
 /** Default buitentemperatuur (°C) voor fallback in rapport charts. */
@@ -37,13 +37,14 @@ function todayIso(): string {
 }
 
 /** Build BM Reports JSON from project input + calculation result. */
-export function buildReportData(
+export async function buildReportData(
   project: Project,
   result: ProjectResult,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const today = todayIso();
   const projectName = project.info.name || "Naamloos project";
   const thetaWater = project.climate.theta_water ?? DEFAULT_THETA_WATER;
+  const diagrammenSection = await buildDiagrammenSection(project, result);
 
   return {
     template: "blank",
@@ -103,10 +104,7 @@ export function buildReportData(
       buildUitgangspuntenSection(project),
       buildVertrekkenOverzichtSection(result),
       ...buildRoomSections(project, result),
-      ...(() => {
-        const diagrammen = buildDiagrammenSection(project, result);
-        return diagrammen ? [diagrammen] : [];
-      })(),
+      ...(diagrammenSection ? [diagrammenSection] : []),
       buildGebouwresultatenSection(result),
     ],
 
@@ -303,11 +301,14 @@ function buildRoomDetailSection(
  * Elke chart wordt individueel overgeslagen wanneer er geen data is.
  * Wanneer alle charts leeg zijn returnt de functie `null` en wordt
  * de sectie volledig uit het rapport weggelaten.
+ *
+ * SVG-charts worden client-side gerasterized naar PNG omdat de
+ * BM Reports (PyMuPDF) backend `image/svg+xml` niet echt kan parsen.
  */
-function buildDiagrammenSection(
+async function buildDiagrammenSection(
   project: Project,
   result: ProjectResult,
-): Record<string, unknown> | null {
+): Promise<Record<string, unknown> | null> {
   const STACKED_WIDTH_MM = 170;
   const DONUT_WIDTH_MM = 170;
   const CONSTRUCTION_WIDTH_MM = 150;
@@ -317,12 +318,13 @@ function buildDiagrammenSection(
 
   const stackedSvg = buildStackedBarSvg(result.rooms);
   if (stackedSvg) {
+    const png = await rasterizeSvgToPng(stackedSvg);
     content.push({
       type: "image",
       src: {
-        data: svgToBase64(stackedSvg),
-        media_type: "image/svg+xml",
-        filename: "verliezen-per-vertrek.svg",
+        data: png.data,
+        media_type: "image/png",
+        filename: "verliezen-per-vertrek.png",
       },
       caption: "Warmteverliezen per vertrek",
       width_mm: STACKED_WIDTH_MM,
@@ -333,12 +335,13 @@ function buildDiagrammenSection(
 
   const donutSvg = buildSummaryDonutSvg(result.summary);
   if (donutSvg) {
+    const png = await rasterizeSvgToPng(donutSvg);
     content.push({
       type: "image",
       src: {
-        data: svgToBase64(donutSvg),
-        media_type: "image/svg+xml",
-        filename: "gebouwtotaal.svg",
+        data: png.data,
+        media_type: "image/png",
+        filename: "gebouwtotaal.png",
       },
       caption: "Gebouwtotaal warmteverliezen per type",
       width_mm: DONUT_WIDTH_MM,
@@ -353,12 +356,13 @@ function buildDiagrammenSection(
     project.climate.theta_water,
   );
   if (constructionSvg) {
+    const png = await rasterizeSvgToPng(constructionSvg);
     content.push({
       type: "image",
       src: {
-        data: svgToBase64(constructionSvg),
-        media_type: "image/svg+xml",
-        filename: "verlies-per-constructietype.svg",
+        data: png.data,
+        media_type: "image/png",
+        filename: "verlies-per-constructietype.png",
       },
       caption: "Verlies per constructietype",
       width_mm: CONSTRUCTION_WIDTH_MM,

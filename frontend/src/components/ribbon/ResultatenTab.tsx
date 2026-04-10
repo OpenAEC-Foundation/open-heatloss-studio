@@ -22,7 +22,7 @@ export default function ResultatenTab() {
     if (!result) return;
     setIsGenerating(true);
     try {
-      const reportData = buildReportData(project, result);
+      const reportData = await buildReportData(project, result);
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

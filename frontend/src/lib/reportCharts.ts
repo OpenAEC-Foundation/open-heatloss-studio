@@ -76,6 +76,62 @@ export function svgToBase64(svg: string): string {
   return btoa(unescape(encodeURIComponent(svg)));
 }
 
+/**
+ * Rasterize een standalone SVG-string naar base64-encoded PNG data (geen
+ * `data:` prefix), zodat BM Reports (PyMuPDF) het kan inserten.
+ *
+ * De BM Reports renderer ondersteunt `image/svg+xml` in het schema maar
+ * de PyMuPDF backend kan SVG niet parsen — vandaar client-side rasterize.
+ *
+ * @param svg Standalone SVG string (inclusief `width`/`height` attributen)
+ * @param scale DPI-multiplier voor scherpere output (default 2×)
+ */
+export async function rasterizeSvgToPng(
+  svg: string,
+  scale = 2,
+): Promise<{ data: string; widthPx: number; heightPx: number }> {
+  const widthMatch = svg.match(/<svg[^>]*\swidth="(\d+(?:\.\d+)?)"/);
+  const heightMatch = svg.match(/<svg[^>]*\sheight="(\d+(?:\.\d+)?)"/);
+  const widthStr = widthMatch?.[1];
+  const heightStr = heightMatch?.[1];
+  if (!widthStr || !heightStr) {
+    throw new Error("SVG zonder width/height attributen kan niet worden gerasterized");
+  }
+  const baseWidth = parseFloat(widthStr);
+  const baseHeight = parseFloat(heightStr);
+  const widthPx = Math.max(1, Math.round(baseWidth * scale));
+  const heightPx = Math.max(1, Math.round(baseHeight * scale));
+
+  // Blob URL is betrouwbaarder dan data: URL voor grotere SVGs en vermijdt
+  // dubbele base64 round-trips.
+  const blob = new Blob([svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const img = new Image();
+    img.decoding = "sync";
+    img.src = url;
+    await img.decode();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = widthPx;
+    canvas.height = heightPx;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Canvas 2D context niet beschikbaar");
+    }
+    ctx.fillStyle = REPORT_COLORS.background;
+    ctx.fillRect(0, 0, widthPx, heightPx);
+    ctx.drawImage(img, 0, 0, widthPx, heightPx);
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const data = dataUrl.replace(/^data:image\/png;base64,/, "");
+    return { data, widthPx, heightPx };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** Round up to a "nice" max value for Y-axis. */
 function niceMax(value: number): number {
   if (value <= 0) return 100;
@@ -428,7 +484,10 @@ function isGlazing(description: string): boolean {
     d.includes("beglazing") ||
     d.includes("hr++") ||
     d.includes("hr+") ||
-    d.includes("triple")
+    d.includes("triple") ||
+    d.includes("cwa") ||
+    d.includes("vliesgevel") ||
+    d.includes("curtain")
   );
 }
 
