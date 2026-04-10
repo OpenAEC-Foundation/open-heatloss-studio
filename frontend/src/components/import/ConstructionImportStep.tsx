@@ -27,6 +27,7 @@ import type { Project } from "../../types";
 import { searchMaterials } from "../../lib/materialsDatabase";
 import { matchIfcMaterial } from "../../lib/ifcMaterialMatcher";
 import type { ConstructionElementLayer, VerticalPosition } from "../../types";
+import { formatArea } from "../../lib/formatNumber";
 import { LayerEditor } from "../construction/LayerEditor";
 
 interface ConstructionImportStepProps {
@@ -318,7 +319,7 @@ export function ConstructionImportStep({
 
                 <div className="flex items-center gap-4 text-xs">
                   <span className="tabular-nums text-gray-400">
-                    {entry.total_area_m2.toFixed(1)} m²
+                    {formatArea(entry.total_area_m2)} m²
                   </span>
                   <span className="flex items-center gap-1 text-gray-500">
                     <Layers className="h-3 w-3" />
@@ -356,7 +357,7 @@ export function ConstructionImportStep({
                               >
                                 <span>{getRoomName(rooms, u.roomId)}</span>
                                 <span className="tabular-nums text-gray-500">
-                                  {u.area.toFixed(2)} m²
+                                  {formatArea(u.area)} m²
                                 </span>
                               </li>
                             ))}

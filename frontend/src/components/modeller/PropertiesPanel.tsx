@@ -6,6 +6,7 @@ import { polygonArea, segmentsShareEdge, computeWallSegments } from "./geometry"
 import { useAllConstructions, type UnifiedConstructionEntry } from "../../hooks/useAllConstructions";
 import type { CatalogueCategory } from "../../lib/constructionCatalogue";
 import { CATALOGUE_CATEGORY_LABELS } from "../../lib/constructionCatalogue";
+import { formatArea } from "../../lib/formatNumber";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -170,7 +171,10 @@ export function PropertiesPanel({
               <Row label="Richting" value={dir} />
               <Row label="Lengte" value={`${(segLength / 1000).toFixed(2)} m`} />
               <Row label="Hoogte" value={`${room.height} mm`} />
-              <Row label="Oppervlak" value={`${((segLength / 1000) * (room.height / 1000)).toFixed(2)} m\u00B2`} />
+              <Row
+                label="Oppervlak"
+                value={`${formatArea((segLength / 1000) * (room.height / 1000))} m\u00B2`}
+              />
               <div className="flex items-center justify-between text-xs">
                 <span className="text-on-surface-muted">Grenstype</span>
                 <select
@@ -245,7 +249,7 @@ export function PropertiesPanel({
           <ul className="space-y-1">
             {rooms.map((r) => (
               <li key={r.id} className="text-xs text-on-surface-secondary">
-                <span className="font-mono font-medium">{r.id}</span> {r.name} — {(polygonArea(r.polygon) / 1e6).toFixed(1)} m²
+                <span className="font-mono font-medium">{r.id}</span> {r.name} — {formatArea(polygonArea(r.polygon) / 1e6)} m²
               </li>
             ))}
           </ul>
@@ -291,7 +295,7 @@ export function PropertiesPanel({
                 ))}
               </select>
             </div>
-            <Row label="Vloeroppervlak" value={`${area.toFixed(2)} m\u00B2`} />
+            <Row label="Vloeroppervlak" value={`${formatArea(area)} m\u00B2`} />
             <EditableNumberField label="Hoogte (mm)" value={room.height} onChange={(val) => onUpdateRoom?.(room.id, { height: val })} />
             <ElevationField
               value={room.elevation}
@@ -333,7 +337,7 @@ export function PropertiesPanel({
 
         <Section title="Vloer">
           <ConstructionCard
-            label={`Vloer — ${area.toFixed(2)} m\u00B2`}
+            label={`Vloer — ${formatArea(area)} m\u00B2`}
             badge="Grond" badgeColor="green"
             assignedEntryId={floorConstructions[room.id]}
             catalogueEntries={catalogueEntries}
@@ -344,7 +348,7 @@ export function PropertiesPanel({
 
         <Section title="Plafond / Dak">
           <ConstructionCard
-            label={`Plafond — ${area.toFixed(2)} m\u00B2`}
+            label={`Plafond — ${formatArea(area)} m\u00B2`}
             badge="Verdieping" badgeColor="purple"
             assignedEntryId={roofConstructions[room.id]}
             catalogueEntries={catalogueEntries}

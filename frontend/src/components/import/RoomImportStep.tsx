@@ -9,6 +9,7 @@ import { AlertCircle } from "lucide-react";
 
 import type { ThermalRoom, ThermalRoomType } from "../../lib/thermalImport";
 import { isPseudoRoom, roomTypeLabel } from "../../lib/thermalImport";
+import { formatArea } from "../../lib/formatNumber";
 
 interface RoomImportStepProps {
   rooms: ThermalRoom[];
@@ -82,7 +83,7 @@ export function RoomImportStep({ rooms, onRoomsChange }: RoomImportStepProps) {
                   {room.level ?? "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-300">
-                  {room.area_m2 != null ? room.area_m2.toFixed(1) : "—"}
+                  {formatArea(room.area_m2)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-300">
                   {room.height_m != null ? room.height_m.toFixed(2) : "—"}

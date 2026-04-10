@@ -4,6 +4,7 @@ import {
   ROOM_FUNCTION_LABELS,
   ROOM_FUNCTION_TEMPERATURES,
 } from "../../lib/constants";
+import { formatArea } from "../../lib/formatNumber";
 import type { Room, RoomFunction } from "../../types";
 import { EditableCell } from "./EditableCell";
 import { EditableSelect } from "./EditableSelect";
@@ -110,6 +111,7 @@ export function RoomHeaderCells({
           onChange={(v) => onUpdate({ floor_area: Number(v) || 0 })}
           type="number"
           unit="m²"
+          displayFormatter={formatArea}
         />
       </td>
       <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">

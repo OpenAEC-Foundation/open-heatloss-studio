@@ -22,6 +22,7 @@ import { useProjectStore } from "../store/projectStore";
 import { useModellerToolStore } from "../store/modellerToolStore";
 import { useAllConstructions } from "../hooks/useAllConstructions";
 import { importProject, exportProject, extractAndLinkConstructions } from "../lib/importExport";
+import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
 
@@ -781,7 +782,7 @@ function ProjectBrowser({
                     </button>
                     <span className="font-mono font-medium text-[10px]">{room.id}</span>
                     <span className="truncate flex-1">{room.name}</span>
-                    <span className="text-[10px] text-scaffold-gray">{area.toFixed(1)}m²</span>
+                    <span className="text-[10px] text-scaffold-gray">{formatArea(area)} m²</span>
                   </div>
 
                   {/* Surfaces under this room */}
@@ -833,13 +834,13 @@ function ProjectBrowser({
                       {/* Floor surface */}
                       <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-deep-forge/60">
                         <span className="w-10">Vloer</span>
-                        <span className="flex-1">{area.toFixed(2)}m²</span>
+                        <span className="flex-1">{formatArea(area)} m²</span>
                       </div>
 
                       {/* Ceiling surface */}
                       <div className="flex items-center gap-1 py-0.5 px-1 text-[10px] text-deep-forge/60">
                         <span className="w-10">Plafond</span>
-                        <span className="flex-1">{area.toFixed(2)}m²</span>
+                        <span className="flex-1">{formatArea(area)} m²</span>
                       </div>
 
                       {/* Delete button */}

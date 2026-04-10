@@ -7,6 +7,13 @@ interface EditableCellProps {
   unit?: string;
   placeholder?: string;
   className?: string;
+  /**
+   * Optional display-only formatter. Applied to the non-editing rendering
+   * of numeric values (bv. oppervlakte-afronding op 2 decimalen). Wordt
+   * niet gebruikt tijdens editing zodat de gebruiker de volledige precisie
+   * ziet en kan bewerken.
+   */
+  displayFormatter?: (value: number) => string;
 }
 
 export function EditableCell({
@@ -16,6 +23,7 @@ export function EditableCell({
   unit,
   placeholder,
   className = "",
+  displayFormatter,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
@@ -65,8 +73,16 @@ export function EditableCell({
     );
   }
 
-  const displayValue = value === 0 && type === "number" ? "0" : String(value);
-  const isEmpty = displayValue === "" || displayValue === "0";
+  const rawDisplay = value === 0 && type === "number" ? "0" : String(value);
+  const isEmpty = rawDisplay === "" || rawDisplay === "0";
+  const displayValue =
+    !isEmpty &&
+    displayFormatter !== undefined &&
+    type === "number" &&
+    typeof value === "number" &&
+    Number.isFinite(value)
+      ? displayFormatter(value)
+      : rawDisplay;
 
   return (
     <span
