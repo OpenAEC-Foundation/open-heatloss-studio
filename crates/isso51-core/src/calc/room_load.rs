@@ -46,7 +46,11 @@ pub fn calculate_room(
 
     // Get Δθ corrections from the heating system table
     let dt = tables::temperature::delta_theta(room.heating_system);
-    let delta_1 = dt.delta_1;
+    // ISSO 51 Table 2.12 footnote 2: for rooms with non-standard height
+    // (vides, double-height spaces), Δθ₁ must be multiplied by h/4
+    // where h is the total room height in meters. Reference height = 4 m.
+    let height_factor = room.height / 4.0;
+    let delta_1 = dt.delta_1 * height_factor;
     let delta_2 = dt.delta_2;
 
     // --- Transmission ---
