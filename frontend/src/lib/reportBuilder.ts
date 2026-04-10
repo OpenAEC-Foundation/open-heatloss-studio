@@ -27,22 +27,6 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Detecteer of het project ten minste één construction-element met
- * `boundary_type === "water"` heeft. Wordt in metadata meegestuurd zodat de
- * rapport-generator conditioneel een water-voetnoot kan toevoegen.
- */
-function hasWaterBoundariesInProject(project: Project): boolean {
-  for (const room of project.rooms) {
-    for (const ce of room.constructions) {
-      if (ce.boundary_type === "water") {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 /** Build BM Reports JSON from project input + calculation result. */
 export function buildReportData(
   project: Project,
@@ -51,7 +35,6 @@ export function buildReportData(
   const today = todayIso();
   const projectName = project.info.name || "Naamloos project";
   const thetaWater = project.climate.theta_water ?? DEFAULT_THETA_WATER;
-  const waterBoundariesPresent = hasWaterBoundariesInProject(project);
 
   return {
     template: "blank",
@@ -109,7 +92,6 @@ export function buildReportData(
       engine: "isso51-core",
       generated_at: new Date().toISOString(),
       theta_water: thetaWater,
-      water_boundaries_present: waterBoundariesPresent,
     },
   };
 }
@@ -118,7 +100,6 @@ export function buildReportData(
 function buildUitgangspuntenSection(project: Project): Record<string, unknown> {
   const { building, climate, ventilation } = project;
   const thetaWater = climate.theta_water ?? DEFAULT_THETA_WATER;
-  const waterBoundariesPresent = hasWaterBoundariesInProject(project);
 
   return {
     title: "Uitgangspunten",
@@ -146,11 +127,19 @@ function buildUitgangspuntenSection(project: Project): Record<string, unknown> {
         rows: [
           ["Buitentemperatuur (θ_e)", `${climate.theta_e ?? -10} °C`],
           ["Grondtemperatuur (θ_b)", `${climate.theta_b_residential ?? 17} °C`],
-          ...(waterBoundariesPresent
-            ? [["Watertemperatuur (θ_w)", `${thetaWater} °C`]]
-            : []),
+          ["Watertemperatuur (θ_w) *", `${thetaWater} °C`],
           ["Windfactor", String(climate.wind_factor ?? 1.0)],
         ],
+      },
+      {
+        type: "paragraph",
+        text:
+          "<i>* De watertemperatuur θ_w is een engineering-aanname en komt " +
+          "<b>niet</b> uit ISSO 51:2023. De standaardwaarde van 5 °C is " +
+          "conservatief gekozen voor Nederlandse binnenwateren in " +
+          "winterconditie. Deze waarde wordt uitsluitend gebruikt voor " +
+          "constructie-elementen met begrenzing 'water' (bijv. " +
+          "woonboten of drijvende constructies).</i>",
       },
       { type: "spacer", height_mm: 4 },
       {
