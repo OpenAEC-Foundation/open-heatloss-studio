@@ -95,6 +95,10 @@ export function RcCalculator() {
   const [studPickerRect, setStudPickerRect] = useState<DOMRect | null>(null);
   const studMaterialBtnRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
+  // Tracks of de edit-load al succesvol is uitgevoerd. Voorkomt dat latere
+  // store-updates (bv. na async persist hydratie) de user's edits overschrijven.
+  const hasInitializedEditRef = useRef<boolean>(false);
+
   // Opslaan feedback
   const [saved, setSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -107,23 +111,30 @@ export function RcCalculator() {
   );
   const addToast = useToastStore((s) => s.addToast);
 
-  // Load entry when editing
+  // Load entry when editing.
+  // Re-runt bij allEntries-updates totdat initialisatie lukt (Zustand persist
+  // hydrateert asynchroon, dus custom/modified entries zijn mogelijk nog niet
+  // beschikbaar op eerste render). Zodra succesvol geladen, markeer via ref
+  // zodat verdere store-updates de user's lopende edits niet overschrijven.
   useEffect(() => {
-    if (!editId) return;
+    if (!editId || hasInitializedEditRef.current) return;
     const entry = allEntries.find((e) => e.id === editId);
     if (!entry) return;
     setName(entry.name);
     setCategory(entry.category);
     setMaterialType(entry.materialType);
     if (entry.layers?.length) {
-      setLayers(entry.layers.map((l) => ({
-        materialId: l.materialId,
-        thickness: l.thickness,
-        stud: l.stud,
-      })));
+      setLayers(
+        entry.layers.map((l) => ({
+          materialId: l.materialId,
+          thickness: l.thickness,
+          lambdaOverride: l.lambdaOverride,
+          stud: l.stud,
+        })),
+      );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editId]);
+    hasInitializedEditRef.current = true;
+  }, [editId, allEntries]);
 
   // Afgeleide waarden
   const position = CATEGORY_POSITION[category] ?? "wall";
