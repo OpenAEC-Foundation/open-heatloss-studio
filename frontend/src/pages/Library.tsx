@@ -1,4 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import { PageHeader } from "../components/layout/PageHeader";
@@ -43,6 +52,11 @@ const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   masonry: "Steenachtig",
   non_masonry: "Niet-steenachtig",
 };
+
+const NAME_EDIT_INPUT_CLASS =
+  "min-w-0 flex-1 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0 text-sm font-medium text-on-surface outline-none focus:border-primary";
+
+const NAME_EDIT_ICON_SIZE_CLASS = "h-3.5 w-3.5";
 
 const EMPTY_ENTRY: Omit<CatalogueEntry, "id"> = {
   name: "",
@@ -862,6 +876,19 @@ function ConstructionRow({
   const [draft, setDraft] = useState<Partial<CatalogueEntry>>({});
   const navigate = useNavigate();
 
+  // Inline quick-rename state (apart van full edit form).
+  const [isRenamingName, setIsRenamingName] = useState(false);
+  const [draftName, setDraftName] = useState(entry.name);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Focus + select-all bij openen van rename-mode.
+  useEffect(() => {
+    if (isRenamingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isRenamingName]);
+
   const handleStartEdit = useCallback(() => {
     if (entry.layers?.length) {
       navigate(`/rc?edit=${entry.id}`);
@@ -886,6 +913,40 @@ function ConstructionRow({
     setDraft({});
     onCancelEdit();
   }, [onCancelEdit]);
+
+  const startRenameName = (e: ReactMouseEvent<HTMLButtonElement>): void => {
+    e.stopPropagation();
+    setDraftName(entry.name);
+    setIsRenamingName(true);
+  };
+
+  const cancelRenameName = (): void => {
+    setIsRenamingName(false);
+    setDraftName(entry.name);
+  };
+
+  const commitRenameName = (): void => {
+    const trimmed = draftName.trim();
+    if (trimmed.length === 0 || trimmed === entry.name) {
+      cancelRenameName();
+      return;
+    }
+    onUpdate({ name: trimmed });
+    setIsRenamingName(false);
+  };
+
+  const handleNameKeyDown = (
+    e: ReactKeyboardEvent<HTMLInputElement>,
+  ): void => {
+    e.stopPropagation();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitRenameName();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelRenameName();
+    }
+  };
 
   if (isEditing) {
     return (
@@ -913,17 +974,45 @@ function ConstructionRow({
   return (
     <tr className="group border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]/50">
       <td className="px-3 py-2.5 font-medium text-on-surface">
-        {entry.name}
-        {!entry.isBuiltIn && (
-          <span className="ml-2 rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-400">
-            Aangepast
-          </span>
-        )}
-        {modified && (
-          <span className="ml-2 rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
-            Gewijzigd
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isRenamingName ? (
+            <input
+              ref={nameInputRef}
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={handleNameKeyDown}
+              onBlur={commitRenameName}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className={NAME_EDIT_INPUT_CLASS}
+              aria-label="Constructienaam bewerken"
+            />
+          ) : (
+            <>
+              <span>{entry.name}</span>
+              <button
+                type="button"
+                onClick={startRenameName}
+                className="rounded p-0.5 text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
+                aria-label="Naam bewerken"
+                title="Constructienaam bewerken"
+              >
+                <Pencil className={NAME_EDIT_ICON_SIZE_CLASS} />
+              </button>
+            </>
+          )}
+          {!entry.isBuiltIn && (
+            <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-400">
+              Aangepast
+            </span>
+          )}
+          {modified && (
+            <span className="rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
+              Gewijzigd
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-3 py-2.5 text-right tabular-nums text-on-surface-secondary">
         {entry.uValue.toFixed(2)}
