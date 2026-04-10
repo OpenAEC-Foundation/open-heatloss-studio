@@ -51,6 +51,17 @@ export function buildReportData(
 
     cover: {
       subtitle: "Warmteverliesberekening conform ISSO 51:2023",
+      ...(project.info.cover_image
+        ? {
+            image: {
+              data: project.info.cover_image.data,
+              media_type: project.info.cover_image.media_type,
+              ...(project.info.cover_image.filename
+                ? { filename: project.info.cover_image.filename }
+                : {}),
+            },
+          }
+        : {}),
     },
 
     colofon: {

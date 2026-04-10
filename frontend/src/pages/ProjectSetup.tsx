@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "../components/ui/Button";
@@ -26,6 +26,7 @@ import {
 } from "../lib/constants";
 import type {
   Building,
+  CoverImage,
   DesignConditions,
   FrostProtectionType,
   HeatingSystem,
@@ -35,6 +36,11 @@ import type {
 
 const BULK_APPLY_CONFIRM_THRESHOLD = 5;
 const DEFAULT_HEATING_SYSTEM: HeatingSystem = "radiator_ht";
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
+const ALLOWED_COVER_IMAGE_TYPES: ReadonlyArray<CoverImage["media_type"]> = [
+  "image/png",
+  "image/jpeg",
+];
 
 function toOptions(labels: Record<string, string>) {
   return Object.entries(labels).map(([value, label]) => ({ value, label }));
@@ -174,6 +180,58 @@ export function ProjectSetup() {
     [setError, navigate, addToast],
   );
 
+  const handleCoverImageChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const input = e.target;
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (file.size > MAX_COVER_IMAGE_BYTES) {
+        addToast("Afbeelding mag maximaal 2 MB zijn", "error");
+        input.value = "";
+        return;
+      }
+
+      const isAllowedType = ALLOWED_COVER_IMAGE_TYPES.some(
+        (type) => type === file.type,
+      );
+      if (!isAllowedType) {
+        addToast("Alleen PNG of JPEG toegestaan", "error");
+        input.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1] ?? "";
+        if (!base64) {
+          addToast("Kon de afbeelding niet lezen", "error");
+          return;
+        }
+        updateInfo({
+          cover_image: {
+            data: base64,
+            media_type: file.type as CoverImage["media_type"],
+            filename: file.name,
+          },
+        });
+      };
+      reader.onerror = () => {
+        addToast("Kon de afbeelding niet lezen", "error");
+      };
+      reader.readAsDataURL(file);
+
+      // Reset input zodat dezelfde file opnieuw gekozen kan worden na verwijderen.
+      input.value = "";
+    },
+    [addToast, updateInfo],
+  );
+
+  const handleCoverImageClear = useCallback(() => {
+    updateInfo({ cover_image: null });
+  }, [updateInfo]);
+
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
   return (
@@ -247,6 +305,43 @@ export function ProjectSetup() {
               value={info.date ?? ""}
               onChange={(e) => updateInfo({ date: e.target.value || null })}
             />
+          </div>
+          <div className="mt-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+            <label className="block text-xs font-medium text-on-surface-secondary">
+              Voorblad-afbeelding (optioneel)
+            </label>
+            <p className="mt-0.5 text-[10px] text-on-surface-muted">
+              PNG of JPEG, max 2 MB. Komt op het voorblad van het rapport.
+            </p>
+            {info.cover_image ? (
+              <div className="mt-2 flex items-center gap-3">
+                <img
+                  src={`data:${info.cover_image.media_type};base64,${info.cover_image.data}`}
+                  alt="Voorblad afbeelding"
+                  className="h-20 w-20 rounded border border-[var(--oaec-border)] object-cover"
+                />
+                <div className="flex-1 text-xs text-on-surface-muted">
+                  {info.cover_image.filename ?? "afbeelding"}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCoverImageClear}
+                  className="rounded border border-[var(--oaec-border)] px-2 py-1 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
+                >
+                  Verwijderen
+                </button>
+              </div>
+            ) : (
+              <label className="mt-2 inline-block cursor-pointer rounded border border-[var(--oaec-border)] px-3 py-1.5 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]">
+                Afbeelding kiezen…
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  onChange={handleCoverImageChange}
+                  className="hidden"
+                />
+              </label>
+            )}
           </div>
         </Card>
 

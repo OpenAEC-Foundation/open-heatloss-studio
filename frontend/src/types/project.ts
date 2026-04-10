@@ -182,6 +182,15 @@ export interface VentilationConfig {
   preheating_temperature?: number | null;
 }
 
+export interface CoverImage {
+  /** Raw base64 encoded image data (zonder data: prefix). */
+  data: string;
+  /** MIME type — alleen PNG en JPEG ondersteund. */
+  media_type: "image/png" | "image/jpeg";
+  /** Originele bestandsnaam (optioneel, voor UX). */
+  filename?: string;
+}
+
 export interface ProjectInfo {
   name: string;
   project_number?: string | null;
@@ -190,6 +199,7 @@ export interface ProjectInfo {
   date?: string | null;
   engineer?: string | null;
   notes?: string | null;
+  cover_image?: CoverImage | null;
 }
 
 export interface Project {

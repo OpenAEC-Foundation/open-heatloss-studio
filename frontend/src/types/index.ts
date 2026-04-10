@@ -4,6 +4,7 @@ export type {
   BuildingType,
   ConstructionElement,
   ConstructionElementLayer,
+  CoverImage,
   DesignConditions,
   FrostProtectionType,
   GroundParameters,

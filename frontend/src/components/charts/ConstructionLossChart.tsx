@@ -150,13 +150,13 @@ export function ConstructionLossChart({
   if (bars.length === 0) return null;
 
   // Layout
-  const LABEL_WIDTH = 160;
+  const LABEL_WIDTH = 140;
   const BAR_AREA_WIDTH = 340;
-  const VALUE_WIDTH = 70;
+  const VALUE_WIDTH = 60;
   const CHART_WIDTH = LABEL_WIDTH + BAR_AREA_WIDTH + VALUE_WIDTH;
-  const BAR_HEIGHT = 24;
-  const BAR_GAP = 8;
-  const PADDING_TOP = 8;
+  const BAR_HEIGHT = 18;
+  const BAR_GAP = 5;
+  const PADDING_TOP = 6;
   const CHART_HEIGHT = PADDING_TOP + bars.length * (BAR_HEIGHT + BAR_GAP);
 
   const maxValue = Math.max(...bars.map((b) => b.value), 1);
@@ -181,7 +181,7 @@ export function ConstructionLossChart({
               textAnchor="end"
               dominantBaseline="middle"
               className="fill-on-surface-secondary"
-              fontSize="11"
+              fontSize="10"
             >
               {bar.label}
             </text>
@@ -204,7 +204,7 @@ export function ConstructionLossChart({
               y={y + BAR_HEIGHT / 2}
               dominantBaseline="middle"
               className="fill-on-surface"
-              fontSize="11"
+              fontSize="10"
               fontWeight="500"
             >
               {Math.round(bar.value)} W

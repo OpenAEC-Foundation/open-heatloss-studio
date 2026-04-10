@@ -202,7 +202,7 @@ export function Results() {
         {/* Construction type loss chart */}
         <Card title="Verlies per constructietype">
           <div
-            className="cursor-pointer"
+            className="mx-auto max-w-2xl cursor-pointer"
             onClick={() => setZoomedChart("construction")}
             title="Klik om te vergroten"
           >
