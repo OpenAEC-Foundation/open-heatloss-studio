@@ -18,6 +18,8 @@ import { useToastStore } from "../store/toastStore";
 import {
   BUILDING_TYPE_LABELS,
   DEFAULT_THETA_WATER,
+  FROST_PROTECTION_LABELS,
+  FROST_PROTECTION_SUPPLY_TEMP,
   HEATING_SYSTEM_LABELS,
   SECURITY_CLASS_LABELS,
   VENTILATION_SYSTEM_LABELS,
@@ -25,6 +27,7 @@ import {
 import type {
   Building,
   DesignConditions,
+  FrostProtectionType,
   HeatingSystem,
   ProjectInfo,
   VentilationConfig,
@@ -485,6 +488,53 @@ export function ProjectSetup() {
               />
             )}
           </div>
+          {ventilation.has_heat_recovery && (
+            <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+              <Select
+                id="frost_protection"
+                label="Vorstbeveiliging"
+                value={ventilation.frost_protection ?? "unknown"}
+                options={toOptions(FROST_PROTECTION_LABELS)}
+                onChange={(e) =>
+                  updateVentilation({
+                    frost_protection: e.target.value as FrostProtectionType,
+                  })
+                }
+              />
+              <div>
+                <Input
+                  id="supply_temperature"
+                  label="Toevoertemperatuur θ_t"
+                  type="number"
+                  unit="°C"
+                  value={
+                    ventilation.supply_temperature ??
+                    FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ??
+                    10
+                  }
+                  onChange={(e) =>
+                    updateVentilation({
+                      supply_temperature: e.target.value === "" ? null : numVal(e.target.value),
+                    })
+                  }
+                />
+                <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                  ISSO 51 Tabel 2.14 (erratum). Wordt automatisch bepaald op basis
+                  van vorstbeveiliging. Handmatig aanpassen overschrijft de tabelwaarde.
+                </p>
+              </div>
+              <div className="flex items-center">
+                <div className="rounded-md bg-[var(--oaec-accent-soft)] px-3 py-2 text-sm">
+                  <span className="text-on-surface-muted">ΔT ventilatie: </span>
+                  <span className="font-semibold tabular-nums">
+                    {20 - (ventilation.supply_temperature ?? FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ?? 10)}
+                  </span>
+                  <span className="text-on-surface-muted"> K</span>
+                  <span className="ml-2 text-xs text-on-surface-muted">(bij θ_i = 20°C)</span>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Rooms hint */}

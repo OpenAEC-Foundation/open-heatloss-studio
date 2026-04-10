@@ -88,6 +88,30 @@ export const VERTICAL_POSITION_LABELS: Record<string, string> = {
   ceiling: "Plafond",
 };
 
+/** Frost protection type labels (NL). ISSO 51 Tabel 2.14 (erratum). */
+export const FROST_PROTECTION_LABELS: Record<string, string> = {
+  unknown: "Onbekend (θ_t = 10°C)",
+  central_reduced_speed: "Centraal — toerenverlaging (θ_t = 10°C)",
+  central_enthalpy: "Centraal — enthalpiewisselaar (θ_t = 12°C)",
+  central_preheating: "Centraal — voorverwarming (θ_t = 16°C)",
+  decentral_reduced_speed: "Decentraal — toerenverlaging (θ_t = 10°C)",
+  decentral_enthalpy: "Decentraal — enthalpiewisselaar (θ_t = 12°C)",
+  decentral_preheating: "Decentraal — voorverwarming (θ_t = 14°C)",
+  electric_preheating: "Elektrisch voorverwarmen (θ_t = 5°C)",
+};
+
+/** Supply temperatures per frost protection type (°C). ISSO 51 Tabel 2.14 (erratum). */
+export const FROST_PROTECTION_SUPPLY_TEMP: Record<string, number> = {
+  unknown: 10,
+  central_reduced_speed: 10,
+  central_enthalpy: 12,
+  central_preheating: 16,
+  decentral_reduced_speed: 10,
+  decentral_enthalpy: 12,
+  decentral_preheating: 14,
+  electric_preheating: 5,
+};
+
 /** Heating system labels (NL). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",
