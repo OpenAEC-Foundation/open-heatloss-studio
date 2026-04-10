@@ -7,9 +7,12 @@
 //! - H_T,io: to unheated spaces
 //! - H_T,ib: to neighboring dwellings/buildings
 //! - H_T,ig: to the ground
+//! - H_T,iw: to open water (non-norm category — woonboot use case, §11 of
+//!   the adjacent room temperature spec)
 
 use crate::model::construction::ConstructionElement;
 use crate::model::enums::{BoundaryType, VerticalPosition};
+use crate::model::room::Room;
 use crate::tables::thermal_bridge;
 
 /// Calculate the specific heat loss H_T,ie to exterior for a single element.
@@ -156,33 +159,134 @@ pub fn h_t_ground_element(element: &ConstructionElement) -> f64 {
     }
 }
 
+/// Calculate the specific heat loss H_T,iw to open water (non-norm category).
+///
+/// This is **not** an ISSO 51 / NEN-EN 12831 formula. It models a
+/// construction that sits directly against open water (canals, rivers,
+/// lakes — the woonboot use case). Water has an effectively unlimited
+/// thermal mass that is continuously refreshed, so the water-side surface
+/// temperature is clamped to `theta_water` from `DesignConditions` (default
+/// 5 °C). The full ΔT between the room and the water counts — no b-factor
+/// damping like ground.
+///
+/// The equivalent temperature factor written into `H_T`-space is
+/// f_w = (θ_i - θ_water) / (θ_i - θ_e), so that multiplying the resulting
+/// H_T,iw by (θ_i - θ_e) in `phi_transmission` recovers the physical
+/// heat flow A·U·(θ_i - θ_water).
+///
+/// # Arguments
+/// * `element` - The construction element facing open water
+/// * `theta_i` - Design indoor temperature of this room in °C
+/// * `theta_water` - Design temperature of the water in °C (from `DesignConditions`)
+/// * `theta_e` - Design outdoor temperature in °C (normalisation reference)
+///
+/// # Returns
+/// Contribution to H_T,iw in W/K for this element.
+pub fn h_t_water_element(
+    element: &ConstructionElement,
+    theta_i: f64,
+    theta_water: f64,
+    theta_e: f64,
+) -> f64 {
+    let denom = theta_i - theta_e;
+    if denom.abs() < 1e-9 {
+        return 0.0;
+    }
+    let f_w = (theta_i - theta_water) / denom;
+    element.area * element.u_value * f_w
+}
+
+/// Resolve the design temperature of the adjacent space for an
+/// `AdjacentRoom` element, in priority order:
+///
+/// 1. Live lookup of `adjacent_room_id` in the full project room list.
+/// 2. Legacy `adjacent_temperature` field on the element (for backward
+///    compat with older saved projects).
+/// 3. The current room's own `theta_i` (ΔT = 0 — the safe fallback).
+///
+/// This eliminates the silent 0-W bug where walls between two heated
+/// rooms with different setpoints produced zero heat loss because
+/// `adjacent_temperature` was never populated by the importer.
+///
+/// Emits a warning to stderr when an `adjacent_room_id` is set but the
+/// room cannot be found in the project (orphan reference — usually a
+/// project corruption or a room deletion that didn't clean up references).
+/// The warning is never silently swallowed; it leaves a trail in the
+/// CLI/server logs without taking the calculation hostage.
+fn resolve_adjacent_temperature(
+    element: &ConstructionElement,
+    theta_i: f64,
+    rooms: &[Room],
+) -> f64 {
+    if let Some(ref id) = element.adjacent_room_id {
+        if let Some(room) = rooms.iter().find(|r| &r.id == id) {
+            return room.design_temperature();
+        }
+        // Orphan reference — log to stderr (the only logging vehicle the
+        // pure-Rust core has) and fall through to the legacy field /
+        // theta_i fallback.
+        eprintln!(
+            "warmteverlies: adjacent_room_id '{}' op constructie '{}' verwijst naar een niet-bestaande room — fallback op adjacent_temperature/theta_i",
+            id, element.id
+        );
+    }
+    element.adjacent_temperature.unwrap_or(theta_i)
+}
+
+/// Aggregated per-boundary-type transmission coefficients for a single room.
+///
+/// Returned by [`calculate_all_h_t`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HTransmission {
+    /// H_T,ie — to exterior air (W/K).
+    pub h_t_ie: f64,
+    /// H_T,ia — to adjacent heated rooms (W/K).
+    pub h_t_ia: f64,
+    /// H_T,io — to unheated spaces (W/K).
+    pub h_t_io: f64,
+    /// H_T,ib — to adjacent buildings (W/K), after c_z multiplication.
+    pub h_t_ib: f64,
+    /// H_T,ig — to the ground (W/K).
+    pub h_t_ig: f64,
+    /// H_T,iw — to open water (W/K).
+    pub h_t_iw: f64,
+}
+
 /// Calculate all specific heat loss coefficients for a set of construction elements.
 ///
 /// # Arguments
 /// * `elements` - All construction elements of a room
+/// * `rooms` - The full project room list, for `AdjacentRoom` temperature lookup
 /// * `theta_i` - Design indoor temperature of this room in °C
 /// * `theta_e` - Design outdoor temperature in °C
 /// * `theta_b` - Temperature of neighboring buildings in °C
+/// * `theta_water` - Design temperature of open water in °C
 /// * `c_z` - Security factor for neighbor heat loss
 /// * `delta_1` - Δθ₁ from Table 2.12
 /// * `delta_2` - Δθ₂ from Table 2.12
-///
-/// # Returns
-/// Tuple of (H_T,ie, H_T,ia, H_T,io, H_T,ib, H_T,ig) in W/K.
+//
+// The argument list is long because every heat-loss branch needs its own
+// reference temperature; bundling them into a struct would obscure the
+// call sites in `room_load.rs` without reducing the wiring. Silencing the
+// lint locally keeps the public helper ergonomic.
+#[allow(clippy::too_many_arguments)]
 pub fn calculate_all_h_t(
     elements: &[ConstructionElement],
+    rooms: &[Room],
     theta_i: f64,
     theta_e: f64,
     theta_b: f64,
+    theta_water: f64,
     c_z: f64,
     delta_1: f64,
     delta_2: f64,
-) -> (f64, f64, f64, f64, f64) {
+) -> HTransmission {
     let mut h_t_ie = 0.0;
     let mut h_t_ia = 0.0;
     let mut h_t_io = 0.0;
     let mut h_t_ib_sum = 0.0;
     let mut h_t_ig = 0.0;
+    let mut h_t_iw = 0.0;
 
     for element in elements {
         match element.boundary_type {
@@ -190,7 +294,7 @@ pub fn calculate_all_h_t(
                 h_t_ie += h_t_exterior_element(element);
             }
             BoundaryType::AdjacentRoom => {
-                let theta_a = element.adjacent_temperature.unwrap_or(theta_i);
+                let theta_a = resolve_adjacent_temperature(element, theta_i, rooms);
                 h_t_ia += h_t_adjacent_room_element(
                     element, theta_i, theta_a, theta_e, delta_1, delta_2,
                 );
@@ -206,12 +310,20 @@ pub fn calculate_all_h_t(
             BoundaryType::Ground => {
                 h_t_ig += h_t_ground_element(element);
             }
+            BoundaryType::Water => {
+                h_t_iw += h_t_water_element(element, theta_i, theta_water, theta_e);
+            }
         }
     }
 
-    let h_t_ib = c_z * h_t_ib_sum;
-
-    (h_t_ie, h_t_ia, h_t_io, h_t_ib, h_t_ig)
+    HTransmission {
+        h_t_ie,
+        h_t_ia,
+        h_t_io,
+        h_t_ib: c_z * h_t_ib_sum,
+        h_t_ig,
+        h_t_iw,
+    }
 }
 
 /// Calculate total transmission heat loss Φ_T for a room.
@@ -380,6 +492,386 @@ mod tests {
         assert!(
             (phi_t - 1247.0).abs() < 5.0,
             "Φ_T = {phi_t}, expected ~1247"
+        );
+    }
+
+    // ----- 2026-04-10 tests: adjacent-room live lookup + water boundary -----
+    //
+    // Regression & spec coverage for the two restbugs of §4.2 of
+    // `warmteverlies_adjacent_room_temp_spec.md`.
+
+    use crate::model::enums::{HeatingSystem, RoomFunction};
+    use crate::model::room::Room;
+
+    /// Build a minimal room whose only purpose is to participate in the
+    /// `design_temperature()` lookup from the transmission calculator.
+    fn make_lookup_room(
+        id: &str,
+        function: RoomFunction,
+        custom_temperature: Option<f64>,
+    ) -> Room {
+        Room {
+            id: id.to_string(),
+            name: id.to_string(),
+            function,
+            custom_temperature,
+            floor_area: 10.0,
+            height: 2.6,
+            constructions: vec![],
+            heating_system: HeatingSystem::RadiatorLt,
+            ventilation_rate: Some(0.0),
+            has_mechanical_exhaust: false,
+            has_mechanical_supply: false,
+            fraction_outside_air: 1.0,
+            supply_air_temperature: None,
+            internal_air_temperature: None,
+            clamp_positive: true,
+        }
+    }
+
+    /// Build a plain adjacent-room wall element with the given area and U,
+    /// and an optional `adjacent_room_id`.
+    fn make_adjacent_wall(
+        id: &str,
+        area: f64,
+        u: f64,
+        adjacent_room_id: Option<&str>,
+    ) -> ConstructionElement {
+        ConstructionElement {
+            id: id.to_string(),
+            description: id.to_string(),
+            area,
+            u_value: u,
+            boundary_type: BoundaryType::AdjacentRoom,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: adjacent_room_id.map(String::from),
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+        }
+    }
+
+    /// Spec test §4.4 #1:
+    /// Twee rooms (20 °C en 18 °C), een wand ertussen, verify that
+    /// H_T,ia > 0 and exactly equals A × U × (20-18)/(20-(-10)).
+    #[test]
+    fn test_adjacent_room_temperature_lookup() {
+        // room-a is the calculating room at 20 °C; room-b is the adjacent
+        // room at 18 °C (custom_temperature override).
+        let room_b = make_lookup_room(
+            "room-b",
+            RoomFunction::LivingRoom,
+            Some(18.0),
+        );
+        let rooms = vec![
+            make_lookup_room("room-a", RoomFunction::LivingRoom, Some(20.0)),
+            room_b,
+        ];
+
+        let area = 10.0;
+        let u = 1.5;
+        let wall = make_adjacent_wall("w1", area, u, Some("room-b"));
+        let elements = vec![wall];
+
+        let h_t = calculate_all_h_t(
+            &elements, &rooms, 20.0, -10.0, 17.0, 5.0, 1.0, 2.0, -1.0,
+        );
+
+        // Expected: A × U × (20-18)/(20-(-10)) = 10 × 1.5 × 2/30 = 1.0 W/K
+        let expected = area * u * (20.0 - 18.0) / (20.0 - (-10.0));
+        assert!(
+            (h_t.h_t_ia - expected).abs() < 1e-9,
+            "H_T,ia = {}, expected {}",
+            h_t.h_t_ia,
+            expected
+        );
+        assert!(h_t.h_t_ia > 0.0, "H_T,ia must be > 0");
+
+        // Sanity: a room-to-same-setpoint wall must still be 0.
+        let h_t_same = calculate_all_h_t(
+            &[make_adjacent_wall("w2", area, u, Some("room-a"))],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            5.0,
+            1.0,
+            2.0,
+            -1.0,
+        );
+        assert!(
+            h_t_same.h_t_ia.abs() < 1e-9,
+            "H_T,ia to same-temperature room must be 0, got {}",
+            h_t_same.h_t_ia
+        );
+    }
+
+    /// Spec test §4.4 #2:
+    /// Buurroom heeft `custom_temperature = Some(15.0)` — the override
+    /// must take priority over the room function default.
+    #[test]
+    fn test_adjacent_room_with_custom_temperature() {
+        // room-b has function=LivingRoom (default 20 °C) but a custom override
+        // of 15 °C — the override wins.
+        let rooms = vec![
+            make_lookup_room("room-a", RoomFunction::LivingRoom, Some(20.0)),
+            make_lookup_room("room-b", RoomFunction::LivingRoom, Some(15.0)),
+        ];
+
+        let area = 8.0;
+        let u = 2.0;
+        let wall = make_adjacent_wall("w1", area, u, Some("room-b"));
+
+        let h_t = calculate_all_h_t(
+            &[wall],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            5.0,
+            1.0,
+            2.0,
+            -1.0,
+        );
+
+        // Expected: A × U × (20-15)/(20-(-10)) = 8 × 2 × 5/30 ≈ 2.6667 W/K
+        let expected = area * u * (20.0 - 15.0) / 30.0;
+        assert!(
+            (h_t.h_t_ia - expected).abs() < 1e-9,
+            "H_T,ia = {}, expected {}",
+            h_t.h_t_ia,
+            expected
+        );
+    }
+
+    /// Spec test §4.4 #3:
+    /// Buurroom heeft alleen `function = Bathroom`, default 22 °C
+    /// must be picked up via `Room::design_temperature()`.
+    #[test]
+    fn test_adjacent_room_with_function_default() {
+        // room-b has Bathroom function (22 °C per ISSO 51 Table 2.11)
+        // and NO custom_temperature — the function default must be used.
+        let rooms = vec![
+            make_lookup_room("room-a", RoomFunction::LivingRoom, None), // 20 °C
+            make_lookup_room("room-b", RoomFunction::Bathroom, None),   // 22 °C
+        ];
+
+        let area = 5.0;
+        let u = 1.8;
+        let wall = make_adjacent_wall("w1", area, u, Some("room-b"));
+
+        let h_t = calculate_all_h_t(
+            &[wall],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            5.0,
+            1.0,
+            2.0,
+            -1.0,
+        );
+
+        // Expected: A × U × (20-22)/(20-(-10)) = 5 × 1.8 × (-2)/30 = -0.6 W/K
+        // (negative because the bathroom is warmer — heat flows into this room)
+        let expected = area * u * (20.0 - 22.0) / 30.0;
+        assert!(
+            (h_t.h_t_ia - expected).abs() < 1e-9,
+            "H_T,ia = {}, expected {}",
+            h_t.h_t_ia,
+            expected
+        );
+        assert!(
+            h_t.h_t_ia < 0.0,
+            "H_T,ia must be negative (bathroom is warmer)"
+        );
+    }
+
+    /// Spec test §4.4 #4:
+    /// `adjacent_room_id = Some("room-99")` that does not exist — the
+    /// calculation must fall back gracefully to θ_i (ΔT = 0) without
+    /// panicking, and a warning must be emitted to stderr.
+    #[test]
+    fn test_adjacent_room_orphan_id() {
+        let rooms = vec![
+            make_lookup_room("room-a", RoomFunction::LivingRoom, Some(20.0)),
+            make_lookup_room("room-b", RoomFunction::LivingRoom, Some(18.0)),
+        ];
+
+        // orphan: points at a non-existing room
+        let wall = make_adjacent_wall("w1", 10.0, 1.5, Some("room-99"));
+
+        let h_t = calculate_all_h_t(
+            &[wall],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            5.0,
+            1.0,
+            2.0,
+            -1.0,
+        );
+
+        // Expected: fallback to theta_i → ΔT = 0 → H_T,ia = 0 (safe).
+        assert!(
+            h_t.h_t_ia.abs() < 1e-9,
+            "Orphan adjacent_room_id must fall back to 0 W/K, got {}",
+            h_t.h_t_ia
+        );
+
+        // Legacy fallback: if adjacent_temperature *is* set, the orphan
+        // branch should still honour it (backward compat for old projects).
+        let mut wall_with_legacy = make_adjacent_wall("w2", 10.0, 1.5, Some("room-99"));
+        wall_with_legacy.adjacent_temperature = Some(18.0);
+
+        let h_t_legacy = calculate_all_h_t(
+            &[wall_with_legacy],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            5.0,
+            1.0,
+            2.0,
+            -1.0,
+        );
+        let expected_legacy = 10.0 * 1.5 * (20.0 - 18.0) / 30.0;
+        assert!(
+            (h_t_legacy.h_t_ia - expected_legacy).abs() < 1e-9,
+            "Orphan id with legacy adjacent_temperature must use the legacy value, got {}",
+            h_t_legacy.h_t_ia
+        );
+    }
+
+    /// Spec test §4.4 #6:
+    /// Water boundary with `theta_water = 5.0` and θᵢ = 20 °C must
+    /// produce ΔT = 15 K heat flow through the element.
+    #[test]
+    fn test_water_boundary_uses_theta_water() {
+        let area = 6.0;
+        let u = 0.8;
+        let element = ConstructionElement {
+            id: "water-wall".to_string(),
+            description: "Beton onderwater".to_string(),
+            area,
+            u_value: u,
+            boundary_type: BoundaryType::Water,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+        };
+
+        let theta_i = 20.0;
+        let theta_e = -10.0;
+        let theta_water = 5.0;
+
+        let h_t_iw = h_t_water_element(&element, theta_i, theta_water, theta_e);
+
+        // The H_T representation: A × U × (θ_i - θ_water) / (θ_i - θ_e)
+        // = 6 × 0.8 × 15 / 30 = 2.4 W/K
+        let expected_h = area * u * (theta_i - theta_water) / (theta_i - theta_e);
+        assert!(
+            (h_t_iw - expected_h).abs() < 1e-9,
+            "H_T,iw = {}, expected {}",
+            h_t_iw,
+            expected_h
+        );
+
+        // And after multiplication by (θ_i - θ_e) in phi_transmission the
+        // physical flow must match the direct A × U × ΔT formula.
+        let phi = phi_transmission(h_t_iw, theta_i, theta_e);
+        let expected_phi = area * u * (theta_i - theta_water); // = 6 × 0.8 × 15 = 72 W
+        assert!(
+            (phi - expected_phi).abs() < 1e-9,
+            "Φ_T,iw = {}, expected {}",
+            phi,
+            expected_phi
+        );
+    }
+
+    /// Spec test §4.4 #7:
+    /// `theta_water = 8.0` (project-level override) must flow through
+    /// to the water-boundary calculation.
+    #[test]
+    fn test_water_boundary_override() {
+        let area = 10.0;
+        let u = 1.0;
+        let element = ConstructionElement {
+            id: "water-wall".to_string(),
+            description: "Beton onderwater".to_string(),
+            area,
+            u_value: u,
+            boundary_type: BoundaryType::Water,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+        };
+
+        // Default path
+        let h_default = h_t_water_element(&element, 20.0, 5.0, -10.0);
+        let expected_default = area * u * (20.0 - 5.0) / 30.0; // 5.0 W/K
+        assert!(
+            (h_default - expected_default).abs() < 1e-9,
+            "default theta_water=5.0 path got {}, expected {}",
+            h_default,
+            expected_default
+        );
+
+        // Override path: warmer water → smaller ΔT → smaller loss
+        let h_override = h_t_water_element(&element, 20.0, 8.0, -10.0);
+        let expected_override = area * u * (20.0 - 8.0) / 30.0; // 4.0 W/K
+        assert!(
+            (h_override - expected_override).abs() < 1e-9,
+            "override theta_water=8.0 path got {}, expected {}",
+            h_override,
+            expected_override
+        );
+
+        // The override must actually reduce the loss (monotone sanity).
+        assert!(
+            h_override < h_default,
+            "warmer water must reduce H_T,iw"
+        );
+
+        // Same check via calculate_all_h_t — verify theta_water is routed
+        // through the full calc loop, not just the low-level helper.
+        let rooms: Vec<Room> = vec![];
+        let h_t = calculate_all_h_t(
+            &[element],
+            &rooms,
+            20.0,
+            -10.0,
+            17.0,
+            8.0, // theta_water override
+            1.0,
+            2.0,
+            -1.0,
+        );
+        assert!(
+            (h_t.h_t_iw - expected_override).abs() < 1e-9,
+            "calculate_all_h_t did not propagate theta_water override: got {}, expected {}",
+            h_t.h_t_iw,
+            expected_override
         );
     }
 }

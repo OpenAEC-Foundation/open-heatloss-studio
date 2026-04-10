@@ -40,13 +40,24 @@ pub struct ConstructionElement {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature_factor: Option<f64>,
 
-    /// ID of the adjacent room (for BoundaryType::AdjacentRoom).
+    /// ID of the adjacent room (for `BoundaryType::AdjacentRoom`).
+    ///
+    /// The transmission calculation resolves the adjacent room's design
+    /// temperature at runtime by looking the room up in the `Project` room
+    /// list. This is the canonical source — `adjacent_temperature` below is
+    /// a legacy fallback only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub adjacent_room_id: Option<String>,
 
-    /// Design temperature of the adjacent space in °C.
-    /// Required for AdjacentRoom, AdjacentBuilding, UnheatedSpace.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Legacy: hardcoded design temperature of the adjacent space in °C.
+    ///
+    /// **Deprecated** — the calculation now derives the adjacent-room
+    /// temperature from `adjacent_room_id` via a live lookup in
+    /// `Project.rooms`. This field is retained for backward compatibility
+    /// with older saved projects and is only consulted as a fallback when
+    /// `adjacent_room_id` cannot be resolved. New code should leave this
+    /// field at `None` and rely on the live room lookup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub adjacent_temperature: Option<f64>,
 
     /// Vertical position: floor, ceiling, or wall.

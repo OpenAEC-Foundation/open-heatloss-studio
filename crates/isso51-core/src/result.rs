@@ -73,6 +73,12 @@ pub struct TransmissionResult {
     /// Specific heat loss to ground H_T,ig in W/K.
     pub h_t_ground: f64,
 
+    /// Specific heat loss to open water H_T,iw in W/K.
+    /// Non-norm category (woonboot use case) — see `BoundaryType::Water`.
+    /// `0.0` for projects without any water boundaries.
+    #[serde(default)]
+    pub h_t_water: f64,
+
     /// Total transmission heat loss Φ_T in W.
     pub phi_t: f64,
 

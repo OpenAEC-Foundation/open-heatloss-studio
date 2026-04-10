@@ -387,13 +387,15 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                     ));
                 }
 
-                // Water → Ground: ISSO 51 behandelt watercontact vergelijkbaar met
-                // grondcontact (constante temperatuur, correctiefactor). De gebruiker
-                // past de temperatuurcorrectie handmatig aan in de warmteverlies tool.
+                // Map ThermalRoomType → BoundaryType. Water has its own
+                // boundary variant since 2026-04-10 (was previously folded
+                // into Ground); the calculator now drives it from
+                // `DesignConditions.theta_water`.
                 let boundary_type = other_room
                     .map(|rb| match rb.room_type {
                         ThermalRoomType::Outside => BoundaryType::Exterior,
-                        ThermalRoomType::Ground | ThermalRoomType::Water => BoundaryType::Ground,
+                        ThermalRoomType::Ground => BoundaryType::Ground,
+                        ThermalRoomType::Water => BoundaryType::Water,
                         ThermalRoomType::Unheated => BoundaryType::UnheatedSpace,
                         ThermalRoomType::Heated => BoundaryType::AdjacentRoom,
                     })
@@ -588,6 +590,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                 BoundaryType::UnheatedSpace => 2,
                 BoundaryType::AdjacentRoom => 3,
                 BoundaryType::AdjacentBuilding => 4,
+                BoundaryType::Water => 5,
             }
         }
 
@@ -618,7 +621,8 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                 }
                 BoundaryType::Exterior
                 | BoundaryType::Ground
-                | BoundaryType::AdjacentBuilding => None,
+                | BoundaryType::AdjacentBuilding
+                | BoundaryType::Water => None,
             }
         }
 
@@ -2980,6 +2984,268 @@ mod tests {
                 .iter()
                 .map(|e| e.id.clone())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    // ─── 2026-04-10 tests: spec §4.4 #5 + #8 — woonboot / water fixture coverage ───
+
+    /// Spec test §4.4 #5 — `test_adjacent_room_via_woonboot_fixture`.
+    ///
+    /// Loads the real 3056 woonboot export, injects a non-default setpoint
+    /// on two adjacent heated rooms, runs the full `calculate()` pipeline
+    /// and asserts that the room whose setpoint differs from its neighbour
+    /// now has a strictly positive `h_t_adjacent_rooms` component.
+    ///
+    /// Before the fix this component was silently 0 W/K because nobody
+    /// resolved `adjacent_room_id → Room.design_temperature()`.
+    #[test]
+    fn test_adjacent_room_via_woonboot_fixture() {
+        let json =
+            include_str!("../../../../tests/fixtures/thermal_import_woonboot.json");
+        let input: ThermalImport =
+            serde_json::from_str(json).expect("woonboot fixture failed to parse");
+        let mut mapped = map_thermal_import(input);
+
+        // Pick a heated room that has at least one adjacent-room interior
+        // wall and override its custom_temperature. The fixture has 12
+        // heated rooms — we look for one with an AdjacentRoom construction
+        // to guarantee the test asserts on real geometry.
+        let room_with_adjacent = mapped
+            .project
+            .rooms
+            .iter()
+            .find(|r| {
+                r.constructions
+                    .iter()
+                    .any(|c| c.boundary_type == BoundaryType::AdjacentRoom)
+            })
+            .map(|r| r.id.clone())
+            .expect("no room with AdjacentRoom boundary in woonboot fixture");
+
+        // The woonboot fixture's AdjacentRoom walls have u_value = 0 (the
+        // import can't resolve Rsi/Rse/λ on the raw layers). That's an
+        // orthogonal issue — for this test we only care that the adjacent
+        // temperature is correctly looked up, so we inject a non-zero U
+        // on every AdjacentRoom wall across the project. This turns the
+        // test into a pure probe of `resolve_adjacent_temperature`.
+        for room in mapped.project.rooms.iter_mut() {
+            for c in room.constructions.iter_mut() {
+                if c.boundary_type == BoundaryType::AdjacentRoom {
+                    c.u_value = 1.5; // representative interior-wall U
+                }
+            }
+        }
+
+        // Force a temperature contrast between this room and its neighbours
+        // by bumping this room to 23 °C and dropping every OTHER heated
+        // room to 18 °C. This guarantees H_T,ia ≠ 0 on at least one wall
+        // regardless of the exact adjacency graph in the fixture.
+        for room in mapped.project.rooms.iter_mut() {
+            if room.id == room_with_adjacent {
+                room.custom_temperature = Some(23.0);
+            } else {
+                room.custom_temperature = Some(18.0);
+            }
+        }
+
+        // Run the full pipeline — this is the end-to-end proof that the
+        // live lookup flows through `calculate_room` → `calculate_all_h_t`
+        // → `resolve_adjacent_temperature`.
+        let result = crate::calculate(&mapped.project)
+            .expect("calculate on woonboot fixture failed");
+
+        let contrasted = result
+            .rooms
+            .iter()
+            .find(|r| r.room_id == room_with_adjacent)
+            .expect("contrasted room missing from result");
+
+        assert!(
+            contrasted.transmission.h_t_adjacent_rooms.abs() > 1e-6,
+            "H_T,ia must be non-zero after setpoint contrast (room '{}', got {})",
+            room_with_adjacent,
+            contrasted.transmission.h_t_adjacent_rooms,
+        );
+
+        // Positive because room is warmer (23) than its neighbours (18):
+        // heat flows OUT through the interior walls into colder rooms.
+        assert!(
+            contrasted.transmission.h_t_adjacent_rooms > 0.0,
+            "H_T,ia must be positive for warmer-than-neighbours room, got {}",
+            contrasted.transmission.h_t_adjacent_rooms,
+        );
+
+        // Sanity: the same room on the baseline project (every room at 20)
+        // would produce ΔT = 0 and thus H_T,ia = 0 for every AdjacentRoom
+        // wall. We verify that the baseline path is indeed zero, so the
+        // non-zero value above is a direct consequence of the contrast
+        // introduced here — not of some other code path.
+        let mut baseline = mapped.project.clone();
+        for room in baseline.rooms.iter_mut() {
+            room.custom_temperature = Some(20.0);
+        }
+        let baseline_result =
+            crate::calculate(&baseline).expect("baseline calculate failed");
+        let baseline_contrasted = baseline_result
+            .rooms
+            .iter()
+            .find(|r| r.room_id == room_with_adjacent)
+            .unwrap();
+        assert!(
+            baseline_contrasted.transmission.h_t_adjacent_rooms.abs() < 1e-9,
+            "Baseline (all rooms at 20 °C) must give H_T,ia = 0, got {}",
+            baseline_contrasted.transmission.h_t_adjacent_rooms,
+        );
+    }
+
+    /// Spec test §4.4 #8 — `test_water_boundary_import_from_room_water`.
+    ///
+    /// Verifies that `room_b == "room-water"` in the thermal export maps
+    /// to `BoundaryType::Water` after the import, both on a minimal
+    /// synthetic input and on the real 3056 woonboot fixture. Previously
+    /// `room-water` was folded into `BoundaryType::Ground`.
+    #[test]
+    fn test_water_boundary_import_from_room_water() {
+        // --- Synthetic minimal input ---
+        let input = ThermalImport {
+            version: "1.0".to_string(),
+            source: "test".to_string(),
+            exported_at: "2026-04-10".to_string(),
+            project_name: Some("water import test".to_string()),
+            rooms: vec![
+                heated_room("r1", "Saloon"),
+                ThermalRoom {
+                    id: "room-water".to_string(),
+                    revit_id: None,
+                    name: "Water".to_string(),
+                    room_type: ThermalRoomType::Water,
+                    level: None,
+                    area_m2: None,
+                    height_m: None,
+                    volume_m3: None,
+                    boundary_polygon: None,
+                },
+            ],
+            constructions: vec![ThermalConstruction {
+                id: "c-hull".to_string(),
+                room_a: "r1".to_string(),
+                room_b: "room-water".to_string(),
+                orientation: ThermalOrientation::Floor,
+                compass: None,
+                gross_area_m2: 8.0,
+                revit_element_id: None,
+                revit_type_name: Some("Scheepsbodem".to_string()),
+                layers: vec![ThermalLayer {
+                    material: "f2_C25/30".to_string(),
+                    thickness_mm: 200.0,
+                    distance_from_interior_mm: Some(0.0),
+                    layer_type: ThermalLayerType::Solid,
+                    lambda: Some(2.5),
+                }],
+            }],
+            openings: vec![],
+            open_connections: vec![],
+        };
+
+        let result = map_thermal_import(input);
+        let r1 = result
+            .project
+            .rooms
+            .iter()
+            .find(|r| r.id == "r1")
+            .expect("r1 missing");
+
+        let water_elements: Vec<&ConstructionElement> = r1
+            .constructions
+            .iter()
+            .filter(|c| c.boundary_type == BoundaryType::Water)
+            .collect();
+        assert_eq!(
+            water_elements.len(),
+            1,
+            "expected exactly 1 Water boundary element, got {:?}",
+            r1.constructions
+                .iter()
+                .map(|c| (&c.description, c.boundary_type))
+                .collect::<Vec<_>>()
+        );
+        // Water must NOT double-map into Ground any more.
+        assert!(
+            r1.constructions
+                .iter()
+                .all(|c| c.boundary_type != BoundaryType::Ground),
+            "room-water must no longer produce BoundaryType::Ground"
+        );
+
+        // --- Real woonboot fixture: at least one Water element per room
+        // that has a `room_b == "room-water"` in the raw export. ---
+        let json = include_str!("../../../../tests/fixtures/thermal_import_woonboot.json");
+        let raw: ThermalImport =
+            serde_json::from_str(json).expect("woonboot fixture failed to parse");
+
+        // Collect every room_a that borders water in the raw export.
+        let rooms_with_water_raw: std::collections::HashSet<String> = raw
+            .constructions
+            .iter()
+            .filter(|c| c.room_b == "room-water")
+            .map(|c| c.room_a.clone())
+            .collect();
+        assert!(
+            !rooms_with_water_raw.is_empty(),
+            "woonboot fixture should contain at least one room_b == 'room-water'"
+        );
+
+        let mut mapped = map_thermal_import(raw);
+
+        // Same U=0 workaround as in test 5: inject a representative
+        // U-value on every Water boundary so the end-to-end calculation
+        // produces a measurable H_T,iw. Without this the fixture layers
+        // collapse to U=0 and the test becomes trivially satisfied.
+        for room in mapped.project.rooms.iter_mut() {
+            for c in room.constructions.iter_mut() {
+                if c.boundary_type == BoundaryType::Water {
+                    c.u_value = 0.8;
+                }
+            }
+        }
+
+        // Every room that was adjacent to water in the raw input must now
+        // have at least one Water boundary element, and no Ground mis-map
+        // from the water constructions. We can't assert "no Ground" on the
+        // whole room (there may be real ground constructions), but we can
+        // count Water > 0 per borderer.
+        for rid in &rooms_with_water_raw {
+            let room = mapped
+                .project
+                .rooms
+                .iter()
+                .find(|r| &r.id == rid)
+                .unwrap_or_else(|| panic!("mapped room {} missing", rid));
+            let water_count = room
+                .constructions
+                .iter()
+                .filter(|c| c.boundary_type == BoundaryType::Water)
+                .count();
+            assert!(
+                water_count > 0,
+                "room {} borders water in raw export but has 0 Water boundaries after mapping",
+                rid
+            );
+        }
+
+        // End-to-end: the full calculation must produce a positive total
+        // H_T,water across the building (woonboot floor is colder than the
+        // rooms → heat flows OUT → h_t_water > 0).
+        let calc_result = crate::calculate(&mapped.project).expect("calculate on woonboot failed");
+        let total_h_t_water: f64 = calc_result
+            .rooms
+            .iter()
+            .map(|r| r.transmission.h_t_water)
+            .sum();
+        assert!(
+            total_h_t_water > 0.0,
+            "Total H_T,iw across woonboot must be > 0 (got {})",
+            total_h_t_water
         );
     }
 }

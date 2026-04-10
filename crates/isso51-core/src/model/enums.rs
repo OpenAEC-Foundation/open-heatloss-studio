@@ -18,6 +18,13 @@ pub enum BoundaryType {
     AdjacentBuilding,
     /// To the ground (ISSO 51 §2.5.5)
     Ground,
+    /// To open water (canal/river/lake — woonboot use case).
+    ///
+    /// Not a norm category — this is an engineering choice for constructions
+    /// that sit directly against open water. The design temperature comes
+    /// from `DesignConditions.theta_water` (default 5 °C, override per project).
+    /// Reports must include a footnote when this variant is used.
+    Water,
 }
 
 /// Room function determines the design indoor temperature (θ_i).

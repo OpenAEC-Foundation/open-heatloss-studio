@@ -87,6 +87,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     for room in &project.rooms {
         let room_result = calc::room_load::calculate_room(
             room,
+            &project.rooms,
             &project.building,
             &project.climate,
             &project.ventilation,
@@ -125,6 +126,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
             }
             room_results[i] = calc::room_load::calculate_room(
                 room,
+                &project.rooms,
                 &project.building,
                 &project.climate,
                 &project.ventilation,
@@ -156,7 +158,8 @@ fn build_summary(rooms: &[result::RoomResult], theta_e: f64) -> BuildingSummary 
 
         total_envelope_loss += r.transmission.h_t_exterior * theta_diff
             + r.transmission.h_t_unheated * theta_diff
-            + r.transmission.h_t_ground * theta_diff;
+            + r.transmission.h_t_ground * theta_diff
+            + r.transmission.h_t_water * theta_diff;
 
         total_neighbor_loss += r.transmission.h_t_adjacent_buildings * theta_diff;
 

@@ -20,6 +20,7 @@ use super::{heating_up, infiltration, quadratic_sum, system_losses, transmission
 ///
 /// # Arguments
 /// * `room` - The room to calculate
+/// * `all_rooms` - Full project room list, needed for adjacent-room temperature lookup
 /// * `building` - Building-level properties
 /// * `climate` - Design conditions (temperatures)
 /// * `vent_config` - Ventilation system configuration
@@ -30,6 +31,7 @@ use super::{heating_up, infiltration, quadratic_sum, system_losses, transmission
 /// Complete RoomResult with all heat loss components.
 pub fn calculate_room(
     room: &Room,
+    all_rooms: &[Room],
     building: &Building,
     climate: &DesignConditions,
     vent_config: &VentilationConfig,
@@ -39,6 +41,7 @@ pub fn calculate_room(
     let theta_i = room.design_temperature();
     let theta_e = climate.theta_e;
     let theta_b = climate.theta_b_residential;
+    let theta_water = climate.theta_water;
     let c_z = building.security_class.factor();
 
     // Get Δθ corrections from the heating system table
@@ -47,17 +50,25 @@ pub fn calculate_room(
     let delta_2 = dt.delta_2;
 
     // --- Transmission ---
-    let (h_t_ie, h_t_ia, h_t_io, h_t_ib, h_t_ig) = transmission::calculate_all_h_t(
+    let h_t = transmission::calculate_all_h_t(
         &room.constructions,
+        all_rooms,
         theta_i,
         theta_e,
         theta_b,
+        theta_water,
         c_z,
         delta_1,
         delta_2,
     );
+    let h_t_ie = h_t.h_t_ie;
+    let h_t_ia = h_t.h_t_ia;
+    let h_t_io = h_t.h_t_io;
+    let h_t_ib = h_t.h_t_ib;
+    let h_t_ig = h_t.h_t_ig;
+    let h_t_iw = h_t.h_t_iw;
 
-    let h_t_total = h_t_ie + h_t_ia + h_t_io + h_t_ib + h_t_ig;
+    let h_t_total = h_t_ie + h_t_ia + h_t_io + h_t_ib + h_t_ig + h_t_iw;
     let phi_t = transmission::phi_transmission(h_t_total, theta_i, theta_e);
 
     // --- Infiltration ---
@@ -230,8 +241,13 @@ pub fn calculate_room(
     let phi_t_adjacent = h_t_ia * (theta_i - theta_e);
     let phi_t_unheated = h_t_io * (theta_i - theta_e);
     let phi_t_ground = h_t_ig * (theta_i - theta_e);
+    // Water boundaries count in the basis (continuous, non-simultaneous with
+    // ventilation peaks). The water-side surface is clamped to θ_water in
+    // `h_t_water_element`, so multiplying by (θ_i - θ_e) recovers the
+    // physical A·U·(θ_i - θ_water) flow.
+    let phi_t_water = h_t_iw * (theta_i - theta_e);
     let phi_basis_no_sys =
-        phi_t_exterior + phi_t_adjacent + phi_t_unheated + phi_t_ground + phi_i;
+        phi_t_exterior + phi_t_adjacent + phi_t_unheated + phi_t_ground + phi_t_water + phi_i;
 
     let phi_t_adj_building = h_t_ib * (theta_i - theta_e);
     let phi_extra = quadratic_sum::quadratic_sum(phi_vent, phi_t_adj_building, phi_hu);
@@ -264,6 +280,7 @@ pub fn calculate_room(
             h_t_unheated: h_t_io,
             h_t_adjacent_buildings: h_t_ib,
             h_t_ground: h_t_ig,
+            h_t_water: h_t_iw,
             phi_t,
             norm_refs: vec![
                 formulas::ISSO_51_2023_FORMULE4_2,

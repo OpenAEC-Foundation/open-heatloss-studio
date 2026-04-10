@@ -27,6 +27,25 @@ pub struct DesignConditions {
     /// Typically 1.0 for normal exposure.
     #[serde(default = "default_one")]
     pub wind_factor: f64,
+
+    /// Design temperature of open water θ_water in °C.
+    ///
+    /// Used for `BoundaryType::Water` (woonboot use case). Default 5 °C.
+    /// This is an engineering choice, not a norm value — overridable per
+    /// project. Reports must include a footnote when any construction uses
+    /// the Water boundary type.
+    #[serde(default = "default_theta_water")]
+    pub theta_water: f64,
+
+    /// Design temperature of the ground θ_ground in °C.
+    ///
+    /// Used as a fallback reference for ground-contact constructions when
+    /// no explicit ground parameters (`ground_params`) are available.
+    /// Ground heat loss is normally computed via ISSO 51 §2.5.5
+    /// (`u_equivalent`, `f_g2`, `G_w`); this field only drives the
+    /// simplified ΔT display in the frontend and reports. Default 10 °C.
+    #[serde(default = "default_theta_ground")]
+    pub theta_ground: f64,
 }
 
 impl Default for DesignConditions {
@@ -36,6 +55,8 @@ impl Default for DesignConditions {
             theta_b_residential: 17.0,
             theta_b_non_residential: 14.0,
             wind_factor: 1.0,
+            theta_water: 5.0,
+            theta_ground: 10.0,
         }
     }
 }
@@ -54,4 +75,12 @@ fn default_theta_b_non_residential() -> f64 {
 
 fn default_one() -> f64 {
     1.0
+}
+
+fn default_theta_water() -> f64 {
+    5.0
+}
+
+fn default_theta_ground() -> f64 {
+    10.0
 }
