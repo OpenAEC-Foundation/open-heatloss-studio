@@ -70,6 +70,12 @@ interface ProjectStore {
 
   /** Update project data (partial merge). */
   updateProject: (partial: Partial<Project>) => void;
+  /**
+   * Zet (of wist) de project-brede override voor de U-waarde van
+   * kozijnen. Geef `undefined` mee om de override te wissen — de
+   * individuele per-element waardes blijven dan intact.
+   */
+  setFrameUValueOverride: (value: number | undefined) => void;
   /** Replace the entire project. */
   setProject: (project: Project) => void;
   /** Set the active server-side project ID. */
@@ -143,6 +149,25 @@ export const useProjectStore = create<ProjectStore>()(
           _past: [...state._past, snap].slice(-MAX_HISTORY),
           _future: [],
         }));
+      },
+
+      setFrameUValueOverride: (value) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => {
+          const next: Project = { ...state.project };
+          if (value === undefined || !Number.isFinite(value) || value <= 0) {
+            delete next.frameUValueOverride;
+          } else {
+            next.frameUValueOverride = value;
+          }
+          return {
+            project: next,
+            isDirty: true,
+            error: null,
+            _past: [...state._past, snap].slice(-MAX_HISTORY),
+            _future: [],
+          };
+        });
       },
 
       setProject: (project) =>

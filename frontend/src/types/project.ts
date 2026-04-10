@@ -185,4 +185,20 @@ export interface Project {
   climate: DesignConditions;
   ventilation: VentilationConfig;
   rooms: Room[];
+  /**
+   * Optionele project-brede override voor de U-waarde van kozijnen
+   * (openings: categorie `kozijnen_vullingen`). Wanneer gezet (en > 0)
+   * vervangt dit in de berekening de individuele `u_value` van alle
+   * gekoppelde kozijn-elementen. De onderliggende per-element waarde
+   * blijft in de store staan; de override wordt alleen in de rekenkern
+   * toegepast via `prepareProjectForCalculation` en is daar via
+   * `getEffectiveFrameUValue` uitleesbaar.
+   *
+   * Eenheid: W/(m²·K). Leeg / undefined = geen override (individuele
+   * waarden per element).
+   *
+   * Niet naar Rust core gestuurd als veld: de override wordt al
+   * toegepast op `u_value` voordat het project naar het backend gaat.
+   */
+  frameUValueOverride?: number;
 }

@@ -143,18 +143,19 @@ function RoomGroup({
   const handleSelectCatalogue = useCallback(
     (entry: CatalogueEntry) => {
       const ce = createConstructionFromCatalogue(entry);
-      // Auto-register as project construction if it has layers
-      if (entry.layers && entry.layers.length > 0) {
-        const pcId = ensureProjectConstruction({
-          name: entry.name,
-          category: entry.category,
-          materialType: entry.materialType,
-          verticalPosition: entry.verticalPosition,
-          layers: entry.layers.map((l) => ({ ...l })),
-          catalogueSourceId: entry.id,
-        });
-        ce.project_construction_id = pcId;
-      }
+      // Auto-register als project construction. Ook entries zonder lagen
+      // (kozijnen/vullingen: triple-glas, buitendeur, etc.) krijgen een
+      // project entry zodat ze via de project-picker opnieuw kiesbaar zijn.
+      const pcId = ensureProjectConstruction({
+        name: entry.name,
+        category: entry.category,
+        materialType: entry.materialType,
+        verticalPosition: entry.verticalPosition,
+        layers: (entry.layers ?? []).map((l) => ({ ...l })),
+        uValue: entry.layers && entry.layers.length > 0 ? undefined : entry.uValue,
+        catalogueSourceId: entry.id,
+      });
+      ce.project_construction_id = pcId;
       onAddConstruction(ce);
       setPickerOpen(false);
     },
@@ -170,9 +171,11 @@ function RoomGroup({
         id: crypto.randomUUID(),
         description: pc.name,
         area: 0,
+        // Fallback naar directe pc.uValue voor kozijnen/vullingen die geen
+        // laag-gebaseerde Rc-berekening hebben (triple-glas, buitendeur).
         u_value: rcResult
           ? Math.round(rcResult.uValue * 1000) / 1000
-          : 0,
+          : pc.uValue ?? 0,
         boundary_type: "exterior",
         material_type: pc.materialType,
         vertical_position: pc.verticalPosition,
@@ -207,6 +210,7 @@ function RoomGroup({
             construction={firstConstruction}
             onUpdate={(partial) => onUpdateConstruction(firstConstruction.id, partial)}
             onRemove={() => onRemoveConstruction(firstConstruction.id)}
+            ownerRoomId={room.id}
           />
         ) : (
           <>
@@ -226,6 +230,7 @@ function RoomGroup({
             construction={c}
             onUpdate={(partial) => onUpdateConstruction(c.id, partial)}
             onRemove={() => onRemoveConstruction(c.id)}
+            ownerRoomId={room.id}
           />
         </tr>
       ))}

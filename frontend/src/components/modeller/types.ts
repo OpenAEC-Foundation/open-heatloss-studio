@@ -17,8 +17,18 @@ export interface ProjectConstruction {
   category: CatalogueCategory;
   materialType: MaterialType;
   verticalPosition: VerticalPosition;
-  /** Layer build-up — always required for project constructions. */
+  /**
+   * Layer build-up. Mag leeg zijn voor kozijnen/vullingen die alleen een
+   * directe U-waarde hebben (triple-glas, buitendeur, etc.). Voor laag-gebaseerde
+   * constructies wordt de U-waarde afgeleid uit `layers`; voor leeg-laag entries
+   * fallbackt het systeem op `uValue`.
+   */
   layers: CatalogueLayer[];
+  /**
+   * Directe U-waarde (W/(m²·K)). Alleen gebruikt wanneer `layers` leeg is
+   * (kozijnen/vullingen die geen laag-gebaseerde Rc-berekening hebben).
+   */
+  uValue?: number;
   /** ID of the catalogue entry this was copied from (if any). */
   catalogueSourceId?: string;
   /** Traceability to IFC source (optional). */

@@ -1,12 +1,23 @@
 import { memo, useCallback, useState, useMemo } from "react";
 
-import { BOUNDARY_TYPE_LABELS, VERTICAL_POSITION_LABELS } from "../../lib/constants";
+import {
+  BOUNDARY_TYPE_LABELS,
+  ROOM_FUNCTION_TEMPERATURES,
+  VERTICAL_POSITION_LABELS,
+} from "../../lib/constants";
+import { formatArea } from "../../lib/formatNumber";
+import {
+  isFrameConstruction,
+  isFrameOverrideActive,
+} from "../../lib/frameOverride";
 import { getMaterialById } from "../../lib/materialsDatabase";
 import { calculateRc } from "../../lib/rcCalculation";
+import { useProjectStore } from "../../store/projectStore";
 import type {
   BoundaryType,
   ConstructionElement,
   ConstructionElementLayer,
+  Room,
   VerticalPosition,
 } from "../../types";
 import { useModellerStore } from "../modeller/modellerStore";
@@ -20,6 +31,31 @@ interface ConstructionCellsProps {
   construction: ConstructionElement;
   onUpdate: (partial: Partial<ConstructionElement>) => void;
   onRemove: () => void;
+  /**
+   * ID van de ruimte waar deze construction in hangt. Wordt gebruikt om
+   * de ruimte zelf uit te sluiten bij het kiezen van een aangrenzende
+   * ruimte (een ruimte kan niet aangrenzend zijn aan zichzelf).
+   */
+  ownerRoomId?: string;
+}
+
+/**
+ * Onverwarmd-drempel in °C. Ruimten met een design-temperatuur kleiner dan
+ * of gelijk aan deze drempel krijgen de "(onverwarmd)" suffix in het
+ * adjacent-room label. Geen ISSO-norm, puur UX-indicatie voor gebruikers.
+ */
+const UNHEATED_TEMPERATURE_THRESHOLD = 15;
+
+/**
+ * Bepaalt de effectieve design-temperatuur voor een ruimte — gebruikt
+ * voor het onverwarmd-label. Gededupeerd met `deltaT.ts` om te voorkomen
+ * dat we hier een nieuwe dependency chain bouwen.
+ */
+function roomDesignTemperature(room: Room): number {
+  if (room.custom_temperature != null) {
+    return room.custom_temperature;
+  }
+  return ROOM_FUNCTION_TEMPERATURES[room.function] ?? 20;
 }
 
 /**
@@ -30,11 +66,44 @@ export const ConstructionCells = memo(function ConstructionCells({
   construction,
   onUpdate,
   onRemove,
+  ownerRoomId,
 }: ConstructionCellsProps) {
   const [layerEditorOpen, setLayerEditorOpen] = useState(false);
 
   const projectConstructions = useModellerStore(
     (s) => s.projectConstructions,
+  );
+
+  const projectRooms = useProjectStore((s) => s.project.rooms);
+  const frameUValueOverride = useProjectStore(
+    (s) => s.project.frameUValueOverride,
+  );
+
+  const frameOverrideActive = useMemo(
+    () =>
+      isFrameOverrideActive(frameUValueOverride) &&
+      isFrameConstruction(construction, projectConstructions),
+    [frameUValueOverride, construction, projectConstructions],
+  );
+
+  const adjacentRoomOptions = useMemo(
+    () =>
+      projectRooms
+        .filter((r) => r.id !== ownerRoomId)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [projectRooms, ownerRoomId],
+  );
+
+  const adjacentRoom = useMemo<Room | null>(() => {
+    if (!construction.adjacent_room_id) return null;
+    return projectRooms.find((r) => r.id === construction.adjacent_room_id) ?? null;
+  }, [projectRooms, construction.adjacent_room_id]);
+
+  const handleAdjacentRoomChange = useCallback(
+    (id: string) => {
+      onUpdate({ adjacent_room_id: id === "" ? null : id });
+    },
+    [onUpdate],
   );
 
   const handleArea = useCallback(
@@ -72,11 +141,14 @@ export const ConstructionCells = memo(function ConstructionCells({
         pc.layers.length > 0
           ? calculateRc(pc.layers, pc.verticalPosition)
           : null;
+      // Prioriteit: (1) rcResult uit lagen, (2) directe pc.uValue voor
+      // kozijnen/vullingen, (3) huidige waarde behouden als laatste redmiddel.
+      const nextUValue = rcResult
+        ? Math.round(rcResult.uValue * 1000) / 1000
+        : pc.uValue ?? construction.u_value;
       onUpdate({
         description: pc.name,
-        u_value: rcResult
-          ? Math.round(rcResult.uValue * 1000) / 1000
-          : construction.u_value,
+        u_value: nextUValue,
         material_type: pc.materialType,
         vertical_position: pc.verticalPosition,
         layers: pc.layers.map((l) => ({ ...l })),
@@ -144,13 +216,46 @@ export const ConstructionCells = memo(function ConstructionCells({
         </div>
       </td>
       <td className="px-2 py-1">
-        <div className="flex items-center gap-1.5">
-          <EditableSelect
-            value={construction.boundary_type}
-            onChange={(v) => onUpdate({ boundary_type: v as BoundaryType })}
-            options={BOUNDARY_TYPE_LABELS}
-          />
-          <BoundaryBadge type={construction.boundary_type} />
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <EditableSelect
+              value={construction.boundary_type}
+              onChange={(v) => onUpdate({ boundary_type: v as BoundaryType })}
+              options={BOUNDARY_TYPE_LABELS}
+            />
+            <BoundaryBadge type={construction.boundary_type} />
+          </div>
+          {construction.boundary_type === "adjacent_room" && (
+            <div className="flex items-center gap-1 pl-1 text-[10px] text-on-surface-muted">
+              <span className="shrink-0">&rarr;</span>
+              <select
+                value={construction.adjacent_room_id ?? ""}
+                onChange={(e) => handleAdjacentRoomChange(e.target.value)}
+                className={`min-w-0 flex-1 truncate rounded border border-[var(--oaec-border-subtle)] bg-[var(--oaec-bg-input)] px-1 py-0.5 text-[10px] ${
+                  adjacentRoom
+                    ? "text-on-surface-secondary"
+                    : "text-on-surface-muted italic"
+                }`}
+                title={
+                  adjacentRoom
+                    ? `Aangrenzend aan ${adjacentRoom.name}`
+                    : "Kies aangrenzende ruimte"
+                }
+              >
+                <option value="">Kies ruimte...</option>
+                {adjacentRoomOptions.map((r) => {
+                  const unheated =
+                    roomDesignTemperature(r) <= UNHEATED_TEMPERATURE_THRESHOLD;
+                  return (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                      {unheated ? " (onverwarmd)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
         </div>
       </td>
       <td className="px-2 py-1 text-right">
@@ -159,27 +264,38 @@ export const ConstructionCells = memo(function ConstructionCells({
           onChange={handleArea}
           type="number"
           unit="m²"
+          displayFormatter={formatArea}
         />
       </td>
       <td className="px-2 py-1 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <EditableCell
-            value={construction.u_value}
-            onChange={handleUValue}
-            type="number"
-            unit="W/m²K"
-          />
-          <button
-            onClick={() => setLayerEditorOpen(true)}
-            className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${
-              layerCount > 0
-                ? "bg-blue-600/15 text-blue-400 hover:bg-blue-600/25"
-                : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
-            }`}
-            title="Constructie-opbouw bewerken"
-          >
-            {layerCount > 0 ? `${layerCount} lagen` : "Lagen"}
-          </button>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center justify-end gap-1">
+            <EditableCell
+              value={construction.u_value}
+              onChange={handleUValue}
+              type="number"
+              unit="W/m²K"
+            />
+            <button
+              onClick={() => setLayerEditorOpen(true)}
+              className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${
+                layerCount > 0
+                  ? "bg-blue-600/15 text-blue-400 hover:bg-blue-600/25"
+                  : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
+              }`}
+              title="Constructie-opbouw bewerken"
+            >
+              {layerCount > 0 ? `${layerCount} lagen` : "Lagen"}
+            </button>
+          </div>
+          {frameOverrideActive && (
+            <span
+              className="text-[10px] italic text-amber-400"
+              title={`Project-override actief: ${frameUValueOverride} W/(m²·K) wordt in de berekening gebruikt in plaats van deze waarde.`}
+            >
+              override actief
+            </span>
+          )}
         </div>
       </td>
       <td className="px-2 py-1">

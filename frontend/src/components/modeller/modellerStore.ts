@@ -172,8 +172,8 @@ interface ModellerStore {
   /**
    * Copy a catalogue entry into the project library.
    * If already copied (same catalogueSourceId), returns existing project ID.
-   * The entry must have layers — entries without layers (e.g. glazing) are
-   * assigned directly without copying.
+   * Entries zonder lagen (kozijnen/vullingen zoals triple-glas, buitendeur)
+   * worden ook gekopieerd — de directe `uValue` wordt meegenomen.
    */
   copyFromCatalogue: (entry: CatalogueEntry) => string;
 
@@ -188,6 +188,7 @@ interface ModellerStore {
     materialType: import("../../types").MaterialType;
     verticalPosition: import("../../types").VerticalPosition;
     layers: import("../../lib/constructionCatalogue").CatalogueLayer[];
+    uValue?: number;
     catalogueSourceId?: string;
   }) => string;
 
@@ -426,7 +427,10 @@ export const useModellerStore = create<ModellerStore>()(
         );
         if (existing) return existing.id;
 
-        // Copy as new project construction
+        // Copy as new project construction. Voor entries zonder lagen
+        // (kozijnen/vullingen zoals triple-glas, buitendeur) bewaren we de
+        // directe uValue, anders gaat de U-waarde verloren.
+        const layers = structuredClone(entry.layers ?? []);
         const id = `proj-${crypto.randomUUID()}`;
         set({
           ...pushUndo(state),
@@ -438,7 +442,8 @@ export const useModellerStore = create<ModellerStore>()(
               category: entry.category,
               materialType: entry.materialType,
               verticalPosition: entry.verticalPosition,
-              layers: structuredClone(entry.layers ?? []),
+              layers,
+              uValue: layers.length === 0 ? entry.uValue : undefined,
               catalogueSourceId: entry.id,
             },
           ],

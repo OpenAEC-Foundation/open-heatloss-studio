@@ -94,7 +94,9 @@ export function ConstructionPicker({
           id: pc.id,
           name: pc.name,
           category: pc.category,
-          uValue: rcResult ? Math.round(rcResult.uValue * 1000) / 1000 : 0,
+          uValue: rcResult
+            ? Math.round(rcResult.uValue * 1000) / 1000
+            : pc.uValue ?? 0,
           materialType: pc.materialType,
           verticalPosition: pc.verticalPosition,
           layers: pc.layers,
@@ -170,7 +172,7 @@ export function ConstructionPicker({
                 : null;
               const uVal = rcResult
                 ? Math.round(rcResult.uValue * 1000) / 1000
-                : 0;
+                : pc.uValue ?? 0;
 
               return (
                 <button

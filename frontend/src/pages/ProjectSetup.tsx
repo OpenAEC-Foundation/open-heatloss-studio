@@ -11,6 +11,9 @@ import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
 import { exportProject, importProject, extractAndLinkConstructions } from "../lib/importExport";
+import { formatArea } from "../lib/formatNumber";
+import { prepareProjectForCalculation } from "../lib/frameOverride";
+import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
 import {
   BUILDING_TYPE_LABELS,
@@ -31,8 +34,9 @@ export function ProjectSetup() {
   const {
     project, updateProject, isCalculating, setCalculating,
     setResult, setError, activeProjectId, setActiveProjectId,
-    serverUpdatedAt,
+    serverUpdatedAt, setFrameUValueOverride,
   } = useProjectStore();
+  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,13 +74,22 @@ export function ProjectSetup() {
   const handleCalculate = useCallback(async () => {
     setCalculating(true);
     try {
-      const result = await backend.calculate(project);
+      const payload = prepareProjectForCalculation(project, projectConstructions);
+      const result = await backend.calculate(payload);
       setResult(result);
       navigate("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Berekening mislukt");
     }
-  }, [backend, project, setCalculating, setResult, setError, navigate]);
+  }, [
+    backend,
+    project,
+    projectConstructions,
+    setCalculating,
+    setResult,
+    setError,
+    navigate,
+  ]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -288,6 +301,33 @@ export function ProjectSetup() {
               Nachtreductie
             </label>
           </div>
+          <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+            <div>
+              <Input
+                id="frame_u_override"
+                label="U-waarde kozijnen (override)"
+                type="number"
+                unit="W/(m²·K)"
+                step={0.1}
+                min={0}
+                max={10}
+                value={project.frameUValueOverride ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setFrameUValueOverride(undefined);
+                  } else {
+                    setFrameUValueOverride(Number(raw));
+                  }
+                }}
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Leeg laten voor individuele waarden per element. Vervangt
+                in de berekening alle U-waarden van kozijnen en vullingen
+                (categorie kozijnen_vullingen) in één keer.
+              </p>
+            </div>
+          </div>
         </Card>
 
         {/* Climate */}
@@ -413,7 +453,7 @@ export function ProjectSetup() {
                 >
                   <span className="font-medium">{room.name}</span>
                   <span className="font-mono text-xs text-on-surface-muted">
-                    {room.floor_area} m²
+                    {formatArea(room.floor_area)} m²
                   </span>
                 </li>
               ))}

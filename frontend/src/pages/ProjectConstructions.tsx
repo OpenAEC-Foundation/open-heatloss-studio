@@ -201,7 +201,6 @@ export function ProjectConstructions() {
                 <div className="space-y-2">
                   {entries.map((entry) => {
                     const inProject = isInProject(entry.id);
-                    const hasLayers = !!entry.layers?.length;
 
                     return (
                       <div
@@ -216,7 +215,7 @@ export function ProjectConstructions() {
                             <span>
                               U = {entry.uValue} W/(m{"\u00B2"}{"\u00B7"}K)
                             </span>
-                            {entry.layers && (
+                            {entry.layers && entry.layers.length > 0 && (
                               <span>{entry.layers.length} lagen</span>
                             )}
                           </div>
@@ -226,17 +225,13 @@ export function ProjectConstructions() {
                             <span className="rounded bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
                               In project
                             </span>
-                          ) : hasLayers ? (
+                          ) : (
                             <button
                               onClick={() => copyFromCatalogue(entry)}
                               className="rounded bg-amber-600/15 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-600/15"
                             >
                               Toevoegen aan project
                             </button>
-                          ) : (
-                            <span className="text-xs text-on-surface-muted">
-                              Geen laagopbouw
-                            </span>
                           )}
                         </div>
                       </div>
@@ -279,9 +274,11 @@ function ProjectConstructionCard({
   const rcResult: RcResult | null = hasLayers
     ? calculateRc(pc.layers, pc.verticalPosition)
     : null;
+  // Bij entries zonder lagen (kozijnen/vullingen) tonen we de directe
+  // `pc.uValue` — anders zou de card "geen U-waarde" tonen voor glas/deur.
   const uValue = rcResult
     ? Math.round(rcResult.uValue * 1000) / 1000
-    : null;
+    : pc.uValue ?? null;
   const totalThickness = rcResult
     ? rcResult.layers.reduce((sum, l) => sum + l.thickness, 0)
     : null;

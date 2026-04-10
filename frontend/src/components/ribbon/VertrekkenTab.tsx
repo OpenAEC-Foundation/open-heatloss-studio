@@ -5,8 +5,10 @@ import RibbonButton from "./RibbonButton";
 import RibbonGroup from "./RibbonGroup";
 import { plusIcon, calculatorIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
+import { useModellerStore } from "../modeller/modellerStore";
 import { createRoom } from "../../lib/roomDefaults";
 import { createBackend } from "../../lib/backend";
+import { prepareProjectForCalculation } from "../../lib/frameOverride";
 import { useToastStore } from "../../store/toastStore";
 
 const backend = createBackend();
@@ -21,6 +23,7 @@ export default function VertrekkenTab() {
   const setError = useProjectStore((s) => s.setError);
   const setCalculating = useProjectStore((s) => s.setCalculating);
   const isCalculating = useProjectStore((s) => s.isCalculating);
+  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const hasRooms = project.rooms.length > 0;
 
@@ -32,7 +35,8 @@ export default function VertrekkenTab() {
   const handleCalculate = async () => {
     setCalculating(true);
     try {
-      const result = await backend.calculate(project);
+      const payload = prepareProjectForCalculation(project, projectConstructions);
+      const result = await backend.calculate(payload);
       setResult(result);
       addToast(tc("calculationComplete"), "success");
       navigate("/results");
