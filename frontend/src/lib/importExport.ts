@@ -201,10 +201,12 @@ function constructionFingerprint(c: ConstructionElement): string {
   return `${c.description}|${c.u_value}|${c.material_type}|${c.vertical_position ?? "wall"}|${c.boundary_type}`;
 }
 
-/** Map vertical_position to CatalogueCategory. */
-function categoryFromPosition(vp: VerticalPosition | undefined): CatalogueCategory {
-  if (vp === "ceiling") return "daken";
-  if (vp === "floor") return "vloeren_plafonds";
+/** Map element to CatalogueCategory based on position and layer presence. */
+function categoryFromElement(ce: ConstructionElement): CatalogueCategory {
+  if (ce.vertical_position === "ceiling") return "daken";
+  if (ce.vertical_position === "floor") return "vloeren_plafonds";
+  // Elements without layers are typically kozijnen/vullingen (glass, doors)
+  if (!ce.layers || ce.layers.length === 0) return "kozijnen_vullingen";
   return "wanden";
 }
 
@@ -258,7 +260,7 @@ export function extractAndLinkConstructions(project: Project): void {
 
       newConstructions.push({
         name: ce.description,
-        category: categoryFromPosition(ce.vertical_position),
+        category: categoryFromElement(ce),
         materialType: ce.material_type,
         verticalPosition: (ce.vertical_position ?? "wall") as VerticalPosition,
         layers: ce.layers ? structuredClone(ce.layers) : [],
