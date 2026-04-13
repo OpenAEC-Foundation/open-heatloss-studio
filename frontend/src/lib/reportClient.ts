@@ -10,7 +10,7 @@ const REPORTS_URL = "/api/v1/report/generate";
 
 /**
  * Haal het Bearer token op als de gebruiker is ingelogd.
- * Timeout na 3 seconden om een hangende OIDC call te voorkomen.
+ * Timeout na 5 seconden om een hangende OIDC call te voorkomen.
  */
 async function getBearerToken(): Promise<string | null> {
   try {
@@ -47,7 +47,9 @@ export async function generateReportDirect(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  console.log("[report] POST", REPORTS_URL, token ? "(met token)" : "(zonder token)");
+  if (import.meta.env.DEV) {
+    console.log("[report] POST", REPORTS_URL, token ? "(met token)" : "(zonder token)");
+  }
 
   const res = await fetch(REPORTS_URL, {
     method: "POST",
@@ -55,7 +57,9 @@ export async function generateReportDirect(
     body: JSON.stringify(reportData),
   });
 
-  console.log("[report] Response:", res.status, res.statusText);
+  if (import.meta.env.DEV) {
+    console.log("[report] Response:", res.status, res.statusText);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");

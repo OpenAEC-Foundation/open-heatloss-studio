@@ -301,7 +301,7 @@ export function applyEditsToProject(
       // Update room function if user changed type from heated↔unheated
       let updatedRoom = room;
       if (editedType === "unheated" && room.function !== "storage") {
-        updatedRoom = { ...room, function: "storage" as any };
+        updatedRoom = { ...room, function: "storage" };
       }
 
       // Update U-values on constructions from LayerEditor and openings
