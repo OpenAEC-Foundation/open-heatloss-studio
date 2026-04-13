@@ -6,7 +6,19 @@ use crate::model::enums::HeatingSystem;
 /// Temperature corrections for a heating system.
 /// ISSO 51 Table 2.12 (erratum 2023).
 pub struct DeltaTheta {
-    /// Δθ₁ or Δθ_a1: correction for rooms above/below (vertical temperature gradient).
+    /// Δθ₁ or Δθ_a1: correction for rooms above/below (vertical temperature
+    /// gradient).
+    ///
+    /// ISSO 51 Table 2.12, voetnoot 2:
+    /// *"Bij toepassing van vides etc. waardoor een grotere hoogte ontstaat
+    /// moet de waarde van Δθ₁ worden vermenigvuldigd met h/4 waarbij h de
+    /// totale hoogte [m] is."*
+    ///
+    /// The height correction is applied at the consumer side, not in this
+    /// table — see [`crate::calc::room_load::calculate_room`] where the
+    /// `height_factor = h / 4` multiplier is applied to `delta_1` for rooms
+    /// with `room.height > 4.0 m`. Tabulated values below assume a standard
+    /// room height (≈ 2.6–3.0 m, factor 1.0).
     pub delta_1: f64,
     /// Δθ₂ or Δθ_a2: correction for adjacent rooms (floor level).
     pub delta_2: f64,

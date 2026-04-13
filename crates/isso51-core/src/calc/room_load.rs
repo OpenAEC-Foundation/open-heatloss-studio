@@ -16,6 +16,34 @@ use crate::tables;
 
 use super::{heating_up, infiltration, quadratic_sum, system_losses, transmission, ventilation};
 
+/// Height above which rooms are considered "tall" (vides, double-height
+/// spaces) for the ISSO 51 Table 2.12 voetnoot 2 Δθ₁ correction.
+/// At or below this height the correction factor is 1.0 (tabulated
+/// values are calibrated for standard room heights of ~2.6–3.0 m).
+const HEIGHT_CORRECTION_THRESHOLD_M: f64 = 4.0;
+
+/// Δθ₁ height correction factor per ISSO 51 Table 2.12 voetnoot 2:
+/// *"Bij toepassing van vides etc. waardoor een grotere hoogte ontstaat
+/// moet de waarde van Δθ₁ worden vermenigvuldigd met h/4 waarbij h de
+/// totale hoogte [m] is."*
+///
+/// For rooms up to and including 4.0 m the factor is 1.0 (tabulated
+/// values apply as-is). Above 4.0 m the factor scales linearly with
+/// `h / 4`, so a 6 m vide gets factor 1.5 and an 8 m atrium gets 2.0.
+///
+/// # Arguments
+/// * `height_m` - Room height in metres.
+///
+/// # Returns
+/// Multiplier to apply to the tabulated Δθ₁ value.
+fn height_factor(height_m: f64) -> f64 {
+    if height_m > HEIGHT_CORRECTION_THRESHOLD_M {
+        height_m / HEIGHT_CORRECTION_THRESHOLD_M
+    } else {
+        1.0
+    }
+}
+
 /// Calculate the complete heat loss for a single room.
 ///
 /// # Arguments
@@ -46,15 +74,7 @@ pub fn calculate_room(
 
     // Get Δθ corrections from the heating system table
     let dt = tables::temperature::delta_theta(room.heating_system);
-    // ISSO 51 Table 2.12 footnote 2: "Bij toepassing van vides etc.
-    // waardoor een grotere hoogte ontstaat moet de waarde van Δθ₁
-    // worden vermenigvuldigd met h/4 waarbij h de totale hoogte [m] is."
-    //
-    // The table values are calibrated for standard room heights (~2.6–3.0 m).
-    // The h/4 correction only applies for rooms significantly taller than
-    // standard (vides, double-height spaces). Threshold: 4.0 m (= factor 1.0).
-    let height_factor = if room.height > 4.0 { room.height / 4.0 } else { 1.0 };
-    let delta_1 = dt.delta_1 * height_factor;
+    let delta_1 = dt.delta_1 * height_factor(room.height);
     let delta_2 = dt.delta_2;
 
     // --- Transmission ---
@@ -344,4 +364,97 @@ pub fn calculate_room(
         basis_heat_loss: phi_basis,
         extra_heat_loss: phi_extra,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ISSO 51 Table 2.12 voetnoot 2 — Δθ₁ height correction for vides.
+    //
+    // Standard rooms (≤ 4 m) keep the tabulated value; taller rooms get
+    // a linear h/4 multiplier. These regression tests cover the hotfix
+    // from 2026-04-10 (commits 960a70f + 804fb30) that ship the
+    // correction without prior unit coverage.
+
+    /// Standard room height (2.6 m) must yield factor 1.0.
+    #[test]
+    fn test_height_factor_standard_room() {
+        assert_eq!(height_factor(2.6), 1.0);
+    }
+
+    /// Break-even at exactly 4.0 m: the conditional is strictly `>`,
+    /// so 4.0 m is still in the unit-factor regime.
+    #[test]
+    fn test_height_factor_break_even_at_4m() {
+        assert_eq!(height_factor(4.0), 1.0);
+    }
+
+    /// 6.0 m vide → factor 1.5 (6 / 4).
+    #[test]
+    fn test_height_factor_6m_vide() {
+        assert!(
+            (height_factor(6.0) - 1.5).abs() < 1e-12,
+            "height_factor(6.0) = {}, expected 1.5",
+            height_factor(6.0)
+        );
+    }
+
+    /// 8.0 m atrium → factor 2.0 (8 / 4).
+    #[test]
+    fn test_height_factor_8m_atrium() {
+        assert!(
+            (height_factor(8.0) - 2.0).abs() < 1e-12,
+            "height_factor(8.0) = {}, expected 2.0",
+            height_factor(8.0)
+        );
+    }
+
+    /// Just above threshold (4.1 m) — regression guard for the strictly
+    /// `>` condition. 4.1 / 4 = 1.025.
+    #[test]
+    fn test_height_factor_just_above_threshold() {
+        let f = height_factor(4.1);
+        assert!(
+            (f - 1.025).abs() < 1e-12,
+            "height_factor(4.1) = {f}, expected 1.025"
+        );
+    }
+
+    /// Very low / sub-standard heights (1.5 m crawlspace) must also
+    /// clamp to 1.0 — the correction never makes Δθ₁ smaller.
+    #[test]
+    fn test_height_factor_below_standard() {
+        assert_eq!(height_factor(1.5), 1.0);
+    }
+
+    /// Tabulated Δθ₁ × height_factor must match the expected product
+    /// for a RadiatorLt vide. This is the composition test that
+    /// mirrors what `calculate_room` does in its hot path.
+    #[test]
+    fn test_height_factor_applied_to_radiator_lt_delta_1() {
+        use crate::model::enums::HeatingSystem;
+
+        let dt = tables::temperature::delta_theta(HeatingSystem::RadiatorLt);
+        // RadiatorLt Δθ₁ = 2.0 per Table 2.12
+        assert_eq!(dt.delta_1, 2.0);
+
+        // 6 m vide → factor 1.5 → corrected Δθ₁ = 3.0
+        let corrected = dt.delta_1 * height_factor(6.0);
+        assert!(
+            (corrected - 3.0).abs() < 1e-12,
+            "corrected Δθ₁ = {corrected}, expected 3.0"
+        );
+
+        // 8 m atrium → factor 2.0 → corrected Δθ₁ = 4.0
+        let corrected_8 = dt.delta_1 * height_factor(8.0);
+        assert!(
+            (corrected_8 - 4.0).abs() < 1e-12,
+            "corrected Δθ₁ at 8 m = {corrected_8}, expected 4.0"
+        );
+
+        // Standard room → factor 1.0 → tabulated value passes through.
+        let corrected_std = dt.delta_1 * height_factor(2.6);
+        assert_eq!(corrected_std, 2.0);
+    }
 }
