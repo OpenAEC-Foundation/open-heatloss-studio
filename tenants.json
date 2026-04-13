@@ -1,0 +1,12 @@
+{
+  "tenants": {
+    "3bm": {
+      "name": "3BM Bouwkunde",
+      "nextcloud_url": "http://nextcloud:80",
+      "nextcloud_domain": "cloud.open-aec.com",
+      "service_user": "openaec-service",
+      "service_pass_env": "NC_SERVICE_PASS_3BM",
+      "group_folder_id": 1
+    }
+  }
+}

@@ -9,8 +9,14 @@ services:
         SOURCE_HASH: ${SOURCE_HASH:-dev}
     container_name: warmteverlies
     env_file: .env.production
+    environment:
+      - TENANTS_CONFIG=/etc/openaec/tenants.json
+      - DEFAULT_TENANT=3bm
     volumes:
       - warmteverlies-data:/data
+      - ./tenants.json:/etc/openaec/tenants.json:ro
+      # Nextcloud Group Folder volume — uncomment and set path on server:
+      # - /path/to/nextcloud/data:/nc-data-3bm:ro
     expose:
       - "3001"
     networks:
