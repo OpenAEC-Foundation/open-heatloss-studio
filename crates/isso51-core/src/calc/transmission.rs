@@ -71,14 +71,18 @@ pub fn h_t_adjacent_room_element(
     let f_ia = if let Some(f) = element.temperature_factor {
         f
     } else {
+        // Guard against degenerate ΔT: if the design indoor and outdoor
+        // temperatures coincide, every branch below divides by zero and
+        // produces NaN/inf. Return 0 W/K — consistent with the guards in
+        // `ventilation::f_v` and `h_t_water_element`.
+        let denom = theta_i - theta_e;
+        if denom.abs() < 1e-10 {
+            return 0.0;
+        }
         match element.vertical_position {
-            VerticalPosition::Wall => (theta_i - theta_a) / (theta_i - theta_e),
-            VerticalPosition::Ceiling => {
-                ((theta_i + delta_1) - (theta_a + delta_2)) / (theta_i - theta_e)
-            }
-            VerticalPosition::Floor => {
-                ((theta_i + delta_2) - (theta_a + delta_1)) / (theta_i - theta_e)
-            }
+            VerticalPosition::Wall => (theta_i - theta_a) / denom,
+            VerticalPosition::Ceiling => ((theta_i + delta_1) - (theta_a + delta_2)) / denom,
+            VerticalPosition::Floor => ((theta_i + delta_2) - (theta_a + delta_1)) / denom,
         }
     };
     element.area * element.u_value * f_ia
@@ -133,10 +137,17 @@ pub fn h_t_adjacent_building_element(
     let f_b = if let Some(f) = element.temperature_factor {
         f
     } else {
+        // Guard against degenerate ΔT: same rationale as
+        // `h_t_adjacent_room_element` — consistent with the guards in
+        // `ventilation::f_v` and `h_t_water_element`.
+        let denom = theta_i - theta_e;
+        if denom.abs() < 1e-10 {
+            return 0.0;
+        }
         match element.vertical_position {
-            VerticalPosition::Wall => (theta_i - theta_b) / (theta_i - theta_e),
-            VerticalPosition::Ceiling => (theta_i + delta_1 - theta_b) / (theta_i - theta_e),
-            VerticalPosition::Floor => (theta_i + delta_2 - theta_b) / (theta_i - theta_e),
+            VerticalPosition::Wall => (theta_i - theta_b) / denom,
+            VerticalPosition::Ceiling => (theta_i + delta_1 - theta_b) / denom,
+            VerticalPosition::Floor => (theta_i + delta_2 - theta_b) / denom,
         }
     };
     element.area * element.u_value * f_b
@@ -872,6 +883,66 @@ mod tests {
             "calculate_all_h_t did not propagate theta_water override: got {}, expected {}",
             h_t.h_t_iw,
             expected_override
+        );
+    }
+
+    // ----- CORE-1: division-by-zero guards on (theta_i - theta_e) -----
+    //
+    // Regression tests for the degenerate ΔT case. When θ_i == θ_e, the
+    // temperature-factor formulas divide by zero and produce NaN/inf,
+    // which poisons every downstream aggregation. The helpers must
+    // return a finite 0.0, matching the behaviour of `ventilation::f_v`
+    // and `h_t_water_element`.
+
+    /// CORE-1 guard: `h_t_adjacent_room_element` must return 0.0 when
+    /// `theta_i == theta_e` instead of dividing by zero.
+    #[test]
+    fn test_adjacent_room_zero_denominator_guard() {
+        let wall = make_adjacent_wall("w1", 10.0, 1.5, None);
+
+        // theta_i == theta_e → denom = 0 → guard must fire.
+        let h = h_t_adjacent_room_element(&wall, 20.0, 18.0, 20.0, 2.0, -1.0);
+        assert!(
+            h.is_finite(),
+            "h_t_adjacent_room_element returned non-finite {h}"
+        );
+        assert_eq!(
+            h, 0.0,
+            "h_t_adjacent_room_element must return 0.0 at theta_i == theta_e, got {h}"
+        );
+    }
+
+    /// CORE-1 guard: `h_t_adjacent_building_element` must return 0.0 when
+    /// `theta_i == theta_e` instead of dividing by zero.
+    #[test]
+    fn test_adjacent_building_zero_denominator_guard() {
+        let element = ConstructionElement {
+            id: "wall".to_string(),
+            description: "wall".to_string(),
+            area: 10.0,
+            u_value: 2.0,
+            boundary_type: BoundaryType::AdjacentBuilding,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+        };
+
+        // theta_i == theta_e → denom = 0 → guard must fire.
+        let h = h_t_adjacent_building_element(&element, 20.0, 15.0, 20.0, 2.0, -1.0);
+        assert!(
+            h.is_finite(),
+            "h_t_adjacent_building_element returned non-finite {h}"
+        );
+        assert_eq!(
+            h, 0.0,
+            "h_t_adjacent_building_element must return 0.0 at theta_i == theta_e, got {h}"
         );
     }
 }

@@ -186,21 +186,16 @@ pub enum MaterialType {
 
 /// Infiltration calculation method.
 /// Determines how the specific infiltration rate is applied.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum InfiltrationMethod {
     /// Per m² exterior construction area (ISSO 51:2023 Table 4.3).
     /// q_i = qi_spec_ext × ΣA_exterior
+    #[default]
     PerExteriorArea,
     /// Per m² floor area (ISSO 51:2024).
     /// q_i = qi_spec × A_floor (uses same qi_spec table values)
     PerFloorArea,
-}
-
-impl Default for InfiltrationMethod {
-    fn default() -> Self {
-        InfiltrationMethod::PerExteriorArea
-    }
 }
 
 /// Building type classification.
