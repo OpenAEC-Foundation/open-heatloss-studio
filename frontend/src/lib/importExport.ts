@@ -37,6 +37,12 @@ interface ProjectEnvelope {
   exported_at: string;
   project: Project;
   result: ProjectResult | null;
+  /**
+   * Project-scoped construction library (per-project layer stacks etc.).
+   * Lives in `useModellerStore` and is NOT part of the `Project` type.
+   * Optional for backwards-compat with envelopes written before bug H fix.
+   */
+  project_constructions?: ProjectConstruction[];
 }
 
 /** Result of a successful regular project import. */
@@ -53,12 +59,19 @@ export function exportProject(
   project: Project,
   result: ProjectResult | null,
 ): void {
+  // Snapshot project constructions from modellerStore. These live outside
+  // the Project type but are required to keep room.constructions[].
+  // project_construction_id references valid after re-import elsewhere.
+  const projectConstructions =
+    useModellerStore.getState().projectConstructions;
+
   const envelope: ProjectEnvelope = {
     version: EXPORT_VERSION,
     schema: SCHEMA_ID,
     exported_at: new Date().toISOString(),
     project,
     result,
+    project_constructions: projectConstructions,
   };
 
   const json = JSON.stringify(envelope, null, 2);
@@ -110,6 +123,17 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
   if (obj.schema === SCHEMA_ID && obj.project) {
     const project = validateProject(obj.project);
     const result = validateProjectResult(obj.result);
+
+    // Restore project constructions from the envelope if present. We do NOT
+    // structurally validate the entries (envelope-level optional field) —
+    // simply cast through and let the store handle it. For older envelopes
+    // without this field we leave the current store state untouched
+    // (least-destructive: preserves any work-in-progress constructions).
+    if (Array.isArray(obj.project_constructions)) {
+      const pcs = obj.project_constructions as ProjectConstruction[];
+      useModellerStore.getState().replaceProjectConstructions(pcs);
+    }
+
     return { type: "project", project, result };
   }
 
