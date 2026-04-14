@@ -1,7 +1,7 @@
 //! Report generation proxy handler.
 //!
 //! Forwards report JSON to the OpenAEC Reports API.
-//! Auth: stuurt het Bearer token van de gebruiker door (OIDC).
+//! Auth: vereist een geldig OIDC Bearer token (via `AuthClaims` extractor).
 //! Optioneel: voegt X-API-Key toe als REPORTS_API_KEY is geconfigureerd.
 
 use std::time::Duration;
@@ -10,16 +10,18 @@ use axum::extract::State;
 use axum::http::{header, HeaderMap};
 use axum::response::{IntoResponse, Response};
 
+use crate::auth::AuthClaims;
 use crate::error::ApiError;
 use crate::state::AppState;
 
 /// POST /report/generate — proxy report generation to OpenAEC Reports API.
 ///
-/// Forwards the BM Reports JSON body and the caller's Authorization header
-/// to the upstream API. If `REPORTS_API_KEY` is configured, adds X-API-Key
-/// as additional auth method.
+/// Requires an authenticated caller (OIDC Bearer token). Forwards the BM Reports
+/// JSON body and the caller's Authorization header to the upstream API.
+/// If `REPORTS_API_KEY` is configured, adds X-API-Key as additional auth method.
 pub async fn generate_report(
     State(state): State<AppState>,
+    AuthClaims(_claims): AuthClaims,
     headers: HeaderMap,
     body: String,
 ) -> Result<Response, ApiError> {

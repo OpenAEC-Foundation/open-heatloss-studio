@@ -104,8 +104,7 @@ async fn main() {
         .route("/calculate/ifcx", post(handlers::calculate_ifcx_handler))
         .route("/import/thermal", post(handlers::thermal_import_handler))
         .route("/schemas", get(handlers::list_schemas))
-        .route("/schemas/{name}", get(handlers::get_schema))
-        .route("/report/generate", post(handlers::generate_report));
+        .route("/schemas/{name}", get(handlers::get_schema));
 
     let protected = Router::new()
         .route("/me", get(handlers::get_profile))
@@ -122,7 +121,8 @@ async fn main() {
         .route(
             "/projects/{id}/calculate",
             post(handlers::calculate_and_save),
-        );
+        )
+        .route("/report/generate", post(handlers::generate_report));
 
     // Cloud storage routes (authenticated).
     let cloud_routes = Router::new()
