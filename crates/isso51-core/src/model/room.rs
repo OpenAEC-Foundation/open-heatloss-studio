@@ -40,6 +40,9 @@ pub struct Room {
     pub constructions: Vec<ConstructionElement>,
 
     /// Heating system installed in this room.
+    /// Defaults to `HeatingSystem::default()` (`RadiatorHt`) when missing
+    /// from input JSON — protects third-party clients from missing-field errors.
+    #[serde(default)]
     pub heating_system: HeatingSystem,
 
     /// Ventilation volume flow rate q_v in dm³/s.
@@ -208,6 +211,22 @@ mod tests {
         };
         // BBL: 0.9 × 28 = 25.2 dm³/s
         assert!((room.effective_ventilation_rate() - 25.2).abs() < 0.01);
+    }
+
+    #[test]
+    fn room_deserializes_without_heating_system() {
+        // Third-party JSON without heating_system should default to RadiatorHt.
+        // Protects cURL-users and external importers from missing-field errors.
+        let json = r#"{
+            "id": "r1",
+            "name": "Test",
+            "function": "living_room",
+            "floor_area": 20.0,
+            "height": 2.6,
+            "constructions": []
+        }"#;
+        let room: Room = serde_json::from_str(json).expect("should parse");
+        assert_eq!(room.heating_system, HeatingSystem::RadiatorHt);
     }
 
     #[test]

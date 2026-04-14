@@ -75,7 +75,7 @@ impl RoomFunction {
 
 /// Type of heating system installed.
 /// Affects Δθ values (Table 2.12) and system losses (§2.9).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HeatingSystem {
     /// Gas heater, wall-mounted heater
@@ -84,7 +84,12 @@ pub enum HeatingSystem {
     IrPanelWall,
     /// IR panels ceiling-mounted
     IrPanelCeiling,
-    /// High-temperature radiators/convectors (medium temp > 50°C)
+    /// High-temperature radiators/convectors (medium temp > 50°C).
+    ///
+    /// Default variant — statistisch meest voorkomende installatie in
+    /// Nederlandse woningen. Gebruikt wanneer een Room-JSON zonder
+    /// `heating_system` veld wordt gedeserialiseerd (third-party clients).
+    #[default]
     RadiatorHt,
     /// Low-temperature radiators/convectors (medium temp ≤ 50°C)
     RadiatorLt,
