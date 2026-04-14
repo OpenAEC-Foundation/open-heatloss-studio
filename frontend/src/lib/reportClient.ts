@@ -6,28 +6,9 @@
  * Geen API keys in de frontend — per-user access control via SSO.
  */
 
-const REPORTS_URL = "/api/v1/report/generate";
+import { getBearerToken } from "./authHeader";
 
-/**
- * Haal het Bearer token op als de gebruiker is ingelogd.
- * Timeout na 5 seconden om een hangende OIDC call te voorkomen.
- */
-async function getBearerToken(): Promise<string | null> {
-  try {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-    const tokenPromise = (async () => {
-      const { getOidc } = await import("./oidc");
-      const oidc = await getOidc();
-      if (oidc.isUserLoggedIn) {
-        return oidc.getAccessToken();
-      }
-      return null;
-    })();
-    return await Promise.race([tokenPromise, timeout]);
-  } catch {
-    return null;
-  }
-}
+const REPORTS_URL = "/api/v1/report/generate";
 
 /**
  * Genereer een PDF rapport via de OpenAEC Reports API (v2).

@@ -5,6 +5,7 @@ import type {
   ProjectSummary,
   ProjectResponse,
 } from "../types";
+import { getBearerToken } from "./authHeader";
 import { API_PREFIX } from "./constants";
 
 /** IFC import result from the Python sidecar. */
@@ -144,8 +145,15 @@ export async function importIfcServer(file: File): Promise<IfcSidecarResult> {
   const formData = new FormData();
   formData.append("file", file);
 
+  const token = await getBearerToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_PREFIX}/ifc/import`, {
     method: "POST",
+    headers,
     body: formData,
   });
 

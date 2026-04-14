@@ -12,6 +12,7 @@ use axum::Json;
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 
+use crate::auth::AuthClaims;
 use crate::state::AppState;
 
 /// Maximum upload size: 100 MB.
@@ -35,8 +36,12 @@ fn error_response(status: StatusCode, error: &str, detail: String) -> Response {
 }
 
 /// `POST /ifc/import` — Upload an IFC file and run server-side import.
+///
+/// Requires an authenticated caller (OIDC Bearer token) — the 100 MB body
+/// limit + subprocess exec is too much attack surface to expose publicly.
 pub async fn import_ifc(
     State(state): State<AppState>,
+    AuthClaims(_claims): AuthClaims,
     mut multipart: Multipart,
 ) -> Response {
     // Extract the "file" field from multipart form data.
