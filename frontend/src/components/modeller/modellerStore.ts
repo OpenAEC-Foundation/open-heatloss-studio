@@ -169,6 +169,14 @@ interface ModellerStore {
   updateProjectConstruction: (id: string, updates: Partial<Omit<ProjectConstruction, "id">>) => void;
   removeProjectConstruction: (id: string) => void;
   importProjectConstructions: (constructions: Omit<ProjectConstruction, "id">[]) => void;
+  /**
+   * Replace the entire project construction list with the given entries,
+   * preserving their IDs. Used by envelope import to restore the exact
+   * project constructions that were present at export time — IDs must be
+   * kept so that `room.constructions[].project_construction_id` references
+   * remain valid. Clears undo/redo history since import is a hard reset.
+   */
+  replaceProjectConstructions: (constructions: ProjectConstruction[]) => void;
 
   /**
    * Copy a catalogue entry into the project library.
@@ -493,6 +501,17 @@ export const useModellerStore = create<ModellerStore>()(
             ...state.projectConstructions,
             ...newEntries,
           ],
+        });
+      },
+
+      replaceProjectConstructions: (constructions) => {
+        // Preserve IDs as-is — room.constructions[].project_construction_id
+        // refers to these. Clear undo/redo because envelope import is a hard
+        // reset of project state that should not be mixed with prior edits.
+        set({
+          projectConstructions: structuredClone(constructions),
+          _past: [],
+          _future: [],
         });
       },
 
