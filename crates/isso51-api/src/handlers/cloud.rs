@@ -101,7 +101,7 @@ pub async fn cloud_list_projects(
     let mut result = Vec::with_capacity(projects.len());
 
     for p in projects {
-        let has_manifest = client.volume.read_manifest(&p.name).is_some();
+        let has_manifest = client.volume.read_manifest(&p.name, "project.wefc").is_some();
         result.push(CloudProjectResponse {
             name: p.name,
             has_manifest,
@@ -238,7 +238,7 @@ pub async fn cloud_save_calculation(
 
     // Update manifest (read → merge → write).
     client
-        .upsert_manifest_object(&project, manifest_object)
+        .upsert_default_manifest_object(&project, manifest_object)
         .await
         .map_err(|e| {
             tracing::warn!(
