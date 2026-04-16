@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { isTauri } from "../lib/backend";
+import { useAuth } from "../hooks/useAuth";
 import "./TitleBar.css";
 
 interface TitleBarProps {
@@ -211,45 +212,12 @@ function TitleBar({ onSettingsClick, onFeedbackClick }: TitleBarProps) {
   );
 }
 
-/** SSO login/user badge for web mode. */
+/** SSO login/user badge for web mode (Authentik forward_auth). */
 function UserBadge() {
   const { t } = useTranslation();
-  const [state, setState] = useState<{
-    ready: boolean;
-    loggedIn: boolean;
-    name: string;
-    login: () => void;
-    logout: () => void;
-  }>({ ready: false, loggedIn: false, name: "", login: () => {}, logout: () => {} });
-
+  const { isLoggedIn, userName, login, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    import("../lib/oidc")
-      .then(({ getOidc }) => getOidc())
-      .then((oidc) => {
-        if (oidc.isUserLoggedIn) {
-          const decoded = oidc.getDecodedIdToken();
-          setState({
-            ready: true,
-            loggedIn: true,
-            name: decoded.name ?? decoded.preferred_username ?? "Gebruiker",
-            login: () => {},
-            logout: () => oidc.logout({ redirectTo: "current page" }),
-          });
-        } else {
-          setState({
-            ready: true,
-            loggedIn: false,
-            name: "",
-            login: () => oidc.login({ redirectUrl: window.location.href }),
-            logout: () => {},
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -262,13 +230,11 @@ function UserBadge() {
     return () => document.removeEventListener("mousedown", close);
   }, [menuOpen]);
 
-  if (!state.ready) return null;
-
-  if (!state.loggedIn) {
+  if (!isLoggedIn) {
     return (
       <button
         className="titlebar-login-btn"
-        onClick={state.login}
+        onClick={login}
         tabIndex={-1}
       >
         {t("login")}
@@ -276,26 +242,27 @@ function UserBadge() {
     );
   }
 
-  const initial = state.name.charAt(0).toUpperCase();
+  const displayName = userName ?? "Gebruiker";
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
         className="titlebar-avatar"
         onClick={() => setMenuOpen((v) => !v)}
-        title={state.name}
+        title={displayName}
         tabIndex={-1}
       >
         {initial}
       </button>
       {menuOpen && (
         <div className="titlebar-user-menu">
-          <div className="titlebar-user-menu-name">{state.name}</div>
+          <div className="titlebar-user-menu-name">{displayName}</div>
           <button
             className="titlebar-user-menu-item"
             onClick={() => {
               setMenuOpen(false);
-              state.logout();
+              logout();
             }}
           >
             {t("logout")}

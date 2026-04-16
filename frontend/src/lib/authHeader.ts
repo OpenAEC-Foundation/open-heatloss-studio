@@ -1,23 +1,15 @@
 /**
- * Retrieve the OIDC Bearer token for authenticated API calls.
- * Returns null if user is not logged in or OIDC is unavailable.
- * Timeout after 5 seconds to prevent hanging on OIDC init.
+ * Auth header helper.
+ *
+ * After the Authentik forward_auth migration the browser no longer carries a
+ * Bearer token — Caddy authenticates the request via the `authentik_session`
+ * cookie and forwards the user identity to the backend as `X-Authentik-*`
+ * headers. Browser fetches just need to include credentials so the cookie
+ * travels with the request.
+ *
+ * This stub remains so legacy callers (e.g. `backend.ts::importIfcServer`)
+ * compile; it always returns `null`.
  */
 export async function getBearerToken(): Promise<string | null> {
-  try {
-    const timeout = new Promise<null>((resolve) =>
-      setTimeout(() => resolve(null), 5000),
-    );
-    const tokenPromise = (async () => {
-      const { getOidc } = await import("./oidc");
-      const oidc = await getOidc();
-      if (oidc.isUserLoggedIn) {
-        return oidc.getAccessToken();
-      }
-      return null;
-    })();
-    return await Promise.race([tokenPromise, timeout]);
-  } catch {
-    return null;
-  }
+  return null;
 }

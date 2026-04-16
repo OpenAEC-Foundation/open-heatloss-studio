@@ -5,7 +5,6 @@ import type {
   ProjectSummary,
   ProjectResponse,
 } from "../types";
-import { getBearerToken } from "./authHeader";
 import { API_PREFIX } from "./constants";
 
 /** IFC import result from the Python sidecar. */
@@ -140,20 +139,19 @@ function createTauriBackend(): Backend {
 // Server-side IFC import (web mode — same pipeline as Tauri sidecar)
 // ---------------------------------------------------------------------------
 
-/** Upload an IFC file to the server for import via the Python sidecar. */
+/**
+ * Upload an IFC file to the server for import via the Python sidecar.
+ *
+ * Authentik forward_auth (cookie-based) is added by the browser via
+ * `credentials: "include"` — no Bearer token needed.
+ */
 export async function importIfcServer(file: File): Promise<IfcSidecarResult> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const token = await getBearerToken();
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   const res = await fetch(`${API_PREFIX}/ifc/import`, {
     method: "POST",
-    headers,
+    credentials: "include",
     body: formData,
   });
 
@@ -168,26 +166,25 @@ export async function importIfcServer(file: File): Promise<IfcSidecarResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Authenticated API helpers (web only, uses OIDC access token)
+// Authenticated API helpers (web only — uses Authentik forward_auth cookie)
 // ---------------------------------------------------------------------------
 
-/** Fetch with Bearer token from OIDC session (if logged in). */
+/**
+ * Fetch helper that includes the `authentik_session` cookie. The backend
+ * reads the user identity from the `X-Authentik-*` headers that Caddy
+ * injects after a successful forward_auth handshake.
+ */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
-  headers.set("Content-Type", "application/json");
-
-  try {
-    const { getOidc } = await import("./oidc");
-    const oidc = await getOidc();
-    if (oidc.isUserLoggedIn) {
-      const token = await oidc.getAccessToken();
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  } catch {
-    // OIDC not initialized (e.g. Tauri) — proceed without token.
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  return fetch(url, { ...init, headers });
+  return fetch(url, {
+    ...init,
+    credentials: "include",
+    headers,
+  });
 }
 
 /** Parse JSON response or throw with error detail. */

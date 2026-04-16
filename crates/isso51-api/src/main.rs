@@ -1,7 +1,9 @@
 //! ISSO 51 REST API server.
 //!
 //! Axum-based API that wraps isso51-core for web and desktop clients.
-//! Supports optional OIDC authentication for user/project management.
+//! Authentication is delegated to Authentik via the Caddy forward_auth
+//! outpost; this service trusts the `X-Authentik-*` headers injected on
+//! the internal Docker network. See `crate::auth` for details.
 
 mod auth;
 mod config;
@@ -21,7 +23,6 @@ use tracing_subscriber::EnvFilter;
 
 use openaec_cloud::TenantsRegistry;
 
-use crate::auth::JwksCache;
 use crate::config::Config;
 use crate::state::AppState;
 
@@ -52,23 +53,10 @@ async fn main() {
 
     tracing::info!("Database initialized");
 
-    // --- OIDC JWKS ---
-    let jwks = init_jwks(&config).await;
-
-    // Spawn background JWKS key refresh (every 15 min).
-    if let Some(ref cache) = jwks {
-        let cache = cache.clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
-            interval.tick().await; // skip immediate first tick
-            loop {
-                interval.tick().await;
-                if let Err(e) = cache.refresh_keys().await {
-                    tracing::warn!("JWKS refresh failed: {e}");
-                }
-            }
-        });
-    }
+    // --- Authentication ---
+    // Identity is provided by Authentik via the Caddy forward_auth outpost
+    // (`X-Authentik-*` headers). No JWT/JWKS state to initialise here.
+    tracing::info!("Auth mode: Authentik forward_auth headers");
 
     // --- Multi-tenant cloud storage ---
     let tenants = if let Some(ref path) = config.tenants_config {
@@ -89,7 +77,6 @@ async fn main() {
 
     let app_state = AppState::new(
         db,
-        jwks,
         config.reports_api_url.clone(),
         config.reports_api_key.clone(),
         config.ifc_tool_path.clone(),
@@ -216,29 +203,6 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-/// Initialize JWKS cache from OIDC issuer if configured.
-async fn init_jwks(config: &Config) -> Option<JwksCache> {
-    let (Some(issuer), Some(audience)) = (&config.oidc_issuer, &config.oidc_audience) else {
-        tracing::warn!(
-            "OIDC_ISSUER or OIDC_AUDIENCE not set — authentication disabled. \
-             Protected routes will return 401."
-        );
-        return None;
-    };
-
-    match JwksCache::from_issuer(issuer, audience).await {
-        Ok(cache) => {
-            tracing::info!("OIDC authentication enabled (issuer: {issuer})");
-            Some(cache)
-        }
-        Err(e) => {
-            tracing::error!("Failed to initialize OIDC: {e}");
-            tracing::warn!("Protected routes will return 401.");
-            None
-        }
-    }
 }
 
 /// Run database migrations. Each statement is executed individually because

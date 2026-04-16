@@ -9,8 +9,6 @@ pub const API_PREFIX: &str = "/api/v1";
 pub struct Config {
     pub port: u16,
     pub database_url: String,
-    pub oidc_issuer: Option<String>,
-    pub oidc_audience: Option<String>,
     pub cors_origins: Vec<String>,
     /// Directory containing static frontend files (SPA). When set, the server
     /// serves these files as a fallback for non-API routes.
@@ -23,7 +21,7 @@ pub struct Config {
     pub ifc_tool_path: Option<String>,
     /// Path to tenants.json for multi-tenant cloud storage.
     pub tenants_config: Option<String>,
-    /// Default tenant slug (used when no tenant claim in token).
+    /// Default tenant slug (used when no tenant header in request).
     pub default_tenant: Option<String>,
 }
 
@@ -37,8 +35,6 @@ impl Config {
                 .unwrap_or(3001),
             database_url: env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://isso51.db?mode=rwc".to_string()),
-            oidc_issuer: env::var("OIDC_ISSUER").ok(),
-            oidc_audience: env::var("OIDC_AUDIENCE").ok(),
             cors_origins: env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| {
                     "http://localhost:5173,http://localhost:1420".to_string()

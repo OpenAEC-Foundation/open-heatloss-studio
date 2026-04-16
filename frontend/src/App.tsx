@@ -1,4 +1,3 @@
-import { useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { AppShell } from "./components/layout/AppShell";
@@ -11,66 +10,20 @@ import { Results } from "./pages/Results";
 import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { ThermalImportWizard } from "./components/import/ThermalImportWizard";
-import { isTauri } from "./lib/backend";
-
-/** Whether OIDC env vars are baked in at build time. */
-const OIDC_CONFIGURED =
-  !!import.meta.env.VITE_OIDC_ISSUER && !!import.meta.env.VITE_OIDC_CLIENT_ID;
 
 /**
- * Wrapper that initializes OIDC for web builds.
- * Uses dynamic import so oidc-spa is never loaded when OIDC is not configured.
+ * Application root.
+ *
+ * Authentication is handled by Caddy + Authentik forward_auth on the public
+ * domain (`warmteverlies.open-aec.com`). When the request reaches the
+ * frontend the user is already logged in; user info is fetched via
+ * `GET /api/v1/me`. No client-side OIDC bootstrap needed.
+ *
+ * Tauri desktop builds skip the API entirely and run against the local
+ * `tauri::invoke` backend.
  */
-function OidcBootstrap({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
-  const [Gate, setGate] = useState<React.ComponentType<{ children: ReactNode }> | null>(null);
-
-  useEffect(() => {
-    const issuer = import.meta.env.VITE_OIDC_ISSUER;
-    const clientId = import.meta.env.VITE_OIDC_CLIENT_ID;
-
-    import("./lib/oidc").then(({ bootstrapOidc, OidcInitializationGate }) => {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("OIDC bootstrap timed out")), 5000),
-      );
-
-      Promise.race([
-        bootstrapOidc({
-          implementation: "real",
-          issuerUri: issuer,
-          clientId,
-          scopes: ["openid", "email", "profile"],
-        }),
-        timeout,
-      ])
-        .then(() => {
-          setGate(() => OidcInitializationGate);
-          setState("ready");
-        })
-        .catch((err) => {
-          console.error("OIDC bootstrap failed, continuing without auth:", err);
-          setState("failed");
-        });
-    });
-  }, []);
-
-  if (state === "loading") {
-    return (
-      <div className="flex h-screen items-center justify-center text-on-surface-muted bg-surface">
-        Laden...
-      </div>
-    );
-  }
-
-  if (state === "ready" && Gate) {
-    return <Gate>{children}</Gate>;
-  }
-
-  return <>{children}</>;
-}
-
 export function App() {
-  const content = (
+  return (
     <BrowserRouter>
       <AppShell>
         <Routes>
@@ -89,12 +42,4 @@ export function App() {
       </AppShell>
     </BrowserRouter>
   );
-
-  // Tauri desktop or no OIDC: render directly without any oidc-spa involvement.
-  if (isTauri() || !OIDC_CONFIGURED) {
-    return content;
-  }
-
-  // Web with OIDC configured: wrap with bootstrap.
-  return <OidcBootstrap>{content}</OidcBootstrap>;
 }

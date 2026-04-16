@@ -19,7 +19,6 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "konva": "^10.2.0",
     "lucide-react": "^0.577.0",
-    "oidc-spa": "^10.1.0",
     "pdfjs-dist": "^5.5.207",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -28,7 +27,6 @@
     "react-router-dom": "^7.0.0",
     "three": "^0.183.2",
     "web-ifc": "^0.0.77",
-    "zod": "^4.3.6",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

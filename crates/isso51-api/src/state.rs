@@ -5,8 +5,6 @@ use std::sync::Arc;
 use openaec_cloud::TenantsRegistry;
 use sqlx::SqlitePool;
 
-use crate::auth::JwksCache;
-
 /// Default path to the `ifc-tool` executable inside the Docker container.
 const DEFAULT_IFC_TOOL_PATH: &str = "/opt/ifc-tool-venv/bin/ifc-tool";
 
@@ -18,7 +16,6 @@ pub const TOOL_SLUG: &str = "warmteverlies";
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
-    pub jwks: Option<JwksCache>,
     pub http_client: reqwest::Client,
     pub reports_api_url: Option<String>,
     pub reports_api_key: Option<String>,
@@ -33,7 +30,6 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         db: SqlitePool,
-        jwks: Option<JwksCache>,
         reports_api_url: Option<String>,
         reports_api_key: Option<String>,
         ifc_tool_path: Option<String>,
@@ -42,12 +38,10 @@ impl AppState {
     ) -> Self {
         Self {
             db,
-            jwks,
             http_client: reqwest::Client::new(),
             reports_api_url,
             reports_api_key,
-            ifc_tool_path: ifc_tool_path
-                .unwrap_or_else(|| DEFAULT_IFC_TOOL_PATH.to_string()),
+            ifc_tool_path: ifc_tool_path.unwrap_or_else(|| DEFAULT_IFC_TOOL_PATH.to_string()),
             tenants: Arc::new(tenants),
             default_tenant,
         }
@@ -64,11 +58,5 @@ impl AppState {
             .or(self.default_tenant.as_deref())?;
         let tenant = self.tenants.get(slug)?;
         Some(openaec_cloud::CloudClient::new(tenant, TOOL_SLUG))
-    }
-}
-
-impl AsRef<Option<JwksCache>> for AppState {
-    fn as_ref(&self) -> &Option<JwksCache> {
-        &self.jwks
     }
 }

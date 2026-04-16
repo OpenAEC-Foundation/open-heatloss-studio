@@ -1,10 +1,16 @@
 /**
- * Safe auth hook that works in both web and Tauri environments.
+ * Auth hook that works in both web and Tauri environments.
  *
- * Returns auth state without throwing when OIDC is not initialized.
+ * Web: queries `GET /api/v1/me` (the backend reads Authentik forward_auth
+ * headers and returns the user's profile). Login/logout redirect to the
+ * Authentik outpost endpoints.
+ *
+ * Tauri: returns `isLoggedIn: false` — desktop builds don't talk to the
+ * Authentik-backed API.
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { fetchAuthProfile, loginRedirect, logoutRedirect } from "../lib/auth";
 import { isTauri } from "../lib/backend";
 
 interface AuthState {
@@ -21,38 +27,31 @@ const NO_AUTH: AuthState = {
   logout: () => {},
 };
 
-/**
- * Returns auth state. Safe to call anywhere — returns `isLoggedIn: false`
- * in Tauri or when OIDC is not configured.
- */
 export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>(NO_AUTH);
 
   const sync = useCallback(async () => {
-    if (isTauri()) return;
+    if (isTauri()) {
+      setState(NO_AUTH);
+      return;
+    }
 
-    try {
-      const { getOidc } = await import("../lib/oidc");
-      const oidc = await getOidc();
+    const profile = await fetchAuthProfile();
 
-      if (oidc.isUserLoggedIn) {
-        const decoded = oidc.getDecodedIdToken();
-        setState({
-          isLoggedIn: true,
-          userName: decoded.name ?? decoded.preferred_username ?? null,
-          login: () => {},
-          logout: () => oidc.logout({ redirectTo: "current page" }),
-        });
-      } else {
-        setState({
-          isLoggedIn: false,
-          userName: null,
-          login: () => oidc.login({ redirectUrl: window.location.href }),
-          logout: () => {},
-        });
-      }
-    } catch {
-      // OIDC not initialized — stay with NO_AUTH.
+    if (profile) {
+      setState({
+        isLoggedIn: true,
+        userName: profile.name || profile.preferred_username || profile.email || null,
+        login: () => {},
+        logout: logoutRedirect,
+      });
+    } else {
+      setState({
+        isLoggedIn: false,
+        userName: null,
+        login: loginRedirect,
+        logout: () => {},
+      });
     }
   }, []);
 

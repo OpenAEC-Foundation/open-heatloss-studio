@@ -1,51 +1,12 @@
-import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { isTauri } from "../../lib/backend";
-
-/** Error boundary: catches oidc-spa errors when OIDC is not bootstrapped. */
-class OidcGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
+import { useAuth } from "../../hooks/useAuth";
 
 function UserAvatar() {
-  const [oidcState, setOidcState] = useState<{
-    isLoggedIn: boolean;
-    name?: string;
-    login?: () => void;
-    logout?: () => void;
-  } | null>(null);
+  const { isLoggedIn, userName, login, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    import("../../lib/oidc")
-      .then(({ getOidc }) => getOidc())
-      .then((oidc) => {
-        if (oidc.isUserLoggedIn) {
-          const token = oidc.getDecodedIdToken();
-          setOidcState({
-            isLoggedIn: true,
-            name:
-              token.name ??
-              token.preferred_username ??
-              "Gebruiker",
-            logout: () => oidc.logout({ redirectTo: "current page" }),
-          });
-        } else {
-          setOidcState({
-            isLoggedIn: false,
-            login: () => oidc.login({ redirectUrl: window.location.href }),
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -58,12 +19,10 @@ function UserAvatar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [dropdownOpen]);
 
-  if (!oidcState) return null;
-
-  if (!oidcState.isLoggedIn) {
+  if (!isLoggedIn) {
     return (
       <button
-        onClick={oidcState.login}
+        onClick={login}
         className="rounded-md bg-primary/20 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/30"
       >
         Inloggen
@@ -71,26 +30,25 @@ function UserAvatar() {
     );
   }
 
-  const initial = oidcState.name!.charAt(0).toUpperCase();
+  const displayName = userName ?? "Gebruiker";
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setDropdownOpen(!dropdownOpen)}
         className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary bg-primary/20 text-xs font-bold text-primary transition-colors hover:bg-primary/30"
-        title={oidcState.name}
+        title={displayName}
       >
         {initial}
       </button>
       {dropdownOpen && (
         <div className="absolute right-0 top-full mt-2 w-48 rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-lighter)] py-1 shadow-lg">
           <div className="border-b border-[var(--oaec-border-subtle)] px-3 py-2">
-            <p className="truncate text-sm font-medium text-on-surface">
-              {oidcState.name}
-            </p>
+            <p className="truncate text-sm font-medium text-on-surface">{displayName}</p>
           </div>
           <button
-            onClick={oidcState.logout}
+            onClick={logout}
             className="w-full px-3 py-2 text-left text-sm text-on-surface-secondary transition-colors hover:bg-[var(--oaec-hover)]"
           >
             Uitloggen
@@ -166,11 +124,7 @@ export function Topbar() {
         </button>
 
         {/* User avatar / login */}
-        {isWeb && (
-          <OidcGuard>
-            <UserAvatar />
-          </OidcGuard>
-        )}
+        {isWeb && <UserAvatar />}
       </div>
     </header>
   );
