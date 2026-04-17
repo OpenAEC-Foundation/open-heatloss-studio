@@ -56,7 +56,7 @@ export async function buildRcReportData(input: RcReportInput): Promise<Record<st
 
   return {
     template: "blank",
-    brand: "3bm_cooperatie",
+    brand: "3bm_v2",
     format: "A4",
     orientation: "portrait",
     project: title,
