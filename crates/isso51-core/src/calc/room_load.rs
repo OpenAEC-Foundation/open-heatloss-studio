@@ -235,9 +235,13 @@ pub fn calculate_room(
         if !c.has_embedded_heating {
             continue;
         }
+        // ISSO 51 §2.9.1: system losses apply for embedded heating in
+        // constructions facing exterior, ground, adjacent buildings, or water.
+        // Water boundaries (woonboot use case) behave like ground: the floor
+        // heating loses heat downward through the insulated floor slab.
         let exterior_facing = matches!(
             c.boundary_type,
-            BoundaryType::Exterior | BoundaryType::Ground | BoundaryType::AdjacentBuilding
+            BoundaryType::Exterior | BoundaryType::Ground | BoundaryType::AdjacentBuilding | BoundaryType::Water
         );
         if !exterior_facing {
             continue;
@@ -245,7 +249,7 @@ pub fn calculate_room(
         match c.vertical_position {
             VerticalPosition::Floor => {
                 has_floor_heat = true;
-                let r_se = if c.boundary_type == BoundaryType::Ground { 0.0 } else { 0.04 };
+                let r_se = if matches!(c.boundary_type, BoundaryType::Ground | BoundaryType::Water) { 0.0 } else { 0.04 };
                 rc_floor = rc_floor.min((1.0 / c.u_value - 0.17 - r_se).max(0.0));
             }
             VerticalPosition::Wall => {
