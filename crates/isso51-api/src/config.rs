@@ -15,8 +15,15 @@ pub struct Config {
     pub static_dir: Option<String>,
     /// Base URL for the OpenAEC Reports API (e.g. `https://reports.openaec.org`).
     pub reports_api_url: Option<String>,
-    /// API key for the OpenAEC Reports API.
+    /// Legacy shared secret for the OpenAEC Reports API (X-API-Key).
+    ///
+    /// Deprecated per 2026-04-20 — vervangen door `reports_api_service_token`
+    /// (Authentik Bearer). Blijft ondersteund tot Caddy bypass volledig weg is.
     pub reports_api_key: Option<String>,
+    /// Authentik service-token (`svc-warmteverlies`) voor backend-to-backend
+    /// calls naar de Reports API. Wordt als `Authorization: Bearer <token>`
+    /// gestuurd. Vervangt de legacy shared-secret X-API-Key bypass.
+    pub reports_api_service_token: Option<String>,
     /// Path to the `ifc-tool` executable for server-side IFC import.
     pub ifc_tool_path: Option<String>,
     /// Path to tenants.json for multi-tenant cloud storage.
@@ -47,6 +54,9 @@ impl Config {
                 .ok()
                 .filter(|s| !s.is_empty()),
             reports_api_key: env::var("REPORTS_API_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            reports_api_service_token: env::var("REPORTS_API_SERVICE_TOKEN")
                 .ok()
                 .filter(|s| !s.is_empty()),
             ifc_tool_path: env::var("IFC_TOOL_PATH")

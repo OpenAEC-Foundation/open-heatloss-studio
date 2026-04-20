@@ -79,6 +79,7 @@ async fn main() {
         db,
         config.reports_api_url.clone(),
         config.reports_api_key.clone(),
+        config.reports_api_service_token.clone(),
         config.ifc_tool_path.clone(),
         tenants,
         config.default_tenant.clone(),

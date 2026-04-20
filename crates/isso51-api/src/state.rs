@@ -18,7 +18,11 @@ pub struct AppState {
     pub db: SqlitePool,
     pub http_client: reqwest::Client,
     pub reports_api_url: Option<String>,
+    /// Legacy shared-secret key (X-API-Key). Deprecated, vervangen door
+    /// `reports_api_service_token`. Blijft ondersteund tot Caddy bypass weg is.
     pub reports_api_key: Option<String>,
+    /// Authentik service-token voor backend-to-backend reports calls.
+    pub reports_api_service_token: Option<String>,
     /// Path to the `ifc-tool` CLI for server-side IFC import.
     pub ifc_tool_path: String,
     /// Multi-tenant cloud storage registry.
@@ -28,10 +32,12 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: SqlitePool,
         reports_api_url: Option<String>,
         reports_api_key: Option<String>,
+        reports_api_service_token: Option<String>,
         ifc_tool_path: Option<String>,
         tenants: TenantsRegistry,
         default_tenant: Option<String>,
@@ -41,6 +47,7 @@ impl AppState {
             http_client: reqwest::Client::new(),
             reports_api_url,
             reports_api_key,
+            reports_api_service_token,
             ifc_tool_path: ifc_tool_path.unwrap_or_else(|| DEFAULT_IFC_TOOL_PATH.to_string()),
             tenants: Arc::new(tenants),
             default_tenant,
