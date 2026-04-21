@@ -547,21 +547,34 @@ export function ProjectSetup() {
               label="Ventilatiesysteem"
               value={ventilation.system_type}
               options={toOptions(VENTILATION_SYSTEM_LABELS)}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newType = e.target.value as VentilationConfig["system_type"];
+                // Systems A, B, C have no mechanical supply → WTW impossible
+                const supportsWtw = newType === "system_d" || newType === "system_e";
                 updateVentilation({
-                  system_type: e.target.value as VentilationConfig["system_type"],
-                })
-              }
+                  system_type: newType,
+                  ...(!supportsWtw && {
+                    has_heat_recovery: false,
+                    heat_recovery_efficiency: undefined,
+                    frost_protection: undefined,
+                    supply_temperature: undefined,
+                  }),
+                });
+              }}
             />
             <div className="flex items-end">
               <label className="flex items-center gap-2 pb-1.5 text-sm">
                 <input
                   type="checkbox"
                   checked={ventilation.has_heat_recovery ?? false}
+                  disabled={ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e"}
                   onChange={(e) => updateVentilation({ has_heat_recovery: e.target.checked })}
-                  className="rounded border-[var(--oaec-border)] accent-primary"
+                  className="rounded border-[var(--oaec-border)] accent-primary disabled:opacity-40"
                 />
                 Warmteterugwinning (WTW)
+                {ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e" && (
+                  <span className="text-[10px] text-on-surface-muted">(alleen bij systeem D/E)</span>
+                )}
               </label>
             </div>
             {ventilation.has_heat_recovery && (
