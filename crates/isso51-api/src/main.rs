@@ -7,16 +7,19 @@
 
 mod auth;
 mod config;
+mod cors;
 mod error;
 mod handlers;
 mod state;
 
+use std::collections::HashSet;
+use std::path::PathBuf;
+
 use axum::extract::DefaultBodyLimit;
-use axum::http::{header, HeaderValue, Method, StatusCode};
+use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::Router;
 use sqlx::sqlite::SqlitePoolOptions;
-use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -135,22 +138,41 @@ async fn main() {
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024));
 
     // --- CORS ---
-    let cors = CorsLayer::new()
-        .allow_origin(
-            config
-                .cors_origins
-                .iter()
-                .filter_map(|o| o.parse::<HeaderValue>().ok())
-                .collect::<Vec<_>>(),
-        )
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+    // Tenant-aware: scan <OPENAEC_TENANTS_ROOT>/<slug>/tenant.yaml voor
+    // allowed_origins. Bij ontbrekende config of lege set valt de layer
+    // terug op de statische `cors_origins` lijst uit env `CORS_ORIGINS`
+    // (backward-compat met pre-B-4 deployments). Zie `crate::cors`.
+    let tenants_root = std::env::var("OPENAEC_TENANTS_ROOT")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from);
+    let include_dev = std::env::var("OPENAEC_ENV")
+        .unwrap_or_else(|_| "development".into())
+        != "production";
+    let origins = match tenants_root.as_deref() {
+        Some(root) if root.exists() => {
+            tracing::info!(
+                tenants_root = %root.display(),
+                include_dev,
+                "CORS: laden tenant origins"
+            );
+            cors::load_tenant_origins(root, include_dev)
+        }
+        Some(root) => {
+            tracing::warn!(
+                tenants_root = %root.display(),
+                "OPENAEC_TENANTS_ROOT wijst naar niet-bestaande directory — fallback op CORS_ORIGINS env"
+            );
+            HashSet::new()
+        }
+        None => {
+            tracing::info!(
+                "OPENAEC_TENANTS_ROOT niet gezet — fallback op CORS_ORIGINS env lijst"
+            );
+            HashSet::new()
+        }
+    };
+    let cors = cors::build_cors_layer(origins, config.cors_origins.clone());
 
     // --- App ---
     let mut app = Router::new()
