@@ -47,7 +47,7 @@ export async function buildReportData(
   const diagrammenSection = await buildDiagrammenSection(project, result);
 
   return {
-    template: "blank",
+    template: "standaard_rapport",
     format: "A4",
     orientation: "portrait",
     project: projectName,

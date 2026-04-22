@@ -55,7 +55,7 @@ export async function buildRcReportData(input: RcReportInput): Promise<Record<st
   const title = input.name || "Constructie-analyse";
 
   return {
-    template: "blank",
+    template: "standaard_rapport",
     format: "A4",
     orientation: "portrait",
     project: title,
