@@ -39,7 +39,7 @@ pub async fn generate_report(
         )
     })?;
 
-    let url = format!("{}/api/generate/v2", base_url.trim_end_matches('/'));
+    let url = format!("{}/api/generate/template", base_url.trim_end_matches('/'));
 
     let mut req = state
         .http_client
