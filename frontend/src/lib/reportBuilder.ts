@@ -48,7 +48,6 @@ export async function buildReportData(
 
   return {
     template: "blank",
-    brand: "3bm_v2",
     format: "A4",
     orientation: "portrait",
     project: projectName,
