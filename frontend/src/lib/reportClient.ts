@@ -2,22 +2,18 @@
  * API-client voor OpenAEC Reports.
  *
  * Stuurt het OIDC Bearer token van de ingelogde gebruiker mee.
- * De Reports API (of reverse proxy ervoor) valideert de autorisatie.
- * De tenant wordt bepaald via SSO forward_auth headers op de reverse proxy
- * (Caddy → Authentik), dus de frontend hoeft alleen `template` mee te sturen.
- * Geen API keys in de frontend — per-user access control via SSO.
+ * POST naar warmteverlies-backend `/api/v1/report/generate`, die de request
+ * doorproxyt naar report-rs met een Authentik service-token (svc-warmteverlies)
+ * + `X-Original-Tenant` header. Tenant-templating gebeurt in report-rs o.b.v.
+ * die header. Geen API keys in de frontend — per-user access control via SSO.
  */
 
 import { getBearerToken } from "./authHeader";
 
-const REPORTS_URL = "/api/generate/template";
+const REPORTS_URL = "/api/v1/report/generate";
 
 /**
- * Genereer een PDF rapport via de OpenAEC Reports API.
- *
- * Tenant-aware endpoint: backend resolved op basis van forward_auth tenant
- * + `template`-veld het juiste YAML template. Als `reportData.template`
- * ontbreekt wordt `"standaard"` als default gebruikt.
+ * Genereer een PDF rapport via de warmteverlies backend proxy.
  *
  * @param reportData - BM Reports JSON conform report.schema.json
  * @returns PDF als Blob
@@ -38,12 +34,10 @@ export async function generateReportDirect(
     console.log("[report] POST", REPORTS_URL, token ? "(met token)" : "(zonder token)");
   }
 
-  const body = { template: "standaard", ...reportData };
-
   const res = await fetch(REPORTS_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(reportData),
   });
 
   if (import.meta.env.DEV) {
