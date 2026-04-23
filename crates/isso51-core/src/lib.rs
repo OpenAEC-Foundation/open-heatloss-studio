@@ -353,6 +353,11 @@ mod tests {
                     catalog_ref: None,
                 },
                 // Adjacent rooms within dwelling
+                // NOTE: adjacent_room_id deliberately set to None so this
+                // single-room test fixture stays valid under the CORE-3
+                // adjacent_room_id existence check. The calc falls back to
+                // the legacy `adjacent_temperature` field, which keeps the
+                // expected H_T,ia ≈ 1.51 value stable.
                 ConstructionElement {
                     id: "c5".to_string(),
                     description: "Binnenwand naar keuken".to_string(),
@@ -361,7 +366,7 @@ mod tests {
                     boundary_type: BoundaryType::AdjacentRoom,
                     material_type: MaterialType::Masonry,
                     temperature_factor: None,
-                    adjacent_room_id: Some("r2".to_string()),
+                    adjacent_room_id: None,
                     adjacent_temperature: Some(20.0),
                     vertical_position: VerticalPosition::Wall,
                     use_forfaitaire_thermal_bridge: false,
@@ -378,7 +383,7 @@ mod tests {
                     boundary_type: BoundaryType::AdjacentRoom,
                     material_type: MaterialType::Masonry,
                     temperature_factor: None,
-                    adjacent_room_id: Some("r4".to_string()),
+                    adjacent_room_id: None,
                     adjacent_temperature: Some(20.0),
                     vertical_position: VerticalPosition::Wall,
                     use_forfaitaire_thermal_bridge: false,
@@ -395,7 +400,7 @@ mod tests {
                     boundary_type: BoundaryType::AdjacentRoom,
                     material_type: MaterialType::Masonry,
                     temperature_factor: None,
-                    adjacent_room_id: Some("r7".to_string()),
+                    adjacent_room_id: None,
                     adjacent_temperature: Some(15.0),
                     vertical_position: VerticalPosition::Wall,
                     use_forfaitaire_thermal_bridge: false,
@@ -412,7 +417,7 @@ mod tests {
                     boundary_type: BoundaryType::AdjacentRoom,
                     material_type: MaterialType::Masonry,
                     temperature_factor: None,
-                    adjacent_room_id: Some("r8".to_string()),
+                    adjacent_room_id: None,
                     adjacent_temperature: Some(15.0),
                     vertical_position: VerticalPosition::Wall,
                     use_forfaitaire_thermal_bridge: false,
@@ -429,7 +434,7 @@ mod tests {
                     boundary_type: BoundaryType::AdjacentRoom,
                     material_type: MaterialType::Masonry,
                     temperature_factor: None,
-                    adjacent_room_id: Some("r3".to_string()),
+                    adjacent_room_id: None,
                     adjacent_temperature: Some(22.0),
                     vertical_position: VerticalPosition::Wall,
                     use_forfaitaire_thermal_bridge: false,
