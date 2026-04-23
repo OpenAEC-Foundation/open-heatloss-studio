@@ -61,7 +61,24 @@ pub struct TransmissionResult {
     /// Specific heat loss to exterior H_T,ie in W/K.
     pub h_t_exterior: f64,
 
-    /// Specific heat loss to adjacent rooms H_T,ia in W/K.
+    /// Specific heat loss to adjacent rooms H_T,ia in W/K (intra-dwelling).
+    ///
+    /// **Design — zero-sum, géén bug:**
+    /// Warmteoverdracht tussen binnenruimten binnen dezelfde woning. Positieve
+    /// waardes in ruimte A (warmte die wegloopt naar een koelere buurkamer)
+    /// worden per definitie gecompenseerd door negatieve waardes in ruimte B
+    /// (warmte die binnenkomt). Over de hele woning gesommeerd is dit nul —
+    /// conservation of energy — daarom telt dit veld **niet** mee in
+    /// `BuildingSummary::total_envelope_loss` of `connection_capacity`.
+    ///
+    /// Wél gerapporteerd per-room zodat ingenieurs kunnen zien welk vertrek
+    /// thermisch gekoppeld is aan welk ander vertrek (diagnose van over-
+    /// of onderverwarmen van individuele ruimten).
+    ///
+    /// EN: Intra-dwelling heat transfer between interior rooms. Excluded
+    /// from the building-level totals because positive values in one room
+    /// are offset by negative values in its neighbour (energy conservation).
+    /// Reported per-room for engineering diagnosis only.
     pub h_t_adjacent_rooms: f64,
 
     /// Specific heat loss via unheated spaces H_T,io in W/K.
@@ -174,6 +191,19 @@ pub struct SystemLossResult {
 }
 
 /// Building-level summary of heat losses.
+///
+/// Totalen op gebouw-niveau. Let op de bewuste weglating van intra-dwelling
+/// transmissie (`TransmissionResult::h_t_adjacent_rooms`): warmte die
+/// tussen binnenruimten heen-en-weer stroomt is zero-sum over de woning
+/// en wordt dus niet opgeteld bij `total_envelope_loss`,
+/// `total_neighbor_loss` of `connection_capacity`. Alleen netto transport
+/// uit de woning (schil, buren, grond, water, ventilatie) telt mee in het
+/// aansluitvermogen — conform ISSO 51 §4.
+///
+/// EN: Building totals. Intra-dwelling room-to-room transmission is
+/// deliberately excluded because it sums to zero across the dwelling
+/// (conservation of energy). Only net exports (envelope, neighbours,
+/// ground, water, ventilation) contribute to the connection capacity.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BuildingSummary {
     /// Total transmission loss through building envelope in W.
