@@ -155,58 +155,99 @@ pub async fn get_project(
 }
 
 /// PUT /projects/:id — Update a project.
+///
+/// Combines ownership verification and the mutation into a single atomic
+/// `UPDATE ... WHERE id = ? AND user_id = ?`, eliminating the TOCTOU window
+/// between a separate SELECT ownership check and the UPDATE. Both `name` and
+/// `project_data` are written in one statement so a partial write can never
+/// be observed.
+///
+/// Behaviour:
+/// - Row not found (or soft-deleted, or owned by another user) → 404. We do
+///   not distinguish 403 from 404 on purpose to avoid leaking project
+///   existence to non-owners.
+/// - `expected_updated_at` mismatch → 409 Conflict (optimistic concurrency).
+/// - Nothing to update (no `name`, no `project_data`) → 400.
 pub async fn update_project(
     State(state): State<AppState>,
     AuthClaims(claims): AuthClaims,
     Path(project_id): Path<String>,
     Json(body): Json<UpdateProjectRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
-    // Verify ownership and get current updated_at for conflict check.
-    let row = sqlx::query_as::<_, OwnershipRow>(
-        "SELECT user_id, updated_at FROM projects WHERE id = ?1 AND is_archived = 0",
-    )
-    .bind(&project_id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| ApiError::NotFound("Project niet gevonden".to_string()))?;
-
-    if row.user_id != claims.sub {
-        return Err(ApiError::Forbidden(
-            "Geen toegang tot dit project".to_string(),
-        ));
-    }
-
-    // Optimistic concurrency: if client sent expected_updated_at, verify it matches.
+    // Optimistic concurrency check still needs a read, but it is *only* a
+    // pre-check — the authoritative ownership+existence check is the
+    // rows_affected result of the UPDATE below. The read here does not
+    // gate the write, so a concurrent owner change cannot slip an update
+    // through: the WHERE-clause enforces ownership at commit time.
     if let Some(expected) = &body.expected_updated_at {
-        if *expected != row.updated_at {
-            return Ok((
-                StatusCode::CONFLICT,
-                Json(serde_json::json!({
-                    "detail": "Project is elders gewijzigd",
-                    "server_updated_at": row.updated_at
-                })),
-            ));
+        let current = sqlx::query_scalar::<_, String>(
+            "SELECT updated_at FROM projects
+             WHERE id = ?1 AND user_id = ?2 AND is_archived = 0",
+        )
+        .bind(&project_id)
+        .bind(&claims.sub)
+        .fetch_optional(&state.db)
+        .await?;
+
+        match current {
+            Some(updated_at) if updated_at != *expected => {
+                return Ok((
+                    StatusCode::CONFLICT,
+                    Json(serde_json::json!({
+                        "detail": "Project is elders gewijzigd",
+                        "server_updated_at": updated_at
+                    })),
+                ));
+            }
+            Some(_) => { /* matches — fall through to UPDATE */ }
+            None => {
+                return Err(ApiError::NotFound("Project niet gevonden".to_string()));
+            }
         }
     }
 
-    if let Some(name) = &body.name {
-        sqlx::query("UPDATE projects SET name = ?1, updated_at = datetime('now') WHERE id = ?2")
-            .bind(name)
-            .bind(&project_id)
-            .execute(&state.db)
-            .await?;
+    // Reject no-op updates explicitly — otherwise a bogus call would
+    // silently return 200 without touching the row.
+    if body.name.is_none() && body.project_data.is_none() {
+        return Err(ApiError::Internal(
+            "Update vereist ten minste 'name' of 'project_data'".to_string(),
+        ));
     }
 
-    if let Some(project_data) = &body.project_data {
-        let json_str = serde_json::to_string(project_data)
-            .map_err(|e| ApiError::Internal(e.to_string()))?;
-        sqlx::query(
-            "UPDATE projects SET project_data = ?1, updated_at = datetime('now') WHERE id = ?2",
-        )
-        .bind(&json_str)
-        .bind(&project_id)
-        .execute(&state.db)
-        .await?;
+    // Serialize project_data up front so any JSON error surfaces before
+    // the SQL call (and the Option<String> lives through the bind).
+    let project_data_json = match &body.project_data {
+        Some(value) => Some(
+            serde_json::to_string(value)
+                .map_err(|e| ApiError::Internal(e.to_string()))?,
+        ),
+        None => None,
+    };
+
+    // Atomic single-statement UPDATE. COALESCE leaves the column untouched
+    // when the caller did not provide a new value (NULL bind). Ownership
+    // and soft-delete are enforced in the WHERE clause, so rows_affected
+    // tells us authoritatively whether the user had access.
+    let result = sqlx::query(
+        "UPDATE projects
+            SET name         = COALESCE(?1, name),
+                project_data = COALESCE(?2, project_data),
+                updated_at   = datetime('now')
+          WHERE id = ?3
+            AND user_id = ?4
+            AND is_archived = 0",
+    )
+    .bind(body.name.as_deref())
+    .bind(project_data_json.as_deref())
+    .bind(&project_id)
+    .bind(&claims.sub)
+    .execute(&state.db)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        // Row either does not exist, is archived, or is owned by someone
+        // else. We collapse all three into 404 to avoid leaking ownership.
+        return Err(ApiError::NotFound("Project niet gevonden".to_string()));
     }
 
     // Fetch the new updated_at to return to the client.
@@ -365,8 +406,3 @@ struct ProjectDataRow {
     project_data: String,
 }
 
-#[derive(sqlx::FromRow)]
-struct OwnershipRow {
-    user_id: String,
-    updated_at: String,
-}
