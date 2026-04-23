@@ -15,7 +15,7 @@ import type {
   Room,
   RoomResult,
 } from "../types";
-import { DEFAULT_THETA_WATER } from "./constants";
+import { DEFAULT_THETA_WATER, ROOM_FUNCTION_TEMPERATURES } from "./constants";
 import { buildRoomLookup, computeDeltaT } from "../components/charts/deltaT";
 
 // ---------------------------------------------------------------------------
@@ -537,25 +537,13 @@ const FALLBACK_COLOR = REPORT_COLORS.other;
 
 /**
  * Default interne temperaturen per room-function voor chart-weergave.
- * Wijken (bewust) licht af van `ROOM_FUNCTION_TEMPERATURES`: deze tabel
- * is historisch gebonden aan de visualisatie en wordt alleen gebruikt
- * voor `thetaI` van de "self"-ruimte in de chart.
+ * Gebruikt de master-definitie uit `lib/constants.ts` (single source of
+ * truth, ISSO 51). Historische visualisatie-afwijkingen (o.a. badkamer
+ * 24 °C) zijn per 23-04 opgeheven zodat rapport-SVG's consistent zijn
+ * met de UI en de norm.
  */
-const DEFAULT_CHART_TEMPERATURES: Record<string, number> = {
-  living_room: 20,
-  kitchen: 20,
-  bedroom: 20,
-  bathroom: 24,
-  toilet: 20,
-  hallway: 15,
-  landing: 15,
-  storage: 15,
-  attic: 15,
-  custom: 20,
-};
-
 function chartDefaultTemperature(fn: string): number {
-  return DEFAULT_CHART_TEMPERATURES[fn] ?? 20;
+  return ROOM_FUNCTION_TEMPERATURES[fn] ?? 20;
 }
 
 interface ConstructionBar {

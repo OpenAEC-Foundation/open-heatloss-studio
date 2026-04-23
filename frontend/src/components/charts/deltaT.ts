@@ -8,31 +8,7 @@
  */
 
 import type { BoundaryType, ConstructionElement, Room } from "../../types/project.ts";
-
-/**
- * Default ontwerp-watertemperatuur wanneer geen override beschikbaar is.
- * Identiek aan `DEFAULT_THETA_WATER` in `lib/constants.ts`; hier lokaal
- * gedupliceerd zodat dit bestand geen andere runtime-modules hoeft te
- * importeren (testbaar via node --experimental-strip-types).
- */
-const DEFAULT_THETA_WATER = 5;
-
-/**
- * Lokale kopie van `ROOM_FUNCTION_TEMPERATURES` uit `lib/constants.ts`.
- * Gededupeerd voor testability zonder runtime coupling aan de UI constants
- * module. Moet synchroon blijven met de master-definitie in constants.ts.
- */
-const ROOM_FUNCTION_TEMPERATURES: Record<string, number> = {
-  living_room: 20,
-  kitchen: 20,
-  bedroom: 20,
-  bathroom: 22,
-  toilet: 15,
-  hallway: 15,
-  landing: 15,
-  storage: 5,
-  attic: 20,
-};
+import { DEFAULT_THETA_WATER, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants.ts";
 
 /**
  * Bepaalt de design-temperatuur voor een (buur-)ruimte.

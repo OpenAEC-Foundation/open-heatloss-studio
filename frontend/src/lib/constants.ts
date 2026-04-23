@@ -15,7 +15,12 @@ export const ROOM_FUNCTION_LABELS: Record<string, string> = {
   custom: "Aangepast",
 };
 
-/** Room function default temperatures. */
+/**
+ * Single source of truth voor design-temperatures per functie (ISSO 51).
+ * Importeer deze constante; creëer géén lokale kopieën. Wijzigingen hier
+ * propageren automatisch naar chart-componenten (`components/charts/deltaT.ts`)
+ * en PDF-rapport SVG's (`lib/reportCharts.ts`).
+ */
 export const ROOM_FUNCTION_TEMPERATURES: Record<string, number> = {
   living_room: 20,
   kitchen: 20,
