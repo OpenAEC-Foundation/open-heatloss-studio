@@ -1848,7 +1848,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "bytes",
@@ -1874,7 +1874,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "approx",
  "schemars 0.8.22",
@@ -1885,7 +1885,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "isso51-core",
  "serde",
@@ -1899,7 +1899,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-ifcx"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "approx",
  "isso51-core",
