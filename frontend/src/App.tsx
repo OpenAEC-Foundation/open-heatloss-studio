@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { AppShell } from "./components/layout/AppShell";
+import { AppErrorBoundary } from "./components/errors/AppErrorBoundary";
 import { Library } from "./pages/Library";
 import { Projects } from "./pages/Projects";
 import { ProjectSetup } from "./pages/ProjectSetup";
@@ -24,22 +25,24 @@ import { ThermalImportWizard } from "./components/import/ThermalImportWizard";
  */
 export function App() {
   return (
-    <BrowserRouter>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Navigate to="/project" replace />} />
-          <Route path="/project" element={<ProjectSetup />} />
-          <Route path="/rooms" element={<RoomEditor />} />
-          <Route path="/constructies" element={<ProjectConstructions />} />
-          <Route path="/rc" element={<RcCalculator />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/materialen" element={<Library initialSection="materialen" />} />
-          <Route path="/results" element={<Results />} />
-          <Route path="/modeller" element={<Modeller />} />
-          <Route path="/import/thermal" element={<ThermalImportWizard />} />
-          <Route path="/projects" element={<Projects />} />
-        </Routes>
-      </AppShell>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <AppShell>
+          <Routes>
+            <Route path="/" element={<Navigate to="/project" replace />} />
+            <Route path="/project" element={<ProjectSetup />} />
+            <Route path="/rooms" element={<RoomEditor />} />
+            <Route path="/constructies" element={<ProjectConstructions />} />
+            <Route path="/rc" element={<RcCalculator />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/materialen" element={<Library initialSection="materialen" />} />
+            <Route path="/results" element={<Results />} />
+            <Route path="/modeller" element={<Modeller />} />
+            <Route path="/import/thermal" element={<ThermalImportWizard />} />
+            <Route path="/projects" element={<Projects />} />
+          </Routes>
+        </AppShell>
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 }
