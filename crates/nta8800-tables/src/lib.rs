@@ -42,5 +42,8 @@ pub mod thermal_bridges;
 
 // ----- Flat re-exports for ergonomic downstream use -----
 
-pub use climate::{de_bilt_climate_data, DE_BILT_OUTDOOR_TEMPERATURE, DE_BILT_SOLAR_IRRADIATION};
+pub use climate::{
+    de_bilt_climate_data, DE_BILT_COOLING_REFERENCE_TEMPERATURE, DE_BILT_OUTDOOR_TEMPERATURE,
+    DE_BILT_SOLAR_IRRADIATION, DE_BILT_WIND_SPEED, DE_BILT_WTW_PREHEAT_TEMPERATURE,
+};
 pub use rounding::{round_to_significant_figures, RoundingDirection, RoundingRule};

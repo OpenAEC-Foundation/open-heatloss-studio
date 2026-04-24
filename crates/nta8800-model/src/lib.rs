@@ -49,6 +49,6 @@ pub use location::{ClimateZone, LatLon, Location, Orientation, Tilt};
 pub use time::{Month, MonthlyProfile};
 pub use units::{
     Area, Energy, Length, LinearThermalTransmittance, Power, SolarIrradiation, Temperature,
-    ThermalConductance, ThermalResistance, ThermalTransmittance,
+    ThermalConductance, ThermalResistance, ThermalTransmittance, WindSpeed,
 };
 pub use zoning::{EnergiefunctieRuimte, Gebouw, Rekenzone, UsageFunction};

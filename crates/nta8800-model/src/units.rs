@@ -46,3 +46,12 @@ pub type Temperature = f64;
 ///
 /// Container-waarden worden gevoed vanuit `nta8800-tables` (bijlage E).
 pub type SolarIrradiation = f64;
+
+/// Windsnelheid op locatie in m/s.
+///
+/// NTA 8800 tabel 17.1 kolom `u_site;mi`. Wijkt licht af van de rekenkundige
+/// maandgemiddelde windsnelheid `u_10` volgens NEN 5060 — uitschieters buiten
+/// één standaarddeviatie zijn uit het gemiddelde gefilterd (zie §17.2
+/// opmerking 2). Wordt gebruikt in het luchtstroommodel (§11.2) voor
+/// winddruk-afhankelijke infiltratie.
+pub type WindSpeed = f64;
