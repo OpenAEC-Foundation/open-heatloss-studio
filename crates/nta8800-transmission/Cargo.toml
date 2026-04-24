@@ -10,6 +10,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 schemars = "0.8"
 thiserror = "2"
+nta8800-model = { path = "../nta8800-model" }
+nta8800-tables = { path = "../nta8800-tables" }
+nta8800-geometry = { path = "../nta8800-geometry" }
 
 [dev-dependencies]
 approx = "0.5"
