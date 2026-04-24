@@ -19,6 +19,7 @@
 //! | [`frame_materials`] | Bijlage H | λ kozijnmaterialen *(stub — D3h)* |
 //! | [`thermal_bridges`] | Bijlage I | ψ forfaitair koudebruggen *(stub — D3i)* |
 //! | [`glazing_edge`] | Bijlage L | ψ beglazingsrand *(stub — D3l)* |
+//! | [`thermal_capacity`] | §7.7 (tabel 7.10/7.11/7.12, formule 7.45) | Effectieve interne warmtecapaciteit `D_m` / `C_m` |
 //!
 //! # Conventies
 //!
@@ -39,6 +40,7 @@ pub mod materials;
 pub mod references;
 pub mod rounding;
 pub mod thermal_bridges;
+pub mod thermal_capacity;
 
 // ----- Flat re-exports for ergonomic downstream use -----
 
@@ -47,3 +49,6 @@ pub use climate::{
     DE_BILT_SOLAR_IRRADIATION, DE_BILT_WIND_SPEED, DE_BILT_WTW_PREHEAT_TEMPERATURE,
 };
 pub use rounding::{round_to_significant_figures, RoundingDirection, RoundingRule};
+pub use thermal_capacity::{
+    specific_heat_capacity, zone_heat_capacity, CeilingType, FloorMassClass, WallMassClass,
+};

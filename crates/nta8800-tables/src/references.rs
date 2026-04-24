@@ -6,6 +6,58 @@
 //! data is geïmplementeerd.
 
 // ---------------------------------------------------------------------------
+// Hoofdstuk 7 — Effectieve interne warmtecapaciteit
+// ---------------------------------------------------------------------------
+
+/// §7.7 — Effectieve interne warmtecapaciteit (`C_m;int;eff;zi`).
+///
+/// Overkoepelende paragraaf die de forfaitaire methode (tabellen 7.10/7.11/
+/// 7.12 + formule 7.45) en de detailmethode (bijlage B) introduceert.
+///
+/// Bron: PDF p. 204.
+///
+/// Gebruikt in: [`crate::thermal_capacity`].
+pub const NTA_8800_2025_PARAG7_7: &str = "nta_8800_2025_parag7_7";
+
+/// Tabel 7.10 — Forfaitaire waarden voor de specifieke interne
+/// warmtecapaciteit `D_m;int;eff;zi` in kJ/(m²·K) per combinatie van
+/// vloer-massaklasse, wand-massaklasse en plafondtype.
+///
+/// Bron: PDF p. 205.
+///
+/// Gebruikt in: [`crate::thermal_capacity`].
+pub const NTA_8800_2025_TABEL7_10: &str = "nta_8800_2025_tabel7_10";
+
+/// Tabel 7.11 — Specificatie van het type bouwwijze voor **vloeren** ten
+/// behoeve van de bepaling van de specifieke interne warmtecapaciteit
+/// (Licht / Zwaar / Zeer zwaar).
+///
+/// Bron: PDF p. 206.
+///
+/// Gebruikt in: [`crate::thermal_capacity`].
+pub const NTA_8800_2025_TABEL7_11: &str = "nta_8800_2025_tabel7_11";
+
+/// Tabel 7.12 — Specificatie van het type bouwwijze voor **wanden** ten
+/// behoeve van de bepaling van de specifieke interne warmtecapaciteit
+/// (Licht / Zwaar / Zeer zwaar).
+///
+/// Bron: PDF p. 206.
+///
+/// Gebruikt in: [`crate::thermal_capacity`].
+pub const NTA_8800_2025_TABEL7_12: &str = "nta_8800_2025_tabel7_12";
+
+/// Formule 7.45 — `C_m;int;eff;zi = D_m;int;eff;zi × 1000 × A_g;zi`.
+///
+/// Berekent de effectieve interne warmtecapaciteit van een rekenzone in
+/// J/K op basis van de specifieke interne warmtecapaciteit (tabel 7.10) en
+/// de gebruiksoppervlakte van de rekenzone.
+///
+/// Bron: PDF p. 204.
+///
+/// Gebruikt in: [`crate::thermal_capacity`].
+pub const NTA_8800_2025_FORMULE7_45: &str = "nta_8800_2025_formule7_45";
+
+// ---------------------------------------------------------------------------
 // Hoofdstuk 17 — Klimaatgegevens
 // ---------------------------------------------------------------------------
 
@@ -68,6 +120,11 @@ mod tests {
     use std::collections::HashSet;
 
     const ALL: &[&str] = &[
+        NTA_8800_2025_PARAG7_7,
+        NTA_8800_2025_TABEL7_10,
+        NTA_8800_2025_TABEL7_11,
+        NTA_8800_2025_TABEL7_12,
+        NTA_8800_2025_FORMULE7_45,
         NTA_8800_2025_PARAG17,
         NTA_8800_2025_PARAG17_2,
         NTA_8800_2025_TABEL17_1,
