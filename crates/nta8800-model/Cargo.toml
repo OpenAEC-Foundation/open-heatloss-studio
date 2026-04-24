@@ -1,0 +1,15 @@
+[package]
+name = "nta8800-model"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "NTA 8800 shared types — Gebouw, Rekenzone, EnergiefunctieRuimte, ConstructionLayer, Climate, MonthlyProfile"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+thiserror = "2"
+
+[dev-dependencies]
+approx = "0.5"

@@ -2355,6 +2355,160 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
+name = "nta8800-automation"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-cooling"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-demand"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-dhw"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-ep"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-geometry"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-heating"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-humidity"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-lighting"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-model"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-pv"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-tables"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-transmission"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "nta8800-ventilation"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
