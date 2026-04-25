@@ -2487,6 +2487,8 @@ name = "nta8800-pv"
 version = "0.1.1"
 dependencies = [
  "approx",
+ "nta8800-model",
+ "nta8800-tables",
  "schemars 0.8.22",
  "serde",
  "serde_json",

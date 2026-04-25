@@ -94,6 +94,17 @@ pub const NTA_8800_2025_TABEL17_2: &str = "nta_8800_2025_tabel17_2";
 // Bijlagen
 // ---------------------------------------------------------------------------
 
+/// Bijlage E — Warmtegeleidingscoëfficiënten λ van bouwmaterialen.
+///
+/// Default-waarden voor λ, ρ, `c_p` en μ van gangbare Nederlandse bouwmaterialen.
+/// Gebruikt voor warmteovergangsberekeningen wanneer geen specifieke
+/// materiaalgegevens beschikbaar zijn.
+///
+/// Bron: PDF p. ~800-850 (exacte paginanummering afhankelijk van editie).
+///
+/// Gebruikt in: [`crate::materials`].
+pub const NTA_8800_2025_BIJLAGE_E: &str = "nta_8800_2025_bijlage_e";
+
 /// Bijlage X — Significante cijfers (klassenindeling van vermogens en andere
 /// componenteigenschappen via afronding op twee significante cijfers, tabel X.1).
 ///
@@ -129,6 +140,7 @@ mod tests {
         NTA_8800_2025_PARAG17_2,
         NTA_8800_2025_TABEL17_1,
         NTA_8800_2025_TABEL17_2,
+        NTA_8800_2025_BIJLAGE_E,
         NTA_8800_2025_BIJLAGE_X,
         NTA_8800_2025_BIJLAGE_X_TABEL1,
     ];

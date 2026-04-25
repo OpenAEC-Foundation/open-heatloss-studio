@@ -13,7 +13,7 @@
 //! |---|---|---|
 //! | [`climate`] | H.17 | Referentieklimaat De Bilt: temperatuur + zoninstraling per maand |
 //! | [`rounding`] | Bijlage X | Significante-cijfers-afronding (tabel X.1) |
-//! | [`materials`] | Bijlage E | λ bouwmaterialen *(stub — volgt in D3e)* |
+//! | [`materials`] | Bijlage E | λ bouwmaterialen (30+ Nederlandse materialen) |
 //! | [`air_cavities`] | Bijlage F | λ equivalent luchtruimten *(stub — D3f)* |
 //! | [`glazing`] | Bijlage G | U-waarde + g-waarde beglazing *(stub — D3g)* |
 //! | [`frame_materials`] | Bijlage H | λ kozijnmaterialen *(stub — D3h)* |
@@ -47,6 +47,9 @@ pub mod thermal_capacity;
 pub use climate::{
     de_bilt_climate_data, DE_BILT_COOLING_REFERENCE_TEMPERATURE, DE_BILT_OUTDOOR_TEMPERATURE,
     DE_BILT_SOLAR_IRRADIATION, DE_BILT_WIND_SPEED, DE_BILT_WTW_PREHEAT_TEMPERATURE,
+};
+pub use materials::{
+    list_materials, material_by_name, materials_by_category, MaterialCategory, MaterialProperties,
 };
 pub use rounding::{round_to_significant_figures, RoundingDirection, RoundingRule};
 pub use thermal_capacity::{
