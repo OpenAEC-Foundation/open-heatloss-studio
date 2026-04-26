@@ -6,8 +6,8 @@
 //!
 //! V2 zal volledige implementatie bevatten conform bijlage V.
 
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Configuratie voor bronregeneratie van warmtepomp-bronnen.
 ///

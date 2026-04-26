@@ -37,11 +37,10 @@
 //! ## Voorbeeld
 //!
 //! ```
-//! use nta8800_model::time::MonthlyProfile;
 //! use nta8800_tables::climate::de_bilt::de_bilt_climate_data;
 //! use nta8800_pv::{calculate_pv_yield, PvSystem, PvLocation};
 //!
-//! let location = PvLocation::new(52.1, 5.2); // Utrecht
+//! let location = PvLocation::new(52.1, 5.2)?; // Utrecht
 //! let system = PvSystem::new(
 //!     5.5,    // 5.5 kWp
 //!     35.0,   // 35° hellingshoek
@@ -54,7 +53,8 @@
 //! let result = calculate_pv_yield(&[system], &location, &climate)?;
 //!
 //! assert!(result.annual_yield_mj > 0.0);
-//! assert_eq!(result.monthly_yield_mj.len(), 12);
+//! assert_eq!(result.monthly_yield_mj.as_array().len(), 12);
+//! # Ok::<(), nta8800_pv::PvError>(())
 //! ```
 
 #![deny(missing_docs)]

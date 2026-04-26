@@ -4,10 +4,10 @@
 //! (systeem-specificatie, geografische locatie, optionele bronregeneratie).
 //! Rekenresultaten leven in [`crate::result`].
 
+pub mod bronregeneratie;
 pub mod pv_location;
 pub mod pv_system;
-pub mod bronregeneratie;
 
+pub use bronregeneratie::BronregeneratieConfig;
 pub use pv_location::PvLocation;
 pub use pv_system::PvSystem;
-pub use bronregeneratie::BronregeneratieConfig;

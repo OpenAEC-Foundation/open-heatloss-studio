@@ -1,8 +1,8 @@
 //! Geografische locatie voor PV-berekeningen.
 
 use crate::errors::PvError;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Geografische locatie voor PV-opbrengst berekeningen.
 ///
@@ -78,6 +78,10 @@ impl PvLocation {
     /// assert_eq!(location.name, Some("Utrecht".to_string()));
     /// # Ok::<(), nta8800_pv::PvError>(())
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Retourneert [`PvError`] als latitude of longitude buiten het geldige bereik ligt.
     pub fn with_name(
         latitude: f64,
         longitude: f64,
@@ -101,7 +105,7 @@ impl PvLocation {
     /// let utrecht = PvLocation::new(52.0907, 5.1214)?;
     /// let amsterdam = PvLocation::new(52.3676, 4.9041)?;
     /// let distance_km = utrecht.distance_to(&amsterdam);
-    /// assert!((distance_km - 46.0).abs() < 5.0); // ~46 km ±5
+    /// assert!((distance_km - 34.0).abs() < 1.0); // ~34 km hemelsbreed
     /// # Ok::<(), nta8800_pv::PvError>(())
     /// ```
     #[must_use]
@@ -121,18 +125,18 @@ impl PvLocation {
     }
 
     fn validate_latitude(latitude: f64) -> Result<(), PvError> {
-        if !(-90.0..=90.0).contains(&latitude) {
-            Err(PvError::InvalidLatitude(latitude))
-        } else {
+        if (-90.0..=90.0).contains(&latitude) {
             Ok(())
+        } else {
+            Err(PvError::InvalidLatitude(latitude))
         }
     }
 
     fn validate_longitude(longitude: f64) -> Result<(), PvError> {
-        if !(-180.0..=180.0).contains(&longitude) {
-            Err(PvError::InvalidLongitude(longitude))
-        } else {
+        if (-180.0..=180.0).contains(&longitude) {
             Ok(())
+        } else {
+            Err(PvError::InvalidLongitude(longitude))
         }
     }
 }
@@ -247,8 +251,8 @@ mod tests {
         let amsterdam = PvLocation::amsterdam();
         let distance = utrecht.distance_to(&amsterdam);
 
-        // Utrecht-Amsterdam is ongeveer 46 km
-        assert_abs_diff_eq!(distance, 46.0, epsilon = 5.0);
+        // Utrecht-Amsterdam haversine ≈ 34 km (hemelsbreed; 46 km is wegafstand)
+        assert_abs_diff_eq!(distance, 34.0, epsilon = 1.0);
     }
 
     #[test]

@@ -162,7 +162,8 @@ mod tests {
     fn references_count_meets_requirement() {
         assert!(
             ALL.len() >= 10,
-            "Need ≥10 norm-identifier constants, got {}", ALL.len()
+            "Need ≥10 norm-identifier constants, got {}",
+            ALL.len()
         );
     }
 }

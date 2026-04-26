@@ -1,8 +1,8 @@
 //! PV-systeem specificatie en validatie.
 
 use crate::errors::PvError;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 /// Specificatie van een fotovoltaïsch systeem.
 ///
@@ -123,6 +123,10 @@ impl PvSystem {
     /// assert_eq!(system.shadow_factor, 0.85);
     /// # Ok::<(), nta8800_pv::PvError>(())
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Retourneert [`PvError`] als een van de parameters of de schaduw-factor buiten het geldige bereik ligt.
     pub fn with_shadow(
         peak_power_kwp: f64,
         tilt_degrees: f64,
@@ -165,34 +169,34 @@ impl PvSystem {
     }
 
     fn validate_tilt(tilt_degrees: f64) -> Result<(), PvError> {
-        if !(0.0..=90.0).contains(&tilt_degrees) {
-            Err(PvError::InvalidTilt(tilt_degrees))
-        } else {
+        if (0.0..=90.0).contains(&tilt_degrees) {
             Ok(())
+        } else {
+            Err(PvError::InvalidTilt(tilt_degrees))
         }
     }
 
     fn validate_azimuth(azimuth_degrees: f64) -> Result<(), PvError> {
-        if !(-180.0..=180.0).contains(&azimuth_degrees) {
-            Err(PvError::InvalidAzimuth(azimuth_degrees))
-        } else {
+        if (-180.0..=180.0).contains(&azimuth_degrees) {
             Ok(())
+        } else {
+            Err(PvError::InvalidAzimuth(azimuth_degrees))
         }
     }
 
     fn validate_system_efficiency(system_efficiency: f64) -> Result<(), PvError> {
-        if !(0.0 < system_efficiency && system_efficiency <= 1.0) {
-            Err(PvError::InvalidSystemEfficiency(system_efficiency))
-        } else {
+        if 0.0 < system_efficiency && system_efficiency <= 1.0 {
             Ok(())
+        } else {
+            Err(PvError::InvalidSystemEfficiency(system_efficiency))
         }
     }
 
     fn validate_inverter_efficiency(inverter_efficiency: f64) -> Result<(), PvError> {
-        if !(0.0 < inverter_efficiency && inverter_efficiency <= 1.0) {
-            Err(PvError::InvalidInverterEfficiency(inverter_efficiency))
-        } else {
+        if 0.0 < inverter_efficiency && inverter_efficiency <= 1.0 {
             Ok(())
+        } else {
+            Err(PvError::InvalidInverterEfficiency(inverter_efficiency))
         }
     }
 }
