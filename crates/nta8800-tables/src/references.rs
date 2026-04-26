@@ -121,6 +121,46 @@ pub const NTA_8800_2025_BIJLAGE_X: &str = "nta_8800_2025_bijlage_x";
 /// Gebruikt in: [`crate::rounding`].
 pub const NTA_8800_2025_BIJLAGE_X_TABEL1: &str = "nta_8800_2025_bijlage_x_tabel1";
 
+/// Bijlage F — Equivalente warmtegeleidingscoëfficiënt van luchtlagen.
+///
+/// Default λ-equivalent waarden voor verschillende luchtspouwtypes gebaseerd op
+/// dikte en ventilatie-niveau.
+///
+/// Gebruikt in: [`crate::air_cavities`].
+pub const NTA_8800_2025_BIJLAGE_F: &str = "nta_8800_2025_bijlage_f";
+
+/// Bijlage G — Default U-waarde en g-waarde voor beglazing.
+///
+/// Default waarden voor warmtedoorgang en zonnetoetreding van verschillende
+/// beglazingstypen (enkel, dubbel, triple met coatings).
+///
+/// Gebruikt in: [`crate::glazing`].
+pub const NTA_8800_2025_BIJLAGE_G: &str = "nta_8800_2025_bijlage_g";
+
+/// Bijlage H — Warmtegeleidingscoëfficiënt van kozijnmaterialen.
+///
+/// Default λ-waarden en U-frame waarden voor verschillende kozijnmaterialen
+/// (hout, kunststof, aluminium met thermische onderbreking).
+///
+/// Gebruikt in: [`crate::frame_materials`].
+pub const NTA_8800_2025_BIJLAGE_H: &str = "nta_8800_2025_bijlage_h";
+
+/// Bijlage I — Forfaitaire ψ-waarden voor lineaire koudebruggen.
+///
+/// Default lineaire warmtedoorgangscoëfficiënten voor verschillende
+/// koudebrug-aansluitingen in de gebouwschil.
+///
+/// Gebruikt in: [`crate::thermal_bridges`].
+pub const NTA_8800_2025_BIJLAGE_I: &str = "nta_8800_2025_bijlage_i";
+
+/// Bijlage L — ψ-waarden voor beglazingsrand.
+///
+/// Default lineaire warmtedoorgangscoëfficiënten voor de aansluiting tussen
+/// glas en kozijn, afhankelijk van het type randafstandhouder (spacer).
+///
+/// Gebruikt in: [`crate::glazing_edge`].
+pub const NTA_8800_2025_BIJLAGE_L: &str = "nta_8800_2025_bijlage_l";
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -141,6 +181,11 @@ mod tests {
         NTA_8800_2025_TABEL17_1,
         NTA_8800_2025_TABEL17_2,
         NTA_8800_2025_BIJLAGE_E,
+        NTA_8800_2025_BIJLAGE_F,
+        NTA_8800_2025_BIJLAGE_G,
+        NTA_8800_2025_BIJLAGE_H,
+        NTA_8800_2025_BIJLAGE_I,
+        NTA_8800_2025_BIJLAGE_L,
         NTA_8800_2025_BIJLAGE_X,
         NTA_8800_2025_BIJLAGE_X_TABEL1,
     ];

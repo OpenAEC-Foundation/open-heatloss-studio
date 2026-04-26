@@ -116,7 +116,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(5.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Beton
     MaterialProperties {
         name: "Gewapend beton",
@@ -145,7 +144,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(8.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Hout
     MaterialProperties {
         name: "Naaldhout",
@@ -192,7 +190,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(250.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Isolatie
     MaterialProperties {
         name: "Steenwol",
@@ -257,7 +254,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(3.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Metaal
     MaterialProperties {
         name: "Staal",
@@ -286,7 +282,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: None, // Metaal is dampvrij
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Dakbedekking
     MaterialProperties {
         name: "Dakpannen (gebakken)",
@@ -315,7 +310,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(10_000.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Natuursteen
     MaterialProperties {
         name: "Graniet",
@@ -344,7 +338,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(40.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Gips
     MaterialProperties {
         name: "Gipsplaat",
@@ -364,7 +357,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(12.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Kunststof
     MaterialProperties {
         name: "PVC",
@@ -384,7 +376,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: Some(100_000.0),
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Glas
     MaterialProperties {
         name: "Glas (vlakglas)",
@@ -395,7 +386,6 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
         mu: None, // Glas is dampvrij
         source_ref: crate::references::NTA_8800_2025_BIJLAGE_E,
     },
-
     // Lucht
     MaterialProperties {
         name: "Luchtspouw (stil)",
@@ -418,9 +408,7 @@ const MATERIALS_RAW: &[MaterialProperties] = &[
 ];
 
 /// Lazy-initialized mapping voor snelle lookup van alle materialen.
-static MATERIALS: LazyLock<&'static [MaterialProperties]> = LazyLock::new(|| {
-    MATERIALS_RAW
-});
+static MATERIALS: LazyLock<&'static [MaterialProperties]> = LazyLock::new(|| MATERIALS_RAW);
 
 /// Geef alle beschikbare materialen uit NTA 8800 bijlage E.
 ///
@@ -471,7 +459,9 @@ pub fn list_materials() -> &'static [MaterialProperties] {
 #[must_use]
 pub fn material_by_name(name: &str) -> Option<&'static MaterialProperties> {
     let name_lower = name.to_lowercase();
-    MATERIALS.iter().find(|m| m.name.to_lowercase().contains(&name_lower))
+    MATERIALS
+        .iter()
+        .find(|m| m.name.to_lowercase().contains(&name_lower))
 }
 
 /// Filter materialen op categorie.
@@ -496,7 +486,8 @@ pub fn material_by_name(name: &str) -> Option<&'static MaterialProperties> {
 /// ```
 #[must_use]
 pub fn materials_by_category(category: MaterialCategory) -> Vec<&'static MaterialProperties> {
-    MATERIALS.iter()
+    MATERIALS
+        .iter()
         .filter(|m| m.category == category)
         .collect()
 }
@@ -545,21 +536,26 @@ mod tests {
         assert_eq!(steenwol_upper.name, steenwol.name);
 
         // Gedeeltelijke match
-        let baksteen = material_by_name("baksteen")
-            .expect("Gedeeltelijke match moet werken");
+        let baksteen = material_by_name("baksteen").expect("Gedeeltelijke match moet werken");
         assert!(baksteen.name.contains("Baksteen"));
     }
 
     #[test]
     fn material_by_name_not_found() {
         let result = material_by_name("onbestaandmateriaal123");
-        assert!(result.is_none(), "Niet-bestaand materiaal mag niet gevonden worden");
+        assert!(
+            result.is_none(),
+            "Niet-bestaand materiaal mag niet gevonden worden"
+        );
     }
 
     #[test]
     fn materials_by_category_isolatie() {
         let isolatie = materials_by_category(MaterialCategory::Isolatie);
-        assert!(isolatie.len() >= 5, "Verwacht minimaal 5 isolatiematerialen");
+        assert!(
+            isolatie.len() >= 5,
+            "Verwacht minimaal 5 isolatiematerialen"
+        );
 
         // Alle isolatie heeft lage λ-waarde
         for material in &isolatie {

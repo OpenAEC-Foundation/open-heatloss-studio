@@ -55,3 +55,11 @@ pub use rounding::{round_to_significant_figures, RoundingDirection, RoundingRule
 pub use thermal_capacity::{
     specific_heat_capacity, zone_heat_capacity, CeilingType, FloorMassClass, WallMassClass,
 };
+
+// ----- New bijlage re-exports (V1 stubs) -----
+
+pub use air_cavities::{get_air_cavity, AirCavityDefault, AirCavityKind};
+pub use frame_materials::{get_frame_material, FrameMaterialDefault, FrameMaterialKind};
+pub use glazing::{get_glazing, GlazingDefault, GlazingKind};
+pub use glazing_edge::{get_glazing_edge, GlazingEdgeDefault, SpacerKind};
+pub use thermal_bridges::{get_thermal_bridge, ThermalBridgeDefault, ThermalBridgeKind};
