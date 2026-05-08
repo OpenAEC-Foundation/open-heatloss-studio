@@ -1,16 +1,18 @@
-# Windows Installer PR 1 — Lokaal werkende installer
+# Windows Installer PR 1 — CI-bouwbare installer (artifact)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Vandaag een werkende Windows `.exe` installer kunnen bouwen op een lokale Windows-machine, met NL wizard en per-user install.
+**Goal:** Een `.exe` Windows-installer kunnen bouwen via GitHub Actions (`windows-latest` runner) met `workflow_dispatch` trigger, die als build-artifact te downloaden is voor handmatig testen.
 
-**Architecture:** Tauri v2 NSIS-bundler genereert het `.exe`. Eén bron-of-truth voor versie in `Cargo.toml` workspace; een PowerShell-script sync't die naar `tauri.conf.json` en `frontend/package.json` vóór elke build. Een tweede PowerShell-script orchestreert de volledige build (sync → frontend → tauri bundle → output kopiëren naar `dist/installer/`). Placeholder-icons (een blauw vierkant met "I51") gegenereerd via .NET System.Drawing — vervangbaar zodra echte branding er is.
+**Architecture:** GitHub Actions runner heeft MSVC build tools standaard, dus geen lokale Visual Studio Build Tools nodig. Tauri v2 NSIS-bundler genereert het `.exe`. Versie-sync gebeurt in CI via een PowerShell-script dat ook lokaal draait. Placeholder-icons gegenereerd via System.Drawing in PowerShell — vervangbaar zodra echte branding er is.
 
-**Tech Stack:** Tauri v2, NSIS, PowerShell 7 (`pwsh`), Node 22, Rust stable, .NET System.Drawing (Windows built-in).
+**Tech Stack:** Tauri v2, NSIS, GitHub Actions (`windows-latest`), PowerShell (5.1 compatible), Node 22, Rust stable MSVC.
 
 **Spec reference:** [docs/superpowers/specs/2026-05-08-windows-installer-design.md](../specs/2026-05-08-windows-installer-design.md)
 
-**Niet in deze PR:** GitHub Actions release workflow, frontend update-check, update-banner UI, release-procedure docs. Dat is PR 2.
+**Plan-shift 2026-05-08:** Origineel plan was lokaal-eerst, maar lokale Visual Studio Build Tools ontbreken. CI-first volgorde: PR 1 levert een GitHub Actions workflow die het `.exe` als artifact bouwt; lokaal build-script verschuift naar PR 2.
+
+**Niet in deze PR:** Lokaal `tools/build-installer.ps1` script, release-on-tag automation, frontend update-check, update-banner UI. Komt in PR 2.
 
 ---
 
@@ -18,44 +20,18 @@
 
 | Bestand | Status | Verantwoordelijkheid |
 |---|---|---|
-| `.gitignore` | wijzigen | Negeer build-output `dist/installer/` |
+| `.gitignore` | wijzigen | Negeer build-output `dist/installer/` (voor wanneer lokaal builden in PR 2 wel mogelijk wordt) |
 | `src-tauri/tauri.conf.json` | wijzigen | NSIS-config (per-user, NL, shortcut-naam, installer-icon) |
 | `tools/sync-version.ps1` | nieuw | Lees versie uit `Cargo.toml` workspace; schrijf naar `tauri.conf.json` + `frontend/package.json` |
-| `tools/make-placeholder-icon.ps1` | nieuw | Genereer 1024×1024 placeholder PNG (eenmalig) |
-| `src-tauri/icons/source.png` | nieuw (gegenereerd) | Bron voor Tauri icon-converter |
-| `src-tauri/icons/icon.ico` | nieuw (gegenereerd) | Windows installer + executable icon |
-| `src-tauri/icons/32x32.png` | nieuw (gegenereerd) | Tauri-required size |
-| `src-tauri/icons/128x128.png` | nieuw (gegenereerd) | Tauri-required size |
-| `src-tauri/icons/128x128@2x.png` | nieuw (gegenereerd) | Tauri-required size (256×256) |
-| `src-tauri/icons/icon.icns` | nieuw (gegenereerd) | macOS icon (Tauri verwacht dit bestand zelfs op Windows) |
-| `tools/build-installer.ps1` | nieuw | Orchestreer: sync versie → build frontend → tauri bundle → kopieer naar `dist/installer/` |
-| `docs/building-installer.md` | nieuw | Vereisten, hoe te draaien, troubleshooting |
-
----
-
-## Pre-flight
-
-- [ ] **Step 0: Verifieer omgeving**
-
-Check vereisten:
-```powershell
-node --version          # moet ≥ 22
-npm --version
-cargo --version         # moet ≥ 1.78
-rustc --version
-pwsh --version          # moet ≥ 7 (PowerShell 7+)
-```
-
-Als één faalt: stop. Installeer ontbrekende tooling vóór verder gaan:
-- Node 22+: https://nodejs.org/
-- Rust: https://rustup.rs/
-- PowerShell 7: `winget install Microsoft.PowerShell`
-
-Check ook of MSVC build tools beschikbaar zijn (vereist voor Tauri op Windows):
-```powershell
-where.exe link.exe
-```
-Als geen output: installeer "Visual Studio Build Tools" met "Desktop development with C++" workload.
+| `tools/make-placeholder-icon.ps1` | nieuw | Genereer 1024×1024 placeholder PNG (eenmalig lokaal, op Windows) |
+| `src-tauri/icons/source.png` | nieuw (gegenereerd, gecommit) | Bron voor Tauri icon-converter |
+| `src-tauri/icons/icon.ico` | nieuw (gegenereerd, gecommit) | Windows installer + executable icon |
+| `src-tauri/icons/32x32.png` | nieuw (gegenereerd, gecommit) | Tauri-required size |
+| `src-tauri/icons/128x128.png` | nieuw (gegenereerd, gecommit) | Tauri-required size |
+| `src-tauri/icons/128x128@2x.png` | nieuw (gegenereerd, gecommit) | Tauri-required size (256×256) |
+| `src-tauri/icons/icon.icns` | nieuw (gegenereerd, gecommit) | macOS icon (Tauri verwacht dit ook bij Windows-build) |
+| `.github/workflows/build-installer.yml` | nieuw | `workflow_dispatch` trigger, bouwt NSIS `.exe` op windows-latest, upload als artifact |
+| `docs/building-installer.md` | nieuw | Hoe trigger je de CI-build, hoe download je het artifact, hoe install/test je het |
 
 ---
 
@@ -68,24 +44,19 @@ Als geen output: installeer "Visual Studio Build Tools" met "Desktop development
 
 Open `.gitignore` en voeg toe aan het eind:
 ```
-# Built installers
+# Built installers (lokaal in PR 2; CI artifacts staan op GitHub)
 dist/installer/
 ```
 
 - [ ] **Step 1.2: Verifieer**
 
-Run:
 ```powershell
-mkdir -Force dist/installer | Out-Null
+New-Item -ItemType Directory -Force -Path dist/installer | Out-Null
 New-Item dist/installer/test.exe -ItemType File | Out-Null
-git status --short dist/installer/
-```
-Expected: geen output (de map wordt genegeerd).
-
-Cleanup:
-```powershell
+git status --short dist/
 Remove-Item -Recurse -Force dist
 ```
+Expected: geen output van `git status --short dist/` (de map wordt genegeerd).
 
 - [ ] **Step 1.3: Commit**
 
@@ -103,7 +74,7 @@ git commit -m "chore(installer): ignore dist/installer/ build output"
 
 - [ ] **Step 2.1: Voeg NSIS-blok toe**
 
-Huidige `bundle`-sectie:
+Huidige `bundle`-sectie in `src-tauri/tauri.conf.json`:
 ```json
 "bundle": {
   "active": true,
@@ -146,11 +117,10 @@ Wijzig naar:
 
 - [ ] **Step 2.2: Verifieer JSON-validiteit**
 
-Run:
 ```powershell
 node -e "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')); console.log('OK')"
 ```
-Expected: `OK` (geen parse-errors).
+Expected: `OK`.
 
 - [ ] **Step 2.3: Commit**
 
@@ -168,7 +138,7 @@ git commit -m "feat(installer): add NSIS config — per-user, NL wizard, shortcu
 
 - [ ] **Step 3.1: Maak het script**
 
-Maak `tools/sync-version.ps1` met deze inhoud:
+Maak `tools/sync-version.ps1`. Belangrijk: gebruik `[System.IO.File]::WriteAllText` met UTF-8 zonder BOM zodat het werkt in zowel PowerShell 5.1 (Windows default) als 7+.
 
 ```powershell
 <#
@@ -181,12 +151,12 @@ This script reads it and writes to:
   - src-tauri/tauri.conf.json (top-level "version")
   - frontend/package.json (top-level "version")
 
+Compatible with Windows PowerShell 5.1 and PowerShell 7+.
 Run from repo root.
 #>
 
 $ErrorActionPreference = 'Stop'
 
-# Ensure we run from repo root (Cargo.toml workspace must exist here)
 if (-not (Test-Path 'Cargo.toml')) {
     throw "Cargo.toml not found in current directory. Run from repo root."
 }
@@ -199,19 +169,24 @@ if ($cargoToml -notmatch '(?ms)\[workspace\.package\].*?version\s*=\s*"([^"]+)"'
 $version = $Matches[1]
 Write-Host "Workspace version: $version"
 
+# UTF-8 without BOM (cross-version compatible)
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+
 # 2. Sync tauri.conf.json
-$tauriConfPath = 'src-tauri/tauri.conf.json'
+$tauriConfPath = (Resolve-Path 'src-tauri/tauri.conf.json').Path
 $tauriConf = Get-Content $tauriConfPath -Raw | ConvertFrom-Json
 $tauriConf.version = $version
-$tauriConf | ConvertTo-Json -Depth 32 | Set-Content $tauriConfPath -Encoding utf8
-Write-Host "Updated $tauriConfPath -> version $version"
+$tauriJson = $tauriConf | ConvertTo-Json -Depth 32
+[System.IO.File]::WriteAllText($tauriConfPath, $tauriJson, $utf8NoBom)
+Write-Host "Updated src-tauri/tauri.conf.json -> version $version"
 
 # 3. Sync frontend/package.json
-$pkgPath = 'frontend/package.json'
+$pkgPath = (Resolve-Path 'frontend/package.json').Path
 $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
 $pkg.version = $version
-$pkg | ConvertTo-Json -Depth 32 | Set-Content $pkgPath -Encoding utf8
-Write-Host "Updated $pkgPath -> version $version"
+$pkgJson = $pkg | ConvertTo-Json -Depth 32
+[System.IO.File]::WriteAllText($pkgPath, $pkgJson, $utf8NoBom)
+Write-Host "Updated frontend/package.json -> version $version"
 
 Write-Host "Version sync complete: $version"
 ```
@@ -219,7 +194,7 @@ Write-Host "Version sync complete: $version"
 - [ ] **Step 3.2: Run het script**
 
 ```powershell
-pwsh -File tools/sync-version.ps1
+powershell -ExecutionPolicy Bypass -File tools/sync-version.ps1
 ```
 Expected output (versie kan afwijken):
 ```
@@ -270,7 +245,7 @@ Generate a 1024x1024 placeholder PNG for the app icon.
 
 .DESCRIPTION
 Creates a flat blue square with "I51" centered in white.
-Run once; commit the resulting src-tauri/icons/source.png.
+Run once on Windows; commit the resulting src-tauri/icons/source.png.
 Replace with real branding when available.
 #>
 
@@ -315,7 +290,7 @@ Write-Host "Wrote $outPath ($size x $size)"
 - [ ] **Step 4.2: Run het script**
 
 ```powershell
-pwsh -File tools/make-placeholder-icon.ps1
+powershell -ExecutionPolicy Bypass -File tools/make-placeholder-icon.ps1
 ```
 Expected: `Wrote src-tauri/icons/source.png (1024 x 1024)`.
 
@@ -343,21 +318,16 @@ git commit -m "feat(installer): placeholder source icon (I51 on blue) for icon-s
 **Files:**
 - Create (generated): `src-tauri/icons/icon.ico`, `icon.icns`, `32x32.png`, `128x128.png`, `128x128@2x.png`
 
-- [ ] **Step 5.1: Installeer tauri CLI als nog niet aanwezig**
+- [ ] **Step 5.1: Genereer de icon-set met de Tauri CLI**
 
 ```powershell
-npx --yes @tauri-apps/cli --version
+npx --yes @tauri-apps/cli icon src-tauri/icons/source.png --output src-tauri/icons
 ```
-Expected: een versie als `2.x.x`. Als de CLI ontbreekt, downloadt npx 'm automatisch.
+Expected output: regels die aangeven dat icoon-bestanden zijn aangemaakt (`32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`, en mogelijk extra Linux/Android sizes).
 
-- [ ] **Step 5.2: Genereer de icon-set**
+Geen Rust build nodig — `tauri icon` is een Node-only command.
 
-```powershell
-npx @tauri-apps/cli icon src-tauri/icons/source.png --output src-tauri/icons
-```
-Expected output: regels die aangeven dat icoon-bestanden zijn aangemaakt (`32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`, en eventueel extra Linux/Android sizes).
-
-- [ ] **Step 5.3: Verifieer dat alle 5 vereiste bestanden bestaan**
+- [ ] **Step 5.2: Verifieer dat alle 5 vereiste bestanden bestaan**
 
 ```powershell
 $required = @('32x32.png', '128x128.png', '128x128@2x.png', 'icon.icns', 'icon.ico')
@@ -371,147 +341,128 @@ if ($missing) {
 ```
 Expected: `All 5 required icons present.`.
 
-- [ ] **Step 5.4: Commit**
+- [ ] **Step 5.3: Commit**
 
 ```powershell
 git add src-tauri/icons/
 git commit -m "feat(installer): generated Tauri icon-set (32/128/256 PNG + icns + ico)"
 ```
 
-Note: de Tauri CLI kan ook andere bestanden genereren (Android, iOS, Linux). Die mogen ook gecommit worden — geen kwaad.
+Note: de Tauri CLI genereert mogelijk ook Android/iOS/Linux varianten — die mogen ook gecommit worden.
 
 ---
 
-## Task 6: Lokaal build-script (`tools/build-installer.ps1`)
+## Task 6: GitHub Actions workflow (`build-installer.yml`)
 
 **Files:**
-- Create: `tools/build-installer.ps1`
+- Create: `.github/workflows/build-installer.yml`
 
-- [ ] **Step 6.1: Maak het script**
+- [ ] **Step 6.1: Maak de workflow**
 
-Maak `tools/build-installer.ps1`:
+Maak `.github/workflows/build-installer.yml`:
 
-```powershell
-<#
-.SYNOPSIS
-Build the Windows NSIS installer for ISSO 51 Warmteverliesberekening.
+```yaml
+name: Build Windows installer
 
-.DESCRIPTION
-Orchestrates the full build:
-  1. Verify environment (node, npm, cargo).
-  2. Sync version from Cargo.toml workspace.
-  3. Install + build frontend.
-  4. Run Tauri NSIS bundle.
-  5. Copy resulting .exe to dist/installer/.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual run (optional, shown in run name)"
+        required: false
+        default: "manual test build"
 
-Run from repo root: pwsh -File tools/build-installer.ps1
-#>
+run-name: "Installer build — ${{ inputs.reason }}"
 
-$ErrorActionPreference = 'Stop'
+permissions:
+  contents: read
 
-# 1. Sanity checks
-if (-not (Test-Path 'Cargo.toml')) {
-    throw "Cargo.toml not found. Run from repo root."
-}
+concurrency:
+  group: build-installer-${{ github.ref }}
+  cancel-in-progress: true
 
-$tools = @('node', 'npm', 'cargo')
-foreach ($tool in $tools) {
-    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-        throw "Required tool not found: $tool. See docs/building-installer.md."
-    }
-}
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
 
-# Verify icons exist (Tauri build will fail without them)
-$requiredIcons = @(
-    'src-tauri/icons/icon.ico',
-    'src-tauri/icons/32x32.png',
-    'src-tauri/icons/128x128.png',
-    'src-tauri/icons/128x128@2x.png'
-)
-foreach ($icon in $requiredIcons) {
-    if (-not (Test-Path $icon)) {
-        throw "Required icon missing: $icon. Run tools/make-placeholder-icon.ps1 + npx tauri icon."
-    }
-}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-Write-Host "==> Environment OK" -ForegroundColor Green
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
-# 2. Sync version
-Write-Host "==> Syncing version..." -ForegroundColor Cyan
-pwsh -File tools/sync-version.ps1
-if ($LASTEXITCODE -ne 0) { throw "sync-version.ps1 failed" }
+      - name: Setup Rust (stable, MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-msvc
 
-# 3. Frontend build
-Write-Host "==> Installing frontend dependencies..." -ForegroundColor Cyan
-Push-Location frontend
-try {
-    npm install
-    if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
-    Write-Host "==> Building frontend..." -ForegroundColor Cyan
-    npm run build
-    if ($LASTEXITCODE -ne 0) { throw "frontend build failed" }
-} finally {
-    Pop-Location
-}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
 
-# 4. Tauri bundle (NSIS only)
-Write-Host "==> Building Tauri NSIS bundle (this can take 5-15 minutes)..." -ForegroundColor Cyan
-npx @tauri-apps/cli build --bundles nsis
-if ($LASTEXITCODE -ne 0) { throw "tauri build failed" }
+      - name: Sync version
+        shell: pwsh
+        run: ./tools/sync-version.ps1
 
-# 5. Copy output
-$bundleDir = 'src-tauri/target/release/bundle/nsis'
-$outputDir = 'dist/installer'
-if (-not (Test-Path $bundleDir)) {
-    throw "Tauri output dir not found: $bundleDir"
-}
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
 
-if (-not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir | Out-Null
-}
+      - name: Build NSIS installer
+        run: npx --yes @tauri-apps/cli build --bundles nsis
 
-$exes = Get-ChildItem -Path $bundleDir -Filter '*.exe'
-if ($exes.Count -eq 0) {
-    throw "No .exe found in $bundleDir"
-}
+      - name: Locate built installer
+        id: locate
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw "No .exe found in src-tauri/target/release/bundle/nsis" }
+          "exe_path=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "exe_name=$($exe.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found: $($exe.FullName)"
 
-foreach ($exe in $exes) {
-    $dest = Join-Path $outputDir $exe.Name
-    Copy-Item $exe.FullName $dest -Force
-    Write-Host "==> Output: $dest" -ForegroundColor Green
-}
-
-Write-Host ""
-Write-Host "Build complete." -ForegroundColor Green
-Write-Host "Installer(s) in: $((Resolve-Path $outputDir).Path)"
+      - name: Upload installer as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: ${{ steps.locate.outputs.exe_path }}
+          retention-days: 14
+          if-no-files-found: error
 ```
 
-- [ ] **Step 6.2: Run het script — full integration test**
+- [ ] **Step 6.2: Verifieer YAML-syntax**
 
 ```powershell
-pwsh -File tools/build-installer.ps1
+# Quick check by Node — no extra dep needed (just JSON-via-YAML conversion not needed; we just check it's parseable text)
+$yaml = Get-Content .github/workflows/build-installer.yml -Raw
+if ($yaml -match 'workflow_dispatch' -and $yaml -match 'windows-latest' -and $yaml -match 'upload-artifact') {
+    Write-Host "Workflow contains expected keywords."
+} else {
+    Write-Host "Workflow missing expected keywords."; exit 1
+}
 ```
-Expected: het script doorloopt alle stappen, eindigt met `Build complete.` en print het pad naar `dist/installer/ISSO 51 Warmteverliesberekening_<versie>_x64-setup.exe`.
+Expected: `Workflow contains expected keywords.`.
 
-**Dit duurt 5-15 minuten** (eerste Rust build is traag).
+(Echt YAML-parsen kan via een actie als `actionlint`, maar die staat hier niet beschikbaar. GitHub valideert de YAML zodra de workflow gepusht is.)
 
-Mogelijke fouten:
-- `cargo tauri build` faalt op linkfouten → MSVC ontbreekt → installeer Build Tools.
-- `npm install` faalt → check Node-versie.
-- Sidecar `ifc-tool-x86_64-pc-windows-msvc.exe` ontbreekt → al aanwezig in de repo, maar als die per ongeluk weg is, faalt de bundle. Restore via `git checkout src-tauri/binaries/`.
-
-- [ ] **Step 6.3: Verifieer output**
+- [ ] **Step 6.3: Commit**
 
 ```powershell
-Get-ChildItem dist/installer -Filter '*.exe' | Select-Object Name, Length
-```
-Expected: één regel met de installer-naam en grootte (~80-200 MB).
-
-- [ ] **Step 6.4: Commit**
-
-```powershell
-git add tools/build-installer.ps1
-git commit -m "feat(installer): local build script — sync version, build frontend, NSIS bundle"
+git add .github/workflows/build-installer.yml
+git commit -m "ci(installer): GitHub Actions workflow — build NSIS installer on windows-latest, upload as artifact"
 ```
 
 ---
@@ -528,47 +479,31 @@ Maak `docs/building-installer.md`:
 ```markdown
 # Windows installer bouwen
 
-Korte handleiding om lokaal een `.exe` installer te bouwen voor ISSO 51 Warmteverliesberekening.
+De Windows `.exe` installer wordt gebouwd via **GitHub Actions** (geen lokale Visual Studio Build Tools nodig).
 
-## Vereisten
+## Snel: bouw + download
 
-- Windows 10 of 11 (x64)
-- [Node.js 22 LTS](https://nodejs.org/)
-- [Rust toolchain (stable)](https://rustup.rs/) — minimaal 1.78
-- [PowerShell 7+](https://aka.ms/powershell) — `winget install Microsoft.PowerShell`
-- Visual Studio Build Tools 2022 met **Desktop development with C++** workload — vereist door Tauri/Rust voor MSVC linker
-- Git
+1. Ga naar de repo op GitHub: https://github.com/OpenAEC-Foundation/open-heatloss-studio
+2. Klik op **Actions** → **Build Windows installer** (in de linkerlijst).
+3. Klik rechtsboven op **Run workflow** → kies branch (meestal `master` of de feature branch) → optioneel een reden invullen → **Run workflow**.
+4. Wacht ~10-15 minuten.
+5. Open de geslaagde run, scroll naar **Artifacts** onderaan, download `windows-installer`.
+6. Pak de zip uit. Daarin staat het `.exe` bestand.
 
-## Eerste keer setup
-
+Of via de CLI:
 ```powershell
-git clone https://github.com/OpenAEC-Foundation/open-heatloss-studio
-cd open-heatloss-studio
+gh workflow run build-installer.yml -R OpenAEC-Foundation/open-heatloss-studio
+gh run list --workflow=build-installer.yml --limit 1
+gh run download <run-id> --name windows-installer
 ```
 
-## Build
+## Wat het `.exe` doet
 
-Vanuit de repo-root:
-```powershell
-pwsh -File tools/build-installer.ps1
-```
-
-Het script doet:
-1. Sanity-check op `node`, `npm`, `cargo` en de iconen.
-2. Sync de versie uit `Cargo.toml` workspace naar `tauri.conf.json` en `frontend/package.json`.
-3. `npm install` + `npm run build` in `frontend/`.
-4. `npx tauri build --bundles nsis` om alleen de NSIS-installer te bouwen.
-5. Kopieert de resulterende `.exe` naar `dist/installer/`.
-
-**Duur:** 5-15 minuten (eerste keer). Daarna 2-5 minuten dankzij Rust incremental builds.
-
-## Output
-
-```
-dist/installer/ISSO 51 Warmteverliesberekening_<versie>_x64-setup.exe
-```
-
-Run dit `.exe` om te installeren. De wizard is in het Nederlands. Default install-locatie is `%LOCALAPPDATA%\Programs\ISSO 51 Warmteverliesberekening`. Geen admin-rechten nodig.
+- Wizard in het Nederlands (geen taalkeuze vooraf).
+- **Per-user installatie** in `%LOCALAPPDATA%\Programs\ISSO 51 Warmteverliesberekening`.
+- Geen UAC-prompt, geen admin-rechten nodig.
+- Maakt Start-menu shortcut "ISSO 51 Warmteverliesberekening".
+- SmartScreen-waarschuwing verschijnt (niet code-signed) — klik "Meer info" → "Toch uitvoeren".
 
 ## Versie wijzigen
 
@@ -578,40 +513,39 @@ Versie staat in `Cargo.toml` workspace:
 version = "0.2.0"
 ```
 
-Het build-script sync't `tauri.conf.json` en `frontend/package.json` automatisch.
+Bij elke CI-build sync't `tools/sync-version.ps1` deze waarde naar `tauri.conf.json` en `frontend/package.json`. Daarna verschijnt de versie in de installer-naam: `ISSO 51 Warmteverliesberekening_0.2.0_x64-setup.exe`.
 
-## Iconen vervangen
+## Iconen vervangen (placeholder → echte branding)
 
-De huidige iconen zijn placeholders ("I51" op blauw). Voor echte branding:
+Huidige iconen zijn placeholders ("I51" op blauw). Voor echte branding:
 
 1. Vervang `src-tauri/icons/source.png` met een 1024×1024 PNG (transparante achtergrond aanbevolen).
 2. Genereer de icon-set:
    ```powershell
    npx @tauri-apps/cli icon src-tauri/icons/source.png --output src-tauri/icons
    ```
-3. Commit de gewijzigde bestanden.
+3. Commit + push. Volgende CI-build gebruikt de nieuwe iconen.
+
+## Lokaal bouwen — komt later
+
+Lokaal bouwen vereist:
+- Visual Studio Build Tools 2022 met "Desktop development with C++" workload (~5 GB)
+- Rust default toolchain switchen naar MSVC: `rustup default stable-x86_64-pc-windows-msvc`
+
+Een lokaal build-script (`tools/build-installer.ps1`) komt in PR 2, voor wie regelmatig snelle dev-builds wil maken zonder GitHub Actions.
 
 ## Troubleshooting
 
 | Probleem | Oplossing |
 |---|---|
-| `cargo: command not found` | Installeer Rust via https://rustup.rs/ |
-| `link.exe not found` | Installeer Visual Studio Build Tools met C++ workload |
-| `MSB8003` of MSVC-fouten | Heropen je terminal na install Build Tools (PATH-update) |
-| `npm install` faalt op `web-ifc.wasm` | Check dat `frontend/node_modules/web-ifc/web-ifc.wasm` bestaat na install |
-| Installer-build duurt > 30 min | Eerste build van Rust dependencies is traag; daarna sneller via cache |
-| Sidecar `ifc-tool` ontbreekt | `git checkout src-tauri/binaries/` |
-| Anti-virus blokkeert build | Voeg `target/` map toe aan exclusions |
-
-## Niet bij deze build (komt later)
-
-- Code signing (Authenticode certificaat) — installer toont nu SmartScreen-warning bij downloaden.
-- Auto-update via Tauri updater plugin — komt in PR 2 (alleen notificatie, geen auto-install).
-- macOS / Linux installers — vereist sidecar voor die platforms.
-- WiX MSI — komt zodra enterprise-rollout relevant is.
+| Workflow faalt op "Setup Rust" | Tijdelijke registry-issue, herhaal de run |
+| Workflow faalt op `tauri build` | Check de log; meestal Rust-compile error door verouderde dependency |
+| Artifact niet te downloaden | Run moet **succesvol** zijn afgerond (groene vink); failed runs hebben geen artifact |
+| Sidecar `ifc-tool` ontbreekt na install | Build-bestand `src-tauri/binaries/ifc-tool-x86_64-pc-windows-msvc.exe` is gecommit; check dat deze in de repo staat |
+| SmartScreen blokkeert installer | Niet-gesigneerde installer; klik "Meer info" → "Toch uitvoeren". Code-signing komt zodra cert beschikbaar is |
 ```
 
-- [ ] **Step 7.2: Verifieer markdown**
+- [ ] **Step 7.2: Verifieer**
 
 ```powershell
 Test-Path docs/building-installer.md
@@ -622,64 +556,81 @@ Expected: `True`.
 
 ```powershell
 git add docs/building-installer.md
-git commit -m "docs(installer): how to build the Windows installer locally"
+git commit -m "docs(installer): how to trigger CI build and download Windows installer artifact"
 ```
 
 ---
 
-## Task 8: End-to-end installer-test (handmatig)
+## Task 8: Push branch + trigger CI build (handover naar gebruiker)
 
 **Files:** geen wijzigingen — dit is een verificatiestap.
 
-- [ ] **Step 8.1: Run de installer**
+- [ ] **Step 8.1: Push de branch naar GitHub**
 
-Dubbelklik op het `.exe` in `dist/installer/`, of:
+```powershell
+git push -u origin claude/laughing-kirch-752da4
+```
+Expected: branch verschijnt op GitHub.
+
+- [ ] **Step 8.2: Trigger de workflow**
+
+Via UI: GitHub → Actions → "Build Windows installer" → Run workflow → kies branch `claude/laughing-kirch-752da4`.
+
+Of via CLI:
+```powershell
+gh workflow run build-installer.yml --ref claude/laughing-kirch-752da4
+```
+
+- [ ] **Step 8.3: Volg de run**
+
+```powershell
+gh run watch
+```
+Expected: build duurt 10-15 minuten, eindigt met groene vink.
+
+Als de run faalt:
+1. Check welke step faalt: `gh run view --log-failed`.
+2. Diagnosticeer (build-error, timeout, missing file).
+3. Fix lokaal, commit, push, trigger opnieuw.
+
+- [ ] **Step 8.4: Download het artifact**
+
+```powershell
+$run = gh run list --workflow=build-installer.yml --branch claude/laughing-kirch-752da4 --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run download $run --name windows-installer --dir dist/installer
+Get-ChildItem dist/installer -Filter '*.exe'
+```
+Expected: één `.exe` bestand in `dist/installer/`.
+
+- [ ] **Step 8.5: Run de installer (handmatig)**
+
+Dubbelklik op het `.exe` of:
 ```powershell
 & "$(Resolve-Path dist/installer/*.exe)"
 ```
 
-- [ ] **Step 8.2: Verifieer wizard**
-
-Controleer:
-- Wizard-tekst is in **het Nederlands** (geen taal-keuze schermpje vooraf).
-- Geen UAC-prompt (per-user install).
-- Default install-pad: `%LOCALAPPDATA%\Programs\ISSO 51 Warmteverliesberekening` (zichtbaar in een advanced-optie als die er is, of als finished-screen).
-- Optie "Snelkoppeling op bureaublad" en "Programma direct starten" zijn aanwezig.
+Verifieer:
+- Wizard-tekst is in **het Nederlands**.
+- Geen UAC-prompt.
+- Default install-pad `%LOCALAPPDATA%\Programs\ISSO 51 Warmteverliesberekening`.
+- Optie "Snelkoppeling op bureaublad" en "Programma direct starten" aanwezig.
 
 Voltooi de installatie.
 
-- [ ] **Step 8.3: Verifieer install-locatie**
+- [ ] **Step 8.6: Verifieer install + start**
 
 ```powershell
 Test-Path "$env:LOCALAPPDATA\Programs\ISSO 51 Warmteverliesberekening\isso51-desktop.exe"
-```
-Expected: `True`.
-
-- [ ] **Step 8.4: Verifieer Start-menu shortcut**
-
-```powershell
 Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter '*ISSO*'
 ```
-Expected: een `.lnk` bestand met "ISSO 51 Warmteverliesberekening" in de naam.
+Expected: `True` voor de exe, en een `.lnk` met "ISSO" in de naam.
 
-- [ ] **Step 8.5: Start de app via shortcut**
-
-Klik de Start-menu shortcut. Verwacht:
-- App-window opent zonder OS-decorations (custom TitleBar).
-- Frontend laadt zonder errors (geen blanco scherm).
-- Console-errors? Open DevTools (F12 in Tauri dev-mode; in release-mode niet mogelijk — check `%LOCALAPPDATA%\Programs\...\` voor crash-logs).
-
-- [ ] **Step 8.6: Test sidecar**
-
-Importeer een IFC-bestand via de UI (als beschikbaar in de Backstage/import-flow). Verwacht: sidecar `ifc-tool` reageert; modeller toont geïmporteerde ruimtes.
-
-Als geen test-IFC voorhanden: open de DevTools console of check de logs of de sidecar überhaupt opstart.
+Start de app via shortcut. Verwacht: window opent zonder OS-decorations (custom TitleBar), frontend laadt.
 
 - [ ] **Step 8.7: Test uninstall**
 
-Via Windows Settings → Apps → "ISSO 51 Warmteverliesberekening" → Uninstall.
+Windows Settings → Apps → "ISSO 51 Warmteverliesberekening" → Uninstall.
 
-Verifieer:
 ```powershell
 Test-Path "$env:LOCALAPPDATA\Programs\ISSO 51 Warmteverliesberekening"
 ```
@@ -687,28 +638,26 @@ Expected: `False`.
 
 - [ ] **Step 8.8: (Geen commit) — handmatige verificatie afgerond**
 
-Als alle stappen 8.1-8.7 slagen: PR 1 is klaar voor merge. Geen extra commit nodig.
-
-Als één stap faalt: documenteer wat er misgaat, ga terug naar de relevante Task hierboven.
+Als alle stappen 8.5-8.7 slagen: PR 1 is klaar voor merge.
 
 ---
 
 ## Final checklist
 
 - [ ] Alle commits aanwezig op de branch (`git log --oneline` toont tasks 1-7).
-- [ ] `dist/installer/*.exe` bestaat en installeert succesvol.
-- [ ] Wizard in NL, per-user install, shortcut werkt, app start, uninstall werkt.
-- [ ] Geen wijzigingen buiten de bestanden gespecificeerd in "File Structure" hierboven (behalve eventuele door `npx tauri icon` gegenereerde extra bestanden zoals Android/Linux/iOS-iconen).
-- [ ] PR aanmaken: titel `feat(installer): Windows NSIS installer (lokale build)`, body verwijst naar [docs/superpowers/specs/2026-05-08-windows-installer-design.md](../specs/2026-05-08-windows-installer-design.md) en deze plan.
+- [ ] CI workflow run is succesvol op de branch.
+- [ ] Artifact `windows-installer.zip` bevat een `.exe` dat installeert + start + uninstalled correct.
+- [ ] PR aanmaken: titel `feat(installer): Windows NSIS installer via GitHub Actions`, body verwijst naar [docs/superpowers/specs/2026-05-08-windows-installer-design.md](../specs/2026-05-08-windows-installer-design.md) en deze plan.
 
 ---
 
 ## Wat hierna komt (PR 2 — apart plan)
 
 Pas na merge van PR 1:
-1. GitHub Actions workflow (`.github/workflows/release.yml`) — tag-based release naar GitHub Releases.
-2. Frontend update-check (`frontend/src/lib/updateCheck.ts`) — vergelijk huidige versie met `releases/latest`.
-3. UpdateBanner component in TitleBar.
-4. `docs/releasing.md` — release-procedure.
+1. **Lokaal build-script** (`tools/build-installer.ps1`) — voor dev-iteratie zonder CI-wachttijd (vereist VS Build Tools).
+2. **Release-on-tag workflow** — push tag `v*` → automatisch GitHub Release met `.exe` als asset.
+3. **Frontend update-check** (`frontend/src/lib/updateCheck.ts`) — vergelijk huidige versie met `releases/latest`.
+4. **UpdateBanner** in TitleBar.
+5. **`docs/releasing.md`** — release-procedure.
 
-Het plan voor PR 2 wordt geschreven nadat PR 1 gemerged is, omdat dat de exacte integratie-paden voor de UpdateBanner vastlegt.
+Het plan voor PR 2 wordt geschreven nadat PR 1 gemerged is.
