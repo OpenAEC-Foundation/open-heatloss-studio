@@ -7,8 +7,15 @@ on:
         description: "Reason for manual run (optional, shown in run name)"
         required: false
         default: "manual test build"
+  push:
+    branches:
+      - "claude/**"
+      - "feature/installer**"
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 
-run-name: "Installer build — ${{ inputs.reason }}"
+run-name: "Installer build — ${{ inputs.reason || github.event.head_commit.message }}"
 
 permissions:
   contents: read
