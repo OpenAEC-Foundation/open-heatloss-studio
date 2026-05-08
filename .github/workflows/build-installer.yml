@@ -51,7 +51,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
+            target
           key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-${{ runner.os }}-
@@ -71,8 +71,8 @@ jobs:
         id: locate
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
-          if (-not $exe) { throw "No .exe found in src-tauri/target/release/bundle/nsis" }
+          $exe = Get-ChildItem -Path target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw "No .exe found in target/release/bundle/nsis" }
           "exe_path=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "exe_name=$($exe.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Found: $($exe.FullName)"
