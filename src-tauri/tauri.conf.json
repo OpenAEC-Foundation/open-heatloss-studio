@@ -43,13 +43,12 @@
                             ],
                    "windows":  {
                                    "nsis":  {
-                                                "installMode":  "perUser",
+                                                "installMode":  "currentUser",
                                                 "languages":  [
                                                                   "Dutch"
                                                               ],
                                                 "displayLanguageSelector":  false,
-                                                "installerIcon":  "icons/icon.ico",
-                                                "shortcutName":  "ISSO 51 Warmteverliesberekening"
+                                                "installerIcon":  "icons/icon.ico"
                                             }
                                }
                }
