@@ -372,7 +372,7 @@ export function Modeller() {
     try {
       const doc = modelToIfcx(state.rooms, state.windows, state.doors, {
         projectName,
-        author: "ISSO 51 Warmteverliesberekening",
+        author: "Open Heatloss Studio",
       });
 
       const json = JSON.stringify(doc, null, 2);

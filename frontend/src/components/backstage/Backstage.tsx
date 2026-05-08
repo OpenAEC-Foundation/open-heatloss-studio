@@ -461,7 +461,7 @@ function AboutPanel() {
           </svg>
         </div>
         <div className="bs-about-app-info">
-          <h1 className="bs-about-app-name">ISSO 51 Warmteverliesberekening</h1>
+          <h1 className="bs-about-app-name">Open Heatloss Studio</h1>
           <p className="bs-about-version">{t("aboutPanel.version")} {__APP_VERSION__}</p>
         </div>
       </div>

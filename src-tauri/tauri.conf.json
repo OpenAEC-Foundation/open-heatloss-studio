@@ -1,6 +1,6 @@
 {
     "$schema":  "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/tauri.conf.json",
-    "productName":  "ISSO 51 Warmteverliesberekening",
+    "productName":  "Open Heatloss Studio",
     "version":  "0.1.1",
     "identifier":  "nl.openaec.isso51",
     "build":  {
@@ -13,7 +13,7 @@
                 "windows":  [
                                 {
                                     "label":  "main",
-                                    "title":  "ISSO 51 Warmteverliesberekening",
+                                    "title":  "Open Heatloss Studio",
                                     "width":  1280,
                                     "height":  800,
                                     "minWidth":  900,

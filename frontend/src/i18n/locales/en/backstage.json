@@ -27,7 +27,7 @@
   "saveError": "Save error",
   "aboutPanel": {
     "title": "About",
-    "appName": "ISSO 51 Warmteverliesberekening",
+    "appName": "Open Heatloss Studio",
     "version": "Version",
     "tagline": "Heat loss calculation according to ISSO 51:2023",
     "description": "Complete tool for heat loss calculations according to the ISSO 51 standard. Available as web application, desktop app (Tauri) and calculation library.",
