@@ -12,6 +12,7 @@ import { splitPolygon } from "../components/modeller";
 import { importIfcFile } from "../components/modeller/ifc-import";
 import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
 import { isTauri, createBackend, importIfcServer, type IfcSidecarResult } from "../lib/backend";
+import { ReadOnlyModellerViewer } from "../components/modeller/ReadOnlyModellerViewer";
 import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
 import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
 import { CatalogueBrowserPanel } from "../components/modeller/CatalogueBrowserPanel";
@@ -40,6 +41,9 @@ export function Modeller() {
   const [isImporting, setIsImporting] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
+
+  // Project (calc-side data — read-only viewer leest hieruit)
+  const project = useProjectStore((s) => s.project);
 
   // Store
   const rooms = useModellerStore((s) => s.rooms);
@@ -539,23 +543,13 @@ export function Modeller() {
           onAssignRoof={assignRoofConstruction}
         />
 
-        {/* Center: Canvas area — 2D/3D viewer tijdelijk vervangen door WIP placeholder.
+        {/* Center: Canvas area — read-only viewer derived from project.rooms.
             FloorCanvas/FloorCanvas3D blijven geïmporteerd zodat alle bijbehorende
-            handlers compileren; ze worden alleen niet meer gerenderd. Restoren =
-            de placeholder hieronder vervangen door de oude conditional terug. */}
+            handlers compileren maar worden niet meer gerenderd. De drawing-tools
+            uit de Ribbon blijven cosmetisch zichtbaar maar zijn no-ops; PR E
+            ruimt die op zodra de viewer-flow stabiel is. */}
         <div className="relative min-w-0 flex-1">
-          <div className="flex h-full w-full items-center justify-center bg-surface-2 select-none">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="text-xs font-medium uppercase tracking-widest text-scaffold-gray">
-                {viewMode === "2d" ? "2D modeller" : "3D viewer"}
-              </div>
-              <div className="text-3xl font-bold text-on-surface">WORK IN PROGRESS</div>
-              <p className="max-w-md text-sm text-on-surface-2">
-                De 2D/3D modeller is tijdelijk uitgeschakeld terwijl we de
-                koppeling met de Vertrekken-tabel herontwerpen.
-              </p>
-            </div>
-          </div>
+          <ReadOnlyModellerViewer project={project} />
           {/* Canvas placeholders — markeer de imports als used voor TS strict mode */}
           {false && (
             <>
