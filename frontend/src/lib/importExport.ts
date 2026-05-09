@@ -28,6 +28,7 @@ import {
   serializeIfcEnergy,
   type ModellerSnapshot,
 } from "./ifcenergy";
+import { isTauri } from "./backend";
 
 const SCHEMA_ID = "isso51-project-v1";
 const EXPORT_VERSION = "1.0.0";
@@ -142,29 +143,53 @@ function snapshotModellerState(): ModellerSnapshot {
 }
 
 /**
- * Export project + result + modeller as a downloadable `.ifcenergy` file.
+ * Export project + result + modeller as a `.ifcenergy` file.
+ *
+ * In Tauri-mode: opent een native Windows save-dialog (filter `.ifcenergy`)
+ * en schrijft het document naar het gekozen pad via `@tauri-apps/plugin-fs`.
+ * In web-mode: fall-back naar Blob + anchor-download (browser default).
  *
  * Het bestand is een geldige IFCX (IFC5 alpha) document — zie `ifcenergy.ts`
- * voor de envelope-structuur en namespace-conventies. Default save format
- * voor nieuwe projecten; legacy `.isso51.json` blijft beschikbaar via
- * `exportProject` voor backwards-compat use cases (oude integraties).
+ * voor envelope-structuur. Legacy `.isso51.json` blijft beschikbaar via
+ * `exportProject` voor backwards-compat use cases.
  */
-export function exportIfcEnergy(
+export async function exportIfcEnergy(
   project: Project,
   result: ProjectResult | null,
-): void {
+): Promise<void> {
   const doc = buildIfcEnergyDocument({
     project,
     result,
     modeller: snapshotModellerState(),
   });
   const json = serializeIfcEnergy(doc);
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
 
   const name = project.info.name || "project";
   const safeName = name.replace(/[^a-zA-Z0-9_\-\s]/g, "").trim() || "project";
 
+  if (isTauri()) {
+    try {
+      const [{ save }, { writeTextFile }] = await Promise.all([
+        import("@tauri-apps/plugin-dialog"),
+        import("@tauri-apps/plugin-fs"),
+      ]);
+      const filePath = await save({
+        defaultPath: `${safeName}.ifcenergy`,
+        filters: [
+          { name: "Open Heatloss Studio", extensions: ["ifcenergy"] },
+        ],
+      });
+      if (!filePath) return; // user cancelled
+      await writeTextFile(filePath, json);
+      return;
+    } catch (err) {
+      console.error("Tauri save failed, falling back to browser download:", err);
+    }
+  }
+
+  // Web-mode (or Tauri fallback): blob + anchor download.
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = `${safeName}.ifcenergy`;
