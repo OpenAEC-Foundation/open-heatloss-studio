@@ -14,7 +14,12 @@ import type {
   VerticalPosition,
 } from "../types";
 import type { CatalogueCategory } from "./constructionCatalogue";
-import type { ProjectConstruction } from "../components/modeller/types";
+import type {
+  ModelDoor,
+  ModelRoom,
+  ModelWindow,
+  ProjectConstruction,
+} from "../components/modeller/types";
 import { useModellerStore } from "../components/modeller/modellerStore";
 
 const SCHEMA_ID = "isso51-project-v1";
@@ -30,6 +35,13 @@ export interface ThermalImportDetected {
   rawJson: string;
 }
 
+/** Modeller geometry section of the envelope. */
+interface ModellerEnvelope {
+  rooms: ModelRoom[];
+  windows: ModelWindow[];
+  doors: ModelDoor[];
+}
+
 /** Envelope format written to disk. */
 interface ProjectEnvelope {
   version: string;
@@ -43,6 +55,13 @@ interface ProjectEnvelope {
    * Optional for backwards-compat with envelopes written before bug H fix.
    */
   project_constructions?: ProjectConstruction[];
+  /**
+   * Modeller geometry (2D/3D rooms, windows, doors). Optional —
+   * envelopes written before this field existed don't have it; the
+   * importer treats the absence as "this project has no modeller data"
+   * and clears the modeller store accordingly.
+   */
+  modeller?: ModellerEnvelope;
 }
 
 /** Result of a successful regular project import. */
@@ -59,11 +78,13 @@ export function exportProject(
   project: Project,
   result: ProjectResult | null,
 ): void {
-  // Snapshot project constructions from modellerStore. These live outside
-  // the Project type but are required to keep room.constructions[].
-  // project_construction_id references valid after re-import elsewhere.
-  const projectConstructions =
-    useModellerStore.getState().projectConstructions;
+  // Snapshot project constructions and modeller geometry from modellerStore.
+  // Both live outside the Project type but are needed for a faithful re-import:
+  //   - project_construction_id references on Room.constructions[]
+  //   - 2D/3D room polygons, windows, doors drawn in the modeller
+  // Without persisting modeller data, re-import would show a different
+  // modeller state than what was authored (stale localStorage).
+  const storeState = useModellerStore.getState();
 
   const envelope: ProjectEnvelope = {
     version: EXPORT_VERSION,
@@ -71,7 +92,12 @@ export function exportProject(
     exported_at: new Date().toISOString(),
     project,
     result,
-    project_constructions: projectConstructions,
+    project_constructions: storeState.projectConstructions,
+    modeller: {
+      rooms: storeState.rooms,
+      windows: storeState.windows,
+      doors: storeState.doors,
+    },
   };
 
   const json = JSON.stringify(envelope, null, 2);
@@ -134,11 +160,25 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
       useModellerStore.getState().replaceProjectConstructions(pcs);
     }
 
+    // Replace modeller geometry to match the imported project. If the
+    // envelope omits modeller data (legacy `.isso51.json` files exported
+    // before this field existed), we clear the store so the user doesn't
+    // see stale rooms/windows/doors from a previously-loaded project's
+    // localStorage. Same root cause as the Memeleiland mismatch bug.
+    const modeller = obj.modeller as ModellerEnvelope | undefined;
+    useModellerStore.getState().importModel(
+      modeller?.rooms ?? [],
+      modeller?.windows ?? [],
+      modeller?.doors ?? [],
+    );
+
     return { type: "project", project, result };
   }
 
-  // Try as raw Project JSON.
+  // Try as raw Project JSON. No envelope means no modeller data either —
+  // clear the store so tables and modeller stay in sync.
   const project = validateProject(data);
+  useModellerStore.getState().importModel([], [], []);
   return { type: "project", project, result: null };
 }
 
