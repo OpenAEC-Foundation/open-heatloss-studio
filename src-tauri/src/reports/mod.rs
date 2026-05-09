@@ -6,3 +6,4 @@ pub mod blocks;
 pub mod brand;
 pub mod fonts;
 pub mod schema;
+pub mod special_pages;
