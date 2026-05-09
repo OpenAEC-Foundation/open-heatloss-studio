@@ -12,8 +12,12 @@ import { splitPolygon } from "../components/modeller";
 import { importIfcFile } from "../components/modeller/ifc-import";
 import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
 import { isTauri, createBackend, importIfcServer, type IfcSidecarResult } from "../lib/backend";
-import { ReadOnlyModellerViewer } from "../components/modeller/ReadOnlyModellerViewer";
 import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
+import {
+  deriveModelDoors,
+  deriveModelRooms,
+  deriveModelWindows,
+} from "../lib/deriveRoomGeometry";
 import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
 import { CatalogueBrowserPanel } from "../components/modeller/CatalogueBrowserPanel";
 import { modelToIfcx } from "../components/modeller/ifcx-builder";
@@ -42,13 +46,16 @@ export function Modeller() {
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
 
-  // Project (calc-side data — read-only viewer leest hieruit)
+  // Project (calc-side data — modeller is een viewer hierop)
   const project = useProjectStore((s) => s.project);
 
-  // Store
-  const rooms = useModellerStore((s) => s.rooms);
-  const windows = useModellerStore((s) => s.windows);
-  const doors = useModellerStore((s) => s.doors);
+  // Modeller-rooms zijn afgeleid van project.rooms (single source of truth).
+  // useModellerStore.rooms/windows/doors blijven bestaan voor backwards-compat
+  // maar worden niet meer gerenderd. Wanneer de viewer weer editable wordt,
+  // mutateren de handlers `project` (via useProjectStore) i.p.v. de modellerStore.
+  const rooms = useMemo(() => deriveModelRooms(project), [project]);
+  const windows = useMemo(() => deriveModelWindows(project), [project]);
+  const doors = useMemo(() => deriveModelDoors(project), [project]);
 
   const underlay = useModellerStore((s) => s.underlay);
   const wallConstructions = useModellerStore((s) => s.wallConstructions);
@@ -543,55 +550,58 @@ export function Modeller() {
           onAssignRoof={assignRoofConstruction}
         />
 
-        {/* Center: Canvas area — read-only viewer derived from project.rooms.
-            FloorCanvas/FloorCanvas3D blijven geïmporteerd zodat alle bijbehorende
-            handlers compileren maar worden niet meer gerenderd. De drawing-tools
-            uit de Ribbon blijven cosmetisch zichtbaar maar zijn no-ops; PR E
-            ruimt die op zodra de viewer-flow stabiel is. */}
+        {/* Center: 2D/3D canvas area.
+            Rooms/windows/doors zijn afgeleid van project.rooms (calc-data).
+            Edit-handlers blijven gewired (no-ops voor display nu, omdat modellerStore-mutaties
+            niet meer zichtbaar zijn) — bij latere editable-iteratie worden ze omgezet
+            naar project-mutaties. Een kleine "Read-only viewer"-badge maakt de
+            huidige status duidelijk voor de gebruiker. */}
         <div className="relative min-w-0 flex-1">
-          <ReadOnlyModellerViewer project={project} />
-          {/* Canvas placeholders — markeer de imports als used voor TS strict mode */}
-          {false && (
-            <>
-              <FloorCanvas
-                rooms={floorRooms}
-                windows={floorWindows}
-                doors={floorDoors}
-                selection={selection}
-                tool={tool}
-                snap={snap}
-                underlay={underlay}
-                wallConstructions={wallConstructions}
-                catalogueUValues={catalogueUValues}
-                wallBoundaryTypes={wallBoundaryTypes}
-                ghostRooms={belowFloorRooms}
-                onSelect={setSelection}
-                onAddRoom={handleAddRoom}
-                onAddWindow={handleAddWindow}
-                onAddDoor={handleAddDoor}
-                onMoveRoom={handleMoveRoom}
-                onMoveVertex={handleMoveVertex}
-                onUpdateWindow={handleUpdateWindow}
-                onRemoveRoom={handleRemoveRoom}
-                onRemoveWindow={handleRemoveWindow}
-                onSplitRoom={handleSplitRoom}
-                onMergeRooms={handleMergeRooms}
-                fitViewTrigger={fitViewTrigger}
-              />
-              <FloorCanvas3D
-                rooms={rooms}
-                windows={windows}
-                doors={doors}
-                selection={selection}
-                onSelect={setSelection}
-                onDeleteRoom={handleRemoveRoom}
-                wallConstructions={wallConstructions}
-                floorConstructions={floorConstructions}
-                roofConstructions={roofConstructions}
-                catalogueUValues={catalogueUValues}
-              />
-            </>
+          {viewMode === "2d" ? (
+            <FloorCanvas
+              rooms={floorRooms}
+              windows={floorWindows}
+              doors={floorDoors}
+              selection={selection}
+              tool={tool}
+              snap={snap}
+              underlay={underlay}
+              wallConstructions={wallConstructions}
+              catalogueUValues={catalogueUValues}
+              wallBoundaryTypes={wallBoundaryTypes}
+              ghostRooms={belowFloorRooms}
+              onSelect={setSelection}
+              onAddRoom={handleAddRoom}
+              onAddWindow={handleAddWindow}
+              onAddDoor={handleAddDoor}
+              onMoveRoom={handleMoveRoom}
+              onMoveVertex={handleMoveVertex}
+              onUpdateWindow={handleUpdateWindow}
+              onRemoveRoom={handleRemoveRoom}
+              onRemoveWindow={handleRemoveWindow}
+              onSplitRoom={handleSplitRoom}
+              onMergeRooms={handleMergeRooms}
+              fitViewTrigger={fitViewTrigger}
+            />
+          ) : (
+            <FloorCanvas3D
+              rooms={rooms}
+              windows={windows}
+              doors={doors}
+              selection={selection}
+              onSelect={setSelection}
+              onDeleteRoom={handleRemoveRoom}
+              wallConstructions={wallConstructions}
+              floorConstructions={floorConstructions}
+              roofConstructions={roofConstructions}
+              catalogueUValues={catalogueUValues}
+            />
           )}
+
+          {/* Read-only badge — overlay linksboven om de huidige modus te markeren */}
+          <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-md bg-surface/95 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-scaffold-gray shadow-sm backdrop-blur-sm">
+            Read-only viewer
+          </div>
 
           {/* IFC import loading overlay */}
           {isImporting && (
