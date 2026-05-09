@@ -13,8 +13,8 @@
     "dependencies": {
         "@openaec/ui": "github:OpenAEC-Foundation/openaec-ui",
         "@tauri-apps/api": "^2.10.1",
-        "@tauri-apps/plugin-dialog": "^2.7.1",
-        "@tauri-apps/plugin-fs": "^2.5.1",
+        "@tauri-apps/plugin-dialog": "2.6.0",
+        "@tauri-apps/plugin-fs": "2.4.5",
         "@thatopen/components": "^3.3.3",
         "@thatopen/fragments": "^3.3.6",
         "i18next": "^25.8.18",
