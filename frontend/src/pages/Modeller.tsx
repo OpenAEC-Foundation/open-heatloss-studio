@@ -539,47 +539,64 @@ export function Modeller() {
           onAssignRoof={assignRoofConstruction}
         />
 
-        {/* Center: Canvas area with 2D/3D overlay */}
+        {/* Center: Canvas area — 2D/3D viewer tijdelijk vervangen door WIP placeholder.
+            FloorCanvas/FloorCanvas3D blijven geïmporteerd zodat alle bijbehorende
+            handlers compileren; ze worden alleen niet meer gerenderd. Restoren =
+            de placeholder hieronder vervangen door de oude conditional terug. */}
         <div className="relative min-w-0 flex-1">
-          {viewMode === "2d" ? (
-            <FloorCanvas
-              rooms={floorRooms}
-              windows={floorWindows}
-              doors={floorDoors}
-              selection={selection}
-              tool={tool}
-              snap={snap}
-              underlay={underlay}
-              wallConstructions={wallConstructions}
-              catalogueUValues={catalogueUValues}
-              wallBoundaryTypes={wallBoundaryTypes}
-              ghostRooms={belowFloorRooms}
-              onSelect={setSelection}
-              onAddRoom={handleAddRoom}
-              onAddWindow={handleAddWindow}
-              onAddDoor={handleAddDoor}
-              onMoveRoom={handleMoveRoom}
-              onMoveVertex={handleMoveVertex}
-              onUpdateWindow={handleUpdateWindow}
-              onRemoveRoom={handleRemoveRoom}
-              onRemoveWindow={handleRemoveWindow}
-              onSplitRoom={handleSplitRoom}
-              onMergeRooms={handleMergeRooms}
-              fitViewTrigger={fitViewTrigger}
-            />
-          ) : (
-            <FloorCanvas3D
-              rooms={rooms}
-              windows={windows}
-              doors={doors}
-              selection={selection}
-              onSelect={setSelection}
-              onDeleteRoom={handleRemoveRoom}
-              wallConstructions={wallConstructions}
-              floorConstructions={floorConstructions}
-              roofConstructions={roofConstructions}
-              catalogueUValues={catalogueUValues}
-            />
+          <div className="flex h-full w-full items-center justify-center bg-surface-2 select-none">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="text-xs font-medium uppercase tracking-widest text-scaffold-gray">
+                {viewMode === "2d" ? "2D modeller" : "3D viewer"}
+              </div>
+              <div className="text-3xl font-bold text-on-surface">WORK IN PROGRESS</div>
+              <p className="max-w-md text-sm text-on-surface-2">
+                De 2D/3D modeller is tijdelijk uitgeschakeld terwijl we de
+                koppeling met de Vertrekken-tabel herontwerpen.
+              </p>
+            </div>
+          </div>
+          {/* Canvas placeholders — markeer de imports als used voor TS strict mode */}
+          {false && (
+            <>
+              <FloorCanvas
+                rooms={floorRooms}
+                windows={floorWindows}
+                doors={floorDoors}
+                selection={selection}
+                tool={tool}
+                snap={snap}
+                underlay={underlay}
+                wallConstructions={wallConstructions}
+                catalogueUValues={catalogueUValues}
+                wallBoundaryTypes={wallBoundaryTypes}
+                ghostRooms={belowFloorRooms}
+                onSelect={setSelection}
+                onAddRoom={handleAddRoom}
+                onAddWindow={handleAddWindow}
+                onAddDoor={handleAddDoor}
+                onMoveRoom={handleMoveRoom}
+                onMoveVertex={handleMoveVertex}
+                onUpdateWindow={handleUpdateWindow}
+                onRemoveRoom={handleRemoveRoom}
+                onRemoveWindow={handleRemoveWindow}
+                onSplitRoom={handleSplitRoom}
+                onMergeRooms={handleMergeRooms}
+                fitViewTrigger={fitViewTrigger}
+              />
+              <FloorCanvas3D
+                rooms={rooms}
+                windows={windows}
+                doors={doors}
+                selection={selection}
+                onSelect={setSelection}
+                onDeleteRoom={handleRemoveRoom}
+                wallConstructions={wallConstructions}
+                floorConstructions={floorConstructions}
+                roofConstructions={roofConstructions}
+                catalogueUValues={catalogueUValues}
+              />
+            </>
           )}
 
           {/* IFC import loading overlay */}
