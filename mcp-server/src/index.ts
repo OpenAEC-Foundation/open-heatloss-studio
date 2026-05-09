@@ -231,6 +231,54 @@ server.tool(
   },
 );
 
+// ----- Tool: generate_pdf ---------------------------------------------------
+
+/**
+ * Resolve path naar het `gen_pdf` binary (built via
+ * `cargo build --release --bin gen_pdf`).
+ */
+function genPdfBinaryPath(): string {
+  const exeName = process.platform === "win32" ? "gen_pdf.exe" : "gen_pdf";
+  const candidates = [
+    join(REPO_ROOT, "target", "release", exeName),
+    join(REPO_ROOT, "target", "debug", exeName),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  throw new Error(
+    `gen_pdf binary niet gevonden. Build eerst:\n  cargo build --release --bin gen_pdf\n` +
+      `(Of download het uit de CI artifact 'gen-pdf-cli'.)\n` +
+      `Gezocht in:\n${candidates.map((c) => `  ${c}`).join("\n")}`,
+  );
+}
+
+server.tool(
+  "generate_pdf",
+  "Genereer een PDF-rapport uit een project-bestand (.ifcenergy / .isso51.json / raw Project JSON). Schrijft naar het opgegeven output-pad. Vereist dat het `gen_pdf` binary is gebouwd (cargo build --release --bin gen_pdf, OF download van CI artifact gen-pdf-cli).",
+  {
+    inputPath: z.string().describe("Absoluut pad naar input bestand (.ifcenergy / .isso51.json / project.json)"),
+    outputPath: z.string().describe("Absoluut pad waar de PDF geschreven moet worden"),
+  },
+  async ({ inputPath, outputPath }) => {
+    const bin = genPdfBinaryPath();
+    const { stdout, stderr } = await execFileAsync(bin, [inputPath, outputPath], {
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            `PDF gegenereerd: ${outputPath}\n\n` +
+            (stdout ? `stdout: ${stdout}\n` : "") +
+            (stderr ? `stderr: ${stderr}` : ""),
+        },
+      ],
+    };
+  },
+);
+
 // ----- Tool: get_schema -----------------------------------------------------
 
 server.tool(

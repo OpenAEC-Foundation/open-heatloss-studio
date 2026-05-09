@@ -96,3 +96,30 @@ jobs:
           path: ${{ steps.locate.outputs.exe_path }}
           retention-days: 14
           if-no-files-found: error
+
+      - name: Build gen_pdf CLI binary
+        shell: pwsh
+        run: cargo build --release --bin gen_pdf
+
+      - name: Smoke-test gen_pdf on portiekwoning fixture
+        shell: pwsh
+        run: |
+          $bin = "target/release/gen_pdf.exe"
+          $fixture = "tests/fixtures/portiekwoning.json"
+          $out = "target/portiekwoning-smoke.pdf"
+          if (-not (Test-Path $fixture)) {
+            Write-Host "Fixture niet gevonden — gen_pdf binary alleen geüpload, geen smoke-PDF."
+            exit 0
+          }
+          & $bin $fixture $out
+          Write-Host "Smoke PDF: $out ($((Get-Item $out).Length) bytes)"
+
+      - name: Upload gen_pdf binary + smoke PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: gen-pdf-cli
+          path: |
+            target/release/gen_pdf.exe
+            target/portiekwoning-smoke.pdf
+          retention-days: 14
+          if-no-files-found: warn

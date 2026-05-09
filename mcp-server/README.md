@@ -76,6 +76,17 @@ Output: korte samenvatting (aansluitvermogen, transmissie, ventilatie,
 systeemverliezen) plus pointer naar `result://current` voor het volledige
 resultaat.
 
+### `generate_pdf`
+
+Genereer PDF-rapport uit een project-bestand. Vereist dat het `gen_pdf`
+CLI binary is gebouwd (`cargo build --release --bin gen_pdf` vanaf
+repo-root, of download `gen-pdf-cli` artifact uit de laatste CI run).
+
+| Parameter | Type | Required | Omschrijving |
+|---|---|---|---|
+| `inputPath` | string | Ja | Absoluut pad naar .ifcenergy / .isso51.json / project.json |
+| `outputPath` | string | Ja | Absoluut pad voor de output PDF |
+
 ### `parse_ifcenergy`
 
 Parse een `.ifcenergy` document zonder te berekenen — geeft `{ project,
