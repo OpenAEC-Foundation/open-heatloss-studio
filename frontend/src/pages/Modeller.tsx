@@ -26,7 +26,7 @@ import { useToastStore } from "../store/toastStore";
 import { useProjectStore } from "../store/projectStore";
 import { useModellerToolStore } from "../store/modellerToolStore";
 import { useAllConstructions } from "../hooks/useAllConstructions";
-import { importProject, exportProject, extractAndLinkConstructions } from "../lib/importExport";
+import { openProjectFile, exportIfcEnergy, extractAndLinkConstructions } from "../lib/importExport";
 import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
@@ -406,21 +406,21 @@ export function Modeller() {
 
   const handleExportJson = useCallback(() => {
     const { project, result } = useProjectStore.getState();
-    exportProject(project, result);
-    addToast("Project geexporteerd", "success");
+    exportIfcEnergy(project, result);
+    addToast("Project geexporteerd als .ifcenergy", "success");
   }, [addToast]);
 
   const handleImportJson = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".json,.isso51.json";
+    input.accept = ".ifcenergy,.json,.isso51.json";
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const imported = importProject(reader.result as string);
+          const imported = openProjectFile(reader.result as string);
 
           // Thermal import detected — redirect to wizard
           if (imported.type === "thermal") {

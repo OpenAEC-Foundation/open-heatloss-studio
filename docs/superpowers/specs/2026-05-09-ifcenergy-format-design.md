@@ -3,7 +3,21 @@
 **Datum:** 2026-05-09
 **Status:** Design — klaar voor planning + implementatie
 **Branch:** `claude/laughing-kirch-752da4`
-**Volgt op:** PR A (modeller-table sync fix in `.isso51.json` envelope)
+**Volgt op:** PR A (modeller-table sync fix in `.isso51.json` envelope) + PR D (modeller als read-only viewer derived van `project.rooms`)
+
+## Addendum 2026-05-09 — modeller-derived architectuur
+
+Sinds PR D is de modeller een **read-only viewer** die polygonen afleidt uit `project.rooms` (calc-data). `useModellerStore.rooms/windows/doors` zijn niet meer de bron van waarheid voor de viewer. Wel blijven ze bestaan voor:
+- `projectConstructions` (laag-stack bibliotheek per project)
+- `wallConstructions` / `floorConstructions` / `roofConstructions` (per-wand toewijzingen aan ProjectConstruction)
+- `wallBoundaryTypes` (per-wand boundary type overrides, tbv styling)
+- `underlay` (PNG onderlegger voor toekomstige editable modus)
+
+**Implicatie voor `.ifcenergy`:**
+- `isso51::modeller::*` namespace **wel meegenomen** (per gebruiker-keuze) als toekomst-proof opslag voor wanneer modeller weer editable wordt
+- In de huidige code: bij export bevat het modeller-blok meestal lege arrays voor rooms/windows/doors (modellerStore is leeg in viewer-mode), maar wel de `projectConstructions` en assignment-maps
+- Bij import: modeller-blok wordt geladen in modellerStore (incl. eventuele rooms/windows/doors voor toekomstige editable)
+- De viewer rendert nog steeds primair uit `project.rooms` (derived); modellerStore.rooms blijft leeg tot editable mode terugkomt
 
 ## Doel
 

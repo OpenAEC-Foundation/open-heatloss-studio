@@ -21,6 +21,13 @@ import type {
   ProjectConstruction,
 } from "../components/modeller/types";
 import { useModellerStore } from "../components/modeller/modellerStore";
+import {
+  buildIfcEnergyDocument,
+  detectFormat,
+  parseIfcEnergy,
+  serializeIfcEnergy,
+  type ModellerSnapshot,
+} from "./ifcenergy";
 
 const SCHEMA_ID = "isso51-project-v1";
 const EXPORT_VERSION = "1.0.0";
@@ -112,6 +119,107 @@ export function exportProject(
   a.download = `${safeName}.isso51.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Snapshot the entire modellerStore state into a `ModellerSnapshot` for the
+ * .ifcenergy envelope. Centralized here so future modeller fields land in
+ * both legacy and new export paths consistently.
+ */
+function snapshotModellerState(): ModellerSnapshot {
+  const s = useModellerStore.getState();
+  return {
+    rooms: s.rooms,
+    windows: s.windows,
+    doors: s.doors,
+    projectConstructions: s.projectConstructions,
+    wallConstructions: s.wallConstructions,
+    floorConstructions: s.floorConstructions,
+    roofConstructions: s.roofConstructions,
+    wallBoundaryTypes: s.wallBoundaryTypes,
+    underlay: s.underlay,
+  };
+}
+
+/**
+ * Export project + result + modeller as a downloadable `.ifcenergy` file.
+ *
+ * Het bestand is een geldige IFCX (IFC5 alpha) document — zie `ifcenergy.ts`
+ * voor de envelope-structuur en namespace-conventies. Default save format
+ * voor nieuwe projecten; legacy `.isso51.json` blijft beschikbaar via
+ * `exportProject` voor backwards-compat use cases (oude integraties).
+ */
+export function exportIfcEnergy(
+  project: Project,
+  result: ProjectResult | null,
+): void {
+  const doc = buildIfcEnergyDocument({
+    project,
+    result,
+    modeller: snapshotModellerState(),
+  });
+  const json = serializeIfcEnergy(doc);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const name = project.info.name || "project";
+  const safeName = name.replace(/[^a-zA-Z0-9_\-\s]/g, "").trim() || "project";
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName}.ifcenergy`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Top-level open dispatcher: route file content to the correct importer
+ * based on shape detection.
+ *
+ * Returns the same shape as `importProject` for legacy compatibility, plus
+ * an extra `format` field so callers can show "loaded as .ifcenergy" vs
+ * "loaded as legacy .isso51.json" UI hints if desired.
+ *
+ * Side effects on the modellerStore are identical to `importProject` — geometry
+ * arrays are replaced (or cleared if absent in the file) so the modeller stays
+ * in sync with the loaded project.
+ */
+export function openProjectFile(
+  jsonString: string,
+): (ImportResult | ThermalImportDetected) & { format?: "ifcenergy" | "isso51-legacy" | "thermal-import" } {
+  const fmt = detectFormat(jsonString);
+
+  if (fmt === "ifcenergy") {
+    const parsed = parseIfcEnergy(jsonString);
+    const project = validateProject(parsed.project);
+    const result = parsed.result ? validateProjectResult(parsed.result) : null;
+
+    // Restore project constructions if present.
+    if (parsed.modeller.projectConstructions.length > 0) {
+      useModellerStore.getState().replaceProjectConstructions(
+        parsed.modeller.projectConstructions,
+      );
+    }
+
+    // Restore modeller geometry — same semantics as legacy: replace arrays
+    // (or clear when empty) so tables and modeller stay in sync.
+    useModellerStore.getState().importModel(
+      parsed.modeller.rooms,
+      parsed.modeller.windows,
+      parsed.modeller.doors,
+    );
+
+    return { type: "project", project, result, format: "ifcenergy" };
+  }
+
+  // Fall back to legacy importer for `.isso51.json`, raw Project JSON,
+  // or thermal-import files. The legacy importer also handles modeller
+  // state side effects in importProject().
+  const legacy = importProject(jsonString);
+  if (legacy.type === "thermal") {
+    return { ...legacy, format: "thermal-import" };
+  }
+  return { ...legacy, format: "isso51-legacy" };
 }
 
 /**

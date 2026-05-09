@@ -6,7 +6,7 @@ import RibbonGroup from "./RibbonGroup";
 import { reportIcon, exportIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
-import { exportProject } from "../../lib/importExport";
+import { exportIfcEnergy } from "../../lib/importExport";
 import { buildReportData } from "../../lib/reportBuilder";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
@@ -40,7 +40,7 @@ export default function ResultatenTab() {
   }, [project, result, addToast]);
 
   const handleExport = useCallback(() => {
-    exportProject(project, result);
+    exportIfcEnergy(project, result);
     addToast(i18next.t("projectExported"), "success");
   }, [project, result, addToast]);
 

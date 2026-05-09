@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { isTauri, createProject, updateProject } from "../../lib/backend";
 import {
-  importProject,
-  exportProject,
+  openProjectFile,
+  exportIfcEnergy,
   extractAndLinkConstructions,
 } from "../../lib/importExport";
 import { useProjectStore } from "../../store/projectStore";
@@ -170,7 +170,7 @@ export default function Backstage({
 
       try {
         const text = await file.text();
-        const imported = importProject(text);
+        const imported = openProjectFile(text);
 
         // Thermal import detected — redirect to wizard with raw JSON
         if (imported.type === "thermal") {
@@ -241,8 +241,8 @@ export default function Backstage({
         );
       }
     } else {
-      // Not logged in — export locally
-      exportProject(project, result);
+      // Not logged in — export locally as .ifcenergy (default save format)
+      exportIfcEnergy(project, result);
       onClose();
       addToast(t("savedLocally"), "success");
     }
@@ -279,7 +279,7 @@ export default function Backstage({
   }, [project, setActiveProjectId, onClose, addToast, t]);
 
   const handleSaveAsLocal = useCallback(() => {
-    exportProject(project, result);
+    exportIfcEnergy(project, result);
     onClose();
     addToast(t("savedLocally"), "success");
   }, [project, result, onClose, addToast, t]);
@@ -434,7 +434,7 @@ export default function Backstage({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,.isso51.json"
+        accept=".ifcenergy,.json,.isso51.json"
         onChange={handleFileSelected}
         style={{ display: "none" }}
       />

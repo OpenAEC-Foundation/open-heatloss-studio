@@ -10,7 +10,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
-import { exportProject, importProject, extractAndLinkConstructions } from "../lib/importExport";
+import { exportIfcEnergy, openProjectFile, extractAndLinkConstructions } from "../lib/importExport";
 import { formatArea } from "../lib/formatNumber";
 import { prepareProjectForCalculation } from "../lib/frameOverride";
 import { useModellerStore } from "../components/modeller/modellerStore";
@@ -140,7 +140,7 @@ export function ProjectSetup() {
 
   const handleExport = useCallback(() => {
     const { result } = useProjectStore.getState();
-    exportProject(project, result);
+    exportIfcEnergy(project, result);
   }, [project]);
 
   const handleImportFile = useCallback(
@@ -151,7 +151,7 @@ export function ProjectSetup() {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const imported = importProject(reader.result as string);
+          const imported = openProjectFile(reader.result as string);
 
           // Thermal import detected — redirect to wizard
           if (imported.type === "thermal") {
@@ -682,7 +682,7 @@ export function ProjectSetup() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".ifcenergy,.json,.isso51.json"
         className="hidden"
         onChange={handleImportFile}
       />
