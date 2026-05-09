@@ -4,7 +4,9 @@
     "vertrekken": "Rooms",
     "constructies": "Constructions",
     "modeller": "Modeller",
-    "resultaten": "Results"
+    "ifc": "IFC",
+    "resultaten": "Results",
+    "rapport": "Report"
   },
   "vertrekken": {
     "rooms": "Rooms",
