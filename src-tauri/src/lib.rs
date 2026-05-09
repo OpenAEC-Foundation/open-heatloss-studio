@@ -1,6 +1,7 @@
 //! ISSO 51 Tauri v2 desktop application.
 
 mod commands;
+pub mod reports;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
