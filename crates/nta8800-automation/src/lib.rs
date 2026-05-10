@@ -21,7 +21,6 @@
 //! | Temporele regeling | Nee | Continue regeling, klok-schema's |
 //! | Zonale regeling | Nee | Zone-specifieke f_BAC |
 //! | Sensorische feedback | Nee | Aanwezigheids-/lichtdetectie |
-//! | Gebouwautomatisering (§15) | Ja | `nta8800-automation` |
 //!
 //! **V1 uitgangspunten:**
 //! - Klasse D = niet-energie-efficiënt (f_BAC ≥ 1.0)
