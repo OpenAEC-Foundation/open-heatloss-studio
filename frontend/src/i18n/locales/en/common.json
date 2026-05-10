@@ -62,6 +62,16 @@
     "materials": "Materials",
     "projects": "Projects",
     "unsaved": "Unsaved",
-    "saved": "Saved"
+    "saved": "Saved",
+    "groups": {
+      "warmteverlies": "Heat loss",
+      "tojuli": "Summer overheating",
+      "rcwaarde": "R-value",
+      "library": "Library"
+    },
+    "tojuli": {
+      "comingSoon": "Coming soon"
+    },
+    "rcCompare": "R-value comparator"
   }
 }

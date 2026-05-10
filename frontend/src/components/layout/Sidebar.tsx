@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { isTauri } from "../../lib/backend";
@@ -84,8 +85,6 @@ function IconFolder({ className }: { className?: string }) {
   );
 }
 
-/* ─── Nav data with icon components ─── */
-
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -98,23 +97,160 @@ function IconClipboardList({ className }: { className?: string }) {
   );
 }
 
-const NAV_MAIN = [
-  { to: "/project", labelKey: "sidebar.project", Icon: IconHome },
-  { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
-  { to: "/constructies", labelKey: "sidebar.constructions", Icon: IconClipboardList },
-  { to: "/modeller", labelKey: "sidebar.modeller", Icon: IconCube },
-  { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
-] as const;
+function IconChevron({ className, expanded }: { className?: string; expanded: boolean }) {
+  return (
+    <svg
+      className={`${className ?? ""} transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
-const NAV_LIBRARY = [
-  { to: "/library", labelKey: "sidebar.library", Icon: IconBook },
-  { to: "/rc", labelKey: "sidebar.rcValue", Icon: IconLayers },
-  { to: "/materialen", labelKey: "sidebar.materials", Icon: IconSwatches },
-] as const;
+/* ─── Types ─── */
+
+type IconComponent = React.ComponentType<{ className?: string }>;
+
+type GroupKey = "warmteverlies" | "tojuli" | "rcwaarde" | "library";
+
+type NavItemSpec = {
+  to: string;
+  labelKey: string;
+  Icon: IconComponent;
+  disabled?: boolean;
+  /** i18n key for tooltip when disabled */
+  disabledTitleKey?: string;
+};
+
+type NavGroupSpec = {
+  key: GroupKey;
+  titleKey: string;
+  /** Default collapsed state (used on first load before localStorage hydrates) */
+  defaultCollapsed: boolean;
+  items: ReadonlyArray<NavItemSpec>;
+  /** Render extra footer node inside the group (e.g. Projects link in web mode) */
+  webFooter?: boolean;
+};
+
+/* ─── Nav data ─── */
+
+const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
+  {
+    key: "warmteverlies",
+    titleKey: "sidebar.groups.warmteverlies",
+    defaultCollapsed: false,
+    webFooter: true,
+    items: [
+      { to: "/project", labelKey: "sidebar.project", Icon: IconHome },
+      { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
+      { to: "/constructies", labelKey: "sidebar.constructions", Icon: IconClipboardList },
+      { to: "/modeller", labelKey: "sidebar.modeller", Icon: IconCube },
+      { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
+    ],
+  },
+  {
+    key: "tojuli",
+    titleKey: "sidebar.groups.tojuli",
+    defaultCollapsed: true,
+    items: [
+      {
+        to: "",
+        labelKey: "sidebar.tojuli.comingSoon",
+        Icon: IconBarChart,
+        disabled: true,
+        disabledTitleKey: "sidebar.tojuli.comingSoon",
+      },
+    ],
+  },
+  {
+    key: "rcwaarde",
+    titleKey: "sidebar.groups.rcwaarde",
+    defaultCollapsed: false,
+    items: [
+      { to: "/rc", labelKey: "sidebar.rcValue", Icon: IconLayers },
+      {
+        to: "",
+        labelKey: "sidebar.rcCompare",
+        Icon: IconLayers,
+        disabled: true,
+        disabledTitleKey: "sidebar.tojuli.comingSoon",
+      },
+    ],
+  },
+  {
+    key: "library",
+    titleKey: "sidebar.groups.library",
+    defaultCollapsed: true,
+    items: [
+      { to: "/materialen", labelKey: "sidebar.materials", Icon: IconSwatches },
+      { to: "/library", labelKey: "sidebar.library", Icon: IconBook },
+    ],
+  },
+];
+
+/* ─── Persistent collapsed state ─── */
+
+const STORAGE_KEY = "sidebar.groupCollapsed";
+
+type CollapsedMap = Record<GroupKey, boolean>;
+
+function readStoredCollapsed(): Partial<CollapsedMap> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Partial<CollapsedMap>;
+    }
+  } catch {
+    // ignore corrupt localStorage
+  }
+  return {};
+}
+
+function writeStoredCollapsed(map: CollapsedMap): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // quota or privacy mode — ignore
+  }
+}
+
+function useGroupCollapsed(): [CollapsedMap, (key: GroupKey) => void] {
+  const [state, setState] = useState<CollapsedMap>(() => {
+    const stored = readStoredCollapsed();
+    const initial = {} as CollapsedMap;
+    for (const group of NAV_GROUPS) {
+      initial[group.key] =
+        typeof stored[group.key] === "boolean" ? (stored[group.key] as boolean) : group.defaultCollapsed;
+    }
+    return initial;
+  });
+
+  const toggle = (key: GroupKey) => {
+    setState((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      writeStoredCollapsed(next);
+      return next;
+    });
+  };
+
+  return [state, toggle];
+}
 
 /* ─── Components ─── */
 
-function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: React.ComponentType<{ className?: string }> }) {
+function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: IconComponent }) {
   const { t } = useTranslation();
   return (
     <li>
@@ -140,6 +276,23 @@ function NavItem({ to, labelKey, Icon }: { to: string; labelKey: string; Icon: R
   );
 }
 
+function DisabledNavItem({ labelKey, Icon, titleKey }: { labelKey: string; Icon: IconComponent; titleKey?: string }) {
+  const { t } = useTranslation();
+  const title = titleKey ? t(titleKey) : undefined;
+  return (
+    <li>
+      <div
+        aria-disabled="true"
+        title={title}
+        className="flex items-center gap-3 rounded px-3 py-2 text-sm text-on-surface-muted opacity-50 cursor-not-allowed select-none"
+      >
+        <Icon className="text-scaffold-gray" />
+        {t(labelKey)}
+      </div>
+    </li>
+  );
+}
+
 /** Shows Projects nav link in web mode. */
 function ProjectsNavLink() {
   return (
@@ -147,6 +300,57 @@ function ProjectsNavLink() {
       <li className="mx-3 my-3 border-t border-[var(--oaec-border-subtle)]" />
       <NavItem to="/projects" labelKey="sidebar.projects" Icon={IconFolder} />
     </>
+  );
+}
+
+function NavGroup({
+  group,
+  expanded,
+  onToggle,
+  showWebFooter,
+}: {
+  group: NavGroupSpec;
+  expanded: boolean;
+  onToggle: () => void;
+  showWebFooter: boolean;
+}) {
+  const { t } = useTranslation();
+  const regionId = `sidebar-group-${group.key}`;
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={regionId}
+        className="flex w-full items-center gap-1.5 px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray hover:text-on-surface transition-colors"
+      >
+        <IconChevron expanded={expanded} className="text-scaffold-gray" />
+        <span>{t(group.titleKey)}</span>
+      </button>
+      <div
+        id={regionId}
+        role="region"
+        aria-label={t(group.titleKey) ?? undefined}
+        className={`overflow-hidden transition-all duration-150 ${expanded ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
+        <ul className="space-y-0.5">
+          {group.items.map((item) =>
+            item.disabled ? (
+              <DisabledNavItem
+                key={`${group.key}-${item.labelKey}`}
+                labelKey={item.labelKey}
+                Icon={item.Icon}
+                titleKey={item.disabledTitleKey}
+              />
+            ) : (
+              <NavItem key={item.to} to={item.to} labelKey={item.labelKey} Icon={item.Icon} />
+            ),
+          )}
+          {showWebFooter && group.webFooter && <ProjectsNavLink />}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -168,36 +372,54 @@ function SaveStatus() {
 }
 
 export function Sidebar() {
-  const { t } = useTranslation();
   const isWeb = !isTauri();
+  const [collapsed, toggle] = useGroupCollapsed();
+  const location = useLocation();
+
+  // Auto-expand the group that contains the active route, without persisting the override.
+  const effectiveExpanded = useMemo(() => {
+    const result = {} as Record<GroupKey, boolean>;
+    for (const group of NAV_GROUPS) {
+      const groupHasActiveRoute = group.items.some(
+        (item) => !item.disabled && item.to !== "" && location.pathname.startsWith(item.to),
+      );
+      // expanded = !collapsed; auto-expand overrides collapsed when route matches
+      result[group.key] = !collapsed[group.key] || groupHasActiveRoute;
+    }
+    return result;
+  }, [collapsed, location.pathname]);
+
+  // Self-heal: if stored map is missing keys (e.g. after adding new groups), persist defaults once.
+  useEffect(() => {
+    const stored = readStoredCollapsed();
+    const missing = NAV_GROUPS.some((g) => typeof stored[g.key] !== "boolean");
+    if (missing) {
+      const merged = {} as CollapsedMap;
+      for (const g of NAV_GROUPS) {
+        merged[g.key] =
+          typeof stored[g.key] === "boolean" ? (stored[g.key] as boolean) : g.defaultCollapsed;
+      }
+      writeStoredCollapsed(merged);
+    }
+  }, []);
 
   return (
     <aside className="flex w-sidebar shrink-0 flex-col border-r border-[var(--oaec-border-subtle)] bg-surface-alt text-on-surface-secondary overflow-hidden">
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {/* Main section */}
-        <p className="px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray">
-          {t("sidebar.calculation")}
-        </p>
-        <ul className="space-y-0.5">
-          {NAV_MAIN.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-          {isWeb && <ProjectsNavLink />}
-        </ul>
-
-        {/* Divider */}
-        <div className="mx-3 my-3 border-t border-[var(--oaec-border-subtle)]" />
-
-        {/* Library section */}
-        <p className="px-3 pb-1.5 pt-3 font-mono text-2xs font-medium uppercase tracking-wider text-scaffold-gray">
-          {t("sidebar.tools")}
-        </p>
-        <ul className="space-y-0.5">
-          {NAV_LIBRARY.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-        </ul>
+        {NAV_GROUPS.map((group, idx) => (
+          <div key={group.key}>
+            <NavGroup
+              group={group}
+              expanded={effectiveExpanded[group.key]}
+              onToggle={() => toggle(group.key)}
+              showWebFooter={isWeb}
+            />
+            {idx < NAV_GROUPS.length - 1 && (
+              <div className="mx-3 my-2 border-t border-[var(--oaec-border-subtle)]" />
+            )}
+          </div>
+        ))}
       </nav>
 
       {/* Save status */}

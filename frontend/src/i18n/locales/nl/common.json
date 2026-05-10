@@ -62,6 +62,16 @@
     "materials": "Materialen",
     "projects": "Projecten",
     "unsaved": "Niet opgeslagen",
-    "saved": "Opgeslagen"
+    "saved": "Opgeslagen",
+    "groups": {
+      "warmteverlies": "Warmteverlies",
+      "tojuli": "TO-juli",
+      "rcwaarde": "Rc-waarde",
+      "library": "Bibliotheek"
+    },
+    "tojuli": {
+      "comingSoon": "Binnenkort"
+    },
+    "rcCompare": "Rc-vergelijker"
   }
 }
