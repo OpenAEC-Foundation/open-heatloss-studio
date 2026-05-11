@@ -1,16 +1,16 @@
 /**
- * Rapport-page — toont de gegenereerde PDF in een iframe + een opties-paneel
- * waar de gebruiker voorbladafbeelding en sectie-toggles kan instellen.
+ * Rapport-page — toont de gegenereerde PDF in een iframe + een
+ * inklapbaar opties-paneel.
  *
- * Layout (split-pane):
- *   left  ~320px: Opties (afbeelding · secties · paginaformaat)
- *   right flex: PDF preview iframe
+ * Layout: collapsible sidebar links (toggle via chevron-button), PDF iframe
+ * vult de rest. Default: ingeklapt zodat de preview maximale breedte heeft;
+ * klap open wanneer je voorbladafbeelding of sectie-opties wilt aanpassen.
  *
- * Workflow: gebruiker stelt opties in → klikt "Genereren" in de Ribbon
- * (RapportTab) → PDF wordt gebouwd en de Blob URL belandt in
- * `useReportStore.pdfBlobUrl` → deze page rendert 'm in een iframe.
+ * Workflow: gebruiker klikt "Genereren" in de Ribbon (RapportTab) → PDF
+ * wordt gebouwd en de Blob URL belandt in `useReportStore.pdfBlobUrl` →
+ * deze page rendert 'm in een iframe.
  */
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { useReportStore } from "../store/reportStore";
 import { useProjectStore } from "../store/projectStore";
@@ -23,6 +23,7 @@ export function Rapport() {
   const generatedAt = useReportStore((s) => s.generatedAt);
   const result = useProjectStore((s) => s.result);
   const project = useProjectStore((s) => s.project);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const updateProject = useProjectStore((s) => s.updateProject);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -104,8 +105,46 @@ export function Rapport() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: opties paneel */}
-        <aside className="w-[320px] shrink-0 overflow-y-auto border-r border-border bg-surface p-4">
+        {/* Left: opties paneel — collapsible (default ingeklapt zodat preview
+            de volledige breedte krijgt). Toggle-rail blijft altijd zichtbaar. */}
+        <aside
+          className={`relative shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] duration-150 ease-out ${
+            optionsOpen ? "w-[320px]" : "w-10"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setOptionsOpen((v) => !v)}
+            className="absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
+            title={optionsOpen ? "Opties inklappen" : "Opties uitklappen"}
+            aria-label={optionsOpen ? "Opties inklappen" : "Opties uitklappen"}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform duration-150 ${
+                optionsOpen ? "" : "rotate-180"
+              }`}
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          {!optionsOpen && (
+            <div
+              className="absolute left-1/2 top-12 -translate-x-1/2 whitespace-nowrap text-[10px] uppercase tracking-wide text-on-surface-muted"
+              style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+            >
+              Opties
+            </div>
+          )}
+        {optionsOpen && (
+        <div className="h-full overflow-y-auto p-4 pt-10">
           <h2 className="mb-3 text-sm font-semibold text-on-surface">Opties</h2>
 
           {/* Voorbladafbeelding */}
@@ -183,6 +222,8 @@ export function Rapport() {
               Sectie-toggles volgen in een latere release.
             </p>
           </section>
+        </div>
+        )}
         </aside>
 
         {/* Right: PDF preview */}
