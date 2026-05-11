@@ -41,6 +41,14 @@
                                 "icons/icon.icns",
                                 "icons/icon.ico"
                             ],
+                   "fileAssociations":  [
+                                            {
+                                                "ext":  ["ifcenergy"],
+                                                "name":  "Open Heatloss Studio Project",
+                                                "description":  "Open Heatloss Studio warmteverliesproject (IFCX)",
+                                                "role":  "Editor"
+                                            }
+                                        ],
                    "windows":  {
                                    "nsis":  {
                                                 "installMode":  "currentUser",

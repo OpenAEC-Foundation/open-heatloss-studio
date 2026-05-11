@@ -4,7 +4,9 @@
 //! as the main content. PageBreak is used between sections so each
 //! special page lands on its own physical page.
 
-use openaec_layout::{Flowable, PageBreak, Paragraph, ParagraphStyle, Pt, Spacer};
+use openaec_layout::{
+    Alignment, Flowable, ImageFlowable, Mm, PageBreak, Paragraph, ParagraphStyle, Pt, Spacer,
+};
 
 use super::brand::OhsBrand;
 use super::schema::{BackcoverConfig, Colofon, Cover, Section, TocConfig};
@@ -32,8 +34,29 @@ pub fn render_cover(
     cover: &Cover,
     _brand: &OhsBrand,
 ) -> Vec<Box<dyn Flowable>> {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+
     let mut out: Vec<Box<dyn Flowable>> = Vec::new();
-    out.push(Box::new(Spacer::from_mm(60.0)));
+
+    // Top margin: smaller when an image is present (image takes the visual
+    // top half of the page); generous spacing when there's just text.
+    let has_image = cover
+        .image
+        .as_ref()
+        .map(|i| !i.data.is_empty())
+        .unwrap_or(false);
+    out.push(Box::new(Spacer::from_mm(if has_image { 20.0 } else { 60.0 })));
+
+    if let Some(image) = &cover.image {
+        let bytes = STANDARD.decode(&image.data).unwrap_or_default();
+        if !bytes.is_empty() {
+            let width: Pt = Mm(170.0).into();
+            if let Ok(img) = ImageFlowable::from_bytes(bytes, width) {
+                out.push(Box::new(img.with_alignment(Alignment::Center)));
+                out.push(Box::new(Spacer::from_mm(14.0)));
+            }
+        }
+    }
 
     let mut title_style = ParagraphStyle::default();
     title_style.bold = true;
@@ -49,7 +72,7 @@ pub fn render_cover(
         out.push(Box::new(Paragraph::new(sub.clone(), sub_style)));
     }
 
-    out.push(Box::new(Spacer::from_mm(40.0)));
+    out.push(Box::new(Spacer::from_mm(if has_image { 20.0 } else { 40.0 })));
 
     let mut date_style = ParagraphStyle::default();
     date_style.font_size = Pt(11.0);

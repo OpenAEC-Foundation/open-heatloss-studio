@@ -167,9 +167,58 @@ export default function Backstage({
     onNavigate?.("/projects");
   }, [onClose, onNavigate]);
 
-  const handleOpenLocal = useCallback(() => {
+  const handleOpenLocal = useCallback(async () => {
+    // Tauri: native open dialog met .ifcenergy filter — geeft een echt pad
+    // terug zodat de recent-files-lijst persistent kan refereren.
+    if (isTauri()) {
+      try {
+        const [{ open }, { readTextFile }] = await Promise.all([
+          import("@tauri-apps/plugin-dialog"),
+          import("@tauri-apps/plugin-fs"),
+        ]);
+        const selected = await open({
+          multiple: false,
+          filters: [
+            {
+              name: "Open Heatloss Studio Project",
+              extensions: ["ifcenergy", "json", "isso51.json"],
+            },
+          ],
+        });
+        if (!selected || Array.isArray(selected)) return;
+        const text = await readTextFile(selected);
+        const imported = openProjectFile(text);
+        if (imported.type === "thermal") {
+          addToast(
+            "Thermal import gedetecteerd — open via de wizard i.p.v. Bestand",
+            "info",
+          );
+          return;
+        }
+        extractAndLinkConstructions(imported.project);
+        setProject(imported.project);
+        if (imported.result) {
+          useProjectStore.getState().setResult(imported.result);
+        }
+        const fileName = selected.split(/[\\/]/).pop() ?? "project.ifcenergy";
+        useRecentFilesStore.getState().push({
+          name: imported.project.info.name || fileName,
+          fileName,
+          path: selected,
+        });
+        onClose();
+        onNavigate?.("/rooms");
+        addToast(t("opened"), "success");
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${t("importError")}: ${msg}`, "error");
+        return;
+      }
+    }
+    // Browser fallback: hidden file input
     fileInputRef.current?.click();
-  }, []);
+  }, [setProject, onClose, onNavigate, addToast, t]);
 
   const handleFileSelected = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {

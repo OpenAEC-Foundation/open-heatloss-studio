@@ -2,10 +2,15 @@ import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
-import { updateProject, createProject } from "../../lib/backend";
-import { exportProject } from "../../lib/importExport";
+import { updateProject, createProject, isTauri } from "../../lib/backend";
+import {
+  exportProject,
+  openProjectFile,
+  extractAndLinkConstructions,
+} from "../../lib/importExport";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
+import { useRecentFilesStore } from "../../store/recentFilesStore";
 import i18next from "../../i18n/config";
 import { getSetting } from "../../tauriStore";
 import { useModellerStore } from "../modeller/modellerStore";
@@ -48,6 +53,83 @@ export function AppShell({ children }: AppShellProps) {
       .then(({ getCurrentWindow }) => getCurrentWindow().show())
       .catch(() => {});
   }, []);
+
+  // ─── File-association handling ────────────────────────────────────────
+  // When Windows opens a `.ifcenergy` file via double-click, Tauri's backend
+  // emits an `open-file` event with the absolute path. Listen once and run
+  // the same import pipeline as Bestand → Openen → Lokaal bestand.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [{ listen }, { readTextFile }, { invoke }] = await Promise.all([
+          import("@tauri-apps/api/event"),
+          import("@tauri-apps/plugin-fs"),
+          import("@tauri-apps/api/core"),
+        ]);
+
+        // Helper that imports the project at `path` and routes the user
+        // to /rooms — identical to Backstage.handleFileSelected.
+        const importPath = async (path: string) => {
+          try {
+            const text = await readTextFile(path);
+            const imported = openProjectFile(text);
+            if (imported.type === "thermal") {
+              addToast(
+                "Thermal import — open via de wizard i.p.v. dubbelklik",
+                "info",
+              );
+              return;
+            }
+            extractAndLinkConstructions(imported.project);
+            useProjectStore.getState().setProject(imported.project);
+            if (imported.result) {
+              useProjectStore.getState().setResult(imported.result);
+            }
+            const fileName = path.split(/[\\/]/).pop() ?? "project.ifcenergy";
+            useRecentFilesStore.getState().push({
+              name: imported.project.info.name || fileName,
+              fileName,
+              path,
+            });
+            navigate("/rooms");
+            addToast(i18next.t("backstage:opened"), "success");
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            addToast(`Openen mislukt: ${msg}`, "error");
+          }
+        };
+
+        // 1. Cold-launch: check if argv carried a path
+        try {
+          const initial = await invoke<string | null>("launched_with_file");
+          if (initial && !cancelled) {
+            void importPath(initial);
+          }
+        } catch {
+          // Tauri command missing (dev mode or older build) — ignore
+        }
+
+        // 2. Subsequent open-file events (single-instance pickup)
+        unlisten = await listen<string>("open-file", (event) => {
+          if (cancelled) return;
+          if (typeof event.payload === "string" && event.payload.length > 0) {
+            void importPath(event.payload);
+          }
+        });
+      } catch {
+        // Event API or fs plugin failed to load — silently skip
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (unlisten) unlisten();
+    };
+  }, [navigate, addToast]);
 
   // --- Global keyboard shortcuts ---
   const handleKeyDown = useCallback(
