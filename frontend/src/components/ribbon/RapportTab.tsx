@@ -28,6 +28,7 @@ export default function RapportTab() {
   const setPageSize = useReportStore((s) => s.setPageSize);
   const orientation = useReportStore((s) => s.orientation);
   const setOrientation = useReportStore((s) => s.setOrientation);
+  const sections = useReportStore((s) => s.sections);
   const setPdfBlobUrl = useReportStore((s) => s.setPdfBlobUrl);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -41,7 +42,12 @@ export default function RapportTab() {
     }
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(project, result, projectConstructions);
+      const reportData = await buildReportData(
+        project,
+        result,
+        projectConstructions,
+        sections,
+      );
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       setPdfBlobUrl(url);
@@ -52,7 +58,7 @@ export default function RapportTab() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, projectConstructions, addToast, setPdfBlobUrl]);
+  }, [project, result, projectConstructions, sections, addToast, setPdfBlobUrl]);
 
   const handleDownload = useCallback(() => {
     const url = useReportStore.getState().pdfBlobUrl;

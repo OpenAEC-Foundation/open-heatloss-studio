@@ -12,9 +12,22 @@
  */
 import { useCallback, useRef, useState } from "react";
 
-import { useReportStore } from "../store/reportStore";
+import { useReportStore, type ReportSections } from "../store/reportStore";
 import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
+
+/** Volgorde + labels van sectie-toggles in het opties-paneel. */
+const SECTION_LABELS: ReadonlyArray<readonly [keyof ReportSections, string]> = [
+  ["colofon", "Colofon"],
+  ["toc", "Inhoudsopgave"],
+  ["uitgangspunten", "Uitgangspunten"],
+  ["constructies", "Constructie-opbouw & Rc-waarden"],
+  ["vertrekkenOverzicht", "Vertrekken overzicht"],
+  ["perVertrek", "Per vertrek (invoer + resultaten)"],
+  ["diagrammen", "Diagrammen"],
+  ["gebouwresultaten", "Gebouwresultaten"],
+  ["backcover", "Backcover"],
+];
 
 const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 
@@ -25,6 +38,9 @@ export function Rapport() {
   const project = useProjectStore((s) => s.project);
   const [optionsOpen, setOptionsOpen] = useState(true);
   const updateProject = useProjectStore((s) => s.updateProject);
+  const sections = useReportStore((s) => s.sections);
+  const setSection = useReportStore((s) => s.setSection);
+  const resetSections = useReportStore((s) => s.resetSections);
   const addToast = useToastStore((s) => s.addToast);
 
   // Helper: update only the `info` sub-object, leaving the rest of the project
@@ -201,25 +217,43 @@ export function Rapport() {
             />
           </section>
 
-          {/* Inhoud info */}
+          {/* Secties toggles */}
           <section className="rounded-md border border-border bg-surface-2 p-3">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-on-surface-secondary">
-              Inhoud (standaard)
-            </h3>
-            <ul className="space-y-1 text-[11px] text-on-surface-muted">
-              <li>· Cover (+ voorblad-afbeelding)</li>
-              <li>· Colofon</li>
-              <li>· Inhoudsopgave</li>
-              <li>· Uitgangspunten</li>
-              <li>· Constructie-opbouw &amp; Rc-waarden + temperatuurverloop</li>
-              <li>· Vertrekken overzicht</li>
-              <li>· Per vertrek: invoer + reken-resultaten</li>
-              <li>· Diagrammen</li>
-              <li>· Gebouwresultaten</li>
-              <li>· Backcover</li>
-            </ul>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-on-surface-secondary">
+                Inhoud
+              </h3>
+              <button
+                type="button"
+                onClick={resetSections}
+                className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary"
+                title="Alles aan"
+              >
+                reset
+              </button>
+            </div>
+            <p className="mb-2 text-[10px] text-on-surface-muted">
+              Vink secties uit om ze uit het PDF-rapport weg te laten.
+            </p>
+            <div className="space-y-1.5">
+              {SECTION_LABELS.map(([key, label]) => (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center gap-2 text-[11px] text-on-surface"
+                >
+                  <input
+                    type="checkbox"
+                    checked={sections[key]}
+                    onChange={(e) => setSection(key, e.target.checked)}
+                    className="h-3.5 w-3.5 cursor-pointer accent-[var(--theme-accent)]"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
             <p className="mt-2 text-[10px] text-on-surface-muted">
-              Sectie-toggles volgen in een latere release.
+              Cover staat altijd aan. Bij volgende "Genereren" worden de
+              toggles toegepast.
             </p>
           </section>
         </div>

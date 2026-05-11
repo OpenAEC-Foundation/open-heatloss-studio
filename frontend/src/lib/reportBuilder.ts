@@ -44,6 +44,36 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Welke top-level secties in de PDF terechtkomen.
+ *
+ * Default = alles aan; gebruiker schakelt secties uit via de Rapport-page
+ * toggles. Cover staat ALTIJD aan (de PDF moet een voorblad hebben), dus
+ * die zit hier niet bij.
+ */
+export interface ReportSectionToggles {
+  colofon: boolean;
+  toc: boolean;
+  uitgangspunten: boolean;
+  constructies: boolean;
+  vertrekkenOverzicht: boolean;
+  perVertrek: boolean;
+  diagrammen: boolean;
+  gebouwresultaten: boolean;
+  backcover: boolean;
+}
+
+const ALL_SECTIONS_ON: ReportSectionToggles = {
+  colofon: true,
+  toc: true,
+  uitgangspunten: true,
+  constructies: true,
+  vertrekkenOverzicht: true,
+  perVertrek: true,
+  diagrammen: true,
+  gebouwresultaten: true,
+  backcover: true,
+};
+
 /** Build BM Reports JSON from project input + calculation result.
  *
  * `projectConstructions` is optioneel — wanneer aangeleverd voegt de
@@ -51,11 +81,15 @@ function todayIso(): string {
  * opbouw met layers één sub-sectie met Laagopbouw-tabel en
  * R/U-resultaten). Wordt door RapportTab doorgegeven vanuit
  * `useModellerStore.projectConstructions`.
+ *
+ * `toggles` bepaalt welke top-level secties opgenomen worden in de PDF.
+ * Default: alles aan.
  */
 export async function buildReportData(
   project: Project,
   result: ProjectResult,
   projectConstructions: ProjectConstruction[] = [],
+  toggles: ReportSectionToggles = ALL_SECTIONS_ON,
 ): Promise<Record<string, unknown>> {
   const today = todayIso();
   const projectName = project.info.name || "Naamloos project";
@@ -97,7 +131,7 @@ export async function buildReportData(
     },
 
     colofon: {
-      enabled: true,
+      enabled: toggles.colofon,
       opdrachtgever_naam: project.info.client ?? "",
       adviseur_bedrijf: "3BM Bouwkunde",
       adviseur_naam: project.info.engineer ?? "",
@@ -117,21 +151,21 @@ export async function buildReportData(
     },
 
     toc: {
-      enabled: true,
+      enabled: toggles.toc,
       title: "Inhoudsopgave",
       max_depth: 2,
     },
 
     sections: [
-      buildUitgangspuntenSection(project),
-      ...(constructiesSection ? [constructiesSection] : []),
-      buildVertrekkenOverzichtSection(result),
-      ...buildRoomSections(project, result),
-      ...(diagrammenSection ? [diagrammenSection] : []),
-      buildGebouwresultatenSection(result),
+      ...(toggles.uitgangspunten ? [buildUitgangspuntenSection(project)] : []),
+      ...(toggles.constructies && constructiesSection ? [constructiesSection] : []),
+      ...(toggles.vertrekkenOverzicht ? [buildVertrekkenOverzichtSection(result)] : []),
+      ...(toggles.perVertrek ? buildRoomSections(project, result) : []),
+      ...(toggles.diagrammen && diagrammenSection ? [diagrammenSection] : []),
+      ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(result)] : []),
     ],
 
-    backcover: { enabled: true },
+    backcover: { enabled: toggles.backcover },
 
     metadata: {
       engine: "isso51-core",

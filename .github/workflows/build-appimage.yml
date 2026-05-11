@@ -1,0 +1,131 @@
+name: Build Linux AppImage
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual run (optional, shown in run name)"
+        required: false
+        default: "manual test build"
+  push:
+    branches:
+      - "claude/**"
+      - "feature/installer**"
+      - "feature/linux**"
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+run-name: "AppImage build — ${{ inputs.reason || github.event.head_commit.message }}"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-appimage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      # Tauri 2 needs WebKitGTK + a handful of system libs on Linux for the
+      # WebView and the AppImage bundler. The package names below come from
+      # the Tauri 2 prerequisites docs (Ubuntu/Debian).
+      - name: Install Tauri 2 system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Sync version
+        shell: pwsh
+        run: ./tools/sync-version.ps1
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Clean stale bundle output
+        run: |
+          if [ -d target/release/bundle/appimage ]; then
+            rm -f target/release/bundle/appimage/*.AppImage || true
+            echo "Cleared stale AppImage files."
+          else
+            echo "No stale bundle dir to clean."
+          fi
+
+      # Tauri 2 verifies every `externalBin` has a platform-suffixed binary
+      # before building. We declare `binaries/ifc-tool` as a sidecar (Python
+      # PyInstaller bundle that ships pre-built per platform). For the Linux
+      # AppImage build we have no real Linux build yet, so plant a 0-byte
+      # placeholder identical to the Windows fallback — the frontend already
+      # handles "sidecar exit != 0" gracefully when IFC import is invoked.
+      - name: Create ifc-tool Linux placeholder
+        run: |
+          mkdir -p src-tauri/binaries
+          touch src-tauri/binaries/ifc-tool-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/ifc-tool-x86_64-unknown-linux-gnu
+
+      - name: Build AppImage bundle
+        run: npx --yes @tauri-apps/cli build --bundles appimage
+
+      - name: Locate built AppImage
+        id: locate
+        run: |
+          set -euo pipefail
+          appimage=$(ls -t target/release/bundle/appimage/*.AppImage 2>/dev/null | head -n1 || true)
+          if [ -z "$appimage" ]; then
+            echo "No AppImage found in target/release/bundle/appimage/"
+            ls -la target/release/bundle/ || true
+            exit 1
+          fi
+          chmod +x "$appimage"
+          echo "appimage_path=$appimage" >> "$GITHUB_OUTPUT"
+          echo "appimage_name=$(basename "$appimage")" >> "$GITHUB_OUTPUT"
+          echo "Found: $appimage"
+
+      - name: Upload AppImage as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: ${{ steps.locate.outputs.appimage_path }}
+          retention-days: 14
+          if-no-files-found: error
