@@ -34,11 +34,20 @@ impl Default for OhsBrand {
 
 impl OhsBrand {
     /// Build a `PageCallback` with the given header context.
-    pub fn page_callback(&self, project_name: &str, report_title: &str) -> OhsPageCallback {
+    ///
+    /// `suppress_chrome_on_last` skips header/footer drawing on the final page,
+    /// used when a backcover is present and shouldn't carry the running chrome.
+    pub fn page_callback(
+        &self,
+        project_name: &str,
+        report_title: &str,
+        suppress_chrome_on_last: bool,
+    ) -> OhsPageCallback {
         OhsPageCallback {
             brand: *self,
             project_name: project_name.to_string(),
             report_title: report_title.to_string(),
+            suppress_chrome_on_last,
         }
     }
 }
@@ -48,6 +57,7 @@ pub struct OhsPageCallback {
     pub brand: OhsBrand,
     pub project_name: String,
     pub report_title: String,
+    pub suppress_chrome_on_last: bool,
 }
 
 impl PageCallback for OhsPageCallback {
@@ -58,6 +68,10 @@ impl PageCallback for OhsPageCallback {
         total_pages: usize,
         size: Size,
     ) {
+        if self.suppress_chrome_on_last && page_num == total_pages && total_pages > 1 {
+            return;
+        }
+
         let margin: Pt = Mm(12.0).into();
         let right_edge = Pt(size.width.0 - margin.0);
 
@@ -110,7 +124,7 @@ mod tests {
     #[test]
     fn callback_does_not_panic_on_first_page() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening");
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", false);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
@@ -120,5 +134,34 @@ mod tests {
         cb.on_page(&mut dl, 1, 5, size);
         // Should have produced multiple draw operations
         assert!(!dl.ops.is_empty());
+    }
+
+    #[test]
+    fn callback_suppresses_chrome_on_last_page_when_flag_set() {
+        let brand = OhsBrand::default();
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true);
+        let mut dl = openaec_layout::DrawList::new();
+        let size = openaec_layout::Size {
+            width: openaec_layout::Mm(210.0).into(),
+            height: openaec_layout::Mm(297.0).into(),
+        };
+        cb.on_page(&mut dl, 5, 5, size);
+        assert!(
+            dl.ops.is_empty(),
+            "no draw ops should be emitted on suppressed last page"
+        );
+    }
+
+    #[test]
+    fn callback_draws_chrome_on_non_last_page_when_flag_set() {
+        let brand = OhsBrand::default();
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true);
+        let mut dl = openaec_layout::DrawList::new();
+        let size = openaec_layout::Size {
+            width: openaec_layout::Mm(210.0).into(),
+            height: openaec_layout::Mm(297.0).into(),
+        };
+        cb.on_page(&mut dl, 3, 5, size);
+        assert!(!dl.ops.is_empty(), "intermediate pages still get chrome");
     }
 }

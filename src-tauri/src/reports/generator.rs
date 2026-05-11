@@ -4,15 +4,17 @@
 //! hands it to openaec-layout's DocTemplate which produces the actual PDF.
 
 use openaec_layout::{
-    A3, A4, DocTemplate, Flowable, Frame, Mm, PageTemplate, Paragraph, ParagraphStyle, Pt, Rect,
-    Spacer, shared_font_registry,
+    A3, A4, DocTemplate, Flowable, Frame, Mm, PageBreak, PageTemplate, Paragraph, ParagraphStyle,
+    Pt, Rect, Spacer, shared_font_registry,
 };
 
 use super::blocks::render_block;
 use super::brand::OhsBrand;
 use super::fonts;
 use super::schema::{Orientation, PaperFormat, ReportData};
-use super::special_pages::{render_backcover, render_colofon, render_cover, render_toc};
+use super::special_pages::{
+    BackcoverContext, render_backcover, render_colofon, render_cover, render_toc,
+};
 
 pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     let registry = shared_font_registry();
@@ -45,8 +47,9 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     let frame_h = Pt(page_size.height.0 - Mm(40.0).0);
     let frame = Frame::new(Rect::new(frame_x, frame_y, frame_w, frame_h));
 
+    let backcover_present = data.backcover.as_ref().map(|b| b.enabled).unwrap_or(false);
     let tmpl = PageTemplate::new("content", page_size, frame).with_callback(Box::new(
-        brand.page_callback(&data.project, &report_title),
+        brand.page_callback(&data.project, &report_title, backcover_present),
     ));
     doc.add_page_template(tmpl);
 
@@ -72,17 +75,44 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
         flowables.extend(render_toc(t, &data.sections, &brand));
     }
 
+    // Each level-1 section starts on its own page (except the first one, which
+    // already follows the TOC/colofon page-break). Level-2 sections (per-room
+    // details) keep flowing so multiple rooms fit on one page when there's room.
+    let mut prev_level: Option<u32> = None;
     for section in &data.sections {
+        if section.level == 1 && prev_level.is_some() {
+            flowables.push(Box::new(PageBreak));
+        }
         flowables.push(Box::new(make_section_heading(&section.title, section.level)));
         flowables.push(Box::new(Spacer::from_mm(2.0)));
         for block in &section.content {
             flowables.extend(render_block(block, &brand));
         }
         flowables.push(Box::new(Spacer::from_mm(6.0)));
+        prev_level = Some(section.level);
     }
 
     if let Some(bc) = &data.backcover {
-        flowables.extend(render_backcover(bc, &brand));
+        let ctx = BackcoverContext {
+            project: &data.project,
+            subtitle: data.cover.as_ref().and_then(|c| c.subtitle.as_deref()),
+            client: data
+                .client
+                .as_deref()
+                .or_else(|| data.colofon.as_ref().and_then(|c| c.opdrachtgever_naam.as_deref())),
+            adviseur: data
+                .colofon
+                .as_ref()
+                .and_then(|c| c.adviseur_bedrijf.as_deref()),
+            author: Some(data.author.as_str()),
+            date: data.date.as_deref(),
+            kenmerk: data
+                .project_number
+                .as_deref()
+                .or_else(|| data.colofon.as_ref().and_then(|c| c.kenmerk.as_deref())),
+            version: Some(data.version.as_str()),
+        };
+        flowables.extend(render_backcover(bc, &ctx, &brand));
     }
 
     doc.build_to_bytes(flowables)

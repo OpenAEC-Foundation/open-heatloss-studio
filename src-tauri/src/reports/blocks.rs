@@ -40,6 +40,25 @@ fn render_paragraph(text: &str, _brand: &OhsBrand) -> Paragraph {
     Paragraph::plain(text.to_string())
 }
 
+/// Strip inline XML/HTML tags (`<b>`, `<i>`, `<br>`, ...) from a string.
+///
+/// The Table renderer draws cell text as-is, so raw `<b>x</b>` ends up
+/// printed literally. The TS builders emit `<b>` tags in some cells
+/// (e.g. Φ_totaal). Mirror Paragraph's tag handling for table cells.
+fn strip_inline_tags(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut in_tag = false;
+    for ch in text.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(ch),
+            _ => {}
+        }
+    }
+    out
+}
+
 fn render_table_block(
     title: Option<&str>,
     headers: &[String],
@@ -50,7 +69,12 @@ fn render_table_block(
     if let Some(t) = title {
         out.push(Box::new(make_table_title(t)));
     }
-    out.push(Box::new(render_table(headers, rows, brand)));
+    let clean_headers: Vec<String> = headers.iter().map(|h| strip_inline_tags(h)).collect();
+    let clean_rows: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| row.iter().map(|c| strip_inline_tags(c)).collect())
+        .collect();
+    out.push(Box::new(render_table(&clean_headers, &clean_rows, brand)));
     out
 }
 
@@ -188,6 +212,13 @@ mod tests {
         };
         let f = render_block(&b, &test_brand());
         assert_eq!(f.len(), 2, "title paragraph + table flowable");
+    }
+
+    #[test]
+    fn strip_inline_tags_removes_bold_and_italic() {
+        assert_eq!(super::strip_inline_tags("<b>136 W</b>"), "136 W");
+        assert_eq!(super::strip_inline_tags("<i>x</i> <b>y</b>"), "x y");
+        assert_eq!(super::strip_inline_tags("plain"), "plain");
     }
 
     #[test]
