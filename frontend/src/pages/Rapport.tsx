@@ -1,19 +1,90 @@
 /**
- * Rapport-page — toont de gegenereerde PDF in een iframe.
+ * Rapport-page — toont de gegenereerde PDF in een iframe + een opties-paneel
+ * waar de gebruiker voorbladafbeelding en sectie-toggles kan instellen.
  *
- * Workflow: gebruiker klikt "Genereren" in de Ribbon (RapportTab) → PDF
- * wordt gebouwd en de Blob URL belandt in `useReportStore.pdfBlobUrl` →
- * deze page rendert 'm in een iframe. Lege state vóór generatie toont een
- * uitnodigende placeholder met instructies.
+ * Layout (split-pane):
+ *   left  ~320px: Opties (afbeelding · secties · paginaformaat)
+ *   right flex: PDF preview iframe
+ *
+ * Workflow: gebruiker stelt opties in → klikt "Genereren" in de Ribbon
+ * (RapportTab) → PDF wordt gebouwd en de Blob URL belandt in
+ * `useReportStore.pdfBlobUrl` → deze page rendert 'm in een iframe.
  */
+import { useCallback, useRef } from "react";
+
 import { useReportStore } from "../store/reportStore";
 import { useProjectStore } from "../store/projectStore";
+import { useToastStore } from "../store/toastStore";
+
+const MAX_COVER_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 
 export function Rapport() {
   const pdfBlobUrl = useReportStore((s) => s.pdfBlobUrl);
   const generatedAt = useReportStore((s) => s.generatedAt);
   const result = useProjectStore((s) => s.result);
   const project = useProjectStore((s) => s.project);
+  const updateProject = useProjectStore((s) => s.updateProject);
+  const addToast = useToastStore((s) => s.addToast);
+
+  // Helper: update only the `info` sub-object, leaving the rest of the project
+  // intact. The store exposes the broader `updateProject(partial)` action — we
+  // wrap a thin shim instead of adding a dedicated `updateProjectInfo` action.
+  const updateProjectInfo = useCallback(
+    (partial: Partial<typeof project.info>) => {
+      updateProject({ info: { ...project.info, ...partial } });
+    },
+    [updateProject, project.info],
+  );
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const coverImage = project.info.cover_image ?? null;
+
+  const handleCoverImageChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > MAX_COVER_IMAGE_SIZE) {
+        addToast("Afbeelding is groter dan 2 MB.", "error");
+        e.target.value = "";
+        return;
+      }
+      if (file.type !== "image/png" && file.type !== "image/jpeg") {
+        addToast("Alleen PNG of JPEG worden ondersteund.", "error");
+        e.target.value = "";
+        return;
+      }
+      try {
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(file);
+        });
+        const base64 = dataUrl.replace(/^data:[^;]+;base64,/, "");
+        updateProjectInfo({
+          cover_image: {
+            data: base64,
+            media_type: file.type as "image/png" | "image/jpeg",
+            filename: file.name,
+          },
+        });
+        addToast("Voorbladafbeelding opgeslagen.", "success");
+      } catch (err) {
+        addToast(
+          `Inlezen mislukt: ${err instanceof Error ? err.message : String(err)}`,
+          "error",
+        );
+      }
+      e.target.value = "";
+    },
+    [updateProjectInfo, addToast],
+  );
+
+  const handleCoverImageClear = useCallback(() => {
+    updateProjectInfo({ cover_image: null });
+    addToast("Voorbladafbeelding verwijderd.", "info");
+  }, [updateProjectInfo, addToast]);
 
   // Bust iframe cache when a new PDF is generated.
   const iframeKey = generatedAt ?? 0;
@@ -32,32 +103,116 @@ export function Rapport() {
         </div>
       </div>
 
-      <div className="flex-1 bg-surface-2">
-        {pdfBlobUrl ? (
-          <iframe
-            key={iframeKey}
-            src={pdfBlobUrl}
-            title="Rapport preview"
-            className="h-full w-full border-0"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="max-w-lg rounded-lg border border-border bg-surface p-8 text-center shadow-sm">
-              <h2 className="mb-2 text-base font-semibold text-on-surface">
-                Nog geen rapport gegenereerd
-              </h2>
-              <p className="mb-4 text-sm text-on-surface-2">
-                {result
-                  ? 'Klik op "Genereren" in de Ribbon hierboven om een PDF-rapport van de berekening te bouwen.'
-                  : "Voer eerst een berekening uit (Vertrekken → Berekenen) — daarna kun je hier het rapport genereren."}
-              </p>
-              <p className="text-xs text-scaffold-gray">
-                Het rapport wordt lokaal gegenereerd via de Rust openaec-layout
-                engine (geen server nodig in de desktop-app).
-              </p>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: opties paneel */}
+        <aside className="w-[320px] shrink-0 overflow-y-auto border-r border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold text-on-surface">Opties</h2>
+
+          {/* Voorbladafbeelding */}
+          <section className="mb-4 rounded-md border border-border bg-surface-2 p-3">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-on-surface-secondary">
+              Voorbladafbeelding
+            </h3>
+            <p className="mb-2 text-[10px] text-on-surface-muted">
+              PNG of JPEG, max 2 MB. Verschijnt op het voorblad.
+            </p>
+
+            {coverImage ? (
+              <div className="flex flex-col gap-2">
+                <img
+                  src={`data:${coverImage.media_type};base64,${coverImage.data}`}
+                  alt="Voorblad"
+                  className="h-32 w-full rounded border border-border object-cover"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-xs text-on-surface-muted">
+                    {coverImage.filename ?? "afbeelding"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCoverImageClear}
+                    className="shrink-0 rounded border border-border px-2 py-1 text-xs text-on-surface-secondary hover:bg-surface-alt"
+                  >
+                    Verwijderen
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded border border-border px-2 py-1 text-xs text-on-surface-secondary hover:bg-surface-alt"
+                >
+                  Andere kiezen…
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded border border-dashed border-border px-3 py-4 text-xs text-on-surface-secondary hover:bg-surface-alt"
+              >
+                Afbeelding kiezen…
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handleCoverImageChange}
+              className="hidden"
+            />
+          </section>
+
+          {/* Inhoud info */}
+          <section className="rounded-md border border-border bg-surface-2 p-3">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-on-surface-secondary">
+              Inhoud (standaard)
+            </h3>
+            <ul className="space-y-1 text-[11px] text-on-surface-muted">
+              <li>· Cover (+ voorblad-afbeelding)</li>
+              <li>· Colofon</li>
+              <li>· Inhoudsopgave</li>
+              <li>· Uitgangspunten</li>
+              <li>· Constructie-opbouw &amp; Rc-waarden + temperatuurverloop</li>
+              <li>· Vertrekken overzicht</li>
+              <li>· Per vertrek: invoer + reken-resultaten</li>
+              <li>· Diagrammen</li>
+              <li>· Gebouwresultaten</li>
+              <li>· Backcover</li>
+            </ul>
+            <p className="mt-2 text-[10px] text-on-surface-muted">
+              Sectie-toggles volgen in een latere release.
+            </p>
+          </section>
+        </aside>
+
+        {/* Right: PDF preview */}
+        <div className="flex-1 bg-surface-2">
+          {pdfBlobUrl ? (
+            <iframe
+              key={iframeKey}
+              src={pdfBlobUrl}
+              title="Rapport preview"
+              className="h-full w-full border-0"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="max-w-lg rounded-lg border border-border bg-surface p-8 text-center shadow-sm">
+                <h2 className="mb-2 text-base font-semibold text-on-surface">
+                  Nog geen rapport gegenereerd
+                </h2>
+                <p className="mb-4 text-sm text-on-surface-2">
+                  {result
+                    ? 'Klik op "Genereren" in de Ribbon hierboven om een PDF-rapport van de berekening te bouwen.'
+                    : "Voer eerst een berekening uit (Vertrekken → Berekenen) — daarna kun je hier het rapport genereren."}
+                </p>
+                <p className="text-xs text-scaffold-gray">
+                  Het rapport wordt lokaal gegenereerd via de Rust openaec-layout
+                  engine (geen server nodig in de desktop-app).
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
