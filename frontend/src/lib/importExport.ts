@@ -181,6 +181,20 @@ export async function exportIfcEnergy(
       });
       if (!filePath) return; // user cancelled
       await writeTextFile(filePath, json);
+      // Record in recent-files list so it appears under Bestand → Openen
+      try {
+        const { useRecentFilesStore } = await import(
+          "../store/recentFilesStore"
+        );
+        const fileName = filePath.split(/[\\/]/).pop() ?? `${safeName}.ifcenergy`;
+        useRecentFilesStore.getState().push({
+          name: project.info.name || safeName,
+          fileName,
+          path: filePath,
+        });
+      } catch {
+        // dynamic import or store missing — non-fatal
+      }
       return;
     } catch (err) {
       console.error("Tauri save failed, falling back to browser download:", err);

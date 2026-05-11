@@ -9,6 +9,7 @@ import {
 } from "../../lib/importExport";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
+import { useRecentFilesStore, type RecentFile } from "../../store/recentFilesStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import "./Backstage.css";
 
@@ -196,6 +197,12 @@ export default function Backstage({
         if (imported.result) {
           useProjectStore.getState().setResult(imported.result);
         }
+        // Track in recent files (file-input has no absolute path in browser,
+        // so we record just the file name + project name).
+        useRecentFilesStore.getState().push({
+          name: imported.project.info.name || file.name,
+          fileName: file.name,
+        });
         onClose();
         onNavigate?.("/rooms");
         addToast(t("opened"), "success");
@@ -208,6 +215,55 @@ export default function Backstage({
 
       // Reset file input so the same file can be selected again
       e.target.value = "";
+    },
+    [setProject, onClose, onNavigate, addToast, t],
+  );
+
+  const recent = useRecentFilesStore((s) => s.recent);
+  const removeRecent = useRecentFilesStore((s) => s.remove);
+  const clearRecent = useRecentFilesStore((s) => s.clear);
+
+  const handleOpenRecent = useCallback(
+    async (entry: RecentFile) => {
+      // Tauri path: lees via plugin-fs als we een absoluut pad hebben
+      if (entry.path && isTauri()) {
+        try {
+          const { readTextFile } = await import("@tauri-apps/plugin-fs");
+          const text = await readTextFile(entry.path);
+          const imported = openProjectFile(text);
+          if (imported.type === "thermal") {
+            addToast(
+              "Recent: thermal-import bestand, open via Bestand → Openen",
+              "info",
+            );
+            return;
+          }
+          extractAndLinkConstructions(imported.project);
+          setProject(imported.project);
+          if (imported.result) {
+            useProjectStore.getState().setResult(imported.result);
+          }
+          useRecentFilesStore.getState().push({
+            name: imported.project.info.name || entry.fileName,
+            fileName: entry.fileName,
+            path: entry.path,
+          });
+          onClose();
+          onNavigate?.("/rooms");
+          addToast(t("opened"), "success");
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addToast(`Recent openen mislukt: ${msg}`, "error");
+          // Fall through to the file-picker hint below.
+        }
+      }
+      // Browser of geen pad: trigger de file-input zodat user opnieuw selecteert
+      addToast(
+        "Kies het bestand opnieuw — recent-lijst houdt geen browser-pad bij.",
+        "info",
+      );
+      fileInputRef.current?.click();
     },
     [setProject, onClose, onNavigate, addToast, t],
   );
@@ -365,6 +421,52 @@ export default function Backstage({
                 label={t("localFile")}
                 onClick={handleOpenLocal}
               />
+              {recent.length > 0 && (
+                <div className="mt-2 ml-3 border-l border-border pl-3">
+                  <div className="mb-1 flex items-center justify-between pr-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-muted">
+                      Recent
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => clearRecent()}
+                      className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary"
+                      title="Lijst wissen"
+                    >
+                      wissen
+                    </button>
+                  </div>
+                  {recent.map((entry) => (
+                    <div
+                      key={(entry.path ?? "") + entry.fileName + entry.openedAt}
+                      className="group flex items-center justify-between gap-2 rounded px-2 py-1 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRecent(entry)}
+                        className="min-w-0 flex-1 text-left"
+                        title={entry.path ?? entry.fileName}
+                      >
+                        <div className="truncate text-on-surface">{entry.name}</div>
+                        <div className="truncate text-[10px] text-on-surface-muted">
+                          {entry.fileName}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeRecent(entry);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-on-surface-muted hover:text-on-surface-secondary"
+                        title="Uit lijst halen"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
