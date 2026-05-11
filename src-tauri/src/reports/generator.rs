@@ -43,12 +43,19 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     // vertical — leaves 249mm content height on A4). The brand callback
     // draws its footer line at page_h − 12mm, so the 28mm bottom gives a
     // ~16mm safety zone for any flowable that overshoots its declared
-    // wrap height (small per-paragraph overshoots used to bleed into the
-    // footer area on dense per-room pages — see commit message for fix).
+    // wrap height.
+    //
+    // IMPORTANT: `Mm(x).0` returns the raw millimeter value as f32 — NOT
+    // points. Subtracting that from `page_size.X.0` (which IS points)
+    // silently produces nonsense: e.g. `842pt − 48` = 794pt instead of
+    // 706pt, leaving the frame ~30mm too tall and content spilling onto
+    // the running footer. Convert via `.into()` first.
     let frame_x: Pt = Mm(15.0).into();
     let frame_y: Pt = Mm(20.0).into();
-    let frame_w = Pt(page_size.width.0 - Mm(30.0).0);
-    let frame_h = Pt(page_size.height.0 - Mm(48.0).0);
+    let h_margin: Pt = Mm(30.0).into();
+    let v_margin: Pt = Mm(48.0).into();
+    let frame_w = Pt(page_size.width.0 - h_margin.0);
+    let frame_h = Pt(page_size.height.0 - v_margin.0);
     let frame = Frame::new(Rect::new(frame_x, frame_y, frame_w, frame_h));
 
     let backcover_present = data.backcover.as_ref().map(|b| b.enabled).unwrap_or(false);
