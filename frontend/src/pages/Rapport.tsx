@@ -23,7 +23,7 @@ export function Rapport() {
   const generatedAt = useReportStore((s) => s.generatedAt);
   const result = useProjectStore((s) => s.result);
   const project = useProjectStore((s) => s.project);
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(true);
   const updateProject = useProjectStore((s) => s.updateProject);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -109,7 +109,7 @@ export function Rapport() {
             de volledige breedte krijgt). Toggle-rail blijft altijd zichtbaar. */}
         <aside
           className={`relative shrink-0 overflow-hidden border-r border-border bg-surface transition-[width] duration-150 ease-out ${
-            optionsOpen ? "w-[320px]" : "w-10"
+            optionsOpen ? "w-[260px]" : "w-10"
           }`}
         >
           <button
