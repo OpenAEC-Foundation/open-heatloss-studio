@@ -39,12 +39,16 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
         (PaperFormat::A3, Orientation::Landscape) => A3.landscape(),
     };
 
-    // Frame: 15mm horizontal margins, 20mm top, 20mm bottom (so total
-    // vertical margin is 40mm — leaves ~257mm content height on A4).
+    // Frame: 15mm horizontal margins, 20mm top, 28mm bottom (total 48mm
+    // vertical — leaves 249mm content height on A4). The brand callback
+    // draws its footer line at page_h − 12mm, so the 28mm bottom gives a
+    // ~16mm safety zone for any flowable that overshoots its declared
+    // wrap height (small per-paragraph overshoots used to bleed into the
+    // footer area on dense per-room pages — see commit message for fix).
     let frame_x: Pt = Mm(15.0).into();
     let frame_y: Pt = Mm(20.0).into();
     let frame_w = Pt(page_size.width.0 - Mm(30.0).0);
-    let frame_h = Pt(page_size.height.0 - Mm(40.0).0);
+    let frame_h = Pt(page_size.height.0 - Mm(48.0).0);
     let frame = Frame::new(Rect::new(frame_x, frame_y, frame_w, frame_h));
 
     let backcover_present = data.backcover.as_ref().map(|b| b.enabled).unwrap_or(false);
