@@ -73,12 +73,19 @@ fn parse_input_to_project(raw: &str) -> Result<Project, Box<dyn std::error::Erro
     Ok(serde_json::from_value(v)?)
 }
 
-/// Build minimale ReportData voor PDF-generatie.
+/// 1x1 transparent PNG, base64 — used as placeholder for Diagrammen so the
+/// section renders with the expected structure (caption + image flowable) for
+/// page-break / backcover verification. The frontend builder substitutes real
+/// SVG→PNG rasterized charts here.
+const PLACEHOLDER_PNG_B64: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+
+/// Build full ReportData voor PDF-generatie — mirrors `reportBuilder.ts`.
 ///
-/// Bevat de essentiële inhoud uit `frontend/src/lib/reportBuilder.ts`:
-/// Cover · Colofon · Uitgangspunten · Vertrekken overzicht · Gebouwresultaten.
-/// Charts (Diagrammen sectie) overgeslagen — die vereist SVG → PNG raster
-/// pipeline die niet triviaal in Rust te repliceren is.
+/// Sections: Uitgangspunten · Vertrekken overzicht · per-vertrek details (level 2)
+/// · Diagrammen (placeholder PNGs) · Gebouwresultaten · Backcover.
+/// Diagrammen-charts zijn placeholders — de frontend rasterizeert echte SVG's,
+/// maar voor backend-tests volstaat een 1x1 PNG om de page-break/backcover
+/// logica te valideren.
 fn build_report_data(project: &Project, result: &ProjectResult) -> schema::ReportData {
     use schema::*;
 
@@ -201,7 +208,112 @@ fn build_report_data(project: &Project, result: &ProjectResult) -> schema::Repor
         }],
     });
 
-    // ───── 3. Gebouwresultaten ──────────────────────────────────────────
+    // ───── 3. Per-vertrek details (level 2) ────────────────────────────
+    // Mirrors reportBuilder.ts buildRoomDetailSection — each room renders
+    // four small tables (transmissie, ventilatie/infiltratie, opwarm/sys,
+    // totaal). Level 2 means NO page-break before each room — the layout
+    // engine flows them and breaks naturally per page capacity.
+    for room in &result.rooms {
+        sections.push(Section {
+            title: room.room_name.clone(),
+            level: 2,
+            content: vec![
+                Block::Paragraph {
+                    text: format!("<b>Vertrek:</b> {}", room.room_name),
+                },
+                Block::Spacer { height_mm: 2.0 },
+                Block::Table {
+                    title: Some("Transmissieverliezen".into()),
+                    headers: vec!["Component".into(), "Waarde".into()],
+                    rows: vec![
+                        vec!["H_T,ie (schil)".into(), format!("{:.2} W/K", room.transmission.h_t_exterior)],
+                        vec!["H_T,ia (intern)".into(), format!("{:.2} W/K", room.transmission.h_t_adjacent_rooms)],
+                        vec!["H_T,io (onverwarmd)".into(), format!("{:.2} W/K", room.transmission.h_t_unheated)],
+                        vec!["H_T,ib (buurwoning)".into(), format!("{:.2} W/K", room.transmission.h_t_adjacent_buildings)],
+                        vec!["H_T,ig (grond)".into(), format!("{:.2} W/K", room.transmission.h_t_ground)],
+                        vec!["Φ_T totaal".into(), format!("{:.0} W", room.transmission.phi_t)],
+                    ],
+                },
+                Block::Spacer { height_mm: 2.0 },
+                Block::Table {
+                    title: Some("Ventilatie & infiltratie".into()),
+                    headers: vec!["Component".into(), "Waarde".into()],
+                    rows: vec![
+                        vec!["q_v (ventilatie)".into(), format!("{:.2} dm³/s", room.ventilation.q_v)],
+                        vec!["H_v".into(), format!("{:.2} W/K", room.ventilation.h_v)],
+                        vec!["Φ_v (ventilatie)".into(), format!("{:.0} W", room.ventilation.phi_v)],
+                        vec!["H_i (infiltratie)".into(), format!("{:.2} W/K", room.infiltration.h_i)],
+                        vec!["Φ_i (infiltratie)".into(), format!("{:.0} W", room.infiltration.phi_i)],
+                    ],
+                },
+                Block::Spacer { height_mm: 2.0 },
+                Block::Table {
+                    title: Some("Opwarmtoeslag & systeemverliezen".into()),
+                    headers: vec!["Component".into(), "Waarde".into()],
+                    rows: vec![
+                        vec!["f_RH".into(), format!("{:.2}", room.heating_up.f_rh)],
+                        vec!["A_acc".into(), format!("{:.2} m²", room.heating_up.accumulating_area)],
+                        vec!["Φ_hu".into(), format!("{:.0} W", room.heating_up.phi_hu)],
+                        vec!["Φ_sys (totaal)".into(), format!("{:.0} W", room.system_losses.phi_system_total)],
+                    ],
+                },
+                Block::Spacer { height_mm: 2.0 },
+                Block::Table {
+                    title: Some("Totaal".into()),
+                    headers: vec!["Component".into(), "Waarde".into()],
+                    rows: vec![
+                        vec!["Φ_basis".into(), format!("{:.0} W", room.basis_heat_loss)],
+                        vec!["Φ_extra".into(), format!("{:.0} W", room.extra_heat_loss)],
+                        vec!["Φ_totaal".into(), format!("<b>{:.0} W</b>", room.total_heat_loss)],
+                    ],
+                },
+            ],
+        });
+    }
+
+    // ───── 4. Diagrammen (placeholder charts) ──────────────────────────
+    // Real charts come from frontend SVG → PNG rasterization. For backend
+    // tests we use 1x1 PNGs to verify the section + page-break behaviour.
+    sections.push(Section {
+        title: "Diagrammen".into(),
+        level: 1,
+        content: vec![
+            Block::Image {
+                src: ImageRef {
+                    data: PLACEHOLDER_PNG_B64.into(),
+                    media_type: "image/png".into(),
+                    filename: Some("verliezen-per-vertrek.png".into()),
+                },
+                caption: Some("Warmteverliezen per vertrek".into()),
+                width_mm: 170.0,
+                alignment: ImageAlignment::Center,
+            },
+            Block::Spacer { height_mm: 4.0 },
+            Block::Image {
+                src: ImageRef {
+                    data: PLACEHOLDER_PNG_B64.into(),
+                    media_type: "image/png".into(),
+                    filename: Some("gebouwtotaal.png".into()),
+                },
+                caption: Some("Gebouwtotaal warmteverliezen per type".into()),
+                width_mm: 170.0,
+                alignment: ImageAlignment::Center,
+            },
+            Block::Spacer { height_mm: 4.0 },
+            Block::Image {
+                src: ImageRef {
+                    data: PLACEHOLDER_PNG_B64.into(),
+                    media_type: "image/png".into(),
+                    filename: Some("verlies-per-constructietype.png".into()),
+                },
+                caption: Some("Verlies per constructietype".into()),
+                width_mm: 150.0,
+                alignment: ImageAlignment::Center,
+            },
+        ],
+    });
+
+    // ───── 5. Gebouwresultaten ──────────────────────────────────────────
     let s = &result.summary;
     sections.push(Section {
         title: "Gebouwresultaten".into(),
