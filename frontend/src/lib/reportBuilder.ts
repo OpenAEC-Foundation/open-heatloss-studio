@@ -3,14 +3,21 @@
  *
  * Output conform report.schema.json (OpenAEC Reports API).
  */
-import type { Project, ProjectResult, RoomResult } from "../types";
+import type { Project, ProjectResult, Room, RoomResult } from "../types";
+import type { ProjectConstruction } from "../components/modeller/types";
 import {
+  BOUNDARY_TYPE_LABELS,
   BUILDING_TYPE_LABELS,
   DEFAULT_THETA_WATER,
   HEATING_SYSTEM_LABELS,
+  ROOM_FUNCTION_LABELS,
+  ROOM_FUNCTION_TEMPERATURES,
   SECURITY_CLASS_LABELS,
   VENTILATION_SYSTEM_LABELS,
+  VERTICAL_POSITION_LABELS,
 } from "./constants";
+import { calculateRc, type LayerInput } from "./rcCalculation";
+import { getMaterialById } from "./materialsDatabase";
 import {
   buildConstructionLossSvg,
   buildStackedBarSvg,
@@ -36,15 +43,24 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Build BM Reports JSON from project input + calculation result. */
+/** Build BM Reports JSON from project input + calculation result.
+ *
+ * `projectConstructions` is optioneel — wanneer aangeleverd voegt de
+ * builder een "Constructie-opbouw & Rc-waarden" sectie toe (per
+ * opbouw met layers één sub-sectie met Laagopbouw-tabel en
+ * R/U-resultaten). Wordt door RapportTab doorgegeven vanuit
+ * `useModellerStore.projectConstructions`.
+ */
 export async function buildReportData(
   project: Project,
   result: ProjectResult,
+  projectConstructions: ProjectConstruction[] = [],
 ): Promise<Record<string, unknown>> {
   const today = todayIso();
   const projectName = project.info.name || "Naamloos project";
   const thetaWater = project.climate.theta_water ?? DEFAULT_THETA_WATER;
   const diagrammenSection = await buildDiagrammenSection(project, result);
+  const constructiesSection = buildConstructiesSection(projectConstructions);
 
   return {
     template: "standaard_rapport",
@@ -101,6 +117,7 @@ export async function buildReportData(
 
     sections: [
       buildUitgangspuntenSection(project),
+      ...(constructiesSection ? [constructiesSection] : []),
       buildVertrekkenOverzichtSection(result),
       ...buildRoomSections(project, result),
       ...(diagrammenSection ? [diagrammenSection] : []),
@@ -221,7 +238,7 @@ function buildRoomSections(
   return result.rooms.map((room) => buildRoomDetailSection(project, room));
 }
 
-/** Eén vertrek-detailsectie. */
+/** Eén vertrek-detailsectie — invoer (Algemeen + Constructie-elementen) + reken-resultaten. */
 function buildRoomDetailSection(
   project: Project,
   room: RoomResult,
@@ -230,6 +247,8 @@ function buildRoomDetailSection(
   const heatingLabel = projectRoom
     ? (HEATING_SYSTEM_LABELS[projectRoom.heating_system] ?? projectRoom.heating_system)
     : "";
+
+  const inputBlocks = projectRoom ? buildRoomInputBlocks(projectRoom) : [];
 
   return {
     title: room.room_name,
@@ -240,6 +259,7 @@ function buildRoomDetailSection(
         text: `<b>Verwarmingssysteem:</b> ${heatingLabel}`,
       },
       { type: "spacer", height_mm: 2 },
+      ...inputBlocks,
       {
         type: "table",
         title: "Transmissieverliezen",
@@ -408,5 +428,234 @@ function buildGebouwresultatenSection(result: ProjectResult): Record<string, unk
         reference: "ISSO 51:2023",
       },
     ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Invoer per vertrek — Algemeen + Constructie-elementen
+// ---------------------------------------------------------------------------
+
+/** Format °C with one decimal for design temperatures. */
+function fmtTemp(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `${value.toFixed(1)} °C`;
+}
+
+/** Resolve design temperature for a room: explicit override or ROOM_FUNCTION_TEMPERATURES. */
+function resolveDesignTemp(room: Room): number {
+  if (room.custom_temperature != null) return room.custom_temperature;
+  return ROOM_FUNCTION_TEMPERATURES[room.function] ?? 20;
+}
+
+/** "Wand"/"Vloer"/"Plafond" — fallback to material_type when vertical_position is missing. */
+function elementTypeLabel(
+  element: Room["constructions"][number],
+): string {
+  if (element.vertical_position) {
+    return VERTICAL_POSITION_LABELS[element.vertical_position] ?? element.vertical_position;
+  }
+  // Fallback: surface material types (window/door/etc.) keep their original tag
+  return element.material_type ?? "—";
+}
+
+/** Build the per-room "Invoer" blocks: Algemeen + Constructie-elementen. */
+function buildRoomInputBlocks(room: Room): Record<string, unknown>[] {
+  const designTemp = resolveDesignTemp(room);
+  const functionLabel = ROOM_FUNCTION_LABELS[room.function] ?? room.function;
+
+  const algemeenRows: [string, string][] = [
+    ["Functie", functionLabel],
+    ["Ontwerptemperatuur (θ_i)", fmtTemp(designTemp)],
+    ["Vloeroppervlak", `${fmt2(room.floor_area)} m²`],
+  ];
+  if (room.height != null) {
+    algemeenRows.push(["Hoogte", `${fmt2(room.height)} m`]);
+  }
+
+  // Constructie-elementen — one row per element
+  const elementRows: string[][] = room.constructions.map((el) => {
+    const boundaryLabel = BOUNDARY_TYPE_LABELS[el.boundary_type] ?? el.boundary_type;
+    let aangrenzend = "—";
+    if (el.boundary_type === "adjacent_room" && el.adjacent_temperature != null) {
+      aangrenzend = fmtTemp(el.adjacent_temperature);
+    } else if (
+      el.boundary_type === "adjacent_room" &&
+      el.temperature_factor != null
+    ) {
+      aangrenzend = `b = ${fmt2(el.temperature_factor)}`;
+    }
+    const embedded = el.has_embedded_heating ? "ja" : "—";
+    return [
+      el.description || "—",
+      elementTypeLabel(el),
+      `${fmt2(el.area)} m²`,
+      `${fmt2(el.u_value)} W/m²K`,
+      boundaryLabel,
+      aangrenzend,
+      embedded,
+    ];
+  });
+
+  const blocks: Record<string, unknown>[] = [
+    {
+      type: "table",
+      title: "Algemeen",
+      headers: ["Parameter", "Waarde"],
+      rows: algemeenRows,
+    },
+    { type: "spacer", height_mm: 2 },
+  ];
+
+  if (elementRows.length > 0) {
+    blocks.push({
+      type: "table",
+      title: "Constructie-elementen (invoer)",
+      headers: [
+        "Omschrijving",
+        "Type",
+        "Oppervlak",
+        "U",
+        "Grens",
+        "Aangrenzend",
+        "Embedded heating",
+      ],
+      rows: elementRows,
+    });
+    blocks.push({ type: "spacer", height_mm: 2 });
+  }
+
+  return blocks;
+}
+
+// ---------------------------------------------------------------------------
+// Constructie-opbouw & Rc-waarden — sectie ná Uitgangspunten, vóór Vertrekken
+// ---------------------------------------------------------------------------
+
+/** Build the "Constructie-opbouw & Rc-waarden" section.
+ *
+ * Per ProjectConstruction met layers: ISO 6946 Rc/U-resultaat via `calculateRc`.
+ * Layer-loze constructies (kozijnen/glas/deuren met directe U) krijgen een
+ * mini-blok met alleen de U-waarde.
+ *
+ * Returns null when there are no constructions to render.
+ */
+function buildConstructiesSection(
+  projectConstructions: ProjectConstruction[],
+): Record<string, unknown> | null {
+  if (projectConstructions.length === 0) return null;
+
+  const content: Record<string, unknown>[] = [];
+
+  for (const pc of projectConstructions) {
+    // Sub-heading per constructie (level 2)
+    content.push({
+      type: "paragraph",
+      text: `<b>${pc.name}</b>`,
+    });
+    content.push({ type: "spacer", height_mm: 1 });
+
+    if (pc.layers.length > 0) {
+      // Layered construction — compute Rc via ISO 6946.
+      // ProjectConstruction.layers IS already CatalogueLayer[] which matches
+      // LayerInput shape (materialId / thickness / lambdaOverride / stud).
+      const layerInputs: LayerInput[] = pc.layers.map((l) => ({
+        materialId: l.materialId,
+        thickness: l.thickness,
+        lambdaOverride: l.lambdaOverride,
+        stud: l.stud,
+      }));
+
+      let rcResult;
+      try {
+        rcResult = calculateRc(layerInputs, pc.verticalPosition);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        content.push({
+          type: "paragraph",
+          text: `<i>Rc-berekening mislukt: ${msg}</i>`,
+        });
+        content.push({ type: "spacer", height_mm: 4 });
+        continue;
+      }
+
+      // Laagopbouw tabel
+      const layerRows = pc.layers.map((l, i) => {
+        const r = rcResult.layers[i];
+        const material = getMaterialById(l.materialId);
+        const materialName = material?.name ?? l.materialId;
+        const lambdaVal = l.lambdaOverride ?? material?.lambda;
+        const rValue = r ? fmt2(r.r) : "—";
+        return [
+          materialName,
+          `${fmt2(l.thickness)} mm`,
+          lambdaVal != null ? fmt2(lambdaVal) : "—",
+          rValue,
+        ];
+      });
+
+      content.push({
+        type: "table",
+        title: "Laagopbouw",
+        headers: ["Materiaal", "Dikte", "λ (W/m·K)", "R (m²·K/W)"],
+        rows: layerRows,
+      });
+      content.push({ type: "spacer", height_mm: 2 });
+
+      // Resultaten tabel
+      const resultRows: [string, string][] = [
+        ["R_si (binnenoppervlakteweerstand)", `${fmt2(rcResult.rSi)} m²·K/W`],
+        ["Σ R_lagen", `${fmt2(rcResult.rc)} m²·K/W`],
+        ["R_se (buitenoppervlakteweerstand)", `${fmt2(rcResult.rSe)} m²·K/W`],
+        ["R_totaal", `${fmt2(rcResult.rTotal)} m²·K/W`],
+        ["<b>Rc</b>", `<b>${fmt2(rcResult.rc)} m²·K/W</b>`],
+        ["<b>U</b>", `<b>${fmt2(rcResult.uValue)} W/m²·K</b>`],
+      ];
+
+      if (rcResult.rUpper != null && rcResult.rLower != null) {
+        resultRows.push(
+          ["R'_T (bovengrens)", `${fmt2(rcResult.rUpper)} m²·K/W`],
+          ["R''_T (ondergrens)", `${fmt2(rcResult.rLower)} m²·K/W`],
+        );
+        if (rcResult.ratio != null) {
+          const ratioOk = rcResult.ratio < 1.5;
+          resultRows.push([
+            "Ratio R'_T/R''_T",
+            `${fmt2(rcResult.ratio)} ${ratioOk ? "(< 1,5 — ok)" : "(≥ 1,5 — buiten ISO 6946 §6.7.2)"}`,
+          ]);
+        }
+      }
+
+      if (rcResult.deltaUf != null && rcResult.deltaUf > 0) {
+        resultRows.push([
+          "ΔU_f (bevestigingsmiddelen)",
+          `${fmt2(rcResult.deltaUf)} W/m²·K`,
+        ]);
+      }
+
+      content.push({
+        type: "table",
+        title: "Resultaten (ISO 6946)",
+        headers: ["Parameter", "Waarde"],
+        rows: resultRows,
+      });
+    } else {
+      // Layerless — direct U-value (kozijnen/glas/deuren)
+      const uText =
+        pc.uValue != null ? `${fmt2(pc.uValue)} W/m²·K` : "niet ingevoerd";
+      content.push({
+        type: "table",
+        title: "U-waarde (direct ingevoerd)",
+        headers: ["Parameter", "Waarde"],
+        rows: [["U", uText]],
+      });
+    }
+
+    content.push({ type: "spacer", height_mm: 6 });
+  }
+
+  return {
+    title: "Constructie-opbouw & Rc-waarden",
+    level: 1,
+    content,
   };
 }

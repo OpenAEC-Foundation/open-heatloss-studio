@@ -7,6 +7,7 @@ import { reportIcon, exportIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
 import { useReportStore } from "../../store/reportStore";
+import { useModellerStore } from "../modeller/modellerStore";
 import { buildReportData } from "../../lib/reportBuilder";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
@@ -21,6 +22,7 @@ export default function RapportTab() {
   const { t } = useTranslation("ribbon");
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
+  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const pageSize = useReportStore((s) => s.pageSize);
   const setPageSize = useReportStore((s) => s.setPageSize);
@@ -39,7 +41,7 @@ export default function RapportTab() {
     }
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(project, result);
+      const reportData = await buildReportData(project, result, projectConstructions);
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       setPdfBlobUrl(url);
@@ -50,7 +52,7 @@ export default function RapportTab() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, addToast, setPdfBlobUrl]);
+  }, [project, result, projectConstructions, addToast, setPdfBlobUrl]);
 
   const handleDownload = useCallback(() => {
     const url = useReportStore.getState().pdfBlobUrl;

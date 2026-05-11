@@ -6,6 +6,7 @@ import RibbonGroup from "./RibbonGroup";
 import { reportIcon, exportIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
+import { useModellerStore } from "../modeller/modellerStore";
 import { exportIfcEnergy } from "../../lib/importExport";
 import { buildReportData } from "../../lib/reportBuilder";
 import { generateReportDirect } from "../../lib/reportClient";
@@ -15,6 +16,7 @@ export default function ResultatenTab() {
   const { t } = useTranslation("ribbon");
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
+  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -22,7 +24,7 @@ export default function ResultatenTab() {
     if (!result) return;
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(project, result);
+      const reportData = await buildReportData(project, result, projectConstructions);
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -37,7 +39,7 @@ export default function ResultatenTab() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, addToast]);
+  }, [project, result, projectConstructions, addToast]);
 
   const handleExport = useCallback(() => {
     exportIfcEnergy(project, result);
