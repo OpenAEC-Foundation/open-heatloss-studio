@@ -1,6 +1,7 @@
 //! ISSO 51 Tauri v2 desktop application.
 
 mod commands;
+pub mod reports;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,6 +13,8 @@ pub fn run() {
             commands::calculate,
             commands::get_schema,
             commands::import_ifc,
+            reports::generate_report_pdf,
+            reports::generate_report_pdf_bytes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ISSO 51 application");
