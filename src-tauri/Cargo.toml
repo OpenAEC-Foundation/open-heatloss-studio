@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "ISSO 51 warmteverliesberekening desktop app"
+# Without this, Tauri's CLI picks gen_pdf (alphabetically first auto-detected
+# bin from src/bin/) as the "main app" and bundles only that into the
+# installer, leaving out the actual Tauri exe. Pin the Tauri binary as the
+# package default so `cargo tauri build` finds the right entry point.
+default-run = "isso51-desktop"
 
 [lib]
 name = "isso51_desktop_lib"
