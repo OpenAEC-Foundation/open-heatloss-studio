@@ -13,6 +13,11 @@ import { importIfcFile } from "../components/modeller/ifc-import";
 import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
 import { isTauri, createBackend, importIfcServer, type IfcSidecarResult } from "../lib/backend";
 import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
+import {
+  deriveModelDoors,
+  deriveModelRooms,
+  deriveModelWindows,
+} from "../lib/deriveRoomGeometry";
 import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
 import { CatalogueBrowserPanel } from "../components/modeller/CatalogueBrowserPanel";
 import { modelToIfcx } from "../components/modeller/ifcx-builder";
@@ -21,7 +26,7 @@ import { useToastStore } from "../store/toastStore";
 import { useProjectStore } from "../store/projectStore";
 import { useModellerToolStore } from "../store/modellerToolStore";
 import { useAllConstructions } from "../hooks/useAllConstructions";
-import { importProject, exportProject, extractAndLinkConstructions } from "../lib/importExport";
+import { openProjectFile, exportIfcEnergy, extractAndLinkConstructions } from "../lib/importExport";
 import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
@@ -41,10 +46,16 @@ export function Modeller() {
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
 
-  // Store
-  const rooms = useModellerStore((s) => s.rooms);
-  const windows = useModellerStore((s) => s.windows);
-  const doors = useModellerStore((s) => s.doors);
+  // Project (calc-side data — modeller is een viewer hierop)
+  const project = useProjectStore((s) => s.project);
+
+  // Modeller-rooms zijn afgeleid van project.rooms (single source of truth).
+  // useModellerStore.rooms/windows/doors blijven bestaan voor backwards-compat
+  // maar worden niet meer gerenderd. Wanneer de viewer weer editable wordt,
+  // mutateren de handlers `project` (via useProjectStore) i.p.v. de modellerStore.
+  const rooms = useMemo(() => deriveModelRooms(project), [project]);
+  const windows = useMemo(() => deriveModelWindows(project), [project]);
+  const doors = useMemo(() => deriveModelDoors(project), [project]);
 
   const underlay = useModellerStore((s) => s.underlay);
   const wallConstructions = useModellerStore((s) => s.wallConstructions);
@@ -372,7 +383,7 @@ export function Modeller() {
     try {
       const doc = modelToIfcx(state.rooms, state.windows, state.doors, {
         projectName,
-        author: "ISSO 51 Warmteverliesberekening",
+        author: "Open Heatloss Studio",
       });
 
       const json = JSON.stringify(doc, null, 2);
@@ -395,21 +406,21 @@ export function Modeller() {
 
   const handleExportJson = useCallback(() => {
     const { project, result } = useProjectStore.getState();
-    exportProject(project, result);
-    addToast("Project geexporteerd", "success");
+    exportIfcEnergy(project, result);
+    addToast("Project geexporteerd als .ifcenergy", "success");
   }, [addToast]);
 
   const handleImportJson = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".json,.isso51.json";
+    input.accept = ".ifcenergy,.json,.isso51.json";
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const imported = importProject(reader.result as string);
+          const imported = openProjectFile(reader.result as string);
 
           // Thermal import detected — redirect to wizard
           if (imported.type === "thermal") {
@@ -539,7 +550,12 @@ export function Modeller() {
           onAssignRoof={assignRoofConstruction}
         />
 
-        {/* Center: Canvas area with 2D/3D overlay */}
+        {/* Center: 2D/3D canvas area.
+            Rooms/windows/doors zijn afgeleid van project.rooms (calc-data).
+            Edit-handlers blijven gewired (no-ops voor display nu, omdat modellerStore-mutaties
+            niet meer zichtbaar zijn) — bij latere editable-iteratie worden ze omgezet
+            naar project-mutaties. Een kleine "Read-only viewer"-badge maakt de
+            huidige status duidelijk voor de gebruiker. */}
         <div className="relative min-w-0 flex-1">
           {viewMode === "2d" ? (
             <FloorCanvas
@@ -581,6 +597,17 @@ export function Modeller() {
               catalogueUValues={catalogueUValues}
             />
           )}
+
+          {/* FROZEN banner — full-width overlay zodat duidelijk is dat de modeller WIP is */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-md backdrop-blur-sm">
+            <span aria-hidden="true">❄️</span>
+            <span>Modeller — Frozen · Work in progress</span>
+            <span aria-hidden="true">❄️</span>
+          </div>
+
+          {/* Frozen-overlay over het canvas zodat interacties duidelijk read-only voelen */}
+          <div className="pointer-events-none absolute inset-0 z-10 bg-cyan-50/15 backdrop-blur-[1px]" />
+
 
           {/* IFC import loading overlay */}
           {isImporting && (

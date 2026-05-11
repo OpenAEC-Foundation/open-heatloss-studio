@@ -1,0 +1,275 @@
+/**
+ * Derive 2D room geometry (polygons + walls) from calc-side `Room` data.
+ *
+ * Reasoning:
+ * - The Modeller is a read-only viewer of the calc data. Polygons aren't
+ *   drawn by the user; they're inferred from the construction list.
+ * - For each room, walls are constructions with `vertical_position === "wall"`
+ *   (or undefined, which we treat as wall by historical default).
+ * - Total wall *length* (perimeter) = Σ (wall.area / room.height).
+ * - For a rectangle, perimeter `p` and area `a` give:
+ *     w + h = p / 2
+ *     w · h = a
+ *   Solving the quadratic w² − (p/2)·w + a = 0 yields the side lengths.
+ *   When the discriminant is negative (data inconsistency), we fall back
+ *   to a square with side √a — visualization, not architectural truth.
+ * - Walls are mapped to rectangle sides ordered by area descending so the
+ *   "largest" wall is consistently the bottom edge (south). Boundary type
+ *   on each wall is preserved for color-coding downstream.
+ *
+ * Floor placement: rooms are laid out in a grid per "floor". `Room` has no
+ * explicit floor field, so we parse a `[BG]`/`[1V]` prefix from `room.name`
+ * if present, otherwise group everything on floor 0. Future `Room.floor`
+ * field would replace the prefix-parsing.
+ *
+ * Units: input `floor_area` and `area` are m² and m, output coordinates
+ * are mm to match the existing modeller types (`Point2D` in mm).
+ */
+
+import type { ConstructionElement, Project, Room } from "../types";
+import type {
+  ModelDoor,
+  ModelRoom,
+  ModelWindow,
+  Point2D,
+} from "../components/modeller/types";
+
+/** mm per m. */
+const MM = 1000;
+
+/** Default room height in m if not specified on the Room. */
+const DEFAULT_HEIGHT_M = 2.6;
+
+/** Spacing between rooms in the grid layout, in mm. */
+const ROOM_GAP_MM = 1500;
+
+/**
+ * Derived geometry for a single room: rectangle polygon + ordered walls.
+ *
+ * `walls[i]` corresponds to polygon edge `i` (between vertex i and i+1).
+ * Side order is bottom (south, longest), right (east), top (north), left (west).
+ */
+export interface DerivedRoomGeometry {
+  /** Polygon in mm, closed (4 points for a rectangle). */
+  polygon: Point2D[];
+  /**
+   * Walls per polygon edge — same index order as polygon edges.
+   * Each entry is the source ConstructionElement (or null if room has fewer
+   * than 4 wall constructions and this side is "synthetic").
+   */
+  walls: Array<ConstructionElement | null>;
+  /** Width of the rectangle in mm. */
+  widthMm: number;
+  /** Height of the rectangle in mm (depth, not 3D height). */
+  depthMm: number;
+}
+
+/**
+ * Solve rectangle dimensions from perimeter and area.
+ *
+ * Returns (width, depth) in meters, where width >= depth. If the system
+ * has no real solution (perimeter too small for the given area), returns
+ * a square with side √area so the viewer always renders something.
+ */
+export function rectangleFromPerimeterAndArea(
+  perimeterM: number,
+  areaM2: number,
+): { width: number; depth: number } {
+  if (areaM2 <= 0) {
+    return { width: 0, depth: 0 };
+  }
+  if (perimeterM <= 0) {
+    const s = Math.sqrt(areaM2);
+    return { width: s, depth: s };
+  }
+  const halfP = perimeterM / 2;
+  const disc = halfP * halfP - 4 * areaM2;
+  if (disc < 0) {
+    const s = Math.sqrt(areaM2);
+    return { width: s, depth: s };
+  }
+  const sqrtDisc = Math.sqrt(disc);
+  const width = (halfP + sqrtDisc) / 2;
+  const depth = areaM2 / width;
+  return { width, depth };
+}
+
+/**
+ * Pick wall constructions from a room. Treats `undefined` vertical_position
+ * as wall (historical default — older fixtures don't set the field).
+ */
+export function wallConstructions(room: Room): ConstructionElement[] {
+  return room.constructions.filter(
+    (c) =>
+      c.vertical_position === "wall" || c.vertical_position === undefined,
+  );
+}
+
+/**
+ * Derive geometry for a single room. Pure function — no I/O, no store reads.
+ */
+export function deriveRoomGeometry(room: Room): DerivedRoomGeometry {
+  const heightM = room.height ?? DEFAULT_HEIGHT_M;
+  const walls = wallConstructions(room);
+
+  // Perimeter = Σ (wall.area / room.height).
+  const perimeterM = walls.reduce((sum, w) => sum + w.area / heightM, 0);
+
+  const { width, depth } = rectangleFromPerimeterAndArea(
+    perimeterM,
+    room.floor_area,
+  );
+
+  const widthMm = width * MM;
+  const depthMm = depth * MM;
+
+  // Rectangle polygon: bottom-left, bottom-right, top-right, top-left (CCW).
+  const polygon: Point2D[] = [
+    { x: 0, y: 0 },
+    { x: widthMm, y: 0 },
+    { x: widthMm, y: depthMm },
+    { x: 0, y: depthMm },
+  ];
+
+  // Map walls to sides. Order walls by area descending; assign in side order
+  // bottom (south) → right (east) → top (north) → left (west). This places
+  // the "largest" wall consistently at the bottom for visual coherence.
+  const sortedWalls = [...walls].sort((a, b) => b.area - a.area);
+  const sides: Array<ConstructionElement | null> = [
+    sortedWalls[0] ?? null,
+    sortedWalls[1] ?? null,
+    sortedWalls[2] ?? null,
+    sortedWalls[3] ?? null,
+  ];
+
+  return { polygon, walls: sides, widthMm, depthMm };
+}
+
+// ---------------------------------------------------------------------------
+// Floor parsing
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a floor index from a room name with a Dutch convention prefix.
+ *
+ * Examples:
+ *   "[BG] Berging"   → 0   (begane grond)
+ *   "[1V] Slaapkamer" → 1  (eerste verdieping)
+ *   "[2V] Zolder"    → 2
+ *   "[KE] Kelder"    → -1
+ *   "Berging"        → 0   (no prefix → ground floor by default)
+ */
+export function parseFloorFromName(name: string): number {
+  const m = name.match(/^\s*\[\s*(BG|KE|(\d+)V?)\s*\]/i);
+  if (!m || !m[1]) return 0;
+  const tag = m[1].toUpperCase();
+  if (tag === "BG") return 0;
+  if (tag === "KE") return -1;
+  // [1V], [2V], [3V] etc.
+  const num = m[2];
+  if (num) return parseInt(num, 10);
+  // [1], [2] without V suffix
+  const numOnly = parseInt(tag, 10);
+  return Number.isFinite(numOnly) ? numOnly : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Grid layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert an entire `Project` to read-only ModelRooms positioned in a grid.
+ *
+ * Per floor (parsed from name prefix), rooms are arranged in rows of
+ * approximately `cols` columns. The widest room in each row determines the
+ * row spacing. Different floors are vertically separated by `floorGap`.
+ *
+ * Output ModelRooms have:
+ * - `id`: the calc Room.id (so wallConstructions/wallBoundaryTypes maps,
+ *   keyed by ModelRoom.id, continue to apply)
+ * - `name`, `function`: from the calc Room
+ * - `polygon`: from `deriveRoomGeometry`, translated to grid position
+ * - `floor`: parsed from name prefix
+ * - `height`: from Room.height in mm (or DEFAULT_HEIGHT_M·1000)
+ */
+export function deriveModelRooms(
+  project: Project,
+  options?: { cols?: number; gapMm?: number; floorGapMm?: number },
+): ModelRoom[] {
+  const cols = options?.cols ?? 4;
+  const gapMm = options?.gapMm ?? ROOM_GAP_MM;
+  const floorGapMm = options?.floorGapMm ?? 5000;
+
+  // Group by floor.
+  const byFloor = new Map<number, Array<{ room: Room; geom: DerivedRoomGeometry }>>();
+  for (const room of project.rooms) {
+    const floor = parseFloorFromName(room.name);
+    const geom = deriveRoomGeometry(room);
+    const list = byFloor.get(floor) ?? [];
+    list.push({ room, geom });
+    byFloor.set(floor, list);
+  }
+
+  const out: ModelRoom[] = [];
+  // Sort floors low-to-high so kelder (-1) is at top of canvas, attic at bottom
+  // (or pick a different convention — for now: low floor = small Y).
+  const sortedFloors = [...byFloor.keys()].sort((a, b) => a - b);
+
+  let floorYOffset = 0;
+  for (const floor of sortedFloors) {
+    const rooms = byFloor.get(floor)!;
+    let rowHeight = 0;
+    let rowYStart = floorYOffset;
+    let cursorX = 0;
+
+    rooms.forEach(({ room, geom }, idx) => {
+      const col = idx % cols;
+      // New row: reset X, advance Y by previous row height + gap.
+      if (col === 0 && idx > 0) {
+        rowYStart += rowHeight + gapMm;
+        rowHeight = 0;
+        cursorX = 0;
+      }
+
+      // Translate the geometry to grid position.
+      const translated = geom.polygon.map((p) => ({
+        x: cursorX + p.x,
+        y: rowYStart + p.y,
+      }));
+
+      out.push({
+        id: room.id,
+        name: room.name,
+        function: String(room.function),
+        polygon: translated,
+        floor,
+        height: (room.height ?? DEFAULT_HEIGHT_M) * MM,
+      });
+
+      cursorX += geom.widthMm + gapMm;
+      rowHeight = Math.max(rowHeight, geom.depthMm);
+    });
+
+    // Advance Y past this floor's rooms before starting the next floor.
+    floorYOffset = rowYStart + rowHeight + floorGapMm;
+  }
+
+  return out;
+}
+
+/**
+ * Derived windows are constructions with vertical_position "wall" + zero
+ * or low U-value not really — actually we don't currently distinguish
+ * windows from walls in the calc model except by description heuristics.
+ * For PR D iteration 1, we return an empty array. Future iteration can
+ * synthesize windows from `kozijnen_vullingen` constructions by inspecting
+ * their project_construction_id → ProjectConstruction.category.
+ */
+export function deriveModelWindows(_project: Project): ModelWindow[] {
+  return [];
+}
+
+/** Same reasoning as deriveModelWindows. */
+export function deriveModelDoors(_project: Project): ModelDoor[] {
+  return [];
+}
