@@ -147,11 +147,18 @@ export default function Backstage({
   // --- File actions ---
 
   const handleNew = useCallback(() => {
-    reset();
-    resetToExample();
-    onClose();
-    onNavigate?.("/project");
-    addToast(t("newProject"), "info");
+    try {
+      reset();
+      resetToExample();
+      onClose();
+      onNavigate?.("/project");
+      addToast(t("newProject"), "info");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast(`Nieuw mislukt: ${msg}`, "error");
+      // eslint-disable-next-line no-console
+      console.error("[backstage] handleNew failed:", err);
+    }
   }, [reset, resetToExample, onClose, onNavigate, addToast, t]);
 
   const handleOpenServer = useCallback(() => {
@@ -242,9 +249,16 @@ export default function Backstage({
       }
     } else {
       // Not logged in — export locally as .ifcenergy (default save format)
-      exportIfcEnergy(project, result);
-      onClose();
-      addToast(t("savedLocally"), "success");
+      try {
+        await exportIfcEnergy(project, result);
+        onClose();
+        addToast(t("savedLocally"), "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${t("saveError")}: ${msg}`, "error");
+        // eslint-disable-next-line no-console
+        console.error("[backstage] exportIfcEnergy failed:", err);
+      }
     }
   }, [
     activeProjectId,
@@ -278,10 +292,17 @@ export default function Backstage({
     }
   }, [project, setActiveProjectId, onClose, addToast, t]);
 
-  const handleSaveAsLocal = useCallback(() => {
-    exportIfcEnergy(project, result);
-    onClose();
-    addToast(t("savedLocally"), "success");
+  const handleSaveAsLocal = useCallback(async () => {
+    try {
+      await exportIfcEnergy(project, result);
+      onClose();
+      addToast(t("savedLocally"), "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast(`${t("saveError")}: ${msg}`, "error");
+      // eslint-disable-next-line no-console
+      console.error("[backstage] exportIfcEnergy (saveAs) failed:", err);
+    }
   }, [project, result, onClose, addToast, t]);
 
   const handleClose = useCallback(() => {

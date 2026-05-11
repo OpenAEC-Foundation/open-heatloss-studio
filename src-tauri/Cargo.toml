@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 isso51-core = { path = "../crates/isso51-core" }
 openaec-layout = { path = "../libs/openaec-reports/rust/crates/openaec-layout" }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
