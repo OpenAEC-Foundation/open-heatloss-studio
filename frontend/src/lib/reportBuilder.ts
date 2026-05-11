@@ -22,6 +22,7 @@ import {
   buildConstructionLossSvg,
   buildStackedBarSvg,
   buildSummaryDonutSvg,
+  buildTemperatureGradientSvg,
   rasterizeSvgToPng,
 } from "./reportCharts";
 
@@ -60,7 +61,13 @@ export async function buildReportData(
   const projectName = project.info.name || "Naamloos project";
   const thetaWater = project.climate.theta_water ?? DEFAULT_THETA_WATER;
   const diagrammenSection = await buildDiagrammenSection(project, result);
-  const constructiesSection = buildConstructiesSection(projectConstructions);
+  const thetaIDefault = 20;
+  const thetaEDefault = project.climate.theta_e ?? DEFAULT_THETA_E;
+  const constructiesSection = await buildConstructiesSection(
+    projectConstructions,
+    thetaIDefault,
+    thetaEDefault,
+  );
 
   return {
     template: "standaard_rapport",
@@ -534,14 +541,19 @@ function buildRoomInputBlocks(room: Room): Record<string, unknown>[] {
 /** Build the "Constructie-opbouw & Rc-waarden" section.
  *
  * Per ProjectConstruction met layers: ISO 6946 Rc/U-resultaat via `calculateRc`.
+ * Voor elke layered opbouw ook een temperatuurverloop-grafiek
+ * (`buildTemperatureGradientSvg` → PNG) zodat de lezer per laag de
+ * grensvlak-temperaturen ziet bij ontwerpcondities θ_i / θ_e.
  * Layer-loze constructies (kozijnen/glas/deuren met directe U) krijgen een
  * mini-blok met alleen de U-waarde.
  *
  * Returns null when there are no constructions to render.
  */
-function buildConstructiesSection(
+async function buildConstructiesSection(
   projectConstructions: ProjectConstruction[],
-): Record<string, unknown> | null {
+  thetaI: number,
+  thetaE: number,
+): Promise<Record<string, unknown> | null> {
   if (projectConstructions.length === 0) return null;
 
   const content: Record<string, unknown>[] = [];
@@ -638,6 +650,45 @@ function buildConstructiesSection(
         headers: ["Parameter", "Waarde"],
         rows: resultRows,
       });
+      content.push({ type: "spacer", height_mm: 3 });
+
+      // Temperatuurverloop diagram — stationair regime, θ_i / θ_e uit project
+      const tempLayers = pc.layers.map((l, i) => {
+        const r = rcResult.layers[i];
+        const material = getMaterialById(l.materialId);
+        return {
+          name: material?.name ?? l.materialId,
+          thickness: l.thickness,
+          r: r?.r ?? 0,
+        };
+      });
+      const tempSvg = buildTemperatureGradientSvg(
+        tempLayers,
+        rcResult.rSi,
+        rcResult.rSe,
+        thetaI,
+        thetaE,
+      );
+      if (tempSvg) {
+        try {
+          const png = await rasterizeSvgToPng(tempSvg);
+          content.push({
+            type: "image",
+            src: {
+              data: png.data,
+              media_type: "image/png",
+              filename: `temp-gradient-${pc.id}.png`,
+            },
+            caption: `Temperatuurverloop bij θ_i = ${thetaI.toFixed(0)}°C / θ_e = ${thetaE.toFixed(0)}°C`,
+            width_mm: 160,
+            alignment: "center",
+          });
+        } catch (err) {
+          // SVG rasterize can fail in non-DOM environments; degrade silently.
+          // eslint-disable-next-line no-console
+          console.warn("[report] temp gradient rasterize failed:", err);
+        }
+      }
     } else {
       // Layerless — direct U-value (kozijnen/glas/deuren)
       const uText =
