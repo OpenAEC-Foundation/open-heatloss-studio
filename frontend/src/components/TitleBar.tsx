@@ -150,7 +150,7 @@ function TitleBar({ onSettingsClick, onFeedbackClick }: TitleBarProps) {
       </div>
 
       <span className="titlebar-title" data-tauri-drag-region>
-        ISSO 51 Warmteverliesberekening
+        Open Heatloss Studio
         {appVersion && <span className="titlebar-version">v{appVersion}</span>}
       </span>
 
