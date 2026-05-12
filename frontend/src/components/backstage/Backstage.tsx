@@ -109,8 +109,11 @@ export default function Backstage({
 }: BackstageProps) {
   const { t } = useTranslation("backstage");
   const [activePanel, setActivePanel] = useState<string>("none");
-  const [openExpanded, setOpenExpanded] = useState(false);
-  const [saveAsExpanded, setSaveAsExpanded] = useState(false);
+  // Openen + Opslaan als zijn standaard uitgeklapt zodat de Lokaal /
+  // Server sub-items direct zichtbaar zijn (anders moet de gebruiker
+  // eerst op het hoofd-item klikken om het submenu te ontdekken).
+  const [openExpanded, setOpenExpanded] = useState(true);
+  const [saveAsExpanded, setSaveAsExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useToastStore((s) => s.addToast);
