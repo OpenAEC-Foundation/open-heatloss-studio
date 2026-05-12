@@ -86,6 +86,10 @@ export function AppShell({ children }: AppShellProps) {
             }
             extractAndLinkConstructions(imported.project);
             useProjectStore.getState().setProject(imported.project);
+            // setProject reset currentLocalPath naar null; daarna pas
+            // het echte pad zetten zodat Bestand → Opslaan stil terug-
+            // schrijft naar dit bestand.
+            useProjectStore.getState().setCurrentLocalPath(path);
             if (imported.result) {
               useProjectStore.getState().setResult(imported.result);
             }
@@ -168,9 +172,19 @@ export function AppShell({ children }: AppShellProps) {
       }
       return;
     }
-    // Anoniem of Tauri-desktop: lokaal .ifcenergy via native save-dialog
+    // Anoniem of Tauri-desktop: opslaan als .ifcenergy.
+    // Bestand → Opslaan: schrijf naar `currentLocalPath` als bekend (geen
+    // dialog); anders fall back op save-as dialog. Pad uit dialog wordt
+    // teruggeschreven in de store voor de volgende save.
     try {
-      await exportIfcEnergy(state.project, state.result);
+      const writtenPath = await exportIfcEnergy(
+        state.project,
+        state.result,
+        state.currentLocalPath,
+      );
+      if (writtenPath) {
+        useProjectStore.getState().setCurrentLocalPath(writtenPath);
+      }
       addToast(i18next.t("savedLocally"), "success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -209,10 +223,17 @@ export function AppShell({ children }: AppShellProps) {
       }
 
       if (ctrl && e.shiftKey && e.key === "S") {
+        // Ctrl+Shift+S = "Opslaan als" — altijd dialog, ook als
+        // currentLocalPath bekend is. Update pad na succesvolle save.
         e.preventDefault();
         const state = useProjectStore.getState();
-        exportIfcEnergy(state.project, state.result)
-          .then(() => addToast("Lokaal opgeslagen", "success"))
+        exportIfcEnergy(state.project, state.result, undefined)
+          .then((writtenPath) => {
+            if (writtenPath) {
+              useProjectStore.getState().setCurrentLocalPath(writtenPath);
+            }
+            addToast("Lokaal opgeslagen", "success");
+          })
           .catch((err) => {
             const msg = err instanceof Error ? err.message : String(err);
             addToast(`Opslaan mislukt: ${msg}`, "error");

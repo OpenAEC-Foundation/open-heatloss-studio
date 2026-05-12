@@ -199,6 +199,7 @@ export default function Backstage({
         }
         extractAndLinkConstructions(imported.project);
         setProject(imported.project);
+        useProjectStore.getState().setCurrentLocalPath(selected);
         if (imported.result) {
           useProjectStore.getState().setResult(imported.result);
         }
@@ -291,6 +292,7 @@ export default function Backstage({
           }
           extractAndLinkConstructions(imported.project);
           setProject(imported.project);
+          useProjectStore.getState().setCurrentLocalPath(entry.path);
           if (imported.result) {
             useProjectStore.getState().setResult(imported.result);
           }
@@ -355,9 +357,15 @@ export default function Backstage({
         );
       }
     } else {
-      // Not logged in — export locally as .ifcenergy (default save format)
+      // Not logged in — schrijf als .ifcenergy. Als we al een pad weten
+      // (bestand werd geopend via Tauri dialog / recent / file-association),
+      // schrijf stil naar dat pad. Anders save-as dialog.
       try {
-        await exportIfcEnergy(project, result);
+        const currentPath = useProjectStore.getState().currentLocalPath;
+        const writtenPath = await exportIfcEnergy(project, result, currentPath);
+        if (writtenPath) {
+          useProjectStore.getState().setCurrentLocalPath(writtenPath);
+        }
         onClose();
         addToast(t("savedLocally"), "success");
       } catch (err) {
@@ -400,8 +408,12 @@ export default function Backstage({
   }, [project, setActiveProjectId, onClose, addToast, t]);
 
   const handleSaveAsLocal = useCallback(async () => {
+    // "Opslaan als" → altijd save-as dialog, ook als currentLocalPath bekend.
     try {
-      await exportIfcEnergy(project, result);
+      const writtenPath = await exportIfcEnergy(project, result, undefined);
+      if (writtenPath) {
+        useProjectStore.getState().setCurrentLocalPath(writtenPath);
+      }
       onClose();
       addToast(t("savedLocally"), "success");
     } catch (err) {

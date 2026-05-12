@@ -153,10 +153,25 @@ function snapshotModellerState(): ModellerSnapshot {
  * voor envelope-structuur. Legacy `.isso51.json` blijft beschikbaar via
  * `exportProject` voor backwards-compat use cases.
  */
+/**
+ * Schrijf het project + result als `.ifcenergy` IFCX document.
+ *
+ * Gedrag bij `targetPath`:
+ *   - `undefined` (default) → Tauri: opent save-as dialog;
+ *     web: blob-download via anchor click. Standaard "Opslaan als" flow.
+ *   - `string` (Tauri-mode) → schrijf direct naar dit pad, géén dialog.
+ *     Gebruikt voor "Opslaan" wanneer de file al een bekend pad heeft.
+ *
+ * Returns het pad dat geschreven werd (Tauri) of `null` (web / cancelled /
+ * geen pad bekend). Caller kan dat terugschrijven naar
+ * `projectStore.currentLocalPath` zodat een volgende "Opslaan" stil naar
+ * dezelfde locatie schrijft.
+ */
 export async function exportIfcEnergy(
   project: Project,
   result: ProjectResult | null,
-): Promise<void> {
+  targetPath?: string | null,
+): Promise<string | null> {
   const doc = buildIfcEnergyDocument({
     project,
     result,
@@ -169,39 +184,33 @@ export async function exportIfcEnergy(
 
   if (isTauri()) {
     try {
-      const [{ save }, { writeTextFile }] = await Promise.all([
-        import("@tauri-apps/plugin-dialog"),
-        import("@tauri-apps/plugin-fs"),
-      ]);
+      const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+
+      // Direct-write pad: geen dialog, alleen overschrijven
+      if (targetPath) {
+        await writeTextFile(targetPath, json);
+        recordRecent(project.info.name || safeName, targetPath);
+        return targetPath;
+      }
+
+      // Geen pad → save-as dialog
+      const { save } = await import("@tauri-apps/plugin-dialog");
       const filePath = await save({
         defaultPath: `${safeName}.ifcenergy`,
         filters: [
           { name: "Open Heatloss Studio", extensions: ["ifcenergy"] },
         ],
       });
-      if (!filePath) return; // user cancelled
+      if (!filePath) return null; // user cancelled
       await writeTextFile(filePath, json);
-      // Record in recent-files list so it appears under Bestand → Openen
-      try {
-        const { useRecentFilesStore } = await import(
-          "../store/recentFilesStore"
-        );
-        const fileName = filePath.split(/[\\/]/).pop() ?? `${safeName}.ifcenergy`;
-        useRecentFilesStore.getState().push({
-          name: project.info.name || safeName,
-          fileName,
-          path: filePath,
-        });
-      } catch {
-        // dynamic import or store missing — non-fatal
-      }
-      return;
+      recordRecent(project.info.name || safeName, filePath);
+      return filePath;
     } catch (err) {
       console.error("Tauri save failed, falling back to browser download:", err);
     }
   }
 
-  // Web-mode (or Tauri fallback): blob + anchor download.
+  // Web-mode (of Tauri fallback): blob + anchor download (geen pad terug)
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -209,6 +218,24 @@ export async function exportIfcEnergy(
   a.download = `${safeName}.ifcenergy`;
   a.click();
   URL.revokeObjectURL(url);
+  return null;
+}
+
+/** Schuif een entry op de top van de recent-files lijst. */
+function recordRecent(displayName: string, filePath: string): void {
+  try {
+    // Dynamic import om geen module-cycle te creëren met de store
+    void import("../store/recentFilesStore").then(({ useRecentFilesStore }) => {
+      const fileName = filePath.split(/[\\/]/).pop() ?? "project.ifcenergy";
+      useRecentFilesStore.getState().push({
+        name: displayName,
+        fileName,
+        path: filePath,
+      });
+    });
+  } catch {
+    // store/import missing — non-fatal
+  }
 }
 
 /**
