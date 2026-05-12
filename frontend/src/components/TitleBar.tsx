@@ -8,9 +8,11 @@ import "./TitleBar.css";
 interface TitleBarProps {
   onSettingsClick?: () => void;
   onFeedbackClick?: () => void;
+  /** Callback voor de Save quick-access knop (zelfde flow als Ctrl+S). */
+  onSave?: () => void | Promise<void>;
 }
 
-function TitleBar({ onSettingsClick, onFeedbackClick }: TitleBarProps) {
+function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
   const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
   const [appVersion, setAppVersion] = useState("");
@@ -93,6 +95,7 @@ function TitleBar({ onSettingsClick, onFeedbackClick }: TitleBarProps) {
           title={`${t("save")} (Ctrl+S)`}
           aria-label={t("save")}
           tabIndex={-1}
+          onClick={() => onSave?.()}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />

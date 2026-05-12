@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { updateProject, createProject, isTauri } from "../../lib/backend";
 import {
-  exportProject,
+  exportIfcEnergy,
   openProjectFile,
   extractAndLinkConstructions,
 } from "../../lib/importExport";
@@ -131,6 +131,53 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, [navigate, addToast]);
 
+  // --- Save action ---
+  // Eén canonieke save-flow voor zowel het TitleBar quick-access knopje
+  // als de Ctrl+S keyboard shortcut. Logged-in op web → upsert naar server;
+  // anders (Tauri desktop of anoniem web) → exporteer als .ifcenergy via de
+  // native save-dialog (Tauri) of een browser-download (web fallback).
+  const performSave = useCallback(async () => {
+    const state = useProjectStore.getState();
+    if (state.activeProjectId && isLoggedIn) {
+      try {
+        const resp = await updateProject(state.activeProjectId, {
+          project_data: state.project,
+          expected_updated_at: state.serverUpdatedAt ?? undefined,
+        });
+        useProjectStore.getState().setServerUpdatedAt(resp.updated_at);
+        addToast(i18next.t("savedToServer"), "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${i18next.t("saveFailed")}: ${msg}`, "error");
+      }
+      return;
+    }
+    if (isLoggedIn) {
+      const name = window.prompt(
+        i18next.t("projectNamePrompt"),
+        state.project.info.name || "",
+      );
+      if (!name) return;
+      try {
+        const resp = await createProject(name, state.project);
+        useProjectStore.getState().setActiveProjectId(resp.id);
+        addToast(i18next.t("savedToServer"), "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${i18next.t("saveFailed")}: ${msg}`, "error");
+      }
+      return;
+    }
+    // Anoniem of Tauri-desktop: lokaal .ifcenergy via native save-dialog
+    try {
+      await exportIfcEnergy(state.project, state.result);
+      addToast(i18next.t("savedLocally"), "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast(`Opslaan mislukt: ${msg}`, "error");
+    }
+  }, [isLoggedIn, addToast]);
+
   // --- Global keyboard shortcuts ---
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -157,52 +204,19 @@ export function AppShell({ children }: AppShellProps) {
 
       if (ctrl && !e.shiftKey && e.key === "s") {
         e.preventDefault();
-        const state = useProjectStore.getState();
-        if (state.activeProjectId && isLoggedIn) {
-          updateProject(state.activeProjectId, {
-            project_data: state.project,
-            expected_updated_at: state.serverUpdatedAt ?? undefined,
-          })
-            .then((resp) => {
-              useProjectStore.getState().setServerUpdatedAt(resp.updated_at);
-              addToast(i18next.t("savedToServer"), "success");
-            })
-            .catch((err) => {
-              addToast(
-                `${i18next.t("saveFailed")}: ${err instanceof Error ? err.message : String(err)}`,
-                "error",
-              );
-            });
-        } else if (isLoggedIn) {
-          const name = window.prompt(
-            i18next.t("projectNamePrompt"),
-            state.project.info.name || "",
-          );
-          if (name) {
-            createProject(name, state.project)
-              .then((resp) => {
-                useProjectStore.getState().setActiveProjectId(resp.id);
-                addToast(i18next.t("savedToServer"), "success");
-              })
-              .catch((err) => {
-                addToast(
-                  `${i18next.t("saveFailed")}: ${err instanceof Error ? err.message : String(err)}`,
-                  "error",
-                );
-              });
-          }
-        } else {
-          exportProject(state.project, state.result);
-          addToast(i18next.t("savedLocally"), "success");
-        }
+        void performSave();
         return;
       }
 
       if (ctrl && e.shiftKey && e.key === "S") {
         e.preventDefault();
         const state = useProjectStore.getState();
-        exportProject(state.project, state.result);
-        addToast("Lokaal opgeslagen", "success");
+        exportIfcEnergy(state.project, state.result)
+          .then(() => addToast("Lokaal opgeslagen", "success"))
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            addToast(`Opslaan mislukt: ${msg}`, "error");
+          });
         return;
       }
 
@@ -227,7 +241,7 @@ export function AppShell({ children }: AppShellProps) {
         return;
       }
     },
-    [navigate, isLoggedIn, addToast, location.pathname],
+    [navigate, addToast, location.pathname, performSave],
   );
 
   useEffect(() => {
@@ -240,6 +254,7 @@ export function AppShell({ children }: AppShellProps) {
       <TitleBar
         onSettingsClick={() => setSettingsOpen(true)}
         onFeedbackClick={() => setFeedbackOpen(true)}
+        onSave={performSave}
       />
       <Ribbon onFileTabClick={() => setBackstageOpen(true)} />
 
