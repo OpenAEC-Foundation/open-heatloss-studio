@@ -12,6 +12,7 @@ import { useToastStore } from "../../store/toastStore";
 import { useRecentFilesStore, type RecentFile } from "../../store/recentFilesStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import ExtensionManagerPanel from "./ExtensionManagerPanel";
+import RecentFilesPanel from "./RecentFilesPanel";
 import "./Backstage.css";
 
 const ICONS = {
@@ -24,6 +25,7 @@ const ICONS = {
   about: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
   exit: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
   extensions: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>',
+  recent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   server: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
   file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
 };
@@ -586,6 +588,14 @@ export default function Backstage({
 
           <Divider />
 
+          {/* Recent files */}
+          <MenuItem
+            icon={ICONS.recent}
+            label={t("recent")}
+            active={activePanel === "recent"}
+            onClick={() => setActivePanel("recent")}
+          />
+
           {/* Extensies */}
           <MenuItem
             icon={ICONS.extensions}
@@ -623,6 +633,13 @@ export default function Backstage({
       <div className="backstage-content" onClick={handleContentClick}>
         {activePanel === "about" && <AboutPanel />}
         {activePanel === "extensions" && <ExtensionManagerPanel />}
+        {activePanel === "recent" && (
+          <RecentFilesPanel
+            onOpen={async (entry) => {
+              await handleOpenRecent(entry);
+            }}
+          />
+        )}
       </div>
 
       {/* Hidden file input for local open */}
