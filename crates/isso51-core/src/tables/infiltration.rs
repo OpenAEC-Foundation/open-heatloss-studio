@@ -168,6 +168,15 @@ pub const N_LEA_DEFAULT: f64 = 0.67;
 #[allow(clippy::approx_constant)]
 pub const DESIGN_DP_VABI_PA: f64 = 3.14;
 
+/// NTA 8800-strict design-drukverschil voor de power-law conversie.
+///
+/// Gelijk aan de referentie-drukverschil van 10 Pa: bij Δp_design = 10 Pa
+/// reduceert de power-law term `(Δp_design / 10)^n_lea` tot 1.0, zodat de
+/// gemeten `qv,10`-equivalente lekkage **zonder reductie** als ontwerpwaarde
+/// wordt gebruikt. Dit is de conservatieve (norm-pure) variant voor
+/// `InfiltrationMethod::Nta8800Strict` — geen Vabi-empirie.
+pub const DESIGN_DP_NTA8800_PA: f64 = 10.0;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,5 +268,11 @@ mod tests {
     fn test_design_dp_vabi_constant() {
         // Vabi-fit 3.14 Pa (geen norm-bron, empirisch).
         assert!((DESIGN_DP_VABI_PA - 3.14).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_design_dp_nta8800_constant() {
+        // NTA 8800-strict: 10 Pa = referentie-drukverschil → geen reductie.
+        assert!((DESIGN_DP_NTA8800_PA - 10.0).abs() < 1e-9);
     }
 }

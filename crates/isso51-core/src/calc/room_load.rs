@@ -57,6 +57,7 @@ fn height_factor(height_m: f64) -> f64 {
 ///
 /// # Returns
 /// Complete RoomResult with all heat loss components.
+#[allow(clippy::too_many_arguments)]
 pub fn calculate_room(
     room: &Room,
     all_rooms: &[Room],
@@ -117,20 +118,22 @@ pub fn calculate_room(
             let qi_spec = tables::infiltration::qi_spec_per_floor_area(building.qv10);
             qi_spec * room.floor_area
         }
-        // Dispatch 2 (Issue C — infiltratie-overhaul): de volledige Vabi-/NTA 8800-
-        // keten met Tabel 2.8 + power-law + f_type/f_y wordt in `calc/infiltration.rs`
-        // geïmplementeerd. Tot dan terugvallen op het legacy PerExteriorArea-gedrag
-        // zodat bestaande projecten blijven rekenen. Zie ook
-        // `docs/2026-05-12-vabi-infiltratie-keten-reproductie.md`.
+        // Norm-conforme infiltratie-keten (ISSO 51:2023 Tabel 2.8 +
+        // NTA 8800 Tabel 11.13/11.14 + NEN 8088-1 Tabel 10 + power-law).
+        // Zie `calc/infiltration.rs::qi_norm_method` voor de formule en
+        // `docs/2026-05-12-vabi-infiltratie-keten-reproductie.md` voor de
+        // Vabi-fit Δp = 3.14 Pa. Building-level `qi` wordt naar rato van
+        // `A_g_room / A_g_total` aan de kamer toegekend.
         InfiltrationMethod::VabiCompat | InfiltrationMethod::Nta8800Strict => {
-            let qi_spec = tables::infiltration::qi_spec_per_exterior_area(building.qv10);
-            let total_exterior_area: f64 = room
-                .constructions
-                .iter()
-                .filter(|c| c.boundary_type == BoundaryType::Exterior)
-                .map(|c| c.area)
-                .sum();
-            infiltration::infiltration_flow_rate(qi_spec, total_exterior_area)
+            let qi_building =
+                infiltration::compute_norm_qi(building, vent_config.system_type)?;
+            // Defensieve guards tegen division-by-zero en negatieve floor areas.
+            let a_g_total = building.total_floor_area.max(0.0);
+            if a_g_total > 0.0 && room.floor_area > 0.0 {
+                qi_building * (room.floor_area / a_g_total)
+            } else {
+                0.0
+            }
         }
     };
     let h_i = infiltration::h_infiltration(q_i);
