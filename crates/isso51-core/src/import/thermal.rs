@@ -806,6 +806,9 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             building_height: None,
             num_floors: 1,
             infiltration_method: InfiltrationMethod::PerExteriorArea,
+            dwelling_class: None,
+            construction_variant: None,
+            construction_year: None,
         },
         climate: DesignConditions::default(),
         ventilation: VentilationConfig {

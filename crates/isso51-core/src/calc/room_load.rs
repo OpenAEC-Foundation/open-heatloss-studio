@@ -117,6 +117,21 @@ pub fn calculate_room(
             let qi_spec = tables::infiltration::qi_spec_per_floor_area(building.qv10);
             qi_spec * room.floor_area
         }
+        // Dispatch 2 (Issue C — infiltratie-overhaul): de volledige Vabi-/NTA 8800-
+        // keten met Tabel 2.8 + power-law + f_type/f_y wordt in `calc/infiltration.rs`
+        // geïmplementeerd. Tot dan terugvallen op het legacy PerExteriorArea-gedrag
+        // zodat bestaande projecten blijven rekenen. Zie ook
+        // `docs/2026-05-12-vabi-infiltratie-keten-reproductie.md`.
+        InfiltrationMethod::VabiCompat | InfiltrationMethod::Nta8800Strict => {
+            let qi_spec = tables::infiltration::qi_spec_per_exterior_area(building.qv10);
+            let total_exterior_area: f64 = room
+                .constructions
+                .iter()
+                .filter(|c| c.boundary_type == BoundaryType::Exterior)
+                .map(|c| c.area)
+                .sum();
+            infiltration::infiltration_flow_rate(qi_spec, total_exterior_area)
+        }
     };
     let h_i = infiltration::h_infiltration(q_i);
     let z_i = 1.0; // Erratum: z_i tables removed, default to 1.0

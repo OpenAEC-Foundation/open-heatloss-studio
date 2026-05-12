@@ -300,6 +300,9 @@ mod tests {
                 building_height: None,
                 num_floors: 1,
                 infiltration_method: InfiltrationMethod::PerExteriorArea,
+                dwelling_class: None,
+                construction_variant: None,
+                construction_year: None,
             },
             // Old ISSO 51 example used θ_b = 15°C (erratum 2023 changed to 17°C)
             climate: DesignConditions {

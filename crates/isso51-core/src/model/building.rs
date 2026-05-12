@@ -7,7 +7,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::climate::DesignConditions;
-use super::enums::{BuildingType, InfiltrationMethod, SecurityClass};
+use super::enums::{
+    BuildingType, ConstructionVariant, DwellingClass, InfiltrationMethod, SecurityClass,
+};
 use super::room::Room;
 use super::ventilation::VentilationConfig;
 
@@ -96,8 +98,31 @@ pub struct Building {
     /// Infiltration calculation method.
     /// PerExteriorArea (default): q_i = qi_spec × ΣA_exterior (ISSO 51:2023)
     /// PerFloorArea: q_i = qi_spec × A_floor (ISSO 51:2024)
+    /// VabiCompat / Nta8800Strict: zie `InfiltrationMethod` doc.
     #[serde(default)]
     pub infiltration_method: InfiltrationMethod,
+
+    /// Woningclassificatie volgens ISSO 51:2023 Tabel 2.8 (qi,spec keying).
+    ///
+    /// Optioneel — alleen relevant bij `infiltration_method = VabiCompat`.
+    /// `None` → bestaande legacy-rekenketen blijft van toepassing.
+    /// Bestaande fixture-JSONs zonder dit veld blijven werken via `serde(default)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dwelling_class: Option<DwellingClass>,
+
+    /// Uitvoeringsvariant volgens NTA 8800 Tabel 11.14 (tussen / kop / vrijstaand).
+    ///
+    /// Optioneel — alleen relevant bij `infiltration_method = Nta8800Strict`.
+    /// `None` → val terug op `f_type = 1.0` (tussenwoning-equivalent).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub construction_variant: Option<ConstructionVariant>,
+
+    /// Bouwjaar van het gebouw — driver voor NTA 8800 Tabel 11.13 `f_y`
+    /// bouwjaarcorrectie.
+    ///
+    /// Optioneel — `None` → `f_y = 1.0` (onbekend bouwjaar, neutrale factor).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub construction_year: Option<u16>,
 }
 
 fn default_warmup_time() -> f64 {

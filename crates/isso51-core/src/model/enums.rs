@@ -191,16 +191,36 @@ pub enum MaterialType {
 
 /// Infiltration calculation method.
 /// Determines how the specific infiltration rate is applied.
+///
+/// **Legacy varianten** (`PerExteriorArea`, `PerFloorArea`) blijven beschikbaar
+/// voor backward-compatibiliteit met bestaande project-JSONs, maar zijn niet
+/// (meer) norm-conform met ISSO 51:2023 / NTA 8800 (Tabel 4.3 is geschrapt in
+/// de 2023-publicatie). Voor nieuwe projecten: gebruik `VabiCompat` of
+/// `Nta8800Strict`.
+///
+/// Zie ook `crates/isso51-core/src/tables/infiltration.rs` voor de
+/// onderliggende tabel-functies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum InfiltrationMethod {
-    /// Per m² exterior construction area (ISSO 51:2023 Table 4.3).
-    /// q_i = qi_spec_ext × ΣA_exterior
+    /// **Legacy** — per m² exterior construction area (ISSO 51:2017 Tabel 4.3).
+    /// `q_i = qi_spec_ext × ΣA_exterior`. Default blijft deze variant ivm
+    /// backward-compat met bestaande fixtures; nieuwe rekenketen gaat via
+    /// `VabiCompat` / `Nta8800Strict`.
     #[default]
     PerExteriorArea,
-    /// Per m² floor area (ISSO 51:2024).
-    /// q_i = qi_spec × A_floor (uses same qi_spec table values)
+    /// **Legacy** — per m² floor area (eigen tabel, niet norm-conform).
+    /// `q_i = qi_spec × A_floor`
     PerFloorArea,
+    /// **Nieuw** — Vabi-compatibele hybride methode: ISSO 51:2023 Tabel 2.8
+    /// (`qi_spec` per gebouwtype) gecombineerd met NTA 8800 power-law
+    /// (`n_lea = 0.67`) en design-Δp = 3.14 Pa (Vabi-fit). Aanbevolen voor
+    /// projecten die met Vabi-DR resultaten moeten matchen.
+    VabiCompat,
+    /// **Nieuw** — strikt NTA 8800 Tabel 11.14 + 11.13 keten:
+    /// `q_v10;lea;ref = f_type × f_y × q_v10;spec;reken`, gevolgd door power-law
+    /// (`n_lea = 0.67`). Geen Vabi-fit; design-Δp volgens NTA 8800 (4 Pa-domein).
+    Nta8800Strict,
 }
 
 /// Building type classification.
@@ -236,6 +256,44 @@ pub enum VerticalPosition {
     Wall,
 }
 
+/// Woningtype-classificatie volgens ISSO 51:2023 Tabel 2.8 — bepaalt de
+/// `q_i,spec` (specifieke infiltratie per m² gebruiksoppervlak) op basis van
+/// woningvorm + dakvorm.
+///
+/// **Onderscheiden van** de bestaande [`BuildingType`]: `BuildingType` is een
+/// fijnmaziger gebouwclassificatie (Detached / SemiDetached / Terraced / etc.)
+/// die elders in de code gebruikt wordt voor warmwordingsfactoren (Tabel 2.13)
+/// en winddruk. `DwellingClass` is uitsluitend de drie-rijen-keying van
+/// Tabel 2.8 (en optioneel als input voor mapping naar `ConstructionVariant`
+/// in NTA 8800 Tabel 11.14).
+///
+/// Bron: ISSO 51:2023 p.41 Tabel 2.8 (waardes via NEN 8088-1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DwellingClass {
+    /// Eengezinswoning met kap (hellend dak) → `q_i,spec = 1.0 dm³/(s·m² Ag)`
+    EengezinswoningMetKap,
+    /// Eengezinswoning met plat dak → `q_i,spec = 0.7 dm³/(s·m² Ag)`
+    EengezinswoningPlatdak,
+    /// Etage / flat / portiekwoning → `q_i,spec = 0.5 dm³/(s·m² Ag)`
+    EtageFlatOfPortiek,
+}
+
+/// Uitvoeringsvariant volgens NTA 8800 Tabel 11.14 — bepaalt de correctie-
+/// factor `f_type` op de luchtdoorlatendheid op gebouwniveau.
+///
+/// Bron: NTA 8800:2024 p.487–488 Tabel 11.14.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstructionVariant {
+    /// Tussenwoning / tussen-appartement → `f_type = 1.0`
+    Tussen,
+    /// Hoek-/kopwoning of kop-appartement → `f_type = 1.2`
+    Kop,
+    /// Vrijstaande woning → `f_type = 1.4`
+    Vrijstaand,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -254,5 +312,47 @@ mod tests {
         assert_eq!(SecurityClass::A.factor(), 0.0);
         assert_eq!(SecurityClass::B.factor(), 0.5);
         assert_eq!(SecurityClass::C.factor(), 1.0);
+    }
+
+    #[test]
+    fn test_infiltration_method_default_remains_per_exterior_area() {
+        // Backward-compat: bestaande fixture-JSONs zonder `infiltration_method`
+        // moeten naar PerExteriorArea blijven defaulten. Wijzigen van deze
+        // default = breaking change voor alle bestaande projecten.
+        assert_eq!(
+            InfiltrationMethod::default(),
+            InfiltrationMethod::PerExteriorArea
+        );
+    }
+
+    #[test]
+    fn test_infiltration_method_new_variants_exist() {
+        // Sanity check dat de twee nieuwe varianten geconstrueerd kunnen worden.
+        let m1 = InfiltrationMethod::VabiCompat;
+        let m2 = InfiltrationMethod::Nta8800Strict;
+        assert_ne!(m1, m2);
+        assert_ne!(m1, InfiltrationMethod::PerExteriorArea);
+    }
+
+    #[test]
+    fn test_dwelling_class_distinct() {
+        // Drie afzonderlijke rijen uit Tabel 2.8.
+        let a = DwellingClass::EengezinswoningMetKap;
+        let b = DwellingClass::EengezinswoningPlatdak;
+        let c = DwellingClass::EtageFlatOfPortiek;
+        assert_ne!(a, b);
+        assert_ne!(b, c);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_construction_variant_distinct() {
+        // Drie afzonderlijke uitvoeringsvarianten uit Tabel 11.14.
+        let t = ConstructionVariant::Tussen;
+        let k = ConstructionVariant::Kop;
+        let v = ConstructionVariant::Vrijstaand;
+        assert_ne!(t, k);
+        assert_ne!(k, v);
+        assert_ne!(t, v);
     }
 }
