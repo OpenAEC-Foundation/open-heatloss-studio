@@ -204,6 +204,13 @@ pub struct SystemLossResult {
 /// deliberately excluded because it sums to zero across the dwelling
 /// (conservation of energy). Only net exports (envelope, neighbours,
 /// ground, water, ventilation) contribute to the connection capacity.
+///
+/// **Aggregatie-formules op gebouwniveau (erratum 2023):**
+/// - `Φ_vent = Φ_v − Φ_i` (formule 3.3): netto ventilatieverlies na aftrek infiltratie.
+/// - `Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` (formule 3.11): kwadratische sommatie
+///   van niet-simultane bijdragen.
+/// - `aansluitvermogen = Φ_basis + Φ_extra` waarbij Φ_basis lineair wordt opgeteld
+///   (envelope + buren + grond + water + infiltratie + systeem).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BuildingSummary {
     /// Total transmission loss through building envelope in W.
@@ -213,6 +220,10 @@ pub struct BuildingSummary {
     pub total_neighbor_loss: f64,
 
     /// Total ventilation/infiltration loss in W.
+    ///
+    /// Lineaire som van Σ `room.ventilation.phi_v` (gross, vóór aftrek
+    /// infiltratie). Bewaard voor backwards-compatible rapportage. Voor
+    /// gebouwsom-conformiteit (formule 3.3) gebruik `phi_vent_building`.
     pub total_ventilation_loss: f64,
 
     /// Total heating-up allowance in W.
@@ -222,8 +233,52 @@ pub struct BuildingSummary {
     pub total_system_losses: f64,
 
     /// Connection capacity (aansluitvermogen) of the dwelling in W.
+    ///
+    /// Definitie (erratum 2023): `Φ_basis_total + Φ_extra_quadratic` waarbij
+    /// `Φ_extra_quadratic = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` op gebouwniveau.
+    /// Dit is een **breaking change** t.o.v. eerdere versies waarin deze
+    /// waarde een lineaire optelsom van W/K-bijdragen was.
     pub connection_capacity: f64,
 
     /// Contribution to collective installation in W (if applicable).
     pub collective_contribution: f64,
+
+    /// Σ van per-vertrek basis-verlies (inclusief systeemverliezen) in W.
+    ///
+    /// Basis omvat alle continue, simultane bijdragen op gebouwniveau:
+    /// envelope + grond + water + infiltratie + systeemverliezen. Intra-woning
+    /// transmissie (`h_t_adjacent_rooms`) is zero-sum en valt weg in de
+    /// gebouwsom.
+    #[serde(default)]
+    pub phi_basis_total: f64,
+
+    /// Φ_vent op gebouwniveau in W: `Σ Φ_v − Σ Φ_i` (erratum 2023, formule 3.3).
+    ///
+    /// Niet-negatief geclampt: als infiltratie groter is dan ventilatie
+    /// (zeldzaam, alleen bij zeer lekke woning met balanced ventilation)
+    /// wordt 0 gerapporteerd — een negatieve netto ventilatieverlies is
+    /// fysisch niet zinvol in de aansluitvermogen-context.
+    #[serde(default)]
+    pub phi_vent_building: f64,
+
+    /// Σ van per-vertrek transmissieverlies naar aangrenzende gebouwen in W.
+    ///
+    /// `Φ_T,iaBE = Σ (h_t_adjacent_buildings × Δθ)` per vertrek. Gaat als
+    /// kwadratische component mee in `phi_extra_quadratic`.
+    #[serde(default)]
+    pub phi_t_iabe_building: f64,
+
+    /// Σ van per-vertrek opwarmtoeslag Φ_hu in W.
+    ///
+    /// Gaat als kwadratische component mee in `phi_extra_quadratic`.
+    #[serde(default)]
+    pub phi_hu_building: f64,
+
+    /// Kwadratische som van niet-simultane bijdragen op gebouwniveau in W.
+    ///
+    /// `√(phi_vent_building² + phi_t_iabe_building² + phi_hu_building²)`
+    /// conform erratum 2023 formule 3.11. Telt op met `phi_basis_total`
+    /// tot `connection_capacity`.
+    #[serde(default)]
+    pub phi_extra_quadratic: f64,
 }
