@@ -15,7 +15,10 @@
     "warmup_time": 0.0,
     "building_height": 6.7,
     "num_floors": 2,
-    "infiltration_method": "per_floor_area"
+    "infiltration_method": "vabi_compat",
+    "dwelling_class": "eengezinswoning_met_kap",
+    "construction_variant": "vrijstaand",
+    "construction_year": 2020
   },
   "climate": {
     "theta_e": -8.0,
