@@ -137,6 +137,127 @@ pub fn qi_norm_method(
     qv10 * pressure_factor * finf
 }
 
+/// Vabi-conforme infiltratie-volumestroom op design-drukverschil voor het
+/// gehele gebouw, op basis van een **gemeten** `qv10`-waarde.
+///
+/// Verschilt van [`qi_norm_method`] doordat `qv10` rechtstreeks uit de
+/// blower-door meting komt (`building.qv10`) — Tabel 2.8 / `f_type` / `f_y`
+/// worden overgeslagen, want die zijn al verdisconteerd in de meting.
+///
+/// Keten:
+/// ```text
+/// qv10 (dm³/s @ 10 Pa, gemeten)
+///   × (Δp_design / 10)^n_lea       ← power-law conversie naar design-Δp
+///   × f_inf                          ← NEN 8088-1 Tabel 10 ventilatie-correctie
+/// = qi (dm³/s @ design-Δp)
+/// ```
+///
+/// # Argumenten
+/// * `qv10_measured` — `q_v,10` uit blower-door meting in dm³/s.
+/// * `design_dp_pa` — design-drukverschil in Pa (typisch
+///   [`DESIGN_DP_VABI_PA`](crate::tables::infiltration::DESIGN_DP_VABI_PA) = 3.14).
+/// * `n_lea` — power-law exponent (typisch
+///   [`N_LEA_DEFAULT`](crate::tables::infiltration::N_LEA_DEFAULT) = 0.67).
+/// * `f_inf` — ventilatiesysteem-correctie uit NEN 8088-1 Tabel 10.
+///
+/// # Returns
+/// `qi` in dm³/s bij design-Δp voor het gehele gebouw.
+///
+/// # Defensief gedrag
+/// - Niet-eindige inputs → 0.0.
+/// - Negatieve waardes clampen naar 0.0.
+/// - `design_dp_pa <= 0` → 0.0 (geen drijfveer, geen infiltratie).
+pub fn qi_measured_qv10(
+    qv10_measured: f64,
+    design_dp_pa: f64,
+    n_lea: f64,
+    f_inf: f64,
+) -> f64 {
+    let qv10 = qv10_measured.max(0.0);
+    let dp = design_dp_pa.max(0.0);
+    let n = n_lea.max(0.0);
+    let finf = f_inf.max(0.0);
+
+    if !qv10.is_finite() || !dp.is_finite() || !n.is_finite() || !finf.is_finite() {
+        return 0.0;
+    }
+
+    let dp_ratio = dp / 10.0;
+    let pressure_factor = if dp_ratio > 0.0 {
+        dp_ratio.powf(n)
+    } else {
+        0.0
+    };
+
+    qv10 * pressure_factor * finf
+}
+
+#[cfg(test)]
+mod measured_qv10_tests {
+    //! Unit-tests voor [`qi_measured_qv10`] en het `MeasuredQv10`-pad in
+    //! [`compute_norm_qi`]. Verifieert Vabi-DR replicatie: qv10=152, Δp=3.14,
+    //! n_lea=0.67, f_inf=1.10 → qi ≈ 76.3 dm³/s en qi/A_g ≈ 0.314 dm³/(s·m²).
+
+    use super::*;
+    use crate::model::building::Building;
+    use crate::model::enums::{
+        BuildingType, InfiltrationMethod, SecurityClass, VentilationSystemType,
+    };
+    use crate::tables::infiltration::{DESIGN_DP_VABI_PA, N_LEA_DEFAULT};
+
+    #[test]
+    fn test_qi_measured_qv10_dr_fixture_exact() {
+        // qv10 = 152 dm³/s (DR-fixture)
+        // Δp   = 3.14 Pa, n_lea = 0.67, f_inf = 1.10 (System D)
+        // (3.14/10)^0.67 = exp(0.67 × ln(0.314)) ≈ 0.4602
+        // qi = 152 × 0.4602 × 1.10 ≈ 76.95 dm³/s
+        let qi = qi_measured_qv10(152.0, DESIGN_DP_VABI_PA, N_LEA_DEFAULT, 1.10);
+        let expected = 76.95;
+        assert!(
+            (qi - expected).abs() < 0.5,
+            "qi = {qi:.3} dm³/s, verwacht ~{expected} (±0.5)"
+        );
+    }
+
+    #[test]
+    fn test_measured_qv10_compute_path_dr_building() {
+        // Volledige building → compute_norm_qi via MeasuredQv10-tak.
+        // qv10=152, A_g=243.2, system D → qi/A_g ≈ 0.314 dm³/(s·m²).
+        let b = Building {
+            building_type: BuildingType::Detached,
+            qv10: 152.0,
+            total_floor_area: 243.2,
+            security_class: SecurityClass::A,
+            has_night_setback: false,
+            warmup_time: 2.0,
+            building_height: Some(7.5),
+            num_floors: 2,
+            infiltration_method: InfiltrationMethod::MeasuredQv10,
+            dwelling_class: None,
+            construction_variant: None,
+            construction_year: None,
+        };
+        let qi = compute_norm_qi(&b, VentilationSystemType::SystemD).unwrap();
+        let qi_per_ag = qi / b.total_floor_area;
+        let target = 0.314;
+        let rel_dev = (qi_per_ag - target).abs() / target;
+        assert!(
+            rel_dev < 0.02,
+            "MeasuredQv10 DR-fixture qi/A_g = {qi_per_ag:.4} dm³/(s·m²), \
+             verwacht ~{target} (±2%), afwijking {rel_dev:.3}"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)] // 3.14 = Vabi-fit Δp in Pa, géén π
+    fn test_qi_measured_qv10_defensive() {
+        // Negatieve qv10 → 0, NaN → 0, Δp=0 → 0.
+        assert_eq!(qi_measured_qv10(-50.0, 3.14, 0.67, 1.10), 0.0);
+        assert_eq!(qi_measured_qv10(152.0, f64::NAN, 0.67, 1.10), 0.0);
+        assert_eq!(qi_measured_qv10(152.0, 0.0, 0.67, 1.10), 0.0);
+    }
+}
+
 #[cfg(test)]
 mod norm_method_tests {
     //! Unit-tests voor de norm-conforme keten (`qi_norm_method` +
@@ -330,6 +451,9 @@ mod norm_method_tests {
 /// - `VabiCompat` / `Nta8800Strict`: `building.dwelling_class` MOET gezet zijn.
 ///   Ontbreken → `Isso51Error::InfiltrationConfig`. `construction_variant` en
 ///   `construction_year` mogen `None` zijn (val terug op 1.0 / 1.0 — neutraal).
+/// - `MeasuredQv10`: `building.qv10` MOET > 0 zijn (gemeten waarde). Tabel 2.8
+///   / `f_type` / `f_y` worden genegeerd — gemeten lekkage verdisconteert deze.
+///   Design-Δp = `DESIGN_DP_VABI_PA` (3.14 Pa).
 /// - Andere methods: deze shim is niet de juiste call — gebruik
 ///   `infiltration_flow_rate` direct.
 ///
@@ -346,6 +470,28 @@ pub fn compute_norm_qi(
         DESIGN_DP_NTA8800_PA, DESIGN_DP_VABI_PA, N_LEA_DEFAULT,
     };
 
+    let f_inf = f_inf_table_nen8088(system_type);
+
+    // MeasuredQv10 short-circuit: gemeten qv10 wordt direct gebruikt, géén
+    // Tabel 2.8 / f_type / f_y. Vereist alleen een geldige `building.qv10`.
+    if matches!(
+        building.infiltration_method,
+        InfiltrationMethod::MeasuredQv10
+    ) {
+        if !building.qv10.is_finite() || building.qv10 <= 0.0 {
+            return Err(Isso51Error::InfiltrationConfig(format!(
+                "MeasuredQv10 vereist building.qv10 > 0, kreeg {}",
+                building.qv10
+            )));
+        }
+        return Ok(qi_measured_qv10(
+            building.qv10,
+            DESIGN_DP_VABI_PA,
+            N_LEA_DEFAULT,
+            f_inf,
+        ));
+    }
+
     let dwelling_class = building.dwelling_class.ok_or_else(|| {
         Isso51Error::InfiltrationConfig(
             "dwelling_class is verplicht voor VabiCompat/Nta8800Strict-methodes".to_string(),
@@ -358,7 +504,6 @@ pub fn compute_norm_qi(
         .map(f_type_table_11_14)
         .unwrap_or(1.0);
     let f_y = f_y_table_11_13(building.construction_year);
-    let f_inf = f_inf_table_nen8088(system_type);
 
     let design_dp = match building.infiltration_method {
         InfiltrationMethod::VabiCompat => DESIGN_DP_VABI_PA,
@@ -366,7 +511,7 @@ pub fn compute_norm_qi(
         // Defensief — caller hoort dit niet aan te roepen voor andere methods.
         _ => {
             return Err(Isso51Error::InfiltrationConfig(format!(
-                "compute_norm_qi alleen geldig voor VabiCompat/Nta8800Strict, kreeg {:?}",
+                "compute_norm_qi alleen geldig voor VabiCompat/Nta8800Strict/MeasuredQv10, kreeg {:?}",
                 building.infiltration_method
             )));
         }

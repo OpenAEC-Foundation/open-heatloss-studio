@@ -124,7 +124,9 @@ pub fn calculate_room(
         // `docs/2026-05-12-vabi-infiltratie-keten-reproductie.md` voor de
         // Vabi-fit Δp = 3.14 Pa. Building-level `qi` wordt naar rato van
         // `A_g_room / A_g_total` aan de kamer toegekend.
-        InfiltrationMethod::VabiCompat | InfiltrationMethod::Nta8800Strict => {
+        InfiltrationMethod::VabiCompat
+        | InfiltrationMethod::Nta8800Strict
+        | InfiltrationMethod::MeasuredQv10 => {
             let qi_building =
                 infiltration::compute_norm_qi(building, vent_config.system_type)?;
             // Defensieve guards tegen division-by-zero en negatieve floor areas.

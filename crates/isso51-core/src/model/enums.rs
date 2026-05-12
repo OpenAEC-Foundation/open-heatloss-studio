@@ -221,6 +221,14 @@ pub enum InfiltrationMethod {
     /// `q_v10;lea;ref = f_type × f_y × q_v10;spec;reken`, gevolgd door power-law
     /// (`n_lea = 0.67`). Geen Vabi-fit; design-Δp volgens NTA 8800 (4 Pa-domein).
     Nta8800Strict,
+    /// **Nieuw** — formule (11.85) met `building.qv10` als directe input.
+    ///
+    /// Voor projecten waar de luchtdoorlatendheid daadwerkelijk gemeten is
+    /// (blower-door test). Slaat Tabel 2.8 / `f_type` / `f_y` over — de
+    /// gemeten waarde verdisconteert deze al. Keten reduceert tot:
+    /// `qi = qv10 × (Δp_design / 10)^n_lea × f_inf`. Replicateert
+    /// Vabi-DR-keten exact (Δp = 3.14 Pa) op fixtures waar `qv10` gemeten is.
+    MeasuredQv10,
 }
 
 /// Building type classification.
