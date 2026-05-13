@@ -418,14 +418,18 @@ fn fixture_dr_engineering_woningbouw() {
 }
 
 #[test]
-#[ignore = "Expected file ontbreekt — genereren vereist een mini-script dat engine output afdwingt als baseline (geen Vabi-rapport beschikbaar voor woonboot use case)"]
 fn fixture_woonboot() {
-    // No woonboot expected fixture on disk — calling `require_fixture` will panic
-    // with `Fixture missing: ...` so the gap is loud and tracked rather than silently skipped.
+    // 3056 BWK woonboot — Project JSON + expected resultaat zijn gegenereerd
+    // uit `thermal_import_woonboot.json` (revit-raycast export) via het
+    // `gen_woonboot_expected` example. Geen Vabi-rapport beschikbaar voor
+    // deze use case, dus de huidige norm-conforme engine output is de
+    // baseline. Wanneer er bewust een gedrag-wijziging in Water-boundary
+    // code wordt doorgevoerd: rerun `cargo run --example gen_woonboot_expected`
+    // om de baseline bij te werken.
     run_fixture(&FixtureSpec {
         name: "woonboot",
-        input_file: "thermal_import_woonboot.json",
-        expected_file: "thermal_import_woonboot_expected.json",
+        input_file: "woonboot.json",
+        expected_file: "woonboot_result.json",
         extract: extract_native_format,
     });
 }
