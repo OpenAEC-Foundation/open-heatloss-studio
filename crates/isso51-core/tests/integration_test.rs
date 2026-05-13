@@ -397,7 +397,7 @@ fn fixture_portiekwoning() {
 }
 
 #[test]
-#[ignore = "ISSO 51:2017 fixture — vereist norm-version flag (formule 3.3 op kamerniveau ipv gebouw) — apart spoor, geen 2023-update mogelijk zonder code-tak"]
+#[ignore = "ISSO 51:2017 fixture — engine ondersteunt alleen ISSO 51:2023 (3BM-beleid 2026-05-13). 2017-paths worden niet geport; fixture blijft als historische referentie maar wordt niet meer getest. Verwijder bij opruimactie."]
 fn fixture_vabi_vrijstaande_woning() {
     run_fixture(&FixtureSpec {
         name: "vabi_vrijstaande_woning",
