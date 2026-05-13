@@ -117,6 +117,19 @@ export const FROST_PROTECTION_SUPPLY_TEMP: Record<string, number> = {
   electric_preheating: 5,
 };
 
+/**
+ * Aggregatiemethode-labels (NL). Default `vabi_compat` matcht Vabi-software
+ * output (markt-conventie). `norm_strict` volgt ISSO 51:2023 §3.5.1 letterlijk
+ * en levert ~17% hoger aansluitvermogen.
+ */
+export const AGGREGATION_METHOD_LABELS: Record<string, string> = {
+  vabi_compat: "Vabi-conform (markt-default)",
+  norm_strict: "Norm-strict (ISSO 51:2023 §3.5.1 letterlijk)",
+};
+
+/** Default aggregatiemethode — gelijk aan Rust core `serde(default)`. */
+export const DEFAULT_AGGREGATION_METHOD = "vabi_compat" as const;
+
 /** Heating system labels (NL). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",

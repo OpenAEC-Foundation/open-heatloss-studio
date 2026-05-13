@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type {
+  AggregationMethod,
   ConstructionElement,
   HeatingSystem,
   Project,
@@ -37,6 +38,7 @@ const DEFAULT_PROJECT: Project = {
     warmup_time: 2,
     num_floors: 1,
     default_heating_system: "radiator_ht",
+    aggregation_method: "vabi_compat",
   },
   climate: {
     theta_e: -10,
@@ -126,6 +128,12 @@ interface ProjectStore {
 
   /** Apply a heating_system to all rooms in the project in one mutation (with undo). */
   applyHeatingSystemToAllRooms: (system: HeatingSystem) => void;
+
+  /**
+   * Zet de aggregatiemethode voor `Φ_basis_gebouw`. Schakelt tussen
+   * Vabi-conform (markt-default) en ISSO 51 §3.5.1 letterlijk. Undo-aware.
+   */
+  setAggregationMethod: (method: AggregationMethod) => void;
 
   /** Undo last project mutation. */
   undo: () => void;
@@ -340,6 +348,23 @@ export const useProjectStore = create<ProjectStore>()(
               ...r,
               heating_system: system,
             })),
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
+      setAggregationMethod: (method) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            building: {
+              ...state.project.building,
+              aggregation_method: method,
+            },
           },
           isDirty: true,
           error: null,

@@ -16,7 +16,9 @@ import { prepareProjectForCalculation } from "../lib/frameOverride";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
 import {
+  AGGREGATION_METHOD_LABELS,
   BUILDING_TYPE_LABELS,
+  DEFAULT_AGGREGATION_METHOD,
   DEFAULT_THETA_WATER,
   FROST_PROTECTION_LABELS,
   FROST_PROTECTION_SUPPLY_TEMP,
@@ -25,6 +27,7 @@ import {
   VENTILATION_SYSTEM_LABELS,
 } from "../lib/constants";
 import type {
+  AggregationMethod,
   Building,
   CoverImage,
   DesignConditions,
@@ -54,6 +57,7 @@ export function ProjectSetup() {
     project, updateProject, isCalculating, setCalculating,
     setResult, setError, activeProjectId, setActiveProjectId,
     serverUpdatedAt, setFrameUValueOverride, applyHeatingSystemToAllRooms,
+    setAggregationMethod,
   } = useProjectStore();
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
@@ -482,6 +486,26 @@ export function ProjectSetup() {
                 Leeg laten voor individuele waarden per element. Vervangt
                 in de berekening alle U-waarden van kozijnen en vullingen
                 (categorie kozijnen_vullingen) in één keer.
+              </p>
+            </div>
+            <div className="col-span-2">
+              <Select
+                id="aggregation_method"
+                label="Aggregatiemethode"
+                value={
+                  building.aggregation_method ?? DEFAULT_AGGREGATION_METHOD
+                }
+                options={toOptions(AGGREGATION_METHOD_LABELS)}
+                onChange={(e) =>
+                  setAggregationMethod(e.target.value as AggregationMethod)
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Bepaalt hoe Φ_T,iae op gebouwniveau wordt geaggregeerd.
+                Vabi-conform sluit transmissie via onverwarmde ruimtes uit
+                van het basis-verlies op gebouwniveau (markt-conventie).
+                Norm-strict volgt §3.5.1 letterlijk en geeft ~17% hoger
+                aansluitvermogen.
               </p>
             </div>
           </div>
