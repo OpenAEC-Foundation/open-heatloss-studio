@@ -142,6 +142,7 @@ mod tests {
                 dwelling_class: None,
                 construction_variant: None,
                 construction_year: None,
+                aggregation_method: Default::default(),
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

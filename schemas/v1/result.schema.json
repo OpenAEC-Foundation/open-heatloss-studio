@@ -1,33 +1,76 @@
 {
+  "$id": "https://warmteverlies.open-aec.com/schemas/v1/result.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ProjectResult",
-  "description": "Complete calculation result for an entire project/dwelling.",
-  "type": "object",
-  "required": [
-    "rooms",
-    "summary"
-  ],
-  "properties": {
-    "rooms": {
-      "description": "Results per room.",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/RoomResult"
-      }
-    },
-    "summary": {
-      "description": "Building-level summary.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/BuildingSummary"
-        }
-      ]
-    }
-  },
   "definitions": {
     "BuildingSummary": {
-      "description": "Building-level summary of heat losses.",
-      "type": "object",
+      "description": "Building-level summary of heat losses.\n\nTotalen op gebouw-niveau. Let op de bewuste weglating van intra-dwelling transmissie (`TransmissionResult::h_t_adjacent_rooms`): warmte die tussen binnenruimten heen-en-weer stroomt is zero-sum over de woning en wordt dus niet opgeteld bij `total_envelope_loss`, `total_neighbor_loss` of `connection_capacity`. Alleen netto transport uit de woning (schil, buren, grond, water, ventilatie) telt mee in het aansluitvermogen — conform ISSO 51 §4.\n\nEN: Building totals. Intra-dwelling room-to-room transmission is deliberately excluded because it sums to zero across the dwelling (conservation of energy). Only net exports (envelope, neighbours, ground, water, ventilation) contribute to the connection capacity.\n\n**Aggregatie-formules op gebouwniveau (erratum 2023):** - `Φ_vent = Φ_v − Φ_i` (formule 3.3): netto ventilatieverlies na aftrek infiltratie. - `Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` (formule 3.11): kwadratische sommatie van niet-simultane bijdragen. - `aansluitvermogen = Φ_basis + Φ_extra` waarbij Φ_basis lineair wordt opgeteld (envelope + buren + grond + water + infiltratie + systeem).",
+      "properties": {
+        "collective_contribution": {
+          "description": "Contribution to collective installation in W (if applicable).",
+          "format": "double",
+          "type": "number"
+        },
+        "connection_capacity": {
+          "description": "Connection capacity (aansluitvermogen) of the dwelling in W.\n\nDefinitie (erratum 2023): `Φ_basis_total + Φ_extra_quadratic` waarbij `Φ_extra_quadratic = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` op gebouwniveau. Dit is een **breaking change** t.o.v. eerdere versies waarin deze waarde een lineaire optelsom van W/K-bijdragen was.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_basis_total": {
+          "default": 0.0,
+          "description": "Σ van per-vertrek basis-verlies (inclusief systeemverliezen) in W.\n\nBasis omvat alle continue, simultane bijdragen op gebouwniveau: envelope + grond + water + infiltratie + systeemverliezen. Intra-woning transmissie (`h_t_adjacent_rooms`) is zero-sum en valt weg in de gebouwsom.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_extra_quadratic": {
+          "default": 0.0,
+          "description": "Kwadratische som van niet-simultane bijdragen op gebouwniveau in W.\n\n`√(phi_vent_building² + phi_t_iabe_building² + phi_hu_building²)` conform erratum 2023 formule 3.11. Telt op met `phi_basis_total` tot `connection_capacity`.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_hu_building": {
+          "default": 0.0,
+          "description": "Σ van per-vertrek opwarmtoeslag Φ_hu in W.\n\nGaat als kwadratische component mee in `phi_extra_quadratic`.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_t_iabe_building": {
+          "default": 0.0,
+          "description": "Σ van per-vertrek transmissieverlies naar aangrenzende gebouwen in W.\n\n`Φ_T,iaBE = Σ (h_t_adjacent_buildings × Δθ)` per vertrek. Gaat als kwadratische component mee in `phi_extra_quadratic`.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_vent_building": {
+          "default": 0.0,
+          "description": "Φ_vent op gebouwniveau in W: `Σ Φ_v − Σ Φ_i` (erratum 2023, formule 3.3).\n\nNiet-negatief geclampt: als infiltratie groter is dan ventilatie (zeldzaam, alleen bij zeer lekke woning met balanced ventilation) wordt 0 gerapporteerd — een negatieve netto ventilatieverlies is fysisch niet zinvol in de aansluitvermogen-context.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_envelope_loss": {
+          "description": "Total transmission loss through building envelope in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_heating_up": {
+          "description": "Total heating-up allowance in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_neighbor_loss": {
+          "description": "Total transmission loss to neighbors in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_system_losses": {
+          "description": "Total system losses in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_ventilation_loss": {
+          "description": "Total ventilation/infiltration loss in W.\n\nLineaire som van Σ `room.ventilation.phi_v` (gross, vóór aftrek infiltratie). Bewaard voor backwards-compatible rapportage. Voor gebouwsom-conformiteit (formule 3.3) gebruik `phi_vent_building`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "collective_contribution",
         "connection_capacity",
@@ -37,117 +80,150 @@
         "total_system_losses",
         "total_ventilation_loss"
       ],
-      "properties": {
-        "collective_contribution": {
-          "description": "Contribution to collective installation in W (if applicable).",
-          "type": "number",
-          "format": "double"
-        },
-        "connection_capacity": {
-          "description": "Connection capacity (aansluitvermogen) of the dwelling in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_envelope_loss": {
-          "description": "Total transmission loss through building envelope in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_heating_up": {
-          "description": "Total heating-up allowance in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_neighbor_loss": {
-          "description": "Total transmission loss to neighbors in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_system_losses": {
-          "description": "Total system losses in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_ventilation_loss": {
-          "description": "Total ventilation/infiltration loss in W.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "HeatingUpResult": {
       "description": "Heating-up allowance result.",
-      "type": "object",
+      "properties": {
+        "accumulating_area": {
+          "description": "Accumulating surface area in m².",
+          "format": "double",
+          "type": "number"
+        },
+        "f_rh": {
+          "description": "Heating-up factor f_RH in W/m².",
+          "format": "double",
+          "type": "number"
+        },
+        "norm_refs": {
+          "default": [],
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "phi_hu": {
+          "description": "Heating-up allowance Φ_hu in W.",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "accumulating_area",
         "f_rh",
         "phi_hu"
       ],
-      "properties": {
-        "accumulating_area": {
-          "description": "Accumulating surface area in m².",
-          "type": "number",
-          "format": "double"
-        },
-        "f_rh": {
-          "description": "Heating-up factor f_RH in W/m².",
-          "type": "number",
-          "format": "double"
-        },
-        "norm_refs": {
-          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
-          "default": [],
-          "readOnly": true,
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "phi_hu": {
-          "description": "Heating-up allowance Φ_hu in W.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "InfiltrationResult": {
       "description": "Infiltration heat loss result.",
-      "type": "object",
+      "properties": {
+        "h_i": {
+          "description": "Specific heat loss by infiltration H_i in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "norm_refs": {
+          "default": [],
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "phi_i": {
+          "description": "Infiltration heat loss Φ_i in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "z_i": {
+          "description": "Infiltration fraction z_i.",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "h_i",
         "phi_i",
         "z_i"
       ],
-      "properties": {
-        "h_i": {
-          "description": "Specific heat loss by infiltration H_i in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "norm_refs": {
-          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
-          "default": [],
-          "readOnly": true,
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "phi_i": {
-          "description": "Infiltration heat loss Φ_i in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "z_i": {
-          "description": "Infiltration fraction z_i.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "RoomResult": {
       "description": "Calculation result for a single room.",
-      "type": "object",
+      "properties": {
+        "basis_heat_loss": {
+          "description": "Basis heat loss (always occurring) in W. Φ_basis = Φ_T,exterior + Φ_T,unheated + Φ_T,ground + Φ_infiltration + Φ_system",
+          "format": "double",
+          "type": "number"
+        },
+        "extra_heat_loss": {
+          "description": "Extra heat loss (quadratic sum of non-simultaneous) in W. Φ_extra = √(Φ_vent² + Φ_T,adj² + Φ_hu²)",
+          "format": "double",
+          "type": "number"
+        },
+        "heating_up": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/HeatingUpResult"
+            }
+          ],
+          "description": "Heating-up allowance (opwarmtoeslag)."
+        },
+        "infiltration": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/InfiltrationResult"
+            }
+          ],
+          "description": "Infiltration heat loss."
+        },
+        "room_id": {
+          "description": "Room ID (matches input Room.id).",
+          "type": "string"
+        },
+        "room_name": {
+          "description": "Room name.",
+          "type": "string"
+        },
+        "system_losses": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/SystemLossResult"
+            }
+          ],
+          "description": "System losses (floor/wall/ceiling heating)."
+        },
+        "theta_i": {
+          "description": "Design indoor temperature θ_i in °C.",
+          "format": "double",
+          "type": "number"
+        },
+        "total_heat_loss": {
+          "description": "Total heat loss for this room in W. Φ_HL,i = Φ_basis + Φ_extra",
+          "format": "double",
+          "type": "number"
+        },
+        "transmission": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/TransmissionResult"
+            }
+          ],
+          "description": "Transmission heat loss breakdown."
+        },
+        "ventilation": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/VentilationResult"
+            }
+          ],
+          "description": "Ventilation heat loss."
+        }
+      },
       "required": [
         "basis_heat_loss",
         "extra_heat_loss",
@@ -161,121 +237,98 @@
         "transmission",
         "ventilation"
       ],
-      "properties": {
-        "basis_heat_loss": {
-          "description": "Basis heat loss (always occurring) in W. Φ_basis = Φ_T,exterior + Φ_T,unheated + Φ_T,ground + Φ_infiltration + Φ_system",
-          "type": "number",
-          "format": "double"
-        },
-        "extra_heat_loss": {
-          "description": "Extra heat loss (quadratic sum of non-simultaneous) in W. Φ_extra = √(Φ_vent² + Φ_T,adj² + Φ_hu²)",
-          "type": "number",
-          "format": "double"
-        },
-        "heating_up": {
-          "description": "Heating-up allowance (opwarmtoeslag).",
-          "allOf": [
-            {
-              "$ref": "#/definitions/HeatingUpResult"
-            }
-          ]
-        },
-        "infiltration": {
-          "description": "Infiltration heat loss.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/InfiltrationResult"
-            }
-          ]
-        },
-        "room_id": {
-          "description": "Room ID (matches input Room.id).",
-          "type": "string"
-        },
-        "room_name": {
-          "description": "Room name.",
-          "type": "string"
-        },
-        "system_losses": {
-          "description": "System losses (floor/wall/ceiling heating).",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SystemLossResult"
-            }
-          ]
-        },
-        "theta_i": {
-          "description": "Design indoor temperature θ_i in °C.",
-          "type": "number",
-          "format": "double"
-        },
-        "total_heat_loss": {
-          "description": "Total heat loss for this room in W. Φ_HL,i = Φ_basis + Φ_extra",
-          "type": "number",
-          "format": "double"
-        },
-        "transmission": {
-          "description": "Transmission heat loss breakdown.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/TransmissionResult"
-            }
-          ]
-        },
-        "ventilation": {
-          "description": "Ventilation heat loss.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/VentilationResult"
-            }
-          ]
-        }
-      }
+      "type": "object"
     },
     "SystemLossResult": {
       "description": "System loss result (embedded heating).",
-      "type": "object",
+      "properties": {
+        "norm_refs": {
+          "default": [],
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "phi_ceiling_loss": {
+          "description": "Ceiling heating loss to exterior/adjacent Φ_verlies3 in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_floor_loss": {
+          "description": "Floor heating loss to ground/crawlspace Φ_verlies1 in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_system_total": {
+          "description": "Total system losses in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_wall_loss": {
+          "description": "Wall heating loss to exterior/adjacent Φ_verlies2 in W.",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "phi_ceiling_loss",
         "phi_floor_loss",
         "phi_system_total",
         "phi_wall_loss"
       ],
-      "properties": {
-        "norm_refs": {
-          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
-          "default": [],
-          "readOnly": true,
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "phi_ceiling_loss": {
-          "description": "Ceiling heating loss to exterior/adjacent Φ_verlies3 in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "phi_floor_loss": {
-          "description": "Floor heating loss to ground/crawlspace Φ_verlies1 in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "phi_system_total": {
-          "description": "Total system losses in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "phi_wall_loss": {
-          "description": "Wall heating loss to exterior/adjacent Φ_verlies2 in W.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "TransmissionResult": {
       "description": "Breakdown of transmission heat losses for a room.",
-      "type": "object",
+      "properties": {
+        "h_t_adjacent_buildings": {
+          "description": "Specific heat loss to neighboring buildings H_T,ib in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_t_adjacent_rooms": {
+          "description": "Specific heat loss to adjacent rooms H_T,ia in W/K (intra-dwelling).\n\n**Design — zero-sum, géén bug:** Warmteoverdracht tussen binnenruimten binnen dezelfde woning. Positieve waardes in ruimte A (warmte die wegloopt naar een koelere buurkamer) worden per definitie gecompenseerd door negatieve waardes in ruimte B (warmte die binnenkomt). Over de hele woning gesommeerd is dit nul — conservation of energy — daarom telt dit veld **niet** mee in `BuildingSummary::total_envelope_loss` of `connection_capacity`.\n\nWél gerapporteerd per-room zodat ingenieurs kunnen zien welk vertrek thermisch gekoppeld is aan welk ander vertrek (diagnose van over- of onderverwarmen van individuele ruimten).\n\nEN: Intra-dwelling heat transfer between interior rooms. Excluded from the building-level totals because positive values in one room are offset by negative values in its neighbour (energy conservation). Reported per-room for engineering diagnosis only.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_t_exterior": {
+          "description": "Specific heat loss to exterior H_T,ie in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_t_ground": {
+          "description": "Specific heat loss to ground H_T,ig in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_t_unheated": {
+          "description": "Specific heat loss via unheated spaces H_T,io in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_t_water": {
+          "default": 0.0,
+          "description": "Specific heat loss to open water H_T,iw in W/K. Non-norm category (woonboot use case) — see `BoundaryType::Water`. `0.0` for projects without any water boundaries.",
+          "format": "double",
+          "type": "number"
+        },
+        "norm_refs": {
+          "default": [],
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "phi_t": {
+          "description": "Total transmission heat loss Φ_T in W.",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "h_t_adjacent_buildings",
         "h_t_adjacent_rooms",
@@ -284,94 +337,85 @@
         "h_t_unheated",
         "phi_t"
       ],
-      "properties": {
-        "h_t_adjacent_buildings": {
-          "description": "Specific heat loss to neighboring buildings H_T,ib in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "h_t_adjacent_rooms": {
-          "description": "Specific heat loss to adjacent rooms H_T,ia in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "h_t_exterior": {
-          "description": "Specific heat loss to exterior H_T,ie in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "h_t_ground": {
-          "description": "Specific heat loss to ground H_T,ig in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "h_t_unheated": {
-          "description": "Specific heat loss via unheated spaces H_T,io in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "norm_refs": {
-          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
-          "default": [],
-          "readOnly": true,
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "phi_t": {
-          "description": "Total transmission heat loss Φ_T in W.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "VentilationResult": {
       "description": "Ventilation heat loss result.",
-      "type": "object",
+      "properties": {
+        "f_v": {
+          "description": "Temperature correction factor f_v.",
+          "format": "double",
+          "type": "number"
+        },
+        "h_v": {
+          "description": "Specific heat loss by ventilation H_v in W/K.",
+          "format": "double",
+          "type": "number"
+        },
+        "norm_refs": {
+          "default": [],
+          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true,
+          "type": "array"
+        },
+        "phi_v": {
+          "description": "Ventilation heat loss Φ_v in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_vent": {
+          "description": "In-scope ventilation loss Φ_vent (after subtracting infiltration) in W.",
+          "format": "double",
+          "type": "number"
+        },
+        "q_v": {
+          "description": "Ventilation volume flow q_v in dm³/s (effective, used in calculation).",
+          "format": "double",
+          "type": "number"
+        },
+        "q_v_minimum": {
+          "description": "BBL minimum ventilation rate in dm³/s. Always calculated from room function and floor area (BBL Afdeling 3.6).",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "f_v",
         "h_v",
         "phi_v",
         "phi_vent",
-        "q_v"
+        "q_v",
+        "q_v_minimum"
       ],
-      "properties": {
-        "f_v": {
-          "description": "Temperature correction factor f_v.",
-          "type": "number",
-          "format": "double"
-        },
-        "h_v": {
-          "description": "Specific heat loss by ventilation H_v in W/K.",
-          "type": "number",
-          "format": "double"
-        },
-        "norm_refs": {
-          "description": "ISSO 51 normreferenties gebruikt bij deze berekening.",
-          "default": [],
-          "readOnly": true,
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "phi_v": {
-          "description": "Ventilation heat loss Φ_v in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "phi_vent": {
-          "description": "In-scope ventilation loss Φ_vent (after subtracting infiltration) in W.",
-          "type": "number",
-          "format": "double"
-        },
-        "q_v": {
-          "description": "Ventilation volume flow q_v in dm³/s.",
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     }
-  }
+  },
+  "description": "Complete calculation result for an entire project/dwelling.",
+  "properties": {
+    "rooms": {
+      "description": "Results per room.",
+      "items": {
+        "$ref": "#/definitions/RoomResult"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/BuildingSummary"
+        }
+      ],
+      "description": "Building-level summary."
+    }
+  },
+  "required": [
+    "rooms",
+    "summary"
+  ],
+  "title": "ProjectResult",
+  "type": "object",
+  "version": "1.0.0"
 }

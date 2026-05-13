@@ -809,6 +809,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             dwelling_class: None,
             construction_variant: None,
             construction_year: None,
+            aggregation_method: Default::default(),
         },
         climate: DesignConditions::default(),
         ventilation: VentilationConfig {

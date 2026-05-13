@@ -302,6 +302,33 @@ pub enum ConstructionVariant {
     Vrijstaand,
 }
 
+/// Methode voor aggregatie van transmissieverliezen op gebouwniveau.
+///
+/// ISSO 51:2023 §3.5.1 zegt letterlijk: `Φ_basis = Φ_T,ie + Φ_T,iae + Φ_T,ig + Φ_i − Φ_gain`,
+/// inclusief verlies via onverwarmde ruimtes (`Φ_T,iae`). De markt-tool Vabi
+/// telt `Φ_T,iae` op gebouwniveau echter als 0 (rapporteert het wel per kamer,
+/// neemt het niet op in `Φ_basis_gebouw`). Voor projecten die met Vabi-uitvoer
+/// vergeleken moeten worden geeft strikte normuitvoering ~17% hogere
+/// `connection_capacity`.
+///
+/// Daarom configurable per project, default = `VabiCompat` (markt-conventie).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AggregationMethod {
+    /// Φ_T,iae wordt NIET opgenomen in Φ_basis_gebouw (Vabi-conventie, markt-default).
+    /// Wijkt af van ISSO 51:2023 §3.5.1 letterlijk, maar geeft Vabi-compatible getallen.
+    VabiCompat,
+    /// Φ_T,iae WEL in Φ_basis_gebouw conform ISSO 51:2023 §3.5.1 letterlijk.
+    /// Geeft ~17% hogere connection_capacity dan VabiCompat. Voor strikte audits.
+    NormStrict,
+}
+
+impl Default for AggregationMethod {
+    fn default() -> Self {
+        Self::VabiCompat
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

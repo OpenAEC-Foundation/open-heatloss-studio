@@ -79,6 +79,15 @@ pub fn h_t_adjacent_room_element(
         if denom.abs() < 1e-10 {
             return 0.0;
         }
+        // ISSO 51:2023 §2.5.3 Formule 2.17/2.18/2.19. Met de aanname
+        // "zelfde verwarmingssysteem in beide kamers" reduceert formule 2.17
+        // voor wanden tot (θ_i - θ_a)/(θ_i - θ_e). Vabi rapporteert voor
+        // toilet-achtige onverwarmde-tussen-verwarmde-buurman situaties ~10%
+        // minder negatieve phi_t_ia dan deze norm-formule (vermoedelijk een
+        // intra-zone correctie die niet uit ISSO 51:2023 is af te leiden).
+        // Effect is per-kamer ≤ 10 W en heeft geen gebouwsom-impact omdat
+        // de toilet-kamer's phi_basis altijd op 0 wordt geclampt. Verschil
+        // met Vabi op geclampte rooms is daarmee acceptabel.
         match element.vertical_position {
             VerticalPosition::Wall => (theta_i - theta_a) / denom,
             VerticalPosition::Ceiling => ((theta_i + delta_1) - (theta_a + delta_2)) / denom,

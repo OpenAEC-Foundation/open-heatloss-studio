@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use super::climate::DesignConditions;
 use super::enums::{
-    BuildingType, ConstructionVariant, DwellingClass, InfiltrationMethod, SecurityClass,
+    AggregationMethod, BuildingType, ConstructionVariant, DwellingClass, InfiltrationMethod,
+    SecurityClass,
 };
 use super::room::Room;
 use super::ventilation::VentilationConfig;
@@ -123,6 +124,14 @@ pub struct Building {
     /// Optioneel — `None` → `f_y = 1.0` (onbekend bouwjaar, neutrale factor).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub construction_year: Option<u16>,
+
+    /// Aggregatiemethode voor `Φ_basis_gebouw` op gebouwniveau.
+    ///
+    /// Default = `VabiCompat` (markt-conventie, sluit `Φ_T,iae` uit). Voor
+    /// strikte ISSO 51:2023 §3.5.1 audits → `NormStrict`. Zie
+    /// `AggregationMethod` doc voor verschillen (~17% op connection_capacity).
+    #[serde(default)]
+    pub aggregation_method: AggregationMethod,
 }
 
 fn default_warmup_time() -> f64 {
