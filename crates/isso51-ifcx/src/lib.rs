@@ -74,6 +74,10 @@ mod tests {
                 building_height: None,
                 num_floors: 2,
                 infiltration_method: InfiltrationMethod::PerExteriorArea,
+                dwelling_class: None,
+                construction_variant: None,
+                construction_year: None,
+                aggregation_method: Default::default(),
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

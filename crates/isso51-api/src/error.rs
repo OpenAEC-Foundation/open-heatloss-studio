@@ -119,6 +119,9 @@ pub fn into_calc_response(err: isso51_core::error::Isso51Error) -> Response {
         Isso51Error::OutOfRange { .. } => {
             (StatusCode::UNPROCESSABLE_ENTITY, "out_of_range")
         }
+        Isso51Error::InfiltrationConfig(_) => {
+            (StatusCode::UNPROCESSABLE_ENTITY, "infiltration_config")
+        }
     };
 
     let body = ErrorBody {

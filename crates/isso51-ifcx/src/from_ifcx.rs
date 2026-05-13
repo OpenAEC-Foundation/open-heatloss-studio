@@ -268,6 +268,10 @@ fn map_building(data: &Isso51Building) -> Building {
             .as_deref()
             .map(parse_infiltration_method)
             .unwrap_or_default(),
+        dwelling_class: None,
+        construction_variant: None,
+        construction_year: None,
+        aggregation_method: Default::default(),
     }
 }
 
