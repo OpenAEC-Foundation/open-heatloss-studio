@@ -22,9 +22,15 @@
 pub mod calcs;
 pub mod geometry;
 pub mod migration;
+pub mod nta8800_view;
 pub mod project;
 pub mod shared;
 pub mod view;
+
+pub use nta8800_view::{
+    geometry_to_nta8800, map_usage_function, orientation_from_degrees,
+    project_to_nta8800, surface_resistances, Nta8800View,
+};
 
 pub use calcs::{Calcs, Iso51Inputs, TojuliInputs};
 pub use geometry::{Construction, ConstructionLayer, Opening, OpeningKind, SharedGeometry, Space};

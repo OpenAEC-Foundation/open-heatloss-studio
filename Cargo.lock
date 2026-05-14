@@ -2994,6 +2994,7 @@ version = "0.1.1"
 dependencies = [
  "approx",
  "isso51-core",
+ "nta8800-model",
  "schemars 0.8.22",
  "serde",
  "serde_json",
