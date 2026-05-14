@@ -120,5 +120,22 @@
       "glazing_transmission": "Transmissie glas P_gl;zi",
       "peak_total": "Totaal P_totaal"
     }
+  },
+  "projectSetup": {
+    "title": "Project",
+    "subtitle": "Gebouw- en installatie-instellingen",
+    "tabs": {
+      "algemeen": "Algemeen",
+      "geometrie": "Geometrie",
+      "isso51": "ISSO 51",
+      "tojuli": "TO-juli",
+      "iso53": "ISSO 53",
+      "soon": "binnenkort"
+    },
+    "geometriePlaceholder": "Kamers en constructies beheer je in de Modeller-pagina (zie zijbalk).",
+    "tojuliPlaceholder": "Volledige TO-juli (NTA 8800 H.10 voor woning + utiliteit) komt in F7. Voor nu: gebruik 'Snelle check (woningen)' onder TO-juli in de zijbalk.",
+    "iso53Placeholder": "Binnenkort beschikbaar.",
+    "openModeller": "Open Modeller",
+    "openTojuliQuick": "Open snelle check"
   }
 }

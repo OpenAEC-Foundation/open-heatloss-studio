@@ -9,6 +9,10 @@ import type {
   ProjectResult,
   Room,
 } from "../types";
+import {
+  DEFAULT_SHARED_EXTRA,
+  type SharedExtra,
+} from "../types/projectV2";
 
 // ---------------------------------------------------------------------------
 // Undo/Redo history
@@ -55,8 +59,14 @@ const DEFAULT_PROJECT: Project = {
 };
 
 interface ProjectStore {
-  /** Current project input data. */
+  /** Current project input data (V1 schema, single source of truth). */
   project: Project;
+  /**
+   * V2-only sidecar velden (ADR-002 SharedProject extras). Worden
+   * gepersisteerd maar niet meegestuurd naar backend tot V2 endpoint
+   * live is. Zie `lib/projectV2Migration.ts` voor de mapping.
+   */
+  sharedExtra: SharedExtra;
   /** Calculation result (null if not yet calculated). */
   result: ProjectResult | null;
   /** Error message from last calculation attempt. */
@@ -71,6 +81,11 @@ interface ProjectStore {
   serverUpdatedAt: string | null;
   /** Whether a save conflict was detected. */
   hasConflict: boolean;
+
+  /** Update V2 sidecar velden (partial merge). */
+  updateSharedExtra: (partial: Partial<SharedExtra>) => void;
+  /** Vervang volledige sidecar (gebruikt bij load van V2 JSON). */
+  setSharedExtra: (extra: SharedExtra) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -145,6 +160,7 @@ export const useProjectStore = create<ProjectStore>()(
   persist(
     (set, get) => ({
       project: DEFAULT_PROJECT,
+      sharedExtra: { ...DEFAULT_SHARED_EXTRA },
       result: null,
       error: null,
       isCalculating: false,
@@ -154,6 +170,14 @@ export const useProjectStore = create<ProjectStore>()(
       hasConflict: false,
       _past: [],
       _future: [],
+
+      updateSharedExtra: (partial) =>
+        set((state) => ({
+          sharedExtra: { ...state.sharedExtra, ...partial },
+          isDirty: true,
+        })),
+
+      setSharedExtra: (extra) => set({ sharedExtra: extra }),
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -189,7 +213,18 @@ export const useProjectStore = create<ProjectStore>()(
       },
 
       setProject: (project) =>
-        set({ project, isDirty: true, result: null, error: null, activeProjectId: null, serverUpdatedAt: null, hasConflict: false, _past: [], _future: [] }),
+        set({
+          project,
+          sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+          isDirty: true,
+          result: null,
+          error: null,
+          activeProjectId: null,
+          serverUpdatedAt: null,
+          hasConflict: false,
+          _past: [],
+          _future: [],
+        }),
 
       loadServerProject: (id, project, result, updatedAt) =>
         set({
@@ -220,6 +255,7 @@ export const useProjectStore = create<ProjectStore>()(
       reset: () =>
         set({
           project: DEFAULT_PROJECT,
+          sharedExtra: { ...DEFAULT_SHARED_EXTRA },
           result: null,
           error: null,
           isCalculating: false,
@@ -404,11 +440,14 @@ export const useProjectStore = create<ProjectStore>()(
       version: 1,
       partialize: (state) => ({
         project: state.project,
+        sharedExtra: state.sharedExtra,
         result: state.result,
       }),
       merge: (persisted, current) => ({
         ...current,
-        ...(persisted as Pick<ProjectStore, "project" | "result">),
+        ...(persisted as Pick<ProjectStore, "project" | "sharedExtra" | "result">),
+        sharedExtra:
+          (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
         isDirty: false,
         isCalculating: false,
         error: null,
