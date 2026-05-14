@@ -240,12 +240,18 @@ fn map_climate(conn: &Connection) -> Result<DesignConditions> {
 
 /// Map ventilation configuration from Ventilation and related tables.
 fn map_ventilation(conn: &Connection) -> Result<VentilationConfig> {
+    // Join Ventilation with its optional LocalHeatRecoverySystemX (WTW).
+    // Take the first row — for residential projects there's typically one
+    // building-level ventilation config. Per-room overrides are Fase 4 werk.
     let mut stmt = conn
         .prepare(
             "SELECT
                 v.SupplySource,
-                v.CirculationRateMethod2017
+                v.CirculationRateMethod2017,
+                v.LocalHeatRecoverySystemXID,
+                hr.ValueBasedOnUnit
              FROM Ventilation v
+             LEFT JOIN LocalHeatRecoverySystemX hr ON hr.ID = v.LocalHeatRecoverySystemXID
              LIMIT 1"
         )
         .map_err(|e| Isso51Error::VabiSqliteError(format!("Ventilation query failed: {}", e)))?;
@@ -254,44 +260,43 @@ fn map_ventilation(conn: &Connection) -> Result<VentilationConfig> {
         Isso51Error::VabiSqliteError(format!("Ventilation query execution failed: {}", e))
     })?;
 
-    let (system_type, has_heat_recovery) = if let Some(row) = rows.next().map_err(|e| {
+    let (system_type, has_heat_recovery, hr_efficiency) = if let Some(row) = rows.next().map_err(|e| {
         Isso51Error::VabiSqliteError(format!("Ventilation row fetch failed: {}", e))
     })? {
         let supply_source: Option<String> = row.get(0).unwrap_or(None);
         let circulation_method: Option<String> = row.get(1).unwrap_or(None);
+        let wtw_id: Option<i64> = row.get(2).unwrap_or(None);
+        let wtw_efficiency: Option<f64> = row.get(3).unwrap_or(None);
 
-        // Check for heat recovery systems
-        let has_hr = check_heat_recovery(conn).unwrap_or(false);
+        let has_hr = wtw_id.is_some();
 
-        // Map system type - this is complex, use simplified mapping for Phase 1
-        let system_type = map_ventilation_system_type(supply_source.as_deref(), circulation_method.as_deref());
+        // WTW (heat recovery) implies balanced ventilation = SystemD,
+        // regardless of SupplySource value. Vabi gebruikt vaak generieke
+        // strings als 'UserDefined' / 'AccordingToSystemType' die geen
+        // duidelijk supply/exhaust pattern aangeven, maar WTW vereist
+        // mechanische in- én uitlucht (anders heeft warmteterugwinning
+        // geen zin).
+        let system_type = if has_hr {
+            VentilationSystemType::SystemD
+        } else {
+            map_ventilation_system_type(supply_source.as_deref(), circulation_method.as_deref())
+        };
 
-        (system_type, has_hr)
+        (system_type, has_hr, wtw_efficiency)
     } else {
         // No ventilation data found - use defaults
-        (VentilationSystemType::SystemC, false)
+        (VentilationSystemType::SystemC, false, None)
     };
 
     Ok(VentilationConfig {
         system_type,
         has_heat_recovery,
-        heat_recovery_efficiency: None,
+        heat_recovery_efficiency: hr_efficiency,
         frost_protection: None,
         supply_temperature: None,
         has_preheating: false,
         preheating_temperature: None,
     })
-}
-
-/// Check if heat recovery systems are present.
-fn check_heat_recovery(conn: &Connection) -> Result<bool> {
-    // Look for LocalHeatRecoverySystemX entries
-    let mut stmt = conn
-        .prepare("SELECT COUNT(*) FROM LocalHeatRecoverySystemX WHERE ID IS NOT NULL")
-        .map_err(|e| Isso51Error::VabiSqliteError(format!("Heat recovery query failed: {}", e)))?;
-
-    let count: i64 = stmt.query_row([], |row| row.get(0)).unwrap_or(0);
-    Ok(count > 0)
 }
 
 /// Map Vabi ventilation system types to ISSO 51 enum values.
@@ -339,7 +344,8 @@ fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i6
                 fge.Area,
                 fge.Slope,
                 bc.Type as BoundaryType,
-                COALESCE(cd.Type, 'Unknown') as ConstructionType
+                COALESCE(cd.Type, 'Unknown') as ConstructionType,
+                bp.PsiThermalBridge
              FROM Room r
              JOIN MainFace mf ON mf.CellID = r.CellID
              JOIN CellFace cf ON cf.FaceID = mf.CellFaceID
@@ -374,6 +380,7 @@ fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i6
         let slope: f64 = row.get(7).unwrap_or(90.0);
         let boundary_type_str: Option<String> = row.get(8).unwrap_or(None);
         let construction_type: String = row.get(9).unwrap_or_else(|_| "Unknown".to_string());
+        let psi_thermal_bridge: Option<f64> = row.get(10).unwrap_or(None);
 
         // Skip if no construction or area is zero
         if !has_construction || construction_id.is_none() || area <= 0.0 {
@@ -411,8 +418,10 @@ fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i6
                 "Roof" | "FlatRoof" => VerticalPosition::Ceiling,
                 _ => VerticalPosition::Wall,
             },
-            use_forfaitaire_thermal_bridge: true,
-            custom_delta_u_tb: None,
+            // Vabi populates PsiThermalBridge per BuildingPart. If > 0, use it
+            // as a per-element ΔU_TB override; if 0/None, fall back to forfaitaire.
+            use_forfaitaire_thermal_bridge: psi_thermal_bridge.map(|p| p <= 0.0).unwrap_or(true),
+            custom_delta_u_tb: psi_thermal_bridge.filter(|&p| p > 0.0),
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
