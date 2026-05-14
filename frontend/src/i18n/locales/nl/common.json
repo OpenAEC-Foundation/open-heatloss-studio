@@ -71,7 +71,8 @@
     },
     "tojuli": {
       "comingSoon": "Binnenkort",
-      "quick": "Snelle check (woningen)"
+      "quick": "Snelle check (woningen)",
+      "full": "Volledig (H.10)"
     },
     "rcCompare": "Rc-vergelijker"
   },

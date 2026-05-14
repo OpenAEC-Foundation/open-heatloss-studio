@@ -14,6 +14,7 @@ pub fn run() {
             commands::import_ifc,
             commands::import_vabi,
             commands::simplified_cooling,
+            commands::tojuli_calculate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ISSO 51 application");

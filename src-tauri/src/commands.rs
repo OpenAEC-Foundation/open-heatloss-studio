@@ -7,6 +7,9 @@ use nta8800_cooling::{
     SimplifiedLoadInput,
 };
 use nta8800_tables::climate::de_bilt_climate_data;
+use openaec_project_shared::{
+    compute_tojuli_full, ProjectV2, TojuliFullInputs, TojuliResult,
+};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
@@ -162,4 +165,20 @@ pub fn simplified_cooling(
 
     calculate_simplified_cooling(&[], &[], &climate, &[], &area, &load)
         .map_err(|e| e.to_string())
+}
+
+/// Request shape for `tojuli_calculate` — volledige NTA 8800 H.10 keten.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TojuliCalculateRequest {
+    pub project: ProjectV2,
+    pub inputs: TojuliFullInputs,
+}
+
+/// TO-juli volledig — NTA 8800 H.10 keten op een ProjectV2.
+///
+/// Roept `openaec_project_shared::compute_tojuli_full` aan en geeft de
+/// maandelijkse Q_C;use + jaarsom + intermediates terug.
+#[tauri::command]
+pub fn tojuli_calculate(req: TojuliCalculateRequest) -> Result<TojuliResult, String> {
+    compute_tojuli_full(&req.project, &req.inputs).map_err(|e| e.to_string())
 }

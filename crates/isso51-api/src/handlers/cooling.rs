@@ -13,6 +13,9 @@ use nta8800_cooling::{
     SimplifiedLoadInput,
 };
 use nta8800_tables::climate::de_bilt_climate_data;
+use openaec_project_shared::{
+    compute_tojuli_full, ProjectV2, TojuliFullInputs, TojuliResult,
+};
 use serde::{Deserialize, Serialize};
 
 /// Request body voor POST /cooling/simplified.
@@ -87,6 +90,48 @@ pub async fn simplified_cooling(
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "cooling_calc_error",
+                "detail": e.to_string()
+            })),
+        )
+            .into_response(),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "internal_error",
+                "detail": join_err.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// Request body voor POST /tojuli/calculate — volledige NTA 8800 H.10 keten.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TojuliCalculateRequest {
+    /// Drielagig project (shared + geometry + calcs.tojuli optioneel).
+    pub project: ProjectV2,
+    /// TO-juli specifieke inputs: cooling system, distribution, emission, etc.
+    pub inputs: TojuliFullInputs,
+}
+
+/// POST /tojuli/calculate — volledige TO-juli H.10 keten (woning + utiliteit).
+///
+/// Roept `openaec_project_shared::compute_tojuli_full` aan op blocking thread.
+/// Levert maandelijkse Q_C;use + jaarsom + intermediates.
+pub async fn tojuli_calculate(
+    Json(req): Json<TojuliCalculateRequest>,
+) -> impl IntoResponse {
+    let result = tokio::task::spawn_blocking(move || {
+        compute_tojuli_full(&req.project, &req.inputs)
+    })
+    .await;
+
+    match result {
+        Ok(Ok(r)) => Json::<TojuliResult>(r).into_response(),
+        Ok(Err(e)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "tojuli_calc_error",
                 "detail": e.to_string()
             })),
         )

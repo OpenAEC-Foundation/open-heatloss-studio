@@ -25,7 +25,10 @@ pub mod migration;
 pub mod nta8800_view;
 pub mod project;
 pub mod shared;
+pub mod tojuli;
 pub mod view;
+
+pub use tojuli::{compute_tojuli_full, TojuliError, TojuliFullInputs, TojuliResult};
 
 pub use nta8800_view::{
     geometry_to_nta8800, map_usage_function, orientation_from_degrees,

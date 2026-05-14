@@ -71,7 +71,8 @@
     },
     "tojuli": {
       "comingSoon": "Coming soon",
-      "quick": "Quick check (dwellings)"
+      "quick": "Quick check (dwellings)",
+      "full": "Full (H.10)"
     },
     "rcCompare": "R-value comparator"
   },
