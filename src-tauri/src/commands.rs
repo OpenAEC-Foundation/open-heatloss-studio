@@ -83,3 +83,30 @@ pub async fn import_ifc(
     let stdout = String::from_utf8_lossy(&output.stdout);
     serde_json::from_str(&stdout).map_err(|e| format!("Invalid JSON from ifc-tool: {e}"))
 }
+
+/// Import a Vabi Elements `.vp` project file.
+///
+/// If `file_path` is empty, opens a native file dialog filtered on `.vp` first.
+/// Calls `isso51_core::import::import_vabi_project` and returns a Project
+/// ready to load into the frontend store.
+#[tauri::command]
+pub fn import_vabi(app: AppHandle, file_path: String) -> Result<Project, String> {
+    let path = if file_path.is_empty() {
+        use tauri_plugin_dialog::DialogExt;
+        let dialog_result = app
+            .dialog()
+            .file()
+            .add_filter("Vabi project", &["vp"])
+            .blocking_pick_file();
+        match dialog_result {
+            Some(file) => file
+                .into_path()
+                .map_err(|e| format!("Invalid file path: {e}"))?,
+            None => return Err("Geen bestand geselecteerd".to_string()),
+        }
+    } else {
+        std::path::PathBuf::from(file_path)
+    };
+
+    isso51_core::import::import_vabi_project(&path).map_err(|e| e.to_string())
+}
