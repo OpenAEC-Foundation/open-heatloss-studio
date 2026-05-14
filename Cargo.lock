@@ -1946,6 +1946,8 @@ dependencies = [
  "dotenvy",
  "isso51-core",
  "isso51-ifcx",
+ "nta8800-cooling",
+ "nta8800-model",
  "openaec-cloud",
  "reqwest 0.12.28",
  "serde",
@@ -1981,6 +1983,8 @@ name = "isso51-desktop"
 version = "0.1.1"
 dependencies = [
  "isso51-core",
+ "nta8800-cooling",
+ "nta8800-model",
  "serde",
  "serde_json",
  "tauri",

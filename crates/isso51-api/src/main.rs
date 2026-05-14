@@ -94,6 +94,7 @@ async fn main() {
         .route("/calculate", post(handlers::calculate))
         .route("/calculate/ifcx", post(handlers::calculate_ifcx_handler))
         .route("/import/thermal", post(handlers::thermal_import_handler))
+        .route("/cooling/simplified", post(handlers::simplified_cooling))
         .route("/schemas", get(handlers::list_schemas))
         .route("/schemas/{name}", get(handlers::get_schema));
 

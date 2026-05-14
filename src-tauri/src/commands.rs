@@ -2,6 +2,14 @@
 
 use isso51_core::model::Project;
 use isso51_core::result::ProjectResult;
+use nta8800_cooling::{
+    calculate_simplified_cooling, SimplifiedAreaInput, SimplifiedCoolingResult,
+    SimplifiedLoadInput,
+};
+use nta8800_model::climate::ClimateData;
+use nta8800_model::time::MonthlyProfile;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 
@@ -109,4 +117,57 @@ pub fn import_vabi(app: AppHandle, file_path: String) -> Result<Project, String>
     };
 
     isso51_core::import::import_vabi_project(&path).map_err(|e| e.to_string())
+}
+
+/// Request shape for `simplified_cooling`. Mirrors the API endpoint body.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SimplifiedCoolingRequest {
+    pub living_area_m2: f64,
+    pub other_area_m2: f64,
+    pub dwelling_count: u32,
+    pub persons_per_dwelling: f64,
+    pub infiltration_m3_per_h: f64,
+    pub natural_ventilation_m3_per_h: f64,
+    pub mechanical_supply_m3_per_h: f64,
+    pub peak_hour: u8,
+    pub construction_year: u32,
+    pub opaque_area_m2: f64,
+    pub solar_load_w: f64,
+    pub glazing_transmission_w: f64,
+}
+
+/// TO-juli (NTA 8800 bijlage AA) vereenvoudigde koelbehoefte-berekening.
+///
+/// V1 lokale Tauri-aanroep van `nta8800_cooling::calculate_simplified_cooling`.
+/// Rekenzone/EFR/Climate/Window-parameters zijn V2-werk — voor nu placeholders.
+#[tauri::command]
+pub fn simplified_cooling(
+    req: SimplifiedCoolingRequest,
+) -> Result<SimplifiedCoolingResult, String> {
+    let area = SimplifiedAreaInput {
+        living_area_m2: req.living_area_m2,
+        other_area_m2: req.other_area_m2,
+        dwelling_count: req.dwelling_count,
+        persons_per_dwelling: req.persons_per_dwelling,
+    };
+    let load = SimplifiedLoadInput {
+        infiltration_m3_per_h: req.infiltration_m3_per_h,
+        natural_ventilation_m3_per_h: req.natural_ventilation_m3_per_h,
+        mechanical_supply_m3_per_h: req.mechanical_supply_m3_per_h,
+        peak_hour: req.peak_hour,
+        construction_year: req.construction_year,
+        opaque_area_m2: req.opaque_area_m2,
+        solar_load_w: req.solar_load_w,
+        glazing_transmission_w: req.glazing_transmission_w,
+    };
+    let climate = ClimateData {
+        outdoor_temperature: MonthlyProfile::from_constant(15.0),
+        solar_irradiation: BTreeMap::new(),
+        cooling_reference_temperature: MonthlyProfile::from_constant(Some(17.0)),
+        wind_speed: MonthlyProfile::from_constant(3.0),
+        wtw_preheat_temperature: MonthlyProfile::from_constant(0.0),
+    };
+
+    calculate_simplified_cooling(&[], &[], &climate, &[], &area, &load)
+        .map_err(|e| e.to_string())
 }

@@ -159,14 +159,12 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
   {
     key: "tojuli",
     titleKey: "sidebar.groups.tojuli",
-    defaultCollapsed: true,
+    defaultCollapsed: false,
     items: [
       {
-        to: "",
-        labelKey: "sidebar.tojuli.comingSoon",
+        to: "/tojuli",
+        labelKey: "sidebar.tojuli.simplified",
         Icon: IconBarChart,
-        disabled: true,
-        disabledTitleKey: "sidebar.tojuli.comingSoon",
       },
     ],
   },

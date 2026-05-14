@@ -70,8 +70,55 @@
       "library": "Library"
     },
     "tojuli": {
-      "comingSoon": "Coming soon"
+      "comingSoon": "Coming soon",
+      "simplified": "Simplified calculation"
     },
     "rcCompare": "R-value comparator"
+  },
+  "tojuli": {
+    "title": "Summer overheating — cooling demand",
+    "subtitle": "Simplified calculation per NTA 8800 annex AA (dwellings)",
+    "calculate": "Calculate",
+    "calculating": "Working…",
+    "reset": "Reset defaults",
+    "groupArea": "Area & occupants",
+    "groupVentilation": "Air flows (July)",
+    "groupLoads": "Thermal loads",
+    "resultTitle": "Result",
+    "normRef": "Calculated per NTA 8800:2025+C1:2026 annex AA, formulas AA.1 through AA.13.",
+    "fields": {
+      "living_area_m2": "Living/kitchen/dining area",
+      "other_area_m2": "Other habitable spaces",
+      "dwelling_count": "Number of dwellings",
+      "persons_per_dwelling": "Persons per dwelling",
+      "infiltration_m3_per_h": "Infiltration",
+      "natural_ventilation_m3_per_h": "Natural ventilation supply",
+      "mechanical_supply_m3_per_h": "Mechanical supply",
+      "peak_hour": "Peak load hour",
+      "construction_year": "Construction year",
+      "opaque_area_m2": "Opaque envelope + roof",
+      "solar_load_w": "Solar gain through glass",
+      "glazing_transmission_w": "Transmission through glass"
+    },
+    "hints": {
+      "living_area_m2": "Σ A_vg;woon;zi",
+      "persons_per_dwelling": "Default per NTA §6.6.6",
+      "peak_hour": "9..21 h, drives θ_e from table AA.1",
+      "construction_year": "For f_iso from table AA.2",
+      "opaque_area_m2": "Inside dimensions",
+      "solar_load_w": "P_sol;zi (AA.6), caller-computed from window list",
+      "glazing_transmission_w": "P_gl;zi (AA.7), from window list + U-values"
+    },
+    "result": {
+      "minimum_capacity": "Minimum cooling capacity B_C;req;TO",
+      "maatgevende_koelbehoefte": "Design cooling demand q_C;zi",
+      "breakdown": "Peak load components",
+      "internal_load": "Internal load P_int;zi",
+      "outdoor_load": "Outdoor air P_V;zi",
+      "opaque_transmission": "Opaque transmission P_tr;ntr;zi",
+      "solar_load": "Solar gain P_sol;zi",
+      "glazing_transmission": "Glass transmission P_gl;zi",
+      "peak_total": "Total P_totaal"
+    }
   }
 }

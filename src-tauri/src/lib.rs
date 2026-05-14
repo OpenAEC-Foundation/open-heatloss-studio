@@ -13,6 +13,7 @@ pub fn run() {
             commands::get_schema,
             commands::import_ifc,
             commands::import_vabi,
+            commands::simplified_cooling,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ISSO 51 application");
