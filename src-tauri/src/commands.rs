@@ -6,10 +6,8 @@ use nta8800_cooling::{
     calculate_simplified_cooling, SimplifiedAreaInput, SimplifiedCoolingResult,
     SimplifiedLoadInput,
 };
-use nta8800_model::climate::ClimateData;
-use nta8800_model::time::MonthlyProfile;
+use nta8800_tables::climate::de_bilt_climate_data;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 
@@ -160,13 +158,7 @@ pub fn simplified_cooling(
         solar_load_w: req.solar_load_w,
         glazing_transmission_w: req.glazing_transmission_w,
     };
-    let climate = ClimateData {
-        outdoor_temperature: MonthlyProfile::from_constant(15.0),
-        solar_irradiation: BTreeMap::new(),
-        cooling_reference_temperature: MonthlyProfile::from_constant(Some(17.0)),
-        wind_speed: MonthlyProfile::from_constant(3.0),
-        wtw_preheat_temperature: MonthlyProfile::from_constant(0.0),
-    };
+    let climate = de_bilt_climate_data();
 
     calculate_simplified_cooling(&[], &[], &climate, &[], &area, &load)
         .map_err(|e| e.to_string())

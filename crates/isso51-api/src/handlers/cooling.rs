@@ -12,10 +12,8 @@ use nta8800_cooling::{
     calculate_simplified_cooling, SimplifiedAreaInput, SimplifiedCoolingResult,
     SimplifiedLoadInput,
 };
-use nta8800_model::climate::ClimateData;
-use nta8800_model::time::MonthlyProfile;
+use nta8800_tables::climate::de_bilt_climate_data;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 /// Request body voor POST /cooling/simplified.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -71,7 +69,12 @@ pub async fn simplified_cooling(
         solar_load_w: req.solar_load_w,
         glazing_transmission_w: req.glazing_transmission_w,
     };
-    let climate = minimal_v1_climate();
+    // NEN 5060 referentieklimaat De Bilt (NTA 8800 tabel 17.1 + 17.2).
+    // Voor de bijlage AA quick-check is alleen θ_e in juli relevant — die
+    // wordt uit tabel AA.1 (per peak_hour) gehaald, niet uit ClimateData.
+    // Maar het zit nu in plaats van een handmatige stub, klaar voor F4+ waar
+    // het maandprofiel wel actief wordt gebruikt.
+    let climate = de_bilt_climate_data();
 
     let result = tokio::task::spawn_blocking(move || {
         calculate_simplified_cooling(&[], &[], &climate, &[], &area, &load)
@@ -99,15 +102,3 @@ pub async fn simplified_cooling(
     }
 }
 
-/// Minimale ClimateData voor V1 — de `_climate` parameter van
-/// `calculate_simplified_cooling` is in V1 unused; deze stub vult valid
-/// shape zonder semantische lading. V2 zal echte NEN 5060-data inladen.
-fn minimal_v1_climate() -> ClimateData {
-    ClimateData {
-        outdoor_temperature: MonthlyProfile::from_constant(15.0),
-        solar_irradiation: BTreeMap::new(),
-        cooling_reference_temperature: MonthlyProfile::from_constant(Some(17.0)),
-        wind_speed: MonthlyProfile::from_constant(3.0),
-        wtw_preheat_temperature: MonthlyProfile::from_constant(0.0),
-    }
-}
