@@ -66,19 +66,64 @@ fn main() {
 
             // Rooms summary
             println!("🏠 Rooms ({} total):", project.rooms.len());
-            println!("  {:<12} {:<25} {:<8} {:<8} {:<8}", "ID", "Name", "Area", "Height", "θ_i");
-            println!("  {}", "-".repeat(65));
+            println!("  {:<12} {:<25} {:<8} {:<8} {:<8} {:<12}", "ID", "Name", "Area", "Height", "θ_i", "Constructions");
+            println!("  {}", "-".repeat(77));
 
             for room in &project.rooms {
                 let theta_i = room.internal_air_temperature.unwrap_or(20.0);
                 println!(
-                    "  {:<12} {:<25} {:>6.1} m² {:>6.1} m {:>6.1}°C",
+                    "  {:<12} {:<25} {:>6.1} m² {:>6.1} m {:>6.1}°C {:>10}",
                     room.id,
                     truncate_string(&room.name, 25),
                     room.floor_area,
                     room.height,
-                    theta_i
+                    theta_i,
+                    room.constructions.len()
                 );
+            }
+            println!();
+
+            // Construction summary (Phase 2)
+            let total_constructions: usize = project.rooms.iter().map(|r| r.constructions.len()).sum();
+            let rooms_with_constructions = project.rooms.iter().filter(|r| !r.constructions.is_empty()).count();
+            let total_opaque_area: f64 = project.rooms.iter()
+                .flat_map(|r| &r.constructions)
+                .map(|c| c.area)
+                .sum();
+
+            println!("🏗️  Construction Summary (Phase 2):");
+            println!("  Total constructions: {}", total_constructions);
+            println!("  Rooms with constructions: {}/{}", rooms_with_constructions, project.rooms.len());
+            println!("  Total opaque area: {:.1} m²", total_opaque_area);
+
+            if total_constructions > 0 {
+                let u_values: Vec<f64> = project.rooms.iter()
+                    .flat_map(|r| &r.constructions)
+                    .map(|c| c.u_value)
+                    .collect();
+
+                let u_min = u_values.iter().copied().fold(f64::INFINITY, f64::min);
+                let u_max = u_values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                println!("  U-value range: {:.3} - {:.3} W/(m²·K)", u_min, u_max);
+
+                // Show construction details for first 3 rooms with constructions
+                println!("\n🔧 Construction Details (first 3 rooms):");
+                for (room_idx, room) in project.rooms.iter().filter(|r| !r.constructions.is_empty()).take(3).enumerate() {
+                    println!("  {}. {} ({}):", room_idx + 1, room.name, room.id);
+                    println!("     {:<20} {:<10} {:<12} {:<15}", "Description", "Area (m²)", "U-value", "Boundary");
+                    println!("     {}", "-".repeat(57));
+
+                    for construction in &room.constructions {
+                        println!(
+                            "     {:<20} {:>8.1} {:>10.3} {:<15}",
+                            truncate_string(&construction.description, 20),
+                            construction.area,
+                            construction.u_value,
+                            format!("{:?}", construction.boundary_type)
+                        );
+                    }
+                    println!();
+                }
             }
             println!();
 
@@ -96,7 +141,11 @@ fn main() {
 
             println!();
             println!("✅ Import complete. Project ready for ISSO 51 calculation.");
-            println!("⚠️  Note: Construction data not imported (Phase 1 limitation).");
+            if total_constructions > 0 {
+                println!("✅ Phase 2: Construction data imported successfully.");
+            } else {
+                println!("⚠️  Note: No construction data found in this project.");
+            }
         }
         Err(e) => {
             eprintln!("❌ Import failed: {}", e);

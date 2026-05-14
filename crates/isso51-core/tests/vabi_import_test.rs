@@ -63,6 +63,43 @@ mod vabi_tests {
                     "Expected theta_e ≈ -10.0°C, found {}", project.climate.theta_e
                 );
 
+                // Validate Phase 2 constructions
+                let rooms_with_constructions: usize = project.rooms.iter()
+                    .filter(|r| !r.constructions.is_empty())
+                    .count();
+
+                assert!(
+                    rooms_with_constructions >= 10,
+                    "Expected at least 10 rooms with constructions, found {}",
+                    rooms_with_constructions
+                );
+
+                // Calculate total opaque area across all rooms
+                let total_opaque_area: f64 = project.rooms.iter()
+                    .flat_map(|r| &r.constructions)
+                    .filter(|c| c.boundary_type == isso51_core::model::enums::BoundaryType::Exterior)
+                    .map(|c| c.area)
+                    .sum();
+
+                assert!(
+                    total_opaque_area > 100.0,
+                    "Expected total opaque area > 100 m², found {:.1} m²",
+                    total_opaque_area
+                );
+
+                // Validate U-values are in plausible range
+                let u_values: Vec<f64> = project.rooms.iter()
+                    .flat_map(|r| &r.constructions)
+                    .map(|c| c.u_value)
+                    .collect();
+
+                for u_value in &u_values {
+                    assert!(
+                        *u_value >= 0.05 && *u_value <= 6.0,
+                        "U-value {} outside plausible range [0.1, 6.0]", u_value
+                    );
+                }
+
                 // Print summary for manual verification
                 println!("\n📊 Import Summary:");
                 println!("  Project: {}", project.info.name);
@@ -78,15 +115,37 @@ mod vabi_tests {
                 println!("  Building type: {:?}", project.building.building_type);
                 println!("  Ventilation: {:?}", project.ventilation.system_type);
 
-                // Room details (first 5)
-                println!("\n🏠 First 5 rooms:");
-                for (i, room) in project.rooms.iter().take(5).enumerate() {
-                    let theta_i = room.internal_air_temperature.unwrap_or(20.0);
-                    println!("  {}. {} ({}) - {:.1}°C",
-                        i+1, room.name, room.id, theta_i);
+                // Phase 2 construction summary
+                println!("\n🏗️  Construction Summary (Phase 2):");
+                println!("  Rooms with constructions: {}/{}", rooms_with_constructions, project.rooms.len());
+                println!("  Total opaque area: {:.1} m²", total_opaque_area);
+                if !u_values.is_empty() {
+                    let u_min = u_values.iter().copied().fold(f64::INFINITY, f64::min);
+                    let u_max = u_values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                    println!("  U-value range: {:.3} - {:.3} W/(m²·K)", u_min, u_max);
                 }
-                if project.rooms.len() > 5 {
-                    println!("  ... and {} more", project.rooms.len() - 5);
+
+                // Room details with constructions (first 3)
+                println!("\n🏠 First 3 rooms with constructions:");
+                for (i, room) in project.rooms.iter().filter(|r| !r.constructions.is_empty()).take(3).enumerate() {
+                    let theta_i = room.internal_air_temperature.unwrap_or(20.0);
+                    println!("  {}. {} ({}) - {:.1}°C, {:.1} m², height {:.2} m",
+                        i+1, room.name, room.id, theta_i, room.floor_area, room.height);
+
+                    // Show construction details
+                    for (j, construction) in room.constructions.iter().take(3).enumerate() {
+                        println!("     {:}. {} - {:.1} m², U={:.3}, {:?}",
+                            j+1,
+                            construction.description,
+                            construction.area,
+                            construction.u_value,
+                            construction.boundary_type
+                        );
+                    }
+                    if room.constructions.len() > 3 {
+                        println!("     ... and {} more constructions", room.constructions.len() - 3);
+                    }
+                    println!();
                 }
             }
             Err(e) => {
@@ -116,14 +175,36 @@ mod vabi_tests {
                 assert!(!project.info.name.is_empty(), "Project name should not be empty");
                 assert!(!project.rooms.is_empty(), "Should have at least one room");
 
+                // Basic Phase 2 validation
+                let rooms_with_constructions = project.rooms.iter()
+                    .filter(|r| !r.constructions.is_empty())
+                    .count();
+
                 // Print summary
                 println!("\n📊 Import Summary:");
                 println!("  Project: {}", project.info.name);
                 println!("  Rooms: {}", project.rooms.len());
+                println!("  Rooms with constructions: {}", rooms_with_constructions);
                 println!("  qv10: {:.3} ({:?})", project.building.qv10, project.building.infiltration_method);
                 println!("  theta_e: {:.1}°C", project.climate.theta_e);
                 println!("  Building type: {:?}", project.building.building_type);
                 println!("  Ventilation: {:?}", project.ventilation.system_type);
+
+                // Validate no panics and some constructions exist
+                assert!(
+                    rooms_with_constructions > 0,
+                    "Expected some rooms to have constructions"
+                );
+
+                // Validate U-values are plausible for the rooms that have constructions
+                for room in &project.rooms {
+                    for construction in &room.constructions {
+                        assert!(
+                            construction.u_value >= 0.05 && construction.u_value <= 6.0,
+                            "U-value {} outside plausible range", construction.u_value
+                        );
+                    }
+                }
             }
             Err(e) => {
                 panic!("Import failed: {}", e);
