@@ -2987,6 +2987,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "openaec-project-shared"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "isso51-core",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "openssl"
 version = "0.10.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"

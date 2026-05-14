@@ -1,0 +1,16 @@
+[package]
+name = "openaec-project-shared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ProjectV2 multi-calc shared schema (shared + geometry + calcs[]). Zie ADR-002."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+thiserror = "2"
+isso51-core = { path = "../isso51-core" }
+
+[dev-dependencies]
+approx = "0.5"

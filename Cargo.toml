@@ -18,6 +18,7 @@ members = [
     "crates/nta8800-tables",
     "crates/nta8800-transmission",
     "crates/nta8800-ventilation",
+    "crates/openaec-project-shared",
     "src-tauri",
 ]
 
