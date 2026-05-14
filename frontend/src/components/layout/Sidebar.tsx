@@ -162,8 +162,8 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     defaultCollapsed: false,
     items: [
       {
-        to: "/tojuli",
-        labelKey: "sidebar.tojuli.simplified",
+        to: "/tojuli/quick",
+        labelKey: "sidebar.tojuli.quick",
         Icon: IconBarChart,
       },
     ],

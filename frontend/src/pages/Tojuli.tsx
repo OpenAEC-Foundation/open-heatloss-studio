@@ -1,10 +1,14 @@
 /**
- * TO-juli — NTA 8800 bijlage AA vereenvoudigde koelbehoefte (V1).
+ * TO-juli — NTA 8800 bijlage AA vereenvoudigde koelbehoefte.
+ *
+ * **Status:** Expert mode / "Snelle check (woningen)" — niet norm-volledig
+ * voor utiliteit. Volgens ADR-002 (`docs/ADR-002-multi-calc-project.md`) is
+ * dit pad behouden onder `/tojuli/quick` als snelle woning-check; het
+ * volledige TO-juli (H.10 + utiliteit + project-koppeling) komt op
+ * `/tojuli` via fasering F4-F7.
  *
  * Form-driven calculator: 12 inputs in drie groepen (gebied / lucht /
  * thermische lasten) → Tauri command `simplified_cooling` → result Card.
- * Geen project-koppeling in V1 (niveau B); project-context (autofill,
- * opslaan) is V2/niveau C werk.
  */
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
