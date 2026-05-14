@@ -122,6 +122,9 @@ pub fn into_calc_response(err: isso51_core::error::Isso51Error) -> Response {
         Isso51Error::InfiltrationConfig(_) => {
             (StatusCode::UNPROCESSABLE_ENTITY, "infiltration_config")
         }
+        Isso51Error::VabiImport(_) => (StatusCode::BAD_REQUEST, "vabi_import"),
+        Isso51Error::VabiZipError(_) => (StatusCode::BAD_REQUEST, "vabi_zip_error"),
+        Isso51Error::VabiSqliteError(_) => (StatusCode::BAD_REQUEST, "vabi_sqlite_error"),
     };
 
     let body = ErrorBody {

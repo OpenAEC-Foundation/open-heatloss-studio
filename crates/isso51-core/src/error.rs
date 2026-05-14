@@ -36,6 +36,22 @@ pub enum Isso51Error {
     /// methode kiezen.
     #[error("infiltration method requires building field: {0}")]
     InfiltrationConfig(String),
+
+    /// Vabi import errors (zip extraction, SQLite queries, mapping failures).
+    ///
+    /// Variants are unconditional (not feature-gated) so downstream crates
+    /// (isso51-api) can pattern-match exhaustively without the `vabi-import`
+    /// feature enabled. Actual import logic lives behind the feature flag.
+    #[error("Vabi import error: {0}")]
+    VabiImport(String),
+
+    /// Vabi ZIP file extraction error.
+    #[error("Vabi ZIP error: {0}")]
+    VabiZipError(String),
+
+    /// Vabi SQLite database error.
+    #[error("Vabi SQLite error: {0}")]
+    VabiSqliteError(String),
 }
 
 /// Result type alias for ISSO 51 calculations.

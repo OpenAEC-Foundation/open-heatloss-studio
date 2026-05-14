@@ -11,5 +11,14 @@ serde_json = "1"
 schemars = "0.8"
 thiserror = "2"
 
+# Vabi import dependencies (behind feature flag)
+rusqlite = { version = "0.31", features = ["bundled"], optional = true }
+zip = { version = "0.6", optional = true }
+tempfile = { version = "3.8", optional = true }
+
+[features]
+default = []
+vabi-import = ["dep:rusqlite", "dep:zip", "dep:tempfile"]
+
 [dev-dependencies]
 approx = "0.5"
