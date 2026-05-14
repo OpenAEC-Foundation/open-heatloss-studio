@@ -181,12 +181,208 @@ Room.VentilationID → VarAsp_VentilationData.AspectID → TemplateID
 - Negeer `VarAsp_*` overrides (gebruik default variant)
 - Documenteer in code dat dit Fase 3 is
 
-## Voor Fase 2 (BuildingPart, Construction)
+## Fase 2 — BuildingPart, Constructies, U-waardes, Geometrie
 
-Nog niet uitgewerkt — placeholder. Schema-info te halen uit:
-- `BuildingPart` (154 rows in Voorweg)
-- `BuildingPartType` TEXT (Wall/Floor/Roof)
-- `ConstructionID`, `FaceID`, `BoundaryConditionsID`, `AreaInfoID`
-- `BuildingPartAspect`, `BuildingPartResult`
+Verified op Voorweg sample (2026-05-14).
 
-Dump full schema voor deze tabellen via `examples/vabi_inspect.rs` als die er komt.
+### BuildingPart (154 rows)
+
+```
+BuildingPart
+  ID  BIGINT
+  HasConstruction  BOOL                    -- 0 voor virtuele/boundary parts
+  BuildingPartType  TEXT                   -- 'Wall', 'Floor', 'Roof' (FlatRoof, Door via Construction.Type)
+  HasBoundaryConditions  BOOL
+  IsOpenable  BOOL
+  PsiThermalBridge  DOUBLE                 -- thermal bridge psi op part-niveau
+  IsVirtual  BOOL
+  AreaInfoID  BIGINT       -->             VariantAreaInfo via AreaInfoID
+  PerimeterInfoID  BIGINT  -->             VariantPerimeterInfo
+  ConstructionID  BIGINT (nullable)  -->   Construction.ID (only if HasConstruction=1)
+  FaceID  BIGINT           -->             Face.ID (geometry)
+  BoundaryConditionsID  BIGINT  -->        BoundaryConditions.ID
+  ProjectVersionID  BIGINT
+  LoadBearing  TEXT
+```
+
+### Room → BuildingPart linkage (cell-based geometry)
+
+```
+Room.CellID (e.g. 420112)
+  → MainFace.CellID = Room.CellID
+  → MainFace.CellFaceID (= Face.ID's voor deze cel)
+  → CellFace.FaceID = MainFace.CellFaceID, CellFace.BuildingPartID
+  → BuildingPart.ID = CellFace.BuildingPartID
+```
+
+```sql
+SELECT bp.*
+FROM Room r
+JOIN MainFace mf ON mf.CellID = r.CellID
+JOIN CellFace cf ON cf.FaceID = mf.CellFaceID
+JOIN BuildingPart bp ON bp.ID = cf.BuildingPartID
+WHERE r.ID = ?
+```
+
+### Geometry (Area, Orientation)
+
+```
+BuildingPart.FaceID  → Face.ID
+Face.FaceGeometryEngineID  → FaceGeometryEngine
+   .Orientation  DOUBLE                    -- azimuth in degrees (0=N, 90=E, ...)
+   .Slope  DOUBLE                          -- 0=floor, 90=wall, 180=roof
+   .Area  DOUBLE                           -- m²
+   .Perimeter  DOUBLE                      -- m
+```
+
+Voor multi-dimension support gebruikt Vabi ook `TypedAreaData` (per `Type='CentreToCentreDimensions'` of `'InternalDimensionsIncludingPlenum'`). Voor MVP-import gebruik `FaceGeometryEngine.Area` direct.
+
+### Construction → U-waarde (opaque)
+
+```
+BuildingPart.ConstructionID
+  → Construction.DataID
+  → ConstructionData.OpaqueConstructionDataID
+  → OpaqueConstructionData.LayeredConstructionID  (als IsLayered=1)
+  → ConstructionLayer.LayeredConstructionID = LayeredConstructionID
+```
+
+```sql
+SELECT cl.Thickness, cl.SortNumber, md.HeatConductivity, md.HeatResistance
+FROM BuildingPart bp
+JOIN Construction c ON c.ID = bp.ConstructionID
+JOIN ConstructionData cd ON cd.ID = c.DataID
+JOIN OpaqueConstructionData ocd ON ocd.ID = cd.OpaqueConstructionDataID
+JOIN ConstructionLayer cl ON cl.LayeredConstructionID = ocd.LayeredConstructionID
+JOIN Material m ON m.ID = cl.MaterialID
+JOIN MaterialData md ON md.ID = m.DataID
+WHERE bp.ID = ?
+ORDER BY cl.SortNumber
+```
+
+**U-waarde berekening (ISO 6946):**
+```
+R_layer_i = Thickness_mm * 1e-3 / HeatConductivity_W_per_mK       (if λ > 0)
+          = HeatResistance                                          (if λ == 0, pre-computed)
+R_total = R_si + Σ R_layer_i + R_se
+U = 1 / R_total
+```
+
+R_si / R_se afhankelijk van slope + boundary type:
+| Surface | R_si | R_se (outside) |
+|---|---:|---:|
+| Vertical wall | 0.13 | 0.04 |
+| Floor (heat flow down) | 0.17 | 0.04 |
+| Roof/ceiling (heat flow up) | 0.10 | 0.04 |
+| Ground boundary | — | 0.0 (via separate model) |
+
+**Alternatief — gebruik StandardConstruction.RcValue als pre-computed:**
+```
+OpaqueConstructionData.StandardConstructionID → StandardConstruction.RcValue
+```
+Als RcValue > 0: gebruik direct; anders compute from layers.
+
+### Construction → U-waarde (transparent, kozijnen)
+
+```
+ConstructionData.TransparentConstructionDataID
+  → TransparentConstructionData
+       .FrameID → Frame.U  (W/m²K)
+       .StandardWindowID → StandardWindow.GlazingID → Glazing.U
+       .Psi  (kozijn-glas verbinding psi)
+```
+
+U-window combineren met framepercentage:
+```
+U_window = FramePercentage * Frame.U + (1 - FramePercentage) * Glazing.U + 2 * Psi * L_glass / A_window
+```
+(Voor MVP: simpele weighted average, sla psi-correctie eerst over en mark TODO.)
+
+### BoundaryConditions → boundary type mapping
+
+```
+BoundaryConditions.Type  TEXT  -- 'OutsideAir', 'Ground', 'AdjacentRoom', 'AdjacentBuilding', etc.
+BoundaryConditions.BoundaryTemperaturesWinterID → BoundaryTemperatures.TemperatureDay (theta voor adjacent)
+```
+
+Mapping naar ons model (zie `crates/isso51-core/src/model/`):
+- `'OutsideAir'` → `BoundaryType::Exterior`
+- `'Ground'` → `BoundaryType::Ground`
+- `'AdjacentRoom'` → `BoundaryType::AdjacentRoom` met theta uit BoundaryTemperatures
+- `'AdjacentBuilding'` → `BoundaryType::AdjacentBuilding` met theta uit BoundaryTemperatures
+- onbekend → log warning, default Exterior
+
+### Room.height bron — TypedVolumeData via VolumeInfoID
+
+```
+Room.VolumeInfoID  → VariantVolumeInfo.VolumeInfoID = Room.VolumeInfoID
+VariantVolumeInfo.ID  → TypedVolumeData.VariantVolumeInfoID
+TypedVolumeData.Type = 'InternalDimensionsIncludingPlenum'  → Volume (m³)
+```
+
+Room.height kan berekend worden als: `Volume / floor_area` waar floor_area = som van alle Floor BuildingPart areas voor die Room.
+
+```sql
+SELECT tvd.Volume / NULLIF(SUM(fge_floor.Area), 0) as room_height
+FROM Room r
+JOIN VariantVolumeInfo vvi ON vvi.VolumeInfoID = r.VolumeInfoID
+JOIN TypedVolumeData tvd ON tvd.VariantVolumeInfoID = vvi.ID AND tvd.Type = 'InternalDimensionsIncludingPlenum'
+LEFT JOIN (
+    SELECT r2.ID as room_id, SUM(fge.Area) as floor_area
+    FROM Room r2
+    JOIN MainFace mf ON mf.CellID = r2.CellID
+    JOIN CellFace cf ON cf.FaceID = mf.CellFaceID
+    JOIN BuildingPart bp ON bp.ID = cf.BuildingPartID
+    JOIN Face f ON f.ID = bp.FaceID
+    JOIN FaceGeometryEngine fge ON fge.ID = f.FaceGeometryEngineID
+    WHERE bp.BuildingPartType = 'Floor' AND bp.HasConstruction = 1
+    GROUP BY r2.ID
+) floor_data ON floor_data.room_id = r.ID
+WHERE r.ID = ?
+```
+
+**Verified op Voorweg sample:** Room 210A.-1 heeft Volume=26.93m³, floor_area=12.10m², height=2.23m.
+
+### Fase 2 U-waarde berekening — geverifieerd
+
+**Opaque constructions (lagen-gebaseerd):**
+```sql
+SELECT cl.Thickness, cl.SortNumber, md.HeatConductivity, md.HeatResistance
+FROM BuildingPart bp
+JOIN Construction c ON c.ID = bp.ConstructionID
+JOIN ConstructionData cd ON cd.ID = c.DataID
+JOIN OpaqueConstructionData ocd ON ocd.ID = cd.OpaqueConstructionDataID
+JOIN ConstructionLayer cl ON cl.LayeredConstructionID = ocd.LayeredConstructionID
+JOIN Material m ON m.ID = cl.MaterialID
+JOIN MaterialData md ON md.ID = m.DataID
+WHERE bp.ID = ? AND ocd.IsLayered = 1
+ORDER BY cl.SortNumber
+```
+
+R_layer berekening per laag:
+- Indien `HeatConductivity > 0`: `R = (Thickness_mm * 1e-3) / HeatConductivity`
+- Indien `HeatConductivity == 0`: `R = HeatResistance` (direct, voor spouwen/lucht)
+
+**StandardConstruction fallback:**
+```sql
+SELECT sc.RcValue
+FROM BuildingPart bp → ... → OpaqueConstructionData ocd
+JOIN StandardConstruction sc ON sc.ID = ocd.StandardConstructionID
+WHERE bp.ID = ? AND sc.RcValue > 0
+```
+
+Indien `RcValue > 0`: `U = 1 / (R_si + RcValue + R_se)`, sla layered berekening over.
+
+**Geverifieerd voorbeeld** (Wand - Buiten spouw + VZW):
+- Layer 1: Baksteen 100mm, λ=0.8 → R=0.125
+- Layer 2: Spouw 60mm → R=0.17 (direct)
+- Layer 3: Baksteen 100mm, λ=0.8 → R=0.125
+- Layer 4: PIR 93mm, λ=0.022 → R=4.227
+- Layer 5: Gipsplaat 12mm, λ=0.23 → R=0.052
+- **Totaal:** R_layers = 4.699, U = 1/(0.13 + 4.699 + 0.04) = 0.205 W/(m²·K)
+
+**Transparent constructions:** via `TransparentConstructionData → Frame.U + Glazing.U` (layered method niet van toepassing).
+
+### Aspect/Variant ook hier?
+
+`BuildingPartAspect` (328 rows) bestaat. Voor MVP: negeren — gebruik direct de BuildingPart data zonder aspect-resolving. Documenteer als TODO voor Fase 3 als project-varianten ondersteund worden.
