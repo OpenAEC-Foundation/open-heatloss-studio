@@ -154,6 +154,7 @@ fn push_kv(out: &mut Vec<Box<dyn Flowable>>, k: &str, v: &str) {
 pub fn render_toc(
     toc: &TocConfig,
     sections: &[Section],
+    section_pages: Option<&[usize]>,
     _brand: &OhsBrand,
 ) -> Vec<Box<dyn Flowable>> {
     if !toc.enabled {
@@ -166,10 +167,57 @@ pub fn render_toc(
     head_style.leading = Pt(22.0);
     out.push(Box::new(Paragraph::new(toc.title.clone(), head_style)));
     out.push(Box::new(Spacer::from_mm(6.0)));
+
+    // Hierarchical numbering: level-1 sections get top-level numbers (1, 2,
+    // 3...), level-2 sub-chapters get sub-numbers (1.1, 1.2, ...). Padded
+    // page numbers (right-aligned via dot leaders) make the TOC scannable.
+    let mut l1_counter: u32 = 0;
+    let mut l2_counter: u32 = 0;
     for (i, s) in sections.iter().enumerate() {
-        if s.level <= toc.max_depth {
-            out.push(Box::new(Paragraph::plain(format!("{} {}", i + 1, s.title))));
+        if s.level > toc.max_depth {
+            continue;
         }
+        let number_str = match s.level {
+            1 => {
+                l1_counter += 1;
+                l2_counter = 0;
+                format!("{}", l1_counter)
+            }
+            2 => {
+                l2_counter += 1;
+                format!("{}.{}", l1_counter.max(1), l2_counter)
+            }
+            _ => format!("{}", i + 1),
+        };
+        let indent = match s.level {
+            1 => "",
+            2 => "    ",
+            _ => "        ",
+        };
+        let page = section_pages
+            .and_then(|p| p.get(i).copied())
+            .map(|p| format!("{}", p))
+            .unwrap_or_else(|| "—".to_string());
+        // Dot-leader composed by repeating "." between title and page number;
+        // pad to a fixed column count so different titles align visually.
+        let title_part = format!("{}{} {}", indent, number_str, s.title);
+        // Target line width ~85 chars at 10pt; reserve last ~5 for page.
+        const LINE_COLS: usize = 85;
+        let title_chars = title_part.chars().count();
+        let page_chars = page.chars().count();
+        let dots_needed = LINE_COLS.saturating_sub(title_chars + page_chars + 2);
+        let dot_leader: String = std::iter::repeat('.').take(dots_needed).collect();
+        let line = format!("{} {} {}", title_part, dot_leader, page);
+        let mut style = ParagraphStyle::default();
+        // Slightly tighter leading so the TOC stays compact even with many
+        // sections (one A4 page can fit ~50 entries at this size).
+        style.font_size = Pt(10.0);
+        style.leading = Pt(13.0);
+        if s.level == 1 {
+            style.bold = true;
+            style.space_before = Pt(2.0);
+        }
+        out.push(Box::new(Paragraph::new(line, style)));
     }
     out.push(Box::new(PageBreak));
     out

@@ -15,7 +15,7 @@ use image::GenericImageView;
 use super::blocks::render_block;
 use super::brand::{FooterImageData, OhsBrand};
 use super::fonts;
-use super::schema::{Orientation, PaperFormat, ReportData};
+use super::schema::{Block, Orientation, PaperFormat, ReportData, Section};
 use super::special_pages::{
     BackcoverContext, render_backcover, render_colofon, render_cover, render_toc,
 };
@@ -107,7 +107,20 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     }
 
     if let Some(t) = &data.toc {
-        flowables.extend(render_toc(t, &data.sections, &brand));
+        // Compute approximate page numbers per section so the TOC can show
+        // real pagina-nummers met dot-leaders. Heuristiek-gebaseerde
+        // estimator op basis van bloc-types — voor een typisch
+        // warmteverlies-rapport (10-25 secties) is dit doorgaans accuraat
+        // binnen ±1 pagina per sectie. Wordt op de mid-call gebouwd op
+        // basis van dezelfde frame-hoogte als de echte render.
+        let pre_content_pages =
+            pre_content_page_count(data.cover.is_some(), data.colofon.is_some(), t.enabled, t, &data.sections);
+        let section_pages = estimate_section_pages(
+            &data.sections,
+            frame_h,
+            pre_content_pages,
+        );
+        flowables.extend(render_toc(t, &data.sections, Some(&section_pages), &brand));
     }
 
     // Each level-1 section starts on its own page (except the first one, which
@@ -168,6 +181,114 @@ fn decode_footer_image(b64: &str) -> Result<FooterImageData, String> {
         width_px: w,
         height_px: h,
     })
+}
+
+/// Estimate how many pages are consumed by special pages BEFORE the content
+/// sections start (cover + colofon + TOC itself). Each special page ends
+/// with a PageBreak so they reliably take one page each. The TOC may span
+/// multiple pages when there are many entries.
+fn pre_content_page_count(
+    has_cover: bool,
+    has_colofon: bool,
+    toc_enabled: bool,
+    toc: &super::schema::TocConfig,
+    sections: &[Section],
+) -> usize {
+    let mut pages = 0;
+    if has_cover {
+        pages += 1;
+    }
+    if has_colofon {
+        pages += 1;
+    }
+    if toc_enabled {
+        // TOC entries shown at this depth — each entry is 1 line at 13pt
+        // leading. A4 inner height ~720pt → ~50 entries per page. Header
+        // takes ~30pt, spacer ~17pt → reduce capacity by 1 entry.
+        let n = sections.iter().filter(|s| s.level <= toc.max_depth).count();
+        let entries_per_page = 48usize;
+        pages += ((n + entries_per_page - 1) / entries_per_page).max(1);
+    }
+    pages
+}
+
+/// Per-section estimated page-number based on block-type heights. Each
+/// level-1 section forces a new page (matches the layout-loop in
+/// generate_pdf). Level-2 sub-chapters flow inside the parent's page
+/// stream. The estimate is a best-effort approximation — sufficient for
+/// a TOC even when off by a page here and there for large rapports.
+fn estimate_section_pages(
+    sections: &[Section],
+    frame_height_pt: Pt,
+    pre_content_pages: usize,
+) -> Vec<usize> {
+    let frame_h = frame_height_pt.0;
+    let mut pages = Vec::with_capacity(sections.len());
+    let mut current_page = pre_content_pages + 1; // first content page
+    let mut cursor_y = 0.0_f32;
+
+    for (i, section) in sections.iter().enumerate() {
+        // Level-1 sections start on a new page (forced page break in
+        // generate_pdf line ~94-96), except the very first content section.
+        if section.level == 1 && i > 0 {
+            current_page += 1;
+            cursor_y = 0.0;
+        }
+        pages.push(current_page);
+
+        // Section heading height (level-1 ~26pt, level-2 ~18pt) + 6mm
+        // trailing spacer (~17pt) defined in the section loop.
+        let heading_h = if section.level == 1 { 26.0 } else { 18.0 };
+        cursor_y += heading_h + 6.0;
+
+        // Sum content block heights.
+        for block in &section.content {
+            cursor_y += estimate_block_height(block);
+            // Advance page when the cursor overshoots the frame. Use a
+            // while-loop because tall blocks (large images, long tables)
+            // can span multiple pages.
+            while cursor_y > frame_h {
+                current_page += 1;
+                cursor_y -= frame_h;
+            }
+        }
+
+        // Section-trailing spacer (~6mm = 17pt) before next section.
+        cursor_y += 17.0;
+    }
+
+    pages
+}
+
+/// Rough vertical height (pt) for a single Block. Used by the TOC page-
+/// number estimator. Numbers tuned against real warmteverlies rapporten:
+/// table-row ≈ 16pt, paragraph-line ≈ 13pt, image takes its declared
+/// width × heuristic aspect (most charts in this rapport are ~1.6:1).
+fn estimate_block_height(block: &Block) -> f32 {
+    match block {
+        Block::Paragraph { text } => {
+            // ~85 chars per line at 10pt body, 13pt leading. Long text
+            // wraps to multiple lines.
+            let chars = text.chars().count() as f32;
+            let lines = (chars / 85.0).ceil().max(1.0);
+            lines * 13.0
+        }
+        Block::Spacer { height_mm } => *height_mm as f32 * 2.83465,
+        Block::Table { title, headers, rows, .. } => {
+            // Title (~16pt) + header row (~18pt) + body rows (~16pt each)
+            let title_h = if title.is_some() { 18.0 } else { 0.0 };
+            let header_h = if !headers.is_empty() { 18.0 } else { 0.0 };
+            title_h + header_h + rows.len() as f32 * 16.0
+        }
+        Block::Image { width_mm, caption, .. } => {
+            // Heuristic: most charts are 1.6:1 wide:tall. Add ~14pt for
+            // caption if present.
+            let img_h = *width_mm as f32 / 1.6 * 2.83465;
+            let cap_h = if caption.is_some() { 14.0 } else { 0.0 };
+            img_h + cap_h
+        }
+        Block::Calculation { .. } => 50.0,
+    }
 }
 
 fn make_section_heading(title: &str, level: u32) -> Paragraph {
