@@ -180,10 +180,14 @@ class UIFactory(object):
         return tb
 
     @staticmethod
-    def create_combobox(items=None, width=200):
-        """items: list of (display_text, internal_value) tuples — alleen
-        display_text wordt in de combo getoond; caller leest SelectedIndex
-        en mapt zelf naar internal_value."""
+    def create_combobox(width=200, items=None):
+        """width-first signature (matches caller-conventie:
+        `create_combobox(250, [...])`).
+
+        items: list of strings (rechtstreeks) of (display_text,
+        internal_value) tuples. Bij tuple wordt alleen display_text in de
+        combo getoond; caller leest SelectedIndex en mapt zelf naar
+        internal_value."""
         cb = ComboBox()
         cb.Size = DPIScaler.scale_size(width, 23)
         cb.Font = UIFactory._font()
@@ -239,7 +243,18 @@ class UIFactory(object):
         return btn
 
     @staticmethod
-    def create_datagridview(width=600, height=300):
+    def create_datagridview(columns=None, width=600, height=300, allow_edit=False):
+        """columns: optionele list van (name, header_text, width) tuples.
+        Wanneer aangeleverd worden ze als DataGridViewTextBoxColumn's
+        toegevoegd; caller kan daarna extra kolommen (CheckBox / ComboBox)
+        prepend/append'en via grid.Columns.Insert / .Add.
+
+        allow_edit: False → ReadOnly grid (geen cell-editing).
+        """
+        # Lazy import zodat de basis-imports beperkt blijven; de kolom-
+        # constructors zijn alleen nodig wanneer `columns` is aangeleverd.
+        from System.Windows.Forms import DataGridViewTextBoxColumn
+
         grid = DataGridView()
         grid.Size = DPIScaler.scale_size(width, height)
         grid.Font = UIFactory._font()
@@ -252,8 +267,9 @@ class UIFactory(object):
         grid.AllowUserToResizeRows = False
         grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect
         grid.MultiSelect = False
-        # AutoSizeColumnsMode laten op default (None=1) — caller stelt
-        # kolommen handmatig in via .Width. (DataGridViewAutoSizeColumnsMode.None
+        grid.ReadOnly = not bool(allow_edit)
+        # AutoSizeColumnsMode laten op default — caller stelt kolommen
+        # handmatig in via .Width. (DataGridViewAutoSizeColumnsMode.None
         # is een Python keyword-conflict in IronPython.)
         # Header styling
         try:
@@ -270,6 +286,22 @@ class UIFactory(object):
             grid.AlternatingRowsDefaultCellStyle.BackColor = Huisstijl.SURFACE_ALT
         except Exception:
             pass
+
+        # Voeg de aangeleverde kolommen toe
+        if columns:
+            for col_spec in columns:
+                col = DataGridViewTextBoxColumn()
+                # Spec ondersteunt (name, header, width) of (name, header)
+                if len(col_spec) >= 3:
+                    name, header, w = col_spec[0], col_spec[1], col_spec[2]
+                else:
+                    name, header, w = col_spec[0], col_spec[1], 100
+                col.Name = name
+                col.HeaderText = header
+                col.Width = DPIScaler.scale(w)
+                col.ReadOnly = not bool(allow_edit)
+                grid.Columns.Add(col)
+
         return grid
 
 
