@@ -30,6 +30,7 @@
       "identifier": "fs:scope",
       "allow": [{ "path": "**" }]
     },
-    "shell:allow-execute"
+    "shell:allow-execute",
+    "shell:allow-open"
   ]
 }
