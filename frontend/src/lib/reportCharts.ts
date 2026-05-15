@@ -17,6 +17,53 @@ import type {
 } from "../types";
 import { DEFAULT_THETA_WATER, ROOM_FUNCTION_TEMPERATURES } from "./constants";
 import { buildRoomLookup, computeDeltaT } from "../components/charts/deltaT";
+import type { MaterialCategory } from "./materialsDatabase";
+
+/** Materiaal-categorie → fill kleur voor de doorsnede-strook in het
+ * temperatuurverloop-diagram. Architectonisch herkenbare kleuren — baksteen
+ * roodbruin, hout warm bruin, isolatie geel/beige, beton grijs, etc.
+ * Subtiele tint zodat de temperatuurcurve eroverheen leesbaar blijft. */
+const MATERIAL_COLOR: Record<MaterialCategory, string> = {
+  spouw: "#e0f2fe",              // sky-100 — luchtspouw
+  mortel: "#d6d3d1",             // stone-300 — voegmortel
+  natuursteen: "#a8a29e",        // stone-400 — natuursteen
+  metselwerk: "#c2410c",         // orange-700 — baksteen rood-bruin
+  beton: "#9ca3af",              // gray-400 — beton
+  plaatmateriaal: "#e7e5e4",     // stone-200 — gips/spaanplaat
+  hout: "#92400e",               // amber-800 — hout bruin
+  isolatie_mineraal: "#fde68a",  // amber-200 — minerale wol (geel)
+  isolatie_kunststof: "#bae6fd", // sky-200 — PIR/PUR (lichtblauw)
+  isolatie_natuurlijk: "#fef3c7", // amber-100 — natuurvezel (beige)
+  folie: "#cbd5e1",              // slate-300 — folie (zilver-grijs)
+  afwerking: "#f5f5f4",          // stone-100 — gipsplaat/pleister
+  vloer: "#a16207",              // yellow-700 — vloerafwerking
+  metaal: "#64748b",             // slate-500 — staal/metaal
+  kunststof: "#e0e7ff",          // indigo-100 — kunststof
+  glas: "#bfdbfe",               // blue-200 — glas
+  overig: "#d4d4d8",             // zinc-300 — onbekend/overig
+};
+
+/** Subtiele rand-kleur per materiaal-categorie zodat aangrenzende lagen
+ * visueel gescheiden blijven zelfs als ze dezelfde fill-kleur zouden hebben. */
+const MATERIAL_BORDER: Record<MaterialCategory, string> = {
+  spouw: "#93c5fd",
+  mortel: "#a8a29e",
+  natuursteen: "#78716c",
+  metselwerk: "#9a3412",
+  beton: "#6b7280",
+  plaatmateriaal: "#a8a29e",
+  hout: "#78350f",
+  isolatie_mineraal: "#ca8a04",
+  isolatie_kunststof: "#7dd3fc",
+  isolatie_natuurlijk: "#fbbf24",
+  folie: "#94a3b8",
+  afwerking: "#d6d3d1",
+  vloer: "#854d0e",
+  metaal: "#475569",
+  kunststof: "#a5b4fc",
+  glas: "#93c5fd",
+  overig: "#a1a1aa",
+};
 
 // ---------------------------------------------------------------------------
 // Report-specifieke styling: donker op wit, hex inline
@@ -658,6 +705,11 @@ export interface TemperatureGradientLayer {
   thickness: number;
   /** Effective thermal resistance of this layer [m²·K/W]. */
   r: number;
+  /** Materiaal-categorie voor kleur-coding. Bepaalt de fill van de
+   * laag-kolom (baksteen = rood-bruin, hout = bruin, isolatie = geel,
+   * beton = grijs, enz.). Optioneel — bij ontbreken valt 'ie terug op
+   * "overig" (neutraal grijs). */
+  category?: MaterialCategory;
 }
 
 /**
@@ -737,13 +789,18 @@ export function buildTemperatureGradientSvg(
     `<rect x="${outerX}" y="${MARGIN.top}" width="${AIR_ZONE_PX}" height="${PLOT_H}" fill="#dbeafe"/>`,
   );
 
-  // Layer columns (alternating greys for visual separation)
+  // Layer columns — materiaal-categorie bepaalt de fill-kleur zodat de
+  // doorsnede leest als een echte wand-opbouw (baksteen rood, hout bruin,
+  // isolatie geel, beton grijs, enz.). Bij ontbrekende category valt 'ie
+  // terug op een neutraal grijs zodat de curve altijd leesbaar blijft.
   let xCursor = innerX;
-  layers.forEach((l, i) => {
+  layers.forEach((l) => {
     const w = mmToPx(l.thickness);
-    const fill = i % 2 === 0 ? "#f3f4f6" : "#e5e7eb";
+    const cat: MaterialCategory = l.category ?? "overig";
+    const fill = MATERIAL_COLOR[cat];
+    const border = MATERIAL_BORDER[cat];
     parts.push(
-      `<rect x="${xCursor.toFixed(2)}" y="${MARGIN.top}" width="${w.toFixed(2)}" height="${PLOT_H}" fill="${fill}"/>`,
+      `<rect x="${xCursor.toFixed(2)}" y="${MARGIN.top}" width="${w.toFixed(2)}" height="${PLOT_H}" fill="${fill}" stroke="${border}" stroke-width="0.5"/>`,
     );
     xCursor += w;
   });

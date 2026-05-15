@@ -778,6 +778,10 @@ async function buildConstructiesSection(
           name: material?.name ?? l.materialId,
           thickness: l.thickness,
           r: r?.r ?? 0,
+          // Geef materiaal-categorie mee zodat de doorsnede architectonisch
+          // gekleurd wordt (baksteen rood, hout bruin, isolatie geel, enz.)
+          // i.p.v. wisselende grijstinten.
+          category: material?.category,
         };
       });
       const tempSvg = buildTemperatureGradientSvg(
