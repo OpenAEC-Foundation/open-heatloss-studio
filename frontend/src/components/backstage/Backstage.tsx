@@ -144,11 +144,13 @@ export default function Backstage({
   useEffect(() => {
     if (!open) {
       setActivePanel("none");
-      setOpenExpanded(false);
-      setSaveAsExpanded(false);
-      setImportExpanded(false);
       return;
     }
+    // Bij elke opening: forceer sub-items uitgeklapt zodat user direct de
+    // Lokaal/Server/Vabi sub-keuzes ziet zonder eerst te moeten klikken.
+    setOpenExpanded(true);
+    setSaveAsExpanded(true);
+    setImportExpanded(true);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -521,6 +523,13 @@ export default function Backstage({
                 label={t("localFile")}
                 onClick={handleOpenLocal}
               />
+              {!isWeb && (
+                <SubMenuItem
+                  icon={ICONS.vabi}
+                  label={t("vabiElements")}
+                  onClick={handleImportVabi}
+                />
+              )}
               {recent.length > 0 && (
                 <div className="mt-2 ml-3 border-l border-border pl-3">
                   <div className="mb-1 flex items-center justify-between pr-1">

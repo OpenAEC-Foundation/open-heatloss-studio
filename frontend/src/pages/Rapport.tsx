@@ -42,6 +42,10 @@ export function Rapport() {
   const sections = useReportStore((s) => s.sections);
   const setSection = useReportStore((s) => s.setSection);
   const resetSections = useReportStore((s) => s.resetSections);
+  const pageSize = useReportStore((s) => s.pageSize);
+  const setPageSize = useReportStore((s) => s.setPageSize);
+  const orientation = useReportStore((s) => s.orientation);
+  const setOrientation = useReportStore((s) => s.setOrientation);
   const addToast = useToastStore((s) => s.addToast);
 
   // Helper: update only the `info` sub-object, leaving the rest of the project
@@ -163,6 +167,63 @@ export function Rapport() {
         {optionsOpen && (
         <div className="h-full overflow-y-auto p-4 pt-10">
           <h2 className="mb-3 text-sm font-semibold text-on-surface">Opties</h2>
+
+          {/* Pagina-instellingen — bovenaan zodat formaat + oriëntatie
+              direct zichtbaar zijn vóór de inhoud-toggles. */}
+          <section className="mb-4 rounded-md border border-border bg-surface-2 p-3">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-secondary">
+              Pagina
+            </h3>
+            <div className="space-y-2">
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-wide text-on-surface-muted">
+                  Formaat
+                </label>
+                <div className="flex gap-1">
+                  {(["A4", "A3"] as const).map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setPageSize(size)}
+                      className={`flex-1 rounded border px-3 py-1.5 text-xs transition-colors ${
+                        pageSize === size
+                          ? "border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] text-on-surface"
+                          : "border-border bg-surface text-on-surface-secondary hover:bg-surface-alt"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] uppercase tracking-wide text-on-surface-muted">
+                  Oriëntatie
+                </label>
+                <div className="flex gap-1">
+                  {(
+                    [
+                      ["portrait", "Portret"],
+                      ["landscape", "Landschap"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setOrientation(key)}
+                      className={`flex-1 rounded border px-3 py-1.5 text-xs transition-colors ${
+                        orientation === key
+                          ? "border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] text-on-surface"
+                          : "border-border bg-surface text-on-surface-secondary hover:bg-surface-alt"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Voorbladafbeelding */}
           <section className="mb-4 rounded-md border border-border bg-surface-2 p-3">
