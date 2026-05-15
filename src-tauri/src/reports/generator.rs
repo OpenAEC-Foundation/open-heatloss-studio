@@ -4,8 +4,8 @@
 //! hands it to openaec-layout's DocTemplate which produces the actual PDF.
 
 use openaec_layout::{
-    A3, A4, DocTemplate, Flowable, Frame, Mm, PageBreak, PageTemplate, Paragraph, ParagraphStyle,
-    Pt, Rect, Spacer, shared_font_registry,
+    A3, A4, DocTemplate, Flowable, Frame, LayoutContext, Mm, PageBreak, PageTemplate, Paragraph,
+    ParagraphStyle, Pt, Rect, Spacer, shared_font_registry,
 };
 
 use base64::Engine as _;
@@ -124,53 +124,104 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     ));
     doc.add_page_template(tmpl);
 
-    // Build flowables
+    // Two-pass TOC: first build with estimator-based page numbers, simulate
+    // the actual layout to determine which page each section heading lands
+    // on, then rebuild the TOC with the real page numbers and render.
+    //
+    // The simulation uses the same Flowable::wrap() calls that the real
+    // layout engine uses, so font-metrics + measured table-heights match.
+    // This eliminates the ±1 page drift the heuristic-based estimator had.
+
+    let pre_content_pages = data
+        .toc
+        .as_ref()
+        .map(|t| {
+            pre_content_page_count(
+                data.cover.is_some(),
+                data.colofon.is_some(),
+                t.enabled,
+                t,
+                &data.sections,
+            )
+        })
+        .unwrap_or(0);
+
+    // Pass 1: estimator-based TOC (so the TOC entry-count is correct and
+    // matches what pass 2 will produce — guarantees no shift between
+    // passes since the TOC takes the same number of pages either way).
+    let estimated_pages =
+        estimate_section_pages(&data.sections, frame_h, pre_content_pages);
+    let (flowables_v1, section_heading_indices) =
+        build_flowables(data, &brand, Some(&estimated_pages));
+
+    // Build a fresh LayoutContext for simulation (same font registry as
+    // the real render — that's also why we register fonts above).
+    let sim_ctx = LayoutContext {
+        fonts: shared_font_registry(),
+    };
+    let real_pages = simulate_pages(flowables_v1, frame_w, frame_h, &sim_ctx);
+
+    // Map section-heading flowable indices → page numbers
+    let mut section_pages: Vec<usize> = Vec::with_capacity(data.sections.len());
+    for (sec_idx, _) in data.sections.iter().enumerate() {
+        let fi = section_heading_indices
+            .get(sec_idx)
+            .copied()
+            .unwrap_or(0);
+        section_pages.push(real_pages.get(fi).copied().unwrap_or(pre_content_pages + 1));
+    }
+
+    // Pass 2: rebuild with the simulated-real page numbers
+    let (flowables_v2, _) = build_flowables(data, &brand, Some(&section_pages));
+
+    doc.build_to_bytes(flowables_v2)
+        .map_err(|e| format!("PDF build failed: {e}"))
+}
+
+/// Build the complete flowable stream for the report.
+///
+/// `section_pages` (if supplied) becomes the page-number column in the TOC.
+/// Returns (flowables, section_heading_flowable_indices) — the second vec
+/// has one entry per section in `data.sections`, holding the index of that
+/// section's heading flowable. Used by the two-pass TOC simulation to map
+/// section → page.
+fn build_flowables(
+    data: &ReportData,
+    brand: &OhsBrand,
+    section_pages: Option<&[usize]>,
+) -> (Vec<Box<dyn Flowable>>, Vec<usize>) {
     let mut flowables: Vec<Box<dyn Flowable>> = Vec::new();
+    let mut section_heading_indices: Vec<usize> = Vec::with_capacity(data.sections.len());
 
     if let Some(cover) = &data.cover {
         flowables.extend(render_cover(
             &data.project,
             data.date.as_deref().unwrap_or(""),
             cover,
-            &brand,
+            brand,
         ));
     }
 
     if let Some(c) = &data.colofon {
         if c.enabled {
-            flowables.extend(render_colofon(&data.project, c, &brand));
+            flowables.extend(render_colofon(&data.project, c, brand));
         }
     }
 
     if let Some(t) = &data.toc {
-        // Compute approximate page numbers per section so the TOC can show
-        // real pagina-nummers met dot-leaders. Heuristiek-gebaseerde
-        // estimator op basis van bloc-types — voor een typisch
-        // warmteverlies-rapport (10-25 secties) is dit doorgaans accuraat
-        // binnen ±1 pagina per sectie. Wordt op de mid-call gebouwd op
-        // basis van dezelfde frame-hoogte als de echte render.
-        let pre_content_pages =
-            pre_content_page_count(data.cover.is_some(), data.colofon.is_some(), t.enabled, t, &data.sections);
-        let section_pages = estimate_section_pages(
-            &data.sections,
-            frame_h,
-            pre_content_pages,
-        );
-        flowables.extend(render_toc(t, &data.sections, Some(&section_pages), &brand));
+        flowables.extend(render_toc(t, &data.sections, section_pages, brand));
     }
 
-    // Each level-1 section starts on its own page (except the first one, which
-    // already follows the TOC/colofon page-break). Level-2 sections (per-room
-    // details) keep flowing so multiple rooms fit on one page when there's room.
     let mut prev_level: Option<u32> = None;
     for section in &data.sections {
         if section.level == 1 && prev_level.is_some() {
             flowables.push(Box::new(PageBreak));
         }
+        section_heading_indices.push(flowables.len());
         flowables.push(Box::new(make_section_heading(&section.title, section.level)));
         flowables.push(Box::new(Spacer::from_mm(2.0)));
         for block in &section.content {
-            flowables.extend(render_block(block, &brand));
+            flowables.extend(render_block(block, brand));
         }
         flowables.push(Box::new(Spacer::from_mm(6.0)));
         prev_level = Some(section.level);
@@ -180,27 +231,76 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
         let ctx = BackcoverContext {
             project: &data.project,
             subtitle: data.cover.as_ref().and_then(|c| c.subtitle.as_deref()),
-            client: data
-                .client
-                .as_deref()
-                .or_else(|| data.colofon.as_ref().and_then(|c| c.opdrachtgever_naam.as_deref())),
+            client: data.client.as_deref().or_else(|| {
+                data.colofon.as_ref().and_then(|c| c.opdrachtgever_naam.as_deref())
+            }),
             adviseur: data
                 .colofon
                 .as_ref()
                 .and_then(|c| c.adviseur_bedrijf.as_deref()),
             author: Some(data.author.as_str()),
             date: data.date.as_deref(),
-            kenmerk: data
-                .project_number
-                .as_deref()
-                .or_else(|| data.colofon.as_ref().and_then(|c| c.kenmerk.as_deref())),
+            kenmerk: data.project_number.as_deref().or_else(|| {
+                data.colofon.as_ref().and_then(|c| c.kenmerk.as_deref())
+            }),
             version: Some(data.version.as_str()),
         };
-        flowables.extend(render_backcover(bc, &ctx, &brand));
+        flowables.extend(render_backcover(bc, &ctx, brand));
     }
 
-    doc.build_to_bytes(flowables)
-        .map_err(|e| format!("PDF build failed: {e}"))
+    (flowables, section_heading_indices)
+}
+
+/// Simulate the page-layout of the flowable stream to determine which
+/// page each flowable lands on. Uses the same Flowable::wrap() calls as
+/// the real layout engine so the result is page-accurate.
+///
+/// Returns a Vec<usize> with one entry per input flowable: the 1-based
+/// page index where that flowable's draw call starts.
+///
+/// Page-break logic mirrors openaec-layout's layout_pages:
+/// - PageBreak flowable → next page
+/// - If wrap-height > remaining space (and cursor_y > 0) → next page
+/// - Tall flowables that overshoot frame_h roll into subsequent pages
+fn simulate_pages(
+    mut flowables: Vec<Box<dyn Flowable>>,
+    inner_w: Pt,
+    inner_h: Pt,
+    ctx: &LayoutContext,
+) -> Vec<usize> {
+    let mut pages: Vec<usize> = Vec::with_capacity(flowables.len());
+    let mut current_page: usize = 1;
+    let mut cursor_y: f32 = 0.0;
+
+    for f in flowables.iter_mut() {
+        if f.is_page_break() {
+            pages.push(current_page);
+            current_page += 1;
+            cursor_y = 0.0;
+            continue;
+        }
+
+        let remaining = Pt((inner_h.0 - cursor_y).max(0.0));
+        let size = f.wrap(inner_w, remaining, ctx);
+
+        // Doesn't fit + not at top of page → advance page first
+        if size.height.0 > remaining.0 && cursor_y > 0.0 {
+            current_page += 1;
+            cursor_y = 0.0;
+        }
+
+        pages.push(current_page);
+        cursor_y += size.height.0;
+
+        // Tall flowables that span multiple pages — advance the page
+        // counter so subsequent flowables land on the right page.
+        while cursor_y > inner_h.0 {
+            current_page += 1;
+            cursor_y -= inner_h.0;
+        }
+    }
+
+    pages
 }
 
 /// Parse a hex color string ("0F766E" or "#0F766E") into an openaec-layout
