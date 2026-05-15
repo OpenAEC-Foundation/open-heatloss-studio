@@ -179,35 +179,10 @@ export default function Backstage({
     }
   }, [resetToExample, onClose, onNavigate, addToast, t]);
 
-  const handleImportVabi = useCallback(async () => {
-    if (!isTauri()) {
-      addToast("Vabi-import alleen beschikbaar in desktop-versie", "info");
-      return;
-    }
-    try {
-      // Empty file_path → Tauri opens native file dialog filtered on `.vp`.
-      const { invoke } = await import("@tauri-apps/api/core");
-      const imported = await invoke<typeof project>("import_vabi", {
-        filePath: "",
-      });
-      // Tabbed views: open een nieuwe tab voor het geïmporteerde project.
-      useDocumentsStore.getState().newTab(imported.info?.name || "Vabi import");
-      extractAndLinkConstructions(imported);
-      setProject(imported);
-      // .vp is intermediate — clear currentLocalPath so Save As prompts for
-      // a fresh .ifcenergy target rather than overwriting the .vp source.
-      useProjectStore.getState().setCurrentLocalPath(null);
-      onClose();
-      onNavigate?.("/rooms");
-      addToast(t("importedVabi"), "success");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // "Geen bestand geselecteerd" is a normal cancel — don't show as error.
-      if (!msg.includes("Geen bestand geselecteerd")) {
-        addToast(`${t("importError")}: ${msg}`, "error");
-      }
-    }
-  }, [addToast, project, setProject, onClose, onNavigate, t]);
+  // Vabi import handler — momenteel disabled in de UI omdat de Vabi-keten
+  // nog in ontwikkeling is. Verwijderd uit de file; herinschakelen vereist
+  // dat het SubMenuItem onClick weer wijst naar een nieuwe handleImportVabi
+  // implementatie (Git-history bevat de oude versie).
 
   const handleOpenServer = useCallback(() => {
     onClose();
@@ -538,8 +513,14 @@ export default function Backstage({
               {!isWeb && (
                 <SubMenuItem
                   icon={ICONS.vabi}
-                  label={t("vabiElements")}
-                  onClick={handleImportVabi}
+                  label={`${t("vabiElements")} — in ontwikkeling`}
+                  onClick={() => {
+                    addToast(
+                      "Vabi import is nog in ontwikkeling — werkt nog niet betrouwbaar.",
+                      "info",
+                    );
+                  }}
+                  disabled={true}
                 />
               )}
               {recent.length > 0 && (
@@ -634,8 +615,14 @@ export default function Backstage({
               {importExpanded && (
                 <SubMenuItem
                   icon={ICONS.vabi}
-                  label={t("vabiElements")}
-                  onClick={handleImportVabi}
+                  label={`${t("vabiElements")} — in ontwikkeling`}
+                  onClick={() => {
+                    addToast(
+                      "Vabi import is nog in ontwikkeling — werkt nog niet betrouwbaar.",
+                      "info",
+                    );
+                  }}
+                  disabled={true}
                 />
               )}
             </>

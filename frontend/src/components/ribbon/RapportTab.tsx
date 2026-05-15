@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import RibbonButton from "./RibbonButton";
 import RibbonGroup from "./RibbonGroup";
@@ -19,15 +18,10 @@ import i18next from "../../i18n/config";
  * iframe kan tonen.
  */
 export default function RapportTab() {
-  const { t } = useTranslation("ribbon");
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
-  const pageSize = useReportStore((s) => s.pageSize);
-  const setPageSize = useReportStore((s) => s.setPageSize);
-  const orientation = useReportStore((s) => s.orientation);
-  const setOrientation = useReportStore((s) => s.setOrientation);
   const sections = useReportStore((s) => s.sections);
   const setPdfBlobUrl = useReportStore((s) => s.setPdfBlobUrl);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -88,32 +82,9 @@ export default function RapportTab() {
         />
       </RibbonGroup>
 
-      <RibbonGroup label={t("rapportage.display") || "Weergave"}>
-        <RibbonButton
-          icon={reportIcon}
-          label="A4"
-          active={pageSize === "A4"}
-          onClick={() => setPageSize("A4")}
-        />
-        <RibbonButton
-          icon={reportIcon}
-          label="A3"
-          active={pageSize === "A3"}
-          onClick={() => setPageSize("A3")}
-        />
-        <RibbonButton
-          icon={reportIcon}
-          label="Portret"
-          active={orientation === "portrait"}
-          onClick={() => setOrientation("portrait")}
-        />
-        <RibbonButton
-          icon={reportIcon}
-          label="Landschap"
-          active={orientation === "landscape"}
-          onClick={() => setOrientation("landscape")}
-        />
-      </RibbonGroup>
+      {/* "Weergave" group (A4/A3 + Portret/Landschap) was hier — verwijderd
+          omdat het identiek zit in de Rapport-page opties-sidebar. User
+          feedback: knoppen stonden dubbel. */}
     </>
   );
 }

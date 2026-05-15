@@ -144,18 +144,23 @@ impl PageCallback for OhsPageCallback {
         draw.set_fill_color(self.brand.text_light);
         draw.draw_text_right(right_edge, Mm(5.0).into(), &self.report_title);
 
-        // Bottom: thin border
-        let footer_y = Pt(size.height.0 - Mm(12.0).0);
-        draw.set_stroke_color(self.brand.border);
-        draw.set_line_width(Pt(0.5));
-        draw.draw_line(margin, footer_y, right_edge, footer_y);
+        // Footer-layout splitst zich in 2 paden:
+        //
+        // (A) GEEN footer-image: bestaande lay-out — thin border line +
+        //     "Open Heatloss Studio" links + "page x / N" rechts, op
+        //     page_h − 12mm en page_h − 10mm.
+        //
+        // (B) MET footer-image: image staat helemaal onderin de pagina
+        //     (touching the page edge met een minimale 3mm safe-zone) en
+        //     vult de volledige content-breedte. Het paginanummer schuift
+        //     naar BOVEN de image i.p.v. eronder, zodat hij niet wordt
+        //     overlapt. Border-line + branding-text vervallen — de image
+        //     IS het visuele footer-element.
 
-        // Optional: footer image — rendered just above the border line,
-        // centered, aspect-ratio preserved. Max width = page width minus
-        // 2x margin; max height = 18mm so it never overlaps content.
         if let Some(img) = &self.footer_image {
+            // -- pad B: image-footer --
             let max_w_pt: Pt = Pt(size.width.0 - margin.0 * 2.0);
-            let max_h_pt: Pt = Mm(18.0).into();
+            let max_h_pt: Pt = Mm(22.0).into();
             let aspect = img.width_px as f32 / img.height_px.max(1) as f32;
             let max_aspect = max_w_pt.0 / max_h_pt.0;
             let (w_pt, h_pt) = if aspect > max_aspect {
@@ -163,23 +168,36 @@ impl PageCallback for OhsPageCallback {
             } else {
                 (Pt(max_h_pt.0 * aspect), max_h_pt)
             };
-            // y = bottom-anchored just above the footer-border line, with a
-            // 2mm gap so the image doesn't touch the line.
-            let gap: Pt = Mm(2.0).into();
-            let img_y = Pt(footer_y.0 - gap.0 - h_pt.0);
+            // Bottom anchor: image-bottom op page_h − 3mm (minimale safe-
+            // zone tegen edge-cropping bij printen)
+            let bottom_safe: Pt = Mm(3.0).into();
+            let img_y = Pt(size.height.0 - bottom_safe.0 - h_pt.0);
             let img_x = Pt((size.width.0 - w_pt.0) / 2.0);
             draw.draw_image(img.bytes.clone(), img_x, img_y, w_pt, h_pt);
+
+            // Paginanummer BOVEN de image (3mm gap), klein lettertype
+            // rechts uitgelijnd zodat 'ie niet competeert met het beeldmerk.
+            let pn_gap: Pt = Mm(3.0).into();
+            let pn_y = Pt(img_y.0 - pn_gap.0);
+            draw.set_font("LiberationSans", Pt(7.0));
+            draw.set_fill_color(self.brand.text_light);
+            let page_str = format!("{} / {}", page_num, total_pages);
+            draw.draw_text_right(right_edge, pn_y, &page_str);
+        } else {
+            // -- pad A: text-footer (geen image) --
+            let footer_y = Pt(size.height.0 - Mm(12.0).0);
+            draw.set_stroke_color(self.brand.border);
+            draw.set_line_width(Pt(0.5));
+            draw.draw_line(margin, footer_y, right_edge, footer_y);
+
+            let txt_y = Pt(size.height.0 - Mm(10.0).0);
+            draw.set_font("LiberationSans", Pt(7.0));
+            draw.set_fill_color(self.brand.text_light);
+            draw.draw_text(margin, txt_y, "Open Heatloss Studio");
+
+            let page_str = format!("{} / {}", page_num, total_pages);
+            draw.draw_text_right(right_edge, txt_y, &page_str);
         }
-
-        // Bottom-left: branding
-        let txt_y = Pt(size.height.0 - Mm(10.0).0);
-        draw.set_font("LiberationSans", Pt(7.0));
-        draw.set_fill_color(self.brand.text_light);
-        draw.draw_text(margin, txt_y, "Open Heatloss Studio");
-
-        // Bottom-right: page x of N
-        let page_str = format!("{} / {}", page_num, total_pages);
-        draw.draw_text_right(right_edge, txt_y, &page_str);
     }
 }
 
