@@ -13,6 +13,11 @@ import { importIfcFile } from "../components/modeller/ifc-import";
 import { extractWallTypesFromFile, type IfcWallTypeInfo } from "../components/modeller/ifc-wall-types";
 import { isTauri, createBackend, importIfcServer, type IfcSidecarResult } from "../lib/backend";
 import { IfcWallTypeReview } from "../components/modeller/IfcWallTypeReview";
+import {
+  deriveModelDoors,
+  deriveModelRooms,
+  deriveModelWindows,
+} from "../lib/deriveRoomGeometry";
 import { ProjectLibraryPanel } from "../components/modeller/ProjectLibraryPanel";
 import { CatalogueBrowserPanel } from "../components/modeller/CatalogueBrowserPanel";
 import { modelToIfcx } from "../components/modeller/ifcx-builder";
@@ -41,10 +46,16 @@ export function Modeller() {
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
 
-  // Store
-  const rooms = useModellerStore((s) => s.rooms);
-  const windows = useModellerStore((s) => s.windows);
-  const doors = useModellerStore((s) => s.doors);
+  // Project (calc-side data — modeller is een viewer hierop)
+  const project = useProjectStore((s) => s.project);
+
+  // Modeller-rooms zijn afgeleid van project.rooms (single source of truth).
+  // useModellerStore.rooms/windows/doors blijven bestaan voor backwards-compat
+  // maar worden niet meer gerenderd. Wanneer de viewer weer editable wordt,
+  // mutateren de handlers `project` (via useProjectStore) i.p.v. de modellerStore.
+  const rooms = useMemo(() => deriveModelRooms(project), [project]);
+  const windows = useMemo(() => deriveModelWindows(project), [project]);
+  const doors = useMemo(() => deriveModelDoors(project), [project]);
 
   const underlay = useModellerStore((s) => s.underlay);
   const wallConstructions = useModellerStore((s) => s.wallConstructions);
@@ -581,6 +592,16 @@ export function Modeller() {
               catalogueUValues={catalogueUValues}
             />
           )}
+
+          {/* FROZEN banner — full-width overlay zodat duidelijk is dat de modeller WIP is */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-md backdrop-blur-sm">
+            <span aria-hidden="true">❄️</span>
+            <span>Modeller — Frozen · Work in progress</span>
+            <span aria-hidden="true">❄️</span>
+          </div>
+
+          {/* Frozen-overlay over het canvas zodat interacties duidelijk read-only voelen */}
+          <div className="pointer-events-none absolute inset-0 z-10 bg-cyan-50/15 backdrop-blur-[1px]" />
 
           {/* IFC import loading overlay */}
           {isImporting && (
