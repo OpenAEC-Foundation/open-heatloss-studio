@@ -27,6 +27,36 @@ import { ConflictDialog } from "../ui/ConflictDialog";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import "../../themes.css";
 
+/** Derive een default save-pad in Tauri zodat "Bestand → Opslaan" zelfs
+ * zonder eerder save-as nooit een dialog hoeft te tonen.
+ *
+ * Pad: `<Documents>/Open Heatloss Studio/<safeProjectName>.ifcenergy`.
+ * Map wordt aangemaakt als 'ie nog niet bestaat. In web-mode (geen Tauri)
+ * retourneren we `null` — daar regelt exportIfcEnergy een blob-download.
+ */
+async function deriveDefaultSavePath(
+  projectName: string,
+): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    const [{ documentDir, join }, { mkdir }] = await Promise.all([
+      import("@tauri-apps/api/path"),
+      import("@tauri-apps/plugin-fs"),
+    ]);
+    const docs = await documentDir();
+    const folder = await join(docs, "Open Heatloss Studio");
+    await mkdir(folder, { recursive: true }).catch(() => {
+      // Already exists — fine. Other errors fall through.
+    });
+    const safe = (projectName || "project")
+      .replace(/[^a-zA-Z0-9_\-\s]/g, "")
+      .trim() || "project";
+    return await join(folder, `${safe}.ifcenergy`);
+  } catch {
+    return null;
+  }
+}
+
 interface AppShellProps {
   children: ReactNode;
 }
@@ -174,14 +204,21 @@ export function AppShell({ children }: AppShellProps) {
       return;
     }
     // Anoniem of Tauri-desktop: opslaan als .ifcenergy.
-    // Bestand → Opslaan: schrijf naar `currentLocalPath` als bekend (geen
-    // dialog); anders fall back op save-as dialog. Pad uit dialog wordt
-    // teruggeschreven in de store voor de volgende save.
+    // Bestand → Opslaan moet ALTIJD silent:
+    //   1. currentLocalPath bekend → schrijf daar
+    //   2. anders (Tauri) → derive default-pad in Documents/Open Heatloss
+    //      Studio/<projectnaam>.ifcenergy (maak dir aan indien nodig) en
+    //      schrijf daar — geen dialog.
+    //   3. web fallback → blob-download (exportIfcEnergy regelt dat)
     try {
+      let targetPath = state.currentLocalPath;
+      if (!targetPath) {
+        targetPath = await deriveDefaultSavePath(state.project.info.name);
+      }
       const writtenPath = await exportIfcEnergy(
         state.project,
         state.result,
-        state.currentLocalPath,
+        targetPath,
       );
       if (writtenPath) {
         useProjectStore.getState().setCurrentLocalPath(writtenPath);

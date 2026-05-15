@@ -383,12 +383,30 @@ export default function Backstage({
         );
       }
     } else {
-      // Not logged in — schrijf als .ifcenergy. Als we al een pad weten
-      // (bestand werd geopend via Tauri dialog / recent / file-association),
-      // schrijf stil naar dat pad. Anders save-as dialog.
+      // Not logged in — schrijf als .ifcenergy. Bestand → Opslaan moet
+      // ALTIJD silent: gebruik currentLocalPath als bekend, anders derive
+      // een default-pad in <Documents>/Open Heatloss Studio/<naam>.ifcenergy.
+      // Save As (apart menu-item) toont wel de dialog.
       try {
-        const currentPath = useProjectStore.getState().currentLocalPath;
-        const writtenPath = await exportIfcEnergy(project, result, currentPath);
+        let targetPath = useProjectStore.getState().currentLocalPath;
+        if (!targetPath && isTauri()) {
+          const safe = (project.info.name || "project")
+            .replace(/[^a-zA-Z0-9_\-\s]/g, "")
+            .trim() || "project";
+          const [{ documentDir, join }, { mkdir }] = await Promise.all([
+            import("@tauri-apps/api/path"),
+            import("@tauri-apps/plugin-fs"),
+          ]);
+          const docs = await documentDir();
+          const folder = await join(docs, "Open Heatloss Studio");
+          try {
+            await mkdir(folder, { recursive: true });
+          } catch {
+            // Folder bestaat al — geen probleem.
+          }
+          targetPath = await join(folder, `${safe}.ifcenergy`);
+        }
+        const writtenPath = await exportIfcEnergy(project, result, targetPath);
         if (writtenPath) {
           useProjectStore.getState().setCurrentLocalPath(writtenPath);
         }

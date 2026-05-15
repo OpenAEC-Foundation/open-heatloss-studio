@@ -26,6 +26,8 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "fs:allow-mkdir",
+    "core:path:default",
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "**" }]

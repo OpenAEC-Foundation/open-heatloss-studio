@@ -184,13 +184,17 @@ impl PageCallback for OhsPageCallback {
             let page_str = format!("{} / {}", page_num, total_pages);
             draw.draw_text_right(right_edge, pn_y, &page_str);
         } else {
-            // -- pad A: text-footer (geen image) --
-            let footer_y = Pt(size.height.0 - Mm(12.0).0);
+            // -- pad A: text-footer (geen image) — helemaal onderin de
+            //    pagina; tekst-baseline op page_h − 5mm zodat de letter
+            //    ongeveer 3mm boven de page-edge eindigt. Border-line
+            //    daarboven op page_h − 7mm, knap als visuele separator
+            //    tussen content-frame en footer.
+            let footer_y = Pt(size.height.0 - Mm(7.0).0);
             draw.set_stroke_color(self.brand.border);
             draw.set_line_width(Pt(0.5));
             draw.draw_line(margin, footer_y, right_edge, footer_y);
 
-            let txt_y = Pt(size.height.0 - Mm(10.0).0);
+            let txt_y = Pt(size.height.0 - Mm(5.0).0);
             draw.set_font("LiberationSans", Pt(7.0));
             draw.set_fill_color(self.brand.text_light);
             draw.draw_text(margin, txt_y, "Open Heatloss Studio");
