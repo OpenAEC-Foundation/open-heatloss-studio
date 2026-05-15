@@ -147,3 +147,89 @@
 .rapport-opmaak-hidden {
   display: none;
 }
+
+/* V2: marges + accent-kleur velden */
+
+.rapport-opmaak-margins-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rapport-opmaak-margin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--theme-text-secondary, inherit);
+}
+
+.rapport-opmaak-margin-field > span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--theme-text-muted, var(--oaec-on-surface-muted, inherit));
+}
+
+.rapport-opmaak-margin-field > input {
+  padding: 6px 8px;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.3));
+  border-radius: 4px;
+  background: var(--theme-bg, transparent);
+  color: var(--theme-text, inherit);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rapport-opmaak-margin-field > input:focus {
+  outline: none;
+  border-color: var(--theme-accent, currentColor);
+}
+
+.rapport-opmaak-margin-field > small {
+  font-size: 9px;
+  color: var(--theme-text-muted, inherit);
+  margin-top: -2px;
+}
+
+.rapport-opmaak-accent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rapport-opmaak-color {
+  width: 44px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.3));
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.rapport-opmaak-color-text {
+  flex: 0 0 100px;
+  padding: 6px 8px;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.3));
+  border-radius: 4px;
+  background: var(--theme-bg, transparent);
+  color: var(--theme-text, inherit);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rapport-opmaak-color-text:focus {
+  outline: none;
+  border-color: var(--theme-accent, currentColor);
+}
+
+.rapport-opmaak-color-preview {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.3));
+}

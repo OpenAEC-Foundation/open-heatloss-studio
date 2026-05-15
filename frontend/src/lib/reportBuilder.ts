@@ -149,6 +149,39 @@ export async function buildReportData(
         }
       : {}),
 
+    ...(project.info.header_image
+      ? {
+          header: {
+            image: {
+              data: project.info.header_image.data,
+              media_type: project.info.header_image.media_type,
+              ...(project.info.header_image.filename
+                ? { filename: project.info.header_image.filename }
+                : {}),
+            },
+          },
+        }
+      : {}),
+
+    ...(project.info.report_style
+      ? {
+          style: {
+            ...(project.info.report_style.margin_top_mm != null
+              ? { margin_top_mm: project.info.report_style.margin_top_mm }
+              : {}),
+            ...(project.info.report_style.margin_bottom_mm != null
+              ? { margin_bottom_mm: project.info.report_style.margin_bottom_mm }
+              : {}),
+            ...(project.info.report_style.margin_horizontal_mm != null
+              ? { margin_horizontal_mm: project.info.report_style.margin_horizontal_mm }
+              : {}),
+            ...(project.info.report_style.accent_color_hex
+              ? { accent_color_hex: project.info.report_style.accent_color_hex }
+              : {}),
+          },
+        }
+      : {}),
+
     colofon: {
       enabled: toggles.colofon,
       opdrachtgever_naam: project.info.client ?? "",

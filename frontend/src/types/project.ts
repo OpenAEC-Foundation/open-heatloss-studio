@@ -223,6 +223,27 @@ export interface ProjectInfo {
    * wordt gerenderd (boven het paginanummer-text-footer). Hergebruikt
    * het CoverImage-shape (base64 + media_type). */
   footer_image?: CoverImage | null;
+  /** Optionele header-afbeelding bovenaan elke content-pagina (boven de
+   * accent-lijn). Bedoeld voor bedrijfslogo / bureaubeeldmerk. */
+  header_image?: CoverImage | null;
+  /** Per-project rapport opmaak overrides — wanneer afwezig, defaults. */
+  report_style?: ReportStyle | null;
+}
+
+/** Opmaak-tokens voor het PDF rapport (marges, accent-kleur).
+ * Alle velden optioneel — Rust-side vult defaults in wanneer afwezig.
+ *
+ * Lettertype is V3 (vereist extra TTF files in resources/fonts/ —
+ * momenteel alleen LiberationSans geregistreerd). */
+export interface ReportStyle {
+  /** Bovenmarge in mm. Default 20. */
+  margin_top_mm?: number | null;
+  /** Ondermarge in mm. Default 28 (laat plek voor footer + paginanummer). */
+  margin_bottom_mm?: number | null;
+  /** Horizontale marges (links + rechts) in mm. Default 15. */
+  margin_horizontal_mm?: number | null;
+  /** Accent-kleur als hex (zonder #). Default "0F766E" (OHS teal). */
+  accent_color_hex?: string | null;
 }
 
 export interface Project {

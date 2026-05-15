@@ -11,11 +11,12 @@ use openaec_layout::{
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use image::GenericImageView;
+use openaec_layout::Color;
 
 use super::blocks::render_block;
-use super::brand::{FooterImageData, OhsBrand};
+use super::brand::{FooterImageData, HeaderImageData, OhsBrand};
 use super::fonts;
-use super::schema::{Block, Orientation, PaperFormat, ReportData, Section};
+use super::schema::{Block, Orientation, PaperFormat, ReportData, Section, Style};
 use super::special_pages::{
     BackcoverContext, render_backcover, render_colofon, render_cover, render_toc,
 };
@@ -27,7 +28,18 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
         fonts::register(&mut *guard).map_err(|e| format!("font registration: {e}"))?;
     }
 
-    let brand = OhsBrand::default();
+    // Brand: start with defaults, then apply optional per-project style
+    // overrides (accent_color_hex). Invalid hex values fall back silently
+    // to the default so the report still generates.
+    let mut brand = OhsBrand::default();
+    if let Some(style) = &data.style {
+        if let Some(hex) = &style.accent_color_hex {
+            if let Some(c) = parse_hex_color(hex) {
+                brand.primary = c;
+                brand.table_header_bg = c;
+            }
+        }
+    }
     let report_title = data
         .cover
         .as_ref()
@@ -54,25 +66,48 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     // silently produces nonsense: e.g. `842pt − 48` = 794pt instead of
     // 706pt, leaving the frame ~30mm too tall and content spilling onto
     // the running footer. Convert via `.into()` first.
-    let frame_x: Pt = Mm(15.0).into();
-    let frame_y: Pt = Mm(20.0).into();
-    let h_margin: Pt = Mm(30.0).into();
-    let v_margin: Pt = Mm(48.0).into();
+    // Margins (mm) — defaults match the original layout (15 / 20 / 28).
+    // Per-project style override clamps to a sensible range so a typo
+    // can't produce a frame that's negative-sized or runs off-page.
+    let style_default = Style::default();
+    let style = data.style.as_ref().unwrap_or(&style_default);
+    let top_mm = style.margin_top_mm.unwrap_or(20.0).clamp(5.0, 80.0);
+    let bottom_mm = style.margin_bottom_mm.unwrap_or(28.0).clamp(5.0, 80.0);
+    let h_mm = style.margin_horizontal_mm.unwrap_or(15.0).clamp(5.0, 80.0);
+
+    let frame_x: Pt = Mm(h_mm).into();
+    let frame_y: Pt = Mm(top_mm).into();
+    let h_margin: Pt = Mm(h_mm * 2.0).into();
+    let v_margin: Pt = Mm(top_mm + bottom_mm).into();
     let frame_w = Pt(page_size.width.0 - h_margin.0);
     let frame_h = Pt(page_size.height.0 - v_margin.0);
     let frame = Frame::new(Rect::new(frame_x, frame_y, frame_w, frame_h));
 
     let backcover_present = data.backcover.as_ref().map(|b| b.enabled).unwrap_or(false);
 
-    // Decode optional footer image once so each page-callback invocation can
-    // re-use the same bytes + intrinsic pixel dimensions for aspect-correct
-    // scaling. Failure (invalid base64 or unsupported format) is logged as
-    // a warning and the report is still generated without the footer image.
+    // Decode optional footer + header images once so each page-callback
+    // invocation can re-use the same bytes + intrinsic pixel dimensions
+    // for aspect-correct scaling. Failure (invalid base64 or unsupported
+    // format) is logged as a warning and the report is still generated
+    // without that particular image.
     let footer_image = data.footer.as_ref().and_then(|f| f.image.as_ref()).and_then(
         |img| match decode_footer_image(&img.data) {
             Ok(data) => Some(data),
             Err(e) => {
                 eprintln!("[reports] footer image decode failed: {e} — rendering without footer image");
+                None
+            }
+        },
+    );
+    let header_image = data.header.as_ref().and_then(|h| h.image.as_ref()).and_then(
+        |img| match decode_footer_image(&img.data) {
+            Ok(d) => Some(HeaderImageData {
+                bytes: d.bytes,
+                width_px: d.width_px,
+                height_px: d.height_px,
+            }),
+            Err(e) => {
+                eprintln!("[reports] header image decode failed: {e} — rendering without header image");
                 None
             }
         },
@@ -84,6 +119,7 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
             &report_title,
             backcover_present,
             footer_image,
+            header_image,
         ),
     ));
     doc.add_page_template(tmpl);
@@ -165,6 +201,20 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
 
     doc.build_to_bytes(flowables)
         .map_err(|e| format!("PDF build failed: {e}"))
+}
+
+/// Parse a hex color string ("0F766E" or "#0F766E") into an openaec-layout
+/// Color. Returns None for any non-6-hex-digit input so callers can fall
+/// back to the default accent color silently.
+fn parse_hex_color(hex: &str) -> Option<Color> {
+    let h = hex.trim_start_matches('#');
+    if h.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&h[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&h[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&h[4..6], 16).ok()?;
+    Some(Color::rgb(r, g, b))
 }
 
 /// Decode a base64-encoded PNG/JPEG into raw bytes + intrinsic pixel

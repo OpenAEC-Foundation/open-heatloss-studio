@@ -13,6 +13,7 @@ export type {
   MaterialType,
   Project,
   ProjectInfo,
+  ReportStyle,
   Room,
   RoomFunction,
   SecurityClass,

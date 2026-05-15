@@ -41,12 +41,38 @@ pub struct ReportData {
     /// max-height in the bottom margin.
     #[serde(default)]
     pub footer: Option<Footer>,
+    /// Optional per-page header image rendered at the top of each content
+    /// page (above the accent line). For company logo / beeldmerk.
+    #[serde(default)]
+    pub header: Option<Header>,
+    /// Optional opmaak-tokens — margins + accent color overrides.
+    #[serde(default)]
+    pub style: Option<Style>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Footer {
     #[serde(default)]
     pub image: Option<ImageRef>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Header {
+    #[serde(default)]
+    pub image: Option<ImageRef>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Style {
+    #[serde(default)]
+    pub margin_top_mm: Option<f32>,
+    #[serde(default)]
+    pub margin_bottom_mm: Option<f32>,
+    #[serde(default)]
+    pub margin_horizontal_mm: Option<f32>,
+    /// Hex without leading "#" (e.g. "0F766E"). Invalid values are ignored.
+    #[serde(default)]
+    pub accent_color_hex: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]

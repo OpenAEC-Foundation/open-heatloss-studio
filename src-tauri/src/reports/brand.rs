@@ -16,6 +16,16 @@ pub struct FooterImageData {
     pub height_px: u32,
 }
 
+/// Same shape as FooterImageData but rendered in the header zone (top of
+/// each content page, above the accent line). Separate type so the
+/// PageCallback can keep them apart without parameter confusion.
+#[derive(Debug, Clone)]
+pub struct HeaderImageData {
+    pub bytes: Vec<u8>,
+    pub width_px: u32,
+    pub height_px: u32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct OhsBrand {
     pub primary: Color,
@@ -52,6 +62,7 @@ impl OhsBrand {
         report_title: &str,
         suppress_chrome_on_last: bool,
         footer_image: Option<FooterImageData>,
+        header_image: Option<HeaderImageData>,
     ) -> OhsPageCallback {
         OhsPageCallback {
             brand: *self,
@@ -59,6 +70,7 @@ impl OhsBrand {
             report_title: report_title.to_string(),
             suppress_chrome_on_last,
             footer_image,
+            header_image,
         }
     }
 }
@@ -70,6 +82,7 @@ pub struct OhsPageCallback {
     pub report_title: String,
     pub suppress_chrome_on_last: bool,
     pub footer_image: Option<FooterImageData>,
+    pub header_image: Option<HeaderImageData>,
 }
 
 impl PageCallback for OhsPageCallback {
@@ -87,8 +100,36 @@ impl PageCallback for OhsPageCallback {
         let margin: Pt = Mm(12.0).into();
         let right_edge = Pt(size.width.0 - margin.0);
 
-        // Top: 1.5pt teal accent line
-        let header_y: Pt = Mm(8.0).into();
+        // Optional header-image (logo / beeldmerk). Rendered above the
+        // accent line, right-anchored, max 14mm tall. When present the
+        // project-name + report-title text moves below the image so they
+        // don't overlap.
+        let header_image_h: Pt = if let Some(img) = &self.header_image {
+            let max_w_pt: Pt = Pt(size.width.0 / 3.0);
+            let max_h_pt: Pt = Mm(14.0).into();
+            let aspect = img.width_px as f32 / img.height_px.max(1) as f32;
+            let max_aspect = max_w_pt.0 / max_h_pt.0;
+            let (w_pt, h_pt) = if aspect > max_aspect {
+                (max_w_pt, Pt(max_w_pt.0 / aspect))
+            } else {
+                (Pt(max_h_pt.0 * aspect), max_h_pt)
+            };
+            let img_x = Pt(right_edge.0 - w_pt.0);
+            let img_y: Pt = Mm(3.0).into();
+            draw.draw_image(img.bytes.clone(), img_x, img_y, w_pt, h_pt);
+            h_pt
+        } else {
+            Pt(0.0)
+        };
+
+        // Top: 1.5pt teal accent line — adjusted down to clear header image
+        let header_y: Pt = if header_image_h.0 > 0.0 {
+            let img_top: Pt = Mm(3.0).into();
+            let gap: Pt = Mm(2.0).into();
+            Pt(img_top.0 + header_image_h.0 + gap.0)
+        } else {
+            Mm(8.0).into()
+        };
         draw.set_stroke_color(self.brand.primary);
         draw.set_line_width(Pt(1.5));
         draw.draw_line(margin, header_y, right_edge, header_y);
@@ -157,7 +198,7 @@ mod tests {
     #[test]
     fn callback_does_not_panic_on_first_page() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", false, None);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", false, None, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
@@ -172,7 +213,7 @@ mod tests {
     #[test]
     fn callback_suppresses_chrome_on_last_page_when_flag_set() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
@@ -188,7 +229,7 @@ mod tests {
     #[test]
     fn callback_draws_chrome_on_non_last_page_when_flag_set() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
