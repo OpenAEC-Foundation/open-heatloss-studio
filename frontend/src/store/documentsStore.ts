@@ -219,31 +219,33 @@ export const useDocumentsStore = create<DocumentsStore>()(
           const snap = captureSnapshot();
           set({ snapshots: { ...state.snapshots, [state.activeId]: snap } });
         }
-        // Create new
         const id = makeId();
-        const tabName =
-          name ??
-          (() => {
-            const ps = useProjectStore.getState();
-            const projName = ps.project?.info?.name?.trim();
-            return projName && projName.length > 0
-              ? projName
-              : `Naamloos ${state.nextNamelessIndex}`;
-          })();
-        const newTabInfo: TabInfo = { id, name: tabName, isDirty: false };
-        // Reset stores naar lege staat als naam ontbrak (echte nieuwe tab)
-        if (name === undefined) {
+
+        // Bij een ECHTE nieuwe tab (name === undefined): reset stores
+        // VÓÓR we de naam bepalen, anders erft de nieuwe tab de naam van
+        // het vorige actieve project. Default-naam = "Nieuw project N"
+        // i.p.v. te derive'n uit project.info.name (dat is leeg na reset).
+        // De TabBar synct daarna automatisch met project.info.name zodra
+        // de user die invult.
+        const isFreshTab = name === undefined;
+        if (isFreshTab) {
           useProjectStore.getState().reset();
         }
+        const tabName = isFreshTab
+          ? `Nieuw project ${state.nextNamelessIndex}`
+          : (name && name.trim().length > 0
+              ? name.trim()
+              : `Nieuw project ${state.nextNamelessIndex}`);
+
+        const newTabInfo: TabInfo = { id, name: tabName, isDirty: false };
         const freshSnap = captureSnapshot();
         set({
           tabs: [...state.tabs, newTabInfo],
           snapshots: { ...state.snapshots, [id]: freshSnap },
           activeId: id,
-          nextNamelessIndex:
-            name === undefined
-              ? state.nextNamelessIndex + 1
-              : state.nextNamelessIndex,
+          nextNamelessIndex: isFreshTab
+            ? state.nextNamelessIndex + 1
+            : state.nextNamelessIndex,
         });
         return id;
       },
