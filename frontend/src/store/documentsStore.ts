@@ -41,12 +41,26 @@ export interface TabInfo {
   isDirty: boolean;
 }
 
+/** Mirror van projectStore's interne ProjectSnapshot shape (private type). */
+type ProjectHistoryEntry = { project: Project };
+/** Mirror van modellerStore's interne Snapshot shape (private type). */
+type ModellerHistoryEntry = {
+  rooms: ModelRoom[];
+  windows: ModelWindow[];
+  doors: ModelDoor[];
+  projectConstructions: ProjectConstruction[];
+};
+
 interface ProjectSnapshot {
   project: Project;
   result: ProjectResult | null;
   currentLocalPath: string | null;
   isDirty: boolean;
   sharedExtra: SharedExtra | null;
+  /** Undo-stack (max 50 entries, gehandhaafd per tab). */
+  past: ProjectHistoryEntry[];
+  /** Redo-stack (gewist bij elke nieuwe edit). */
+  future: ProjectHistoryEntry[];
 }
 
 interface ModellerSnapshot {
@@ -60,6 +74,9 @@ interface ModellerSnapshot {
   roofConstructions: Record<string, string>;
   wallBoundaryTypes: Record<string, WallBoundaryType>;
   importedBoundaries: ImportedBoundary[];
+  /** Undo-stack van de modeller (max 50 entries). */
+  past: ModellerHistoryEntry[];
+  future: ModellerHistoryEntry[];
 }
 
 interface DocumentSnapshot {
@@ -98,10 +115,32 @@ function makeId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Pull current Zustand store states into a snapshot. */
+/** Pull current Zustand store states into a snapshot. Includes undo/redo
+ * history zodat tab-switching de history-stacks per tab bewaart. */
 function captureSnapshot(): DocumentSnapshot {
-  const ps = useProjectStore.getState();
-  const ms = useModellerStore.getState();
+  const ps = useProjectStore.getState() as unknown as {
+    project: Project;
+    result: ProjectResult | null;
+    currentLocalPath: string | null;
+    isDirty: boolean;
+    sharedExtra: SharedExtra | undefined;
+    _past: ProjectHistoryEntry[];
+    _future: ProjectHistoryEntry[];
+  };
+  const ms = useModellerStore.getState() as unknown as {
+    rooms: ModelRoom[];
+    windows: ModelWindow[];
+    doors: ModelDoor[];
+    projectConstructions: ProjectConstruction[];
+    underlay: UnderlayImage | null;
+    wallConstructions: Record<string, string>;
+    floorConstructions: Record<string, string>;
+    roofConstructions: Record<string, string>;
+    wallBoundaryTypes: Record<string, WallBoundaryType>;
+    importedBoundaries: ImportedBoundary[];
+    _past: ModellerHistoryEntry[];
+    _future: ModellerHistoryEntry[];
+  };
   return {
     project: {
       project: ps.project,
@@ -109,6 +148,8 @@ function captureSnapshot(): DocumentSnapshot {
       currentLocalPath: ps.currentLocalPath,
       isDirty: ps.isDirty,
       sharedExtra: ps.sharedExtra ?? null,
+      past: ps._past ?? [],
+      future: ps._future ?? [],
     },
     modeller: {
       rooms: ms.rooms,
@@ -121,11 +162,15 @@ function captureSnapshot(): DocumentSnapshot {
       roofConstructions: ms.roofConstructions,
       wallBoundaryTypes: ms.wallBoundaryTypes,
       importedBoundaries: ms.importedBoundaries,
+      past: ms._past ?? [],
+      future: ms._future ?? [],
     },
   };
 }
 
-/** Push a snapshot into the Zustand stores. */
+/** Push a snapshot into the Zustand stores. Restores undo/redo history
+ * zodat een gebruiker na een tab-switch z'n eerdere wijzigingen kan
+ * terugdraaien. */
 function loadSnapshot(snap: DocumentSnapshot): void {
   // Use Zustand's setState (bypasses our store's actions which would mark
   // dirty / add to history). We're restoring state, not editing it.
@@ -139,8 +184,8 @@ function loadSnapshot(snap: DocumentSnapshot): void {
     isCalculating: false,
     serverUpdatedAt: null,
     hasConflict: false,
-    _past: [],
-    _future: [],
+    _past: snap.project.past ?? [],
+    _future: snap.project.future ?? [],
   } as Partial<ReturnType<typeof useProjectStore.getState>>);
 
   useModellerStore.setState({
@@ -154,8 +199,8 @@ function loadSnapshot(snap: DocumentSnapshot): void {
     roofConstructions: snap.modeller.roofConstructions,
     wallBoundaryTypes: snap.modeller.wallBoundaryTypes,
     importedBoundaries: snap.modeller.importedBoundaries,
-    _past: [],
-    _future: [],
+    _past: snap.modeller.past ?? [],
+    _future: snap.modeller.future ?? [],
   } as Partial<ReturnType<typeof useModellerStore.getState>>);
 }
 
@@ -274,12 +319,23 @@ export const useDocumentsStore = create<DocumentsStore>()(
     {
       name: "ohs-documents",
       version: 1,
-      // Persist alles behalve transient state. Snapshots kunnen groot
-      // worden (rooms + constructions per tab), maar localStorage redt
-      // 5MB makkelijk voor een handvol projecten.
+      // Persist tabs + project-data. Undo/redo history (past/future) wordt
+      // wel in-memory bewaard zodat tab-switches binnen één sessie de
+      // history-stacks intact houden, maar NIET naar localStorage geschreven:
+      // 50 entries × deep-cloned project per tab × N tabs zou snel boven het
+      // 5MB localStorage budget komen. Bij app-restart is undo-history leeg
+      // maar de huidige project-data per tab blijft.
       partialize: (state) => ({
         tabs: state.tabs,
-        snapshots: state.snapshots,
+        snapshots: Object.fromEntries(
+          Object.entries(state.snapshots).map(([id, snap]) => [
+            id,
+            {
+              project: { ...snap.project, past: [], future: [] },
+              modeller: { ...snap.modeller, past: [], future: [] },
+            },
+          ]),
+        ),
         activeId: state.activeId,
         nextNamelessIndex: state.nextNamelessIndex,
       }),
