@@ -161,21 +161,28 @@ impl PageCallback for OhsPageCallback {
             // -- pad B: image-footer — full-bleed onderaan de pagina --
             // User wil de footer-afbeelding fit op de VOLLEDIGE pagina-
             // breedte (geen horizontale marge) en flush tegen de
-            // onderrand. Aspect-ratio behouden: height = page_w / aspect.
-            // Cap op 50mm zodat een vierkante/tall image niet half de
-            // pagina overneemt.
-            let w_pt: Pt = Pt(size.width.0);
+            // onderrand. Standaard width = page_w, height = page_w/aspect.
+            // Cap height op 50mm zodat een vierkante/tall image niet half
+            // de pagina overneemt. Bij cap: image wordt centered en
+            // ASPECT-CORRECT geschaald (height = 50mm, width = 50mm×aspect
+            // < page_w). Banner-aspect images vullen de volle breedte;
+            // niet-banner images blijven netjes proportioneel.
             let aspect = img.width_px as f32 / img.height_px.max(1) as f32;
-            let natural_h = w_pt.0 / aspect;
-            let max_h_mm: Pt = Mm(50.0).into();
-            let h_pt = if natural_h > max_h_mm.0 {
-                max_h_mm
+            let max_h_pt: Pt = Mm(50.0).into();
+            let page_w = size.width.0;
+            let natural_h_at_full_width = page_w / aspect;
+            let (w_pt, h_pt) = if natural_h_at_full_width <= max_h_pt.0 {
+                // Banner-aspect: image past binnen 50mm hoogte → full width
+                (Pt(page_w), Pt(natural_h_at_full_width))
             } else {
-                Pt(natural_h)
+                // Te tall: cap op 50mm hoogte, breedte volgt aspect
+                (Pt(max_h_pt.0 * aspect), max_h_pt)
             };
             // Bottom-flush: image bottom op page_h exact (geen marge)
             let img_y = Pt(size.height.0 - h_pt.0);
-            let img_x = Pt(0.0);
+            // Horizontaal centreren — bij full-width is dat 0, bij cap is
+            // 'ie iets ingerukt
+            let img_x = Pt((page_w - w_pt.0) / 2.0);
             draw.draw_image(img.bytes.clone(), img_x, img_y, w_pt, h_pt);
 
             // Paginanummer BOVEN de image (3mm gap), klein lettertype
