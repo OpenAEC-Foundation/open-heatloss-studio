@@ -79,6 +79,23 @@ pub fn h_t_adjacent_room_element(
         if denom.abs() < 1e-10 {
             return 0.0;
         }
+        // ISSO 51:2023 §2.5.3 Formule 2.17/2.18/2.19. Met de aanname
+        // "zelfde verwarmingssysteem in beide kamers" reduceert formule 2.17
+        // voor wanden tot (θ_i - θ_a)/(θ_i - θ_e).
+        //
+        // Vabi-status (2026-05-13, WON'T FIX):
+        // Vabi rapporteert voor toilet-achtige onverwarmde-tussen-verwarmde-
+        // buurman situaties ~10% minder negatieve phi_t_ia dan deze norm-
+        // formule. Onderzoek van Tabel 2.16 (c_z aangrenzende woningen,
+        // niet van toepassing op intra-woning), Tabel 2.12 (Δθ-correctie,
+        // reduceert tot huidige formule bij "zelfde systeem") en formule
+        // 2.17 (letterlijk geverifieerd in ISSO 51:2023 basis-publicatie)
+        // leverde GEEN norm-bron voor deze 10% afwijking. Vermoedelijk een
+        // Vabi-software-interne intra-zone correctiefactor. Onze code volgt
+        // de norm letterlijk. Geen aansluitvermogen-impact: de toilet-kamer's
+        // phi_basis wordt sowieso op 0 geclampt, dus per-veld verschil
+        // beïnvloedt het gebouw-totaal niet. Test-skip voor geclampte rooms
+        // in integration_test.rs voorkomt false-positive failures.
         match element.vertical_position {
             VerticalPosition::Wall => (theta_i - theta_a) / denom,
             VerticalPosition::Ceiling => ((theta_i + delta_1) - (theta_a + delta_2)) / denom,

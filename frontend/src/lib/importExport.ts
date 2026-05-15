@@ -427,6 +427,13 @@ export function validateProject(data: unknown): Project {
     heating_system: r.heating_system ?? fallbackHs,
   }));
 
+  // Backfill aggregation_method voor legacy JSONs van vóór de
+  // VabiCompat/NormStrict keuze. Rust core heeft `serde(default)` =
+  // `vabi_compat`, dus consistent met backend-gedrag.
+  if (project.building.aggregation_method == null) {
+    project.building.aggregation_method = "vabi_compat";
+  }
+
   return project;
 }
 

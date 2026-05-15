@@ -2,6 +2,15 @@
 
 use isso51_core::model::Project;
 use isso51_core::result::ProjectResult;
+use nta8800_cooling::{
+    calculate_simplified_cooling, SimplifiedAreaInput, SimplifiedCoolingResult,
+    SimplifiedLoadInput,
+};
+use nta8800_tables::climate::de_bilt_climate_data;
+use openaec_project_shared::{
+    compute_tojuli_full, ProjectV2, TojuliFullInputs, TojuliResult,
+};
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 
@@ -82,4 +91,94 @@ pub async fn import_ifc(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     serde_json::from_str(&stdout).map_err(|e| format!("Invalid JSON from ifc-tool: {e}"))
+}
+
+/// Import a Vabi Elements `.vp` project file.
+///
+/// If `file_path` is empty, opens a native file dialog filtered on `.vp` first.
+/// Calls `isso51_core::import::import_vabi_project` and returns a Project
+/// ready to load into the frontend store.
+#[tauri::command]
+pub fn import_vabi(app: AppHandle, file_path: String) -> Result<Project, String> {
+    let path = if file_path.is_empty() {
+        use tauri_plugin_dialog::DialogExt;
+        let dialog_result = app
+            .dialog()
+            .file()
+            .add_filter("Vabi project", &["vp"])
+            .blocking_pick_file();
+        match dialog_result {
+            Some(file) => file
+                .into_path()
+                .map_err(|e| format!("Invalid file path: {e}"))?,
+            None => return Err("Geen bestand geselecteerd".to_string()),
+        }
+    } else {
+        std::path::PathBuf::from(file_path)
+    };
+
+    isso51_core::import::import_vabi_project(&path).map_err(|e| e.to_string())
+}
+
+/// Request shape for `simplified_cooling`. Mirrors the API endpoint body.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SimplifiedCoolingRequest {
+    pub living_area_m2: f64,
+    pub other_area_m2: f64,
+    pub dwelling_count: u32,
+    pub persons_per_dwelling: f64,
+    pub infiltration_m3_per_h: f64,
+    pub natural_ventilation_m3_per_h: f64,
+    pub mechanical_supply_m3_per_h: f64,
+    pub peak_hour: u8,
+    pub construction_year: u32,
+    pub opaque_area_m2: f64,
+    pub solar_load_w: f64,
+    pub glazing_transmission_w: f64,
+}
+
+/// TO-juli (NTA 8800 bijlage AA) vereenvoudigde koelbehoefte-berekening.
+///
+/// V1 lokale Tauri-aanroep van `nta8800_cooling::calculate_simplified_cooling`.
+/// Rekenzone/EFR/Climate/Window-parameters zijn V2-werk — voor nu placeholders.
+#[tauri::command]
+pub fn simplified_cooling(
+    req: SimplifiedCoolingRequest,
+) -> Result<SimplifiedCoolingResult, String> {
+    let area = SimplifiedAreaInput {
+        living_area_m2: req.living_area_m2,
+        other_area_m2: req.other_area_m2,
+        dwelling_count: req.dwelling_count,
+        persons_per_dwelling: req.persons_per_dwelling,
+    };
+    let load = SimplifiedLoadInput {
+        infiltration_m3_per_h: req.infiltration_m3_per_h,
+        natural_ventilation_m3_per_h: req.natural_ventilation_m3_per_h,
+        mechanical_supply_m3_per_h: req.mechanical_supply_m3_per_h,
+        peak_hour: req.peak_hour,
+        construction_year: req.construction_year,
+        opaque_area_m2: req.opaque_area_m2,
+        solar_load_w: req.solar_load_w,
+        glazing_transmission_w: req.glazing_transmission_w,
+    };
+    let climate = de_bilt_climate_data();
+
+    calculate_simplified_cooling(&[], &[], &climate, &[], &area, &load)
+        .map_err(|e| e.to_string())
+}
+
+/// Request shape for `tojuli_calculate` — volledige NTA 8800 H.10 keten.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TojuliCalculateRequest {
+    pub project: ProjectV2,
+    pub inputs: TojuliFullInputs,
+}
+
+/// TO-juli volledig — NTA 8800 H.10 keten op een ProjectV2.
+///
+/// Roept `openaec_project_shared::compute_tojuli_full` aan en geeft de
+/// maandelijkse Q_C;use + jaarsom + intermediates terug.
+#[tauri::command]
+pub fn tojuli_calculate(req: TojuliCalculateRequest) -> Result<TojuliResult, String> {
+    compute_tojuli_full(&req.project, &req.inputs).map_err(|e| e.to_string())
 }

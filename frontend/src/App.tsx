@@ -8,6 +8,8 @@ import { ProjectSetup } from "./pages/ProjectSetup";
 import { RoomEditor } from "./pages/RoomEditor";
 import { RcCalculator } from "./pages/RcCalculator";
 import { Results } from "./pages/Results";
+import { Tojuli } from "./pages/Tojuli";
+import { TojuliFull } from "./pages/TojuliFull";
 import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { Rapport } from "./pages/Rapport";
@@ -36,6 +38,8 @@ export function App() {
             <Route path="/rooms" element={<RoomEditor />} />
             <Route path="/constructies" element={<ProjectConstructions />} />
             <Route path="/rc" element={<RcCalculator />} />
+            <Route path="/tojuli/quick" element={<Tojuli />} />
+            <Route path="/tojuli" element={<TojuliFull />} />
             <Route path="/library" element={<Library />} />
             <Route path="/materialen" element={<Library initialSection="materialen" />} />
             <Route path="/results" element={<Results />} />

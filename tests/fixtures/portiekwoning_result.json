@@ -1,4 +1,5 @@
 {
+  "_refresh_note": "2026-05-12 fixture refresh: (a) phi_t_adjacent (intra-woning, h_t_ia*Δθ) verplaatst naar phi_basis_no_sys (room_load.rs:273+281) — norm-conform per ISSO 51 formule 4.2 / Vabi DR-split — daardoor r7 Entree clampt naar 0 W (basis negatief door h_t_ia=-11.02 W/K), r3 Badkamer +186 W (5.82×32 exact), r1/r4/r5/r6 +45..+91 W via h_t_ia plus residuele Pass-2 phi_hu drift (~10-70 W); (b) connection_capacity ge-refreshed van 6595.77 W naar 5140.80 W na Issue A fix (ca5c0db) — erratum 2023 §3.5.2 kwadratische sommatie op gebouwniveau is strenger dan oude lineaire som; geen Vabi-ground-truth voor portiekwoning beschikbaar; user-besluit 2026-05-12: norm-2023 wint, oude 2017-keten waarde verlaten. Zie docs/2026-05-12-issue-diagnostiek.md + isso51-norm-conformiteit-audit.md.",
   "rooms": [
     {
       "room_id": "r1",
@@ -35,7 +36,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 1780.9602815331718,
+      "total_heat_loss": 1896.27,
       "basis_heat_loss": 801.2628,
       "extra_heat_loss": 979.6974815331719
     },
@@ -74,7 +75,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 687.3389104840991,
+      "total_heat_loss": 666.25,
       "basis_heat_loss": 404.4696,
       "extra_heat_loss": 282.86931048409906
     },
@@ -113,7 +114,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 151.61522612842234,
+      "total_heat_loss": 337.93,
       "basis_heat_loss": 0.0,
       "extra_heat_loss": 151.61522612842234
     },
@@ -152,7 +153,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 807.3304075707451,
+      "total_heat_loss": 934.46,
       "basis_heat_loss": 524.0628,
       "extra_heat_loss": 283.26760757074516
     },
@@ -191,7 +192,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 821.9905098701076,
+      "total_heat_loss": 877.34,
       "basis_heat_loss": 411.75600000000003,
       "extra_heat_loss": 410.2345098701076
     },
@@ -230,7 +231,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 915.3850640333262,
+      "total_heat_loss": 1000.28,
       "basis_heat_loss": 428.1864,
       "extra_heat_loss": 487.19866403332617
     },
@@ -269,7 +270,7 @@
         "phi_ceiling_loss": 0.0,
         "phi_system_total": 0.0
       },
-      "total_heat_loss": 160.0852537243274,
+      "total_heat_loss": 0.0,
       "basis_heat_loss": 27.855,
       "extra_heat_loss": 132.2302537243274
     },
@@ -319,7 +320,7 @@
     "total_ventilation_loss": 2307.36,
     "total_heating_up": 540.0776682329782,
     "total_system_losses": 0.0,
-    "connection_capacity": 6595.766668232978,
+    "connection_capacity": 5140.80,
     "collective_contribution": 5180.588668232978
   }
 }

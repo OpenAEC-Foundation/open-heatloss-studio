@@ -1,0 +1,100 @@
+{
+  "description": "PLACEHOLDER — verwachte resultaten EN 12831-1:2017 §6 two-storey house (TomLXXVI/python-hvac example_01)",
+  "meta": {
+    "source_url": "https://github.com/TomLXXVI/python-hvac/blob/master/docs/examples/heating_load_calc/example_01/house.py",
+    "source_file": "docs/examples/heating_load_calc/example_01/house.py",
+    "source_class": "House",
+    "source_method": "main() -> house.ventilation_zone.get_summary() / house.building_entity.get_summary()",
+    "norm": "EN 12831-1:2017 §6 — standard method, space heating load",
+    "implementation": "python-hvac (hvac.heating_load_calc package), open source MIT-style",
+    "status": "INCOMPLETE — numerieke verwachte outputs nog niet ingevuld",
+    "reden": "De python-hvac source bevat alleen INVOER (geometrie + materiaal-lagen + temperaturen). De numerieke OUTPUTS per kamer (phi_t, phi_v, phi_hl_i) en het gebouw-totaal (~8.339 kW genoemd in opdracht) staan NIET in de source. Ze worden runtime berekend via een layered material physics rekenkern (ISO 6946 R-waarden + EN 12831 transmissie/ventilatie formules). Om de numerieke verwachte waardes vast te leggen moet de user de python-hvac repo lokaal clonen, de wtcb_materials.db shelve opbouwen en `python house.py` draaien."
+  },
+  "notes": [
+    "Bron: TomLXXVI/python-hvac docs/examples/heating_load_calc/example_01/house.py",
+    "Norm: EN 12831-1:2017 §6 (Europese basis van NEN-EN 12831 en daarmee verwant aan ISSO 51:2023 transmissie/ventilatie formules)",
+    "Klimaat: T_ext_d=-7.0°C, T_ext_an=10.0°C, T_ext_min=0.0°C — letterlijk uit source ClimateDesignData",
+    "Heated spaces (5): Kitchen+Dining 27m² @20°C, Living 14m² @20°C, Bedroom 1 18m² @18°C, Bedroom 2 11m² @18°C, Bathroom 7.5m² @24°C — letterlijk uit source",
+    "Unheated spaces in source (hallway 10°C, toilet 10°C) zijn in onze fixture gemodelleerd als boundary_type 'unheated_space' op aangrenzende rooms (niet als losse rooms), conform ISSO 51 §2.5.2 (alleen verwarmde ruimten in fixture)",
+    "U-waarden in input-fixture zijn AANNAMES gebaseerd op typische WTCB Buildwise datasheet-waardes voor de assemblies (F1 ext-wall 12cm minwool ≈ 0.27 W/m²K, F4 ground 12cm minwool ≈ 0.30, F13 ceiling 12cm minwool ≈ 0.30, F1 int-wall 6cm minwool ≈ 0.50, int_wall_proj1 zonder isolatie ≈ 2.6, ASHRAE 5a window ≈ 2.86, ext-door 3.0, int-door 4.0). NIET geverifieerd door python-hvac daadwerkelijk te draaien.",
+    "Window+door areas zijn EXACT uit source (3.7×2.7=9.99, 0.8×2.7=2.16, 3.0×2.7=8.10, 2.0×1.8=3.60, 3.0×1.5=4.50, 3.7×1.5=5.55, 0.6×0.6=0.36, 0.8×2.1=1.68).",
+    "Wall areas zijn (width × height=3.0m) UIT source maar de exterior-wall-area is NETTO (gross minus window/door cutouts) berekend, conform ISSO 51 conventie.",
+    "Ventilation rates (V_sup, V_exh) UIT source in m³/h: kitchen 100 sup + 75 exh, living 75 sup, bedroom 1+2 elk 72 sup, bathroom 50 exh. V_trf (transfer air) is geen direct fixture-veld; verwarmde rooms krijgen alleen sup/exh, hallway transfer 75 m³/h is niet gemodelleerd (gaat naar bath/toilet).",
+    "Adjacent neighbor walls: in source `add_adjacent_building_element` met `kind_of_adjacent_space='unheated', T_adj=10°C` — gemodelleerd als boundary_type 'adjacent_building'. NOTE: onze model gebruikt geen explicit temperature_factor voor adjacent_building (gebruikt theta_b), dit kan een verschil opleveren met de python-hvac uitkomst.",
+    "Roof boundaries (bedroom/bathroom plafond): in source als adjacent_building_element met T_adj=0°C (= attic at outdoor temp). Gemodelleerd als boundary_type 'exterior' (volgens EN 12831 reductie b_u factor zou dit een unheated_space met f≈1.0 zijn, maar exterior is een acceptabele vereenvoudiging voor T_adj=T_ext).",
+    "Ground floor (kitchen+living): source geeft slab on grade met A_slab=59.36 m² en P_slab=32.4m, z=0. Onze ground_params.u_equivalent=0.30 is een NIET geverifieerde aanname; werkelijke u_eq uit floor_wtcb_f4 hangt af van W/(m²·K) van de F4 assembly.",
+    "temperature_factor voor unheated_space (hallway 10°C) berekend als f = (theta_i - 10) / (theta_i - theta_e). Bij theta_e=-7°C: kitchen/living (theta_i=20°C): f=10/27≈0.370; bedrooms (theta_i=18°C): f=8/25=0.320; bathroom (theta_i=24°C): f=14/31≈0.435.",
+    "Heating system: source gebruikt geen expliciet HVAC-systeem (heat load calc only). Onze fixture vult heating_system='radiator_ht' als neutrale default — irrelevant voor totale phi_hl_i.",
+    "Voor cross-validatie van Issue A (gebouwsom-aggregatie): zodra de numerieke phi_hl_i waardes beschikbaar zijn moet phi_hl_sum = som(rooms.phi_hl_i) overeenkomen met phi_hl_build binnen ±2% (EN 12831 specifieert geen kwadratische sommatie maar simpele optelling, in tegenstelling tot ISSO 51 zone-aansluitvermogen)."
+  ],
+  "rooms": [
+    {
+      "room_id": "kdr",
+      "room_name": "Kitchen + Dining room",
+      "theta_i": 20.0,
+      "phi_t": null,
+      "phi_v": null,
+      "phi_hu": null,
+      "phi_hl_i": null,
+      "expected_from_source": "moet runtime gemeten worden via python house.py"
+    },
+    {
+      "room_id": "lr",
+      "room_name": "Living room",
+      "theta_i": 20.0,
+      "phi_t": null,
+      "phi_v": null,
+      "phi_hu": null,
+      "phi_hl_i": null,
+      "expected_from_source": "moet runtime gemeten worden via python house.py"
+    },
+    {
+      "room_id": "br1",
+      "room_name": "Bedroom 1",
+      "theta_i": 18.0,
+      "phi_t": null,
+      "phi_v": null,
+      "phi_hu": null,
+      "phi_hl_i": null,
+      "expected_from_source": "moet runtime gemeten worden via python house.py"
+    },
+    {
+      "room_id": "br2",
+      "room_name": "Bedroom 2",
+      "theta_i": 18.0,
+      "phi_t": null,
+      "phi_v": null,
+      "phi_hu": null,
+      "phi_hl_i": null,
+      "expected_from_source": "moet runtime gemeten worden via python house.py"
+    },
+    {
+      "room_id": "bath",
+      "room_name": "Bathroom",
+      "theta_i": 24.0,
+      "phi_t": null,
+      "phi_v": null,
+      "phi_hu": null,
+      "phi_hl_i": null,
+      "expected_from_source": "moet runtime gemeten worden via python house.py"
+    }
+  ],
+  "building": {
+    "phi_t_total": null,
+    "phi_v_total": null,
+    "phi_hu_total": 0,
+    "phi_hl_sum": null,
+    "phi_hl_build": null,
+    "expected_total_from_brief": "Opdracht-tekst noemt ~8339 W (8.339 kW) totaal aansluitvermogen, maar dit getal is NIET terug te vinden in de python-hvac source. Mogelijk uit een externe referentie of een README/notebook elders.",
+    "validation_note": "Onze rekenkern zal vermoedelijk 10-30% afwijken van python-hvac wegens (a) andere temperature_factor voor adjacent_building, (b) wind/wind_factor verschil, (c) thermal_bridge_factor delta_U=0.05 (norm-default ISSO 51) versus EN 12831 zonder thermal bridge correctie tenzij expliciet, (d) ventilation infiltration model (Vabi qv10 vs EN 12831 n50)."
+  },
+  "user_action_required": [
+    "1. python-hvac repo clonen: git clone https://github.com/TomLXXVI/python-hvac",
+    "2. WTCB materials shelf bouwen: python hvac/cooling_load_calc/construction_data/wtcb/materials.py",
+    "3. Example runnen: cd docs/examples/heating_load_calc/example_01 && python house.py",
+    "4. get_summary() output (DataFrame met per-space heat loss in W) noteren",
+    "5. Per kamer phi_t, phi_v en phi_hl_i in dit JSON-bestand invullen op de 'null'-plekken",
+    "6. building totals invullen na zone-level summary",
+    "7. Daarna pas opnemen in integration_test.rs"
+  ]
+}

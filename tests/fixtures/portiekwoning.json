@@ -13,7 +13,8 @@
     "security_class": "b",
     "has_night_setback": true,
     "warmup_time": 2.0,
-    "num_floors": 1
+    "num_floors": 1,
+    "aggregation_method": "norm_strict"
   },
   "climate": {
     "theta_e": -10.0,

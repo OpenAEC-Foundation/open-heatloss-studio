@@ -3,7 +3,7 @@
 mod commands;
 pub mod reports;
 
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 /// Tauri command: returns the file path passed as argv[1] when the app was
 /// launched via a file association (double-click .ifcenergy in Explorer).
@@ -39,6 +39,9 @@ pub fn run() {
             commands::calculate,
             commands::get_schema,
             commands::import_ifc,
+            commands::import_vabi,
+            commands::simplified_cooling,
+            commands::tojuli_calculate,
             launched_with_file,
             reports::generate_report_pdf,
             reports::generate_report_pdf_bytes,

@@ -40,6 +40,10 @@ fn create_portiekwoning() -> Project {
             building_height: None,
             num_floors: 1,
             infiltration_method: InfiltrationMethod::PerExteriorArea,
+            dwelling_class: None,
+            construction_variant: None,
+            construction_year: None,
+            aggregation_method: Default::default(),
         },
         climate: DesignConditions {
             theta_b_residential: 15.0,

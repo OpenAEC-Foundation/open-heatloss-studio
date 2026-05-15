@@ -62,6 +62,81 @@
     "materials": "Materialen",
     "projects": "Projecten",
     "unsaved": "Niet opgeslagen",
-    "saved": "Opgeslagen"
+    "saved": "Opgeslagen",
+    "groups": {
+      "warmteverlies": "Warmteverlies",
+      "tojuli": "TO-juli",
+      "rcwaarde": "Rc-waarde",
+      "library": "Bibliotheek"
+    },
+    "tojuli": {
+      "comingSoon": "Binnenkort",
+      "quick": "Snelle check (woningen)",
+      "full": "Volledig (H.10)"
+    },
+    "rcCompare": "Rc-vergelijker"
+  },
+  "tojuli": {
+    "title": "TO-juli — koelbehoefte",
+    "subtitle": "Vereenvoudigde berekening volgens NTA 8800 bijlage AA (woningen)",
+    "calculate": "Bereken",
+    "calculating": "Bezig…",
+    "reset": "Standaardwaarden",
+    "groupArea": "Gebied & bewoners",
+    "groupVentilation": "Luchtstromen (juli)",
+    "groupLoads": "Thermische lasten",
+    "resultTitle": "Resultaat",
+    "normRef": "Berekend volgens NTA 8800:2025+C1:2026 bijlage AA, formules AA.1 t/m AA.13.",
+    "fields": {
+      "living_area_m2": "Woonkamer/keuken/eetkamer",
+      "other_area_m2": "Overige verblijfsruimten",
+      "dwelling_count": "Aantal woonfuncties",
+      "persons_per_dwelling": "Bewoners per woonfunctie",
+      "infiltration_m3_per_h": "Infiltratie",
+      "natural_ventilation_m3_per_h": "Natuurlijke ventilatie-toevoer",
+      "mechanical_supply_m3_per_h": "Mechanische toevoer",
+      "peak_hour": "Tijdstip piekbelasting",
+      "construction_year": "Bouwjaar",
+      "opaque_area_m2": "Ondoorzichtig buitenwand + dak",
+      "solar_load_w": "Zoninstraling via glas",
+      "glazing_transmission_w": "Transmissie via glas"
+    },
+    "hints": {
+      "living_area_m2": "Σ A_vg;woon;zi",
+      "persons_per_dwelling": "Forfaitair, NTA §6.6.6",
+      "peak_hour": "9..21 h, drijft θ_e uit tabel AA.1",
+      "construction_year": "Voor f_iso uit tabel AA.2",
+      "opaque_area_m2": "Binnenwerkse oppervlakte",
+      "solar_load_w": "P_sol;zi (AA.6), caller-berekend uit ram-lijst",
+      "glazing_transmission_w": "P_gl;zi (AA.7), uit ram-lijst + U-waarden"
+    },
+    "result": {
+      "minimum_capacity": "Minimum koelcapaciteit B_C;req;TO",
+      "maatgevende_koelbehoefte": "Maatgevende koelbehoefte q_C;zi",
+      "breakdown": "Componenten piekbelasting",
+      "internal_load": "Interne warmtelast P_int;zi",
+      "outdoor_load": "Buitenlucht P_V;zi",
+      "opaque_transmission": "Transmissie ondoorzichtig P_tr;ntr;zi",
+      "solar_load": "Zoninstraling P_sol;zi",
+      "glazing_transmission": "Transmissie glas P_gl;zi",
+      "peak_total": "Totaal P_totaal"
+    }
+  },
+  "projectSetup": {
+    "title": "Project",
+    "subtitle": "Gebouw- en installatie-instellingen",
+    "tabs": {
+      "algemeen": "Algemeen",
+      "geometrie": "Geometrie",
+      "isso51": "ISSO 51",
+      "tojuli": "TO-juli",
+      "iso53": "ISSO 53",
+      "soon": "binnenkort"
+    },
+    "geometriePlaceholder": "Kamers en constructies beheer je in de Modeller-pagina (zie zijbalk).",
+    "tojuliPlaceholder": "Volledige TO-juli (NTA 8800 H.10 voor woning + utiliteit) komt in F7. Voor nu: gebruik 'Snelle check (woningen)' onder TO-juli in de zijbalk.",
+    "iso53Placeholder": "Binnenkort beschikbaar.",
+    "openModeller": "Open Modeller",
+    "openTojuliQuick": "Open snelle check"
   }
 }

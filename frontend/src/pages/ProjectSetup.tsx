@@ -1,5 +1,9 @@
-import { useCallback, useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+
+import { AlgemeenTab } from "../components/projectSetup/AlgemeenTab";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -16,7 +20,9 @@ import { prepareProjectForCalculation } from "../lib/frameOverride";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
 import {
+  AGGREGATION_METHOD_LABELS,
   BUILDING_TYPE_LABELS,
+  DEFAULT_AGGREGATION_METHOD,
   DEFAULT_THETA_WATER,
   FROST_PROTECTION_LABELS,
   FROST_PROTECTION_SUPPLY_TEMP,
@@ -25,6 +31,7 @@ import {
   VENTILATION_SYSTEM_LABELS,
 } from "../lib/constants";
 import type {
+  AggregationMethod,
   Building,
   CoverImage,
   DesignConditions,
@@ -54,6 +61,7 @@ export function ProjectSetup() {
     project, updateProject, isCalculating, setCalculating,
     setResult, setError, activeProjectId, setActiveProjectId,
     serverUpdatedAt, setFrameUValueOverride, applyHeatingSystemToAllRooms,
+    setAggregationMethod,
   } = useProjectStore();
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
@@ -234,12 +242,24 @@ export function ProjectSetup() {
 
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") ?? "algemeen") as TabKey;
+  const setTab = useCallback(
+    (key: TabKey) => {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", key);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   return (
     <div>
       <PageHeader
-        title="Project"
-        subtitle="Gebouw- en installatie-instellingen"
-        breadcrumbs={[{ label: "Project" }]}
+        title={t("projectSetup.title", "Project")}
+        subtitle={t("projectSetup.subtitle", "Gebouw- en installatie-instellingen")}
+        breadcrumbs={[{ label: t("projectSetup.title", "Project") }]}
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => fileInputRef.current?.click()}>
@@ -264,6 +284,52 @@ export function ProjectSetup() {
         }
       />
 
+      <TabBar active={activeTab} onChange={setTab} t={t} />
+
+      {activeTab === "algemeen" && (
+        <div className="p-6">
+          <AlgemeenTab />
+        </div>
+      )}
+
+      {activeTab === "geometrie" && (
+        <div className="p-6">
+          <PlaceholderTab
+            title={t("projectSetup.tabs.geometrie", "Geometrie")}
+            body={t(
+              "projectSetup.geometriePlaceholder",
+              "Kamers en constructies beheer je in de Modeller-pagina (zie zijbalk).",
+            )}
+            linkTo="/modeller"
+            linkLabel={t("projectSetup.openModeller", "Open Modeller")}
+          />
+        </div>
+      )}
+
+      {activeTab === "tojuli" && (
+        <div className="p-6">
+          <PlaceholderTab
+            title={t("projectSetup.tabs.tojuli", "TO-juli")}
+            body={t(
+              "projectSetup.tojuliPlaceholder",
+              "Volledige TO-juli (NTA 8800 H.10 voor woning + utiliteit) komt in F7. Voor nu: gebruik 'Snelle check (woningen)' onder TO-juli in de zijbalk.",
+            )}
+            linkTo="/tojuli/quick"
+            linkLabel={t("projectSetup.openTojuliQuick", "Open snelle check")}
+          />
+        </div>
+      )}
+
+      {activeTab === "iso53" && (
+        <div className="p-6">
+          <PlaceholderTab
+            title={t("projectSetup.tabs.iso53", "ISSO 53")}
+            body={t("projectSetup.iso53Placeholder", "Binnenkort beschikbaar.")}
+          />
+        </div>
+      )}
+
+      {activeTab === "isso51" && (
       <div className="space-y-6 p-6">
         {/* Project info */}
         <Card title="Projectgegevens">
@@ -484,6 +550,26 @@ export function ProjectSetup() {
                 (categorie kozijnen_vullingen) in één keer.
               </p>
             </div>
+            <div className="col-span-2">
+              <Select
+                id="aggregation_method"
+                label="Aggregatiemethode"
+                value={
+                  building.aggregation_method ?? DEFAULT_AGGREGATION_METHOD
+                }
+                options={toOptions(AGGREGATION_METHOD_LABELS)}
+                onChange={(e) =>
+                  setAggregationMethod(e.target.value as AggregationMethod)
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Bepaalt hoe Φ_T,iae op gebouwniveau wordt geaggregeerd.
+                Vabi-conform sluit transmissie via onverwarmde ruimtes uit
+                van het basis-verlies op gebouwniveau (markt-conventie).
+                Norm-strict volgt §3.5.1 letterlijk en geeft ~17% hoger
+                aansluitvermogen.
+              </p>
+            </div>
           </div>
         </Card>
 
@@ -678,6 +764,7 @@ export function ProjectSetup() {
           </Card>
         )}
       </div>
+      )}
 
       <input
         ref={fileInputRef}
@@ -687,5 +774,87 @@ export function ProjectSetup() {
         onChange={handleImportFile}
       />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab bar — switches via ?tab= query param so deep-links work.
+// ---------------------------------------------------------------------------
+
+type TabKey = "algemeen" | "geometrie" | "isso51" | "tojuli" | "iso53";
+
+interface TabBarProps {
+  active: TabKey;
+  onChange: (key: TabKey) => void;
+  t: TFunction;
+}
+
+function TabBar({ active, onChange, t }: TabBarProps) {
+  const tabs: { key: TabKey; labelKey: string; fallback: string; disabled?: boolean }[] = [
+    { key: "algemeen", labelKey: "projectSetup.tabs.algemeen", fallback: "Algemeen" },
+    { key: "geometrie", labelKey: "projectSetup.tabs.geometrie", fallback: "Geometrie" },
+    { key: "isso51", labelKey: "projectSetup.tabs.isso51", fallback: "ISSO 51" },
+    { key: "tojuli", labelKey: "projectSetup.tabs.tojuli", fallback: "TO-juli" },
+    { key: "iso53", labelKey: "projectSetup.tabs.iso53", fallback: "ISSO 53", disabled: true },
+  ];
+  return (
+    <div className="border-b border-[var(--oaec-border)] bg-[var(--oaec-surface)]">
+      <div className="flex gap-1 px-6">
+        {tabs.map((tab) => {
+          const isActive = active === tab.key;
+          const base = "px-4 py-2 text-sm font-medium border-b-2 transition-colors";
+          const className = tab.disabled
+            ? `${base} cursor-not-allowed border-transparent text-on-surface-muted opacity-50`
+            : isActive
+              ? `${base} border-primary text-primary`
+              : `${base} border-transparent text-on-surface-secondary hover:text-on-surface hover:border-[var(--oaec-border)]`;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              disabled={tab.disabled}
+              onClick={() => !tab.disabled && onChange(tab.key)}
+              className={className}
+            >
+              {t(tab.labelKey, tab.fallback)}
+              {tab.disabled && (
+                <span className="ml-2 text-[10px] opacity-60">
+                  ({t("projectSetup.tabs.soon", "binnenkort")})
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder tab — toont uitleg + optionele link naar de juiste plek.
+// ---------------------------------------------------------------------------
+
+interface PlaceholderTabProps {
+  title: string;
+  body: ReactNode;
+  linkTo?: string;
+  linkLabel?: string;
+}
+
+function PlaceholderTab({ title, body, linkTo, linkLabel }: PlaceholderTabProps) {
+  return (
+    <Card title={title}>
+      <p className="text-sm text-on-surface-secondary">{body}</p>
+      {linkTo && linkLabel && (
+        <div className="mt-3">
+          <Link
+            to={linkTo}
+            className="text-sm text-primary hover:underline"
+          >
+            {linkLabel} →
+          </Link>
+        </div>
+      )}
+    </Card>
   );
 }

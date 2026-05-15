@@ -18,7 +18,11 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-isso51-core = { path = "../crates/isso51-core" }
+isso51-core = { path = "../crates/isso51-core", features = ["vabi-import"] }
+nta8800-cooling = { path = "../crates/nta8800-cooling" }
+nta8800-model = { path = "../crates/nta8800-model" }
+nta8800-tables = { path = "../crates/nta8800-tables" }
+openaec-project-shared = { path = "../crates/openaec-project-shared" }
 openaec-layout = { path = "../libs/openaec-reports/rust/crates/openaec-layout" }
 tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-dialog = "2"

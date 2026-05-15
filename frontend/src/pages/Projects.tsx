@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -12,11 +13,12 @@ import {
   deleteProject,
 } from "../lib/backend";
 import { validateProject, validateProjectResult } from "../lib/importExport";
-import type { ProjectSummary } from "../types";
+import type { Project, ProjectSummary } from "../types";
 
 export function Projects() {
   const navigate = useNavigate();
-  const { project, loadServerProject, setActiveProjectId } = useProjectStore();
+  const { project, loadServerProject, setActiveProjectId, setProject } =
+    useProjectStore();
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,22 @@ export function Projects() {
       setError(err instanceof Error ? err.message : "Kon project niet opslaan");
     }
   }, [project, setActiveProjectId, loadProjects]);
+
+  const handleImportVabi = useCallback(async () => {
+    try {
+      // Empty file_path → Tauri opens native file dialog filtered on `.vp`.
+      const imported = await invoke<Project>("import_vabi", { filePath: "" });
+      const validated = validateProject(imported);
+      setProject(validated);
+      navigate("/project");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // "Geen bestand geselecteerd" is a normal cancel — don't show as error.
+      if (!msg.includes("Geen bestand geselecteerd")) {
+        setError(`Vabi import mislukt: ${msg}`);
+      }
+    }
+  }, [navigate, setProject]);
 
   const handleDuplicate = useCallback(
     async (id: string) => {
@@ -125,7 +143,12 @@ export function Projects() {
         subtitle="Opgeslagen projecten op de server"
         breadcrumbs={[{ label: "Projecten" }]}
         actions={
-          <Button onClick={handleSaveNew}>Huidig project opslaan</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleImportVabi}>
+              Importeer .vp
+            </Button>
+            <Button onClick={handleSaveNew}>Huidig project opslaan</Button>
+          </div>
         }
       />
 

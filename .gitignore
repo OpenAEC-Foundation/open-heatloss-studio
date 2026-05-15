@@ -8,6 +8,10 @@
 tests/references/*.txt
 tests/references/*.pdf
 
+# Vabi project files (privacy: contain customer/project data)
+*.vp
+tests/references/*.vp
+
 # Excel spreadsheets
 *.xls
 *.xlsx

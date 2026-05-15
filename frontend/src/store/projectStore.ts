@@ -2,12 +2,17 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type {
+  AggregationMethod,
   ConstructionElement,
   HeatingSystem,
   Project,
   ProjectResult,
   Room,
 } from "../types";
+import {
+  DEFAULT_SHARED_EXTRA,
+  type SharedExtra,
+} from "../types/projectV2";
 
 // ---------------------------------------------------------------------------
 // Undo/Redo history
@@ -37,6 +42,7 @@ const DEFAULT_PROJECT: Project = {
     warmup_time: 2,
     num_floors: 1,
     default_heating_system: "radiator_ht",
+    aggregation_method: "vabi_compat",
   },
   climate: {
     theta_e: -10,
@@ -53,8 +59,14 @@ const DEFAULT_PROJECT: Project = {
 };
 
 interface ProjectStore {
-  /** Current project input data. */
+  /** Current project input data (V1 schema, single source of truth). */
   project: Project;
+  /**
+   * V2-only sidecar velden (ADR-002 SharedProject extras). Worden
+   * gepersisteerd maar niet meegestuurd naar backend tot V2 endpoint
+   * live is. Zie `lib/projectV2Migration.ts` voor de mapping.
+   */
+  sharedExtra: SharedExtra;
   /** Calculation result (null if not yet calculated). */
   result: ProjectResult | null;
   /** Error message from last calculation attempt. */
@@ -79,6 +91,11 @@ interface ProjectStore {
    * anders valt het terug op de save-as dialog.
    */
   currentLocalPath: string | null;
+
+  /** Update V2 sidecar velden (partial merge). */
+  updateSharedExtra: (partial: Partial<SharedExtra>) => void;
+  /** Vervang volledige sidecar (gebruikt bij load van V2 JSON). */
+  setSharedExtra: (extra: SharedExtra) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -139,6 +156,12 @@ interface ProjectStore {
   /** Apply a heating_system to all rooms in the project in one mutation (with undo). */
   applyHeatingSystemToAllRooms: (system: HeatingSystem) => void;
 
+  /**
+   * Zet de aggregatiemethode voor `Φ_basis_gebouw`. Schakelt tussen
+   * Vabi-conform (markt-default) en ISSO 51 §3.5.1 letterlijk. Undo-aware.
+   */
+  setAggregationMethod: (method: AggregationMethod) => void;
+
   /** Undo last project mutation. */
   undo: () => void;
   /** Redo last undone project mutation. */
@@ -149,6 +172,7 @@ export const useProjectStore = create<ProjectStore>()(
   persist(
     (set, get) => ({
       project: DEFAULT_PROJECT,
+      sharedExtra: { ...DEFAULT_SHARED_EXTRA },
       result: null,
       error: null,
       isCalculating: false,
@@ -159,6 +183,14 @@ export const useProjectStore = create<ProjectStore>()(
       currentLocalPath: null,
       _past: [],
       _future: [],
+
+      updateSharedExtra: (partial) =>
+        set((state) => ({
+          sharedExtra: { ...state.sharedExtra, ...partial },
+          isDirty: true,
+        })),
+
+      setSharedExtra: (extra) => set({ sharedExtra: extra }),
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -195,7 +227,19 @@ export const useProjectStore = create<ProjectStore>()(
       },
 
       setProject: (project) =>
-        set({ project, isDirty: true, result: null, error: null, activeProjectId: null, serverUpdatedAt: null, hasConflict: false, currentLocalPath: null, _past: [], _future: [] }),
+        set({
+          project,
+          sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+          isDirty: true,
+          result: null,
+          error: null,
+          activeProjectId: null,
+          serverUpdatedAt: null,
+          hasConflict: false,
+          currentLocalPath: null,
+          _past: [],
+          _future: [],
+        }),
 
       loadServerProject: (id, project, result, updatedAt) =>
         set({
@@ -207,6 +251,7 @@ export const useProjectStore = create<ProjectStore>()(
           isCalculating: false,
           serverUpdatedAt: updatedAt ?? null,
           hasConflict: false,
+          currentLocalPath: null,
           _past: [],
           _future: [],
         }),
@@ -226,6 +271,7 @@ export const useProjectStore = create<ProjectStore>()(
       reset: () =>
         set({
           project: DEFAULT_PROJECT,
+          sharedExtra: { ...DEFAULT_SHARED_EXTRA },
           result: null,
           error: null,
           isCalculating: false,
@@ -363,6 +409,23 @@ export const useProjectStore = create<ProjectStore>()(
         }));
       },
 
+      setAggregationMethod: (method) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            building: {
+              ...state.project.building,
+              aggregation_method: method,
+            },
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
       undo: () => {
         const state = get();
         if (state._past.length === 0) return;
@@ -394,11 +457,14 @@ export const useProjectStore = create<ProjectStore>()(
       version: 1,
       partialize: (state) => ({
         project: state.project,
+        sharedExtra: state.sharedExtra,
         result: state.result,
       }),
       merge: (persisted, current) => ({
         ...current,
-        ...(persisted as Pick<ProjectStore, "project" | "result">),
+        ...(persisted as Pick<ProjectStore, "project" | "sharedExtra" | "result">),
+        sharedExtra:
+          (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
         isDirty: false,
         isCalculating: false,
         error: null,

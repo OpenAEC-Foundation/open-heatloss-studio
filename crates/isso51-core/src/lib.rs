@@ -137,7 +137,12 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     }
 
     // Build summary
-    let summary = build_summary(&room_results, project.climate.theta_e);
+    let summary = build_summary(
+        &room_results,
+        project.climate.theta_e,
+        project.ventilation.system_type,
+        project.building.aggregation_method,
+    );
 
     Ok(ProjectResult {
         rooms: room_results,
@@ -146,34 +151,119 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
 }
 
 /// Build the building-level summary from per-room results.
-fn build_summary(rooms: &[result::RoomResult], theta_e: f64) -> BuildingSummary {
-    let mut total_envelope_loss = 0.0;
+///
+/// Aggregatie volgens ISSO 51:2023 erratum, met twee configureerbare keuzes:
+///
+/// 1. **`aggregation_method`** bepaalt of `Φ_T,iae` (verlies via onverwarmde
+///    ruimtes) in `Φ_basis_gebouw` wordt opgenomen:
+///    - `VabiCompat` (default, markt-conventie): NIET opnemen — telt als 0 op
+///      gebouwniveau (Vabi-compatible).
+///    - `NormStrict`: WEL opnemen — strikt §3.5.1 (`Φ_basis = Φ_T,ie + Φ_T,iae
+///      + Φ_T,ig + Φ_i − Φ_gain`). ~17% hogere connection_capacity.
+///
+/// 2. **`ventilation_system_type`** bepaalt formule 3.3 vs 3.4 op gebouwniveau:
+///    - Systeem A/C (natuurlijke toevoer): `Φ_vent = Σ Φ_v − Σ Φ_i` (formule 3.3,
+///      infiltratie als deel van de toevoerlucht).
+///    - Systeem B/D/E (mechanische toevoer): `Φ_vent = Σ Φ_v` (formule 3.4,
+///      geen aftrek — infiltratie loopt apart en zit al in Φ_basis).
+///
+/// Verdere keten:
+/// - `Φ_extra_quadratic = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` (formule 3.11).
+/// - `connection_capacity = Φ_basis_total + Φ_extra_quadratic`.
+fn build_summary(
+    rooms: &[result::RoomResult],
+    theta_e: f64,
+    ventilation_system_type: model::enums::VentilationSystemType,
+    aggregation_method: model::enums::AggregationMethod,
+) -> BuildingSummary {
+    use model::enums::{AggregationMethod, VentilationSystemType};
+
+    let mut total_envelope_loss = 0.0; // inclusief Φ_T,iae (h_t_unheated × Δθ)
+    let mut total_envelope_no_iae = 0.0; // exclusief Φ_T,iae (Vabi-conventie)
     let mut total_neighbor_loss = 0.0;
     let mut total_ventilation_loss = 0.0;
     let mut total_heating_up = 0.0;
     let mut total_system_losses = 0.0;
+    let mut total_infiltration_loss = 0.0;
 
     for r in rooms {
         let theta_diff = r.theta_i - theta_e;
 
-        total_envelope_loss += r.transmission.h_t_exterior * theta_diff
-            + r.transmission.h_t_unheated * theta_diff
-            + r.transmission.h_t_ground * theta_diff
-            + r.transmission.h_t_water * theta_diff;
+        let phi_t_ie = r.transmission.h_t_exterior * theta_diff;
+        let phi_t_iae = r.transmission.h_t_unheated * theta_diff;
+        let phi_t_ig = r.transmission.h_t_ground * theta_diff;
+        let phi_t_iw = r.transmission.h_t_water * theta_diff;
+
+        total_envelope_loss += phi_t_ie + phi_t_iae + phi_t_ig + phi_t_iw;
+        total_envelope_no_iae += phi_t_ie + phi_t_ig + phi_t_iw;
 
         total_neighbor_loss += r.transmission.h_t_adjacent_buildings * theta_diff;
 
         total_ventilation_loss += r.ventilation.phi_v;
         total_heating_up += r.heating_up.phi_hu;
         total_system_losses += r.system_losses.phi_system_total;
+        total_infiltration_loss += r.infiltration.phi_i;
     }
 
-    let connection_capacity =
-        total_envelope_loss + total_neighbor_loss + total_ventilation_loss + total_heating_up + total_system_losses;
+    // --- Gedecomposeerde gebouwsom conform erratum 2023 ---
 
-    // Collective contribution excludes neighbor losses if same building
-    let collective_contribution =
-        total_envelope_loss + total_ventilation_loss + total_heating_up + total_system_losses;
+    // Φ_basis omvat alle continue, simultane verliezen op gebouwniveau:
+    // envelope + grond + water + infiltratie + systeemverliezen.
+    // Intra-woning transmissie (`h_t_adjacent_rooms`) is bewust uitgesloten —
+    // zero-sum over de woning, zie doc-comment op
+    // `TransmissionResult::h_t_adjacent_rooms`.
+    //
+    // Φ_T,iae (h_t_unheated × Δθ) wordt al-dan-niet meegenomen afhankelijk
+    // van `aggregation_method`. Zie `AggregationMethod` doc.
+    let phi_basis_total = match aggregation_method {
+        AggregationMethod::VabiCompat => {
+            total_envelope_no_iae + total_infiltration_loss + total_system_losses
+        }
+        AggregationMethod::NormStrict => {
+            total_envelope_loss + total_infiltration_loss + total_system_losses
+        }
+    };
+
+    // Φ_vent op gebouwniveau — formule 3.3 vs 3.4 afhankelijk van systeem.
+    // Natuurlijke toevoer (A/C): infiltratie is onderdeel van toevoerlucht →
+    //   `Φ_vent = Σ Φ_v − Σ Φ_i`.
+    // Mechanische toevoer (B/D/E): toevoer komt via systeem, infiltratie loopt
+    //   apart en zit al in Φ_basis → géén aftrek: `Φ_vent = Σ Φ_v`.
+    //
+    // Niet-negatief geclampt: een netto-negatieve ventilatieverlies is
+    // fysisch niet zinvol als kwadratische component (zou na .powi(2)
+    // toch positief bijdragen, wat de norm-bedoeling ondermijnt).
+    let phi_vent_building = match ventilation_system_type {
+        VentilationSystemType::SystemA | VentilationSystemType::SystemC => {
+            (total_ventilation_loss - total_infiltration_loss).max(0.0)
+        }
+        VentilationSystemType::SystemB
+        | VentilationSystemType::SystemD
+        | VentilationSystemType::SystemE => total_ventilation_loss.max(0.0),
+    };
+
+    // Φ_T,iaBE = som van transmissie naar aangrenzende gebouwen.
+    let phi_t_iabe_building = total_neighbor_loss;
+
+    let phi_hu_building = total_heating_up;
+
+    // Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)  (formule 3.11).
+    let phi_extra_quadratic = calc::quadratic_sum::quadratic_sum(
+        phi_vent_building,
+        phi_t_iabe_building,
+        phi_hu_building,
+    );
+
+    let connection_capacity = phi_basis_total + phi_extra_quadratic;
+
+    // Collectieve bijdrage sluit naburige gebouwen (woningscheidende wanden)
+    // uit: bij collectieve installatie zit de buurwoning op vergelijkbare
+    // θ_i, dus geen netto transport. Behoudt erratum-conforme kwadratische
+    // sommatie voor de overige niet-simultane componenten. Gebruikt dezelfde
+    // `phi_basis_total` keuze (Vabi/NormStrict) als de individuele variant.
+    let phi_extra_collective =
+        calc::quadratic_sum::quadratic_sum(phi_vent_building, 0.0, phi_hu_building);
+    let collective_contribution = phi_basis_total + phi_extra_collective;
 
     BuildingSummary {
         total_envelope_loss,
@@ -183,6 +273,11 @@ fn build_summary(rooms: &[result::RoomResult], theta_e: f64) -> BuildingSummary 
         total_system_losses,
         connection_capacity,
         collective_contribution,
+        phi_basis_total,
+        phi_vent_building,
+        phi_t_iabe_building,
+        phi_hu_building,
+        phi_extra_quadratic,
     }
 }
 
@@ -251,6 +346,10 @@ mod tests {
                 building_height: None,
                 num_floors: 1,
                 infiltration_method: InfiltrationMethod::PerExteriorArea,
+                dwelling_class: None,
+                construction_variant: None,
+                construction_year: None,
+                aggregation_method: AggregationMethod::default(),
             },
             // Old ISSO 51 example used θ_b = 15°C (erratum 2023 changed to 17°C)
             climate: DesignConditions {

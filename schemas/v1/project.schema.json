@@ -1,218 +1,346 @@
 {
+  "$id": "https://warmteverlies.open-aec.com/schemas/v1/project.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Project",
-  "description": "Top-level project containing all input data for the calculation.",
-  "type": "object",
-  "required": [
-    "building",
-    "climate",
-    "info",
-    "rooms",
-    "ventilation"
-  ],
-  "properties": {
-    "building": {
-      "description": "Building characteristics.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Building"
-        }
-      ]
-    },
-    "climate": {
-      "description": "Climate/design conditions.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DesignConditions"
-        }
-      ]
-    },
-    "info": {
-      "description": "Project metadata.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/ProjectInfo"
-        }
-      ]
-    },
-    "rooms": {
-      "description": "All rooms in the dwelling.",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Room"
-      }
-    },
-    "ventilation": {
-      "description": "Ventilation system configuration.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/VentilationConfig"
-        }
-      ]
-    }
-  },
   "definitions": {
+    "AggregationMethod": {
+      "description": "Methode voor aggregatie van transmissieverliezen op gebouwniveau.\n\nISSO 51:2023 §3.5.1 zegt letterlijk: `Φ_basis = Φ_T,ie + Φ_T,iae + Φ_T,ig + Φ_i − Φ_gain`, inclusief verlies via onverwarmde ruimtes (`Φ_T,iae`). De markt-tool Vabi telt `Φ_T,iae` op gebouwniveau echter als 0 (rapporteert het wel per kamer, neemt het niet op in `Φ_basis_gebouw`). Voor projecten die met Vabi-uitvoer vergeleken moeten worden geeft strikte normuitvoering ~17% hogere `connection_capacity`.\n\nDaarom configurable per project, default = `VabiCompat` (markt-conventie).",
+      "oneOf": [
+        {
+          "description": "Φ_T,iae wordt NIET opgenomen in Φ_basis_gebouw (Vabi-conventie, markt-default). Wijkt af van ISSO 51:2023 §3.5.1 letterlijk, maar geeft Vabi-compatible getallen.",
+          "enum": [
+            "vabi_compat"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Φ_T,iae WEL in Φ_basis_gebouw conform ISSO 51:2023 §3.5.1 letterlijk. Geeft ~17% hogere connection_capacity dan VabiCompat. Voor strikte audits.",
+          "enum": [
+            "norm_strict"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "BoundaryType": {
       "description": "Type of boundary for a construction element. Determines which heat loss formula is applied.",
       "oneOf": [
         {
           "description": "Direct to outside air (ISSO 51 §2.5.1)",
-          "type": "string",
           "enum": [
             "exterior"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "To an unheated space adjacent to the dwelling (ISSO 51 §2.5.2)",
-          "type": "string",
           "enum": [
             "unheated_space"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "To another heated room within the same dwelling (ISSO 51 §2.5.3)",
-          "type": "string",
           "enum": [
             "adjacent_room"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "To a neighboring dwelling/building (ISSO 51 §2.5.4)",
-          "type": "string",
           "enum": [
             "adjacent_building"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "To the ground (ISSO 51 §2.5.5)",
-          "type": "string",
           "enum": [
             "ground"
-          ]
+          ],
+          "type": "string"
+        },
+        {
+          "description": "To open water (canal/river/lake — woonboot use case).\n\nNot a norm category — this is an engineering choice for constructions that sit directly against open water. The design temperature comes from `DesignConditions.theta_water` (default 5 °C, override per project). Reports must include a footnote when this variant is used.",
+          "enum": [
+            "water"
+          ],
+          "type": "string"
         }
       ]
     },
     "Building": {
       "description": "Building characteristics that affect the calculation.",
-      "type": "object",
+      "properties": {
+        "aggregation_method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AggregationMethod"
+            }
+          ],
+          "default": "vabi_compat",
+          "description": "Aggregatiemethode voor `Φ_basis_gebouw` op gebouwniveau.\n\nDefault = `VabiCompat` (markt-conventie, sluit `Φ_T,iae` uit). Voor strikte ISSO 51:2023 §3.5.1 audits → `NormStrict`. Zie `AggregationMethod` doc voor verschillen (~17% op connection_capacity)."
+        },
+        "building_height": {
+          "description": "Building height in m (buitenafmetingen).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "building_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/BuildingType"
+            }
+          ],
+          "description": "Type of building."
+        },
+        "construction_variant": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConstructionVariant"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Uitvoeringsvariant volgens NTA 8800 Tabel 11.14 (tussen / kop / vrijstaand).\n\nOptioneel — alleen relevant bij `infiltration_method = Nta8800Strict`. `None` → val terug op `f_type = 1.0` (tussenwoning-equivalent)."
+        },
+        "construction_year": {
+          "description": "Bouwjaar van het gebouw — driver voor NTA 8800 Tabel 11.13 `f_y` bouwjaarcorrectie.\n\nOptioneel — `None` → `f_y = 1.0` (onbekend bouwjaar, neutrale factor).",
+          "format": "uint16",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "dwelling_class": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DwellingClass"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Woningclassificatie volgens ISSO 51:2023 Tabel 2.8 (qi,spec keying).\n\nOptioneel — alleen relevant bij `infiltration_method = VabiCompat`. `None` → bestaande legacy-rekenketen blijft van toepassing. Bestaande fixture-JSONs zonder dit veld blijven werken via `serde(default)`."
+        },
+        "has_night_setback": {
+          "default": false,
+          "description": "Whether night setback / operational reduction is used.",
+          "type": "boolean"
+        },
+        "infiltration_method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/InfiltrationMethod"
+            }
+          ],
+          "default": "per_exterior_area",
+          "description": "Infiltration calculation method. PerExteriorArea (default): q_i = qi_spec × ΣA_exterior (ISSO 51:2023) PerFloorArea: q_i = qi_spec × A_floor (ISSO 51:2024) VabiCompat / Nta8800Strict: zie `InfiltrationMethod` doc."
+        },
+        "num_floors": {
+          "default": 1,
+          "description": "Number of floors above ground.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "qv10": {
+          "description": "Air tightness: q_v,10 value in dm³/s. Measured air volume flow at 10 Pa pressure difference.",
+          "format": "double",
+          "type": "number"
+        },
+        "security_class": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityClass"
+            }
+          ],
+          "description": "Security class for heat loss to neighbors."
+        },
+        "total_floor_area": {
+          "description": "Total usable floor area (gebruiksoppervlak) A_g in m².",
+          "format": "double",
+          "type": "number"
+        },
+        "warmup_time": {
+          "default": 2.0,
+          "description": "Desired warm-up time in hours (typically 1 or 2).",
+          "format": "double",
+          "type": "number"
+        }
+      },
       "required": [
         "building_type",
         "qv10",
         "security_class",
         "total_floor_area"
       ],
-      "properties": {
-        "building_height": {
-          "description": "Building height in m (buitenafmetingen).",
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
-        },
-        "building_type": {
-          "description": "Type of building.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/BuildingType"
-            }
-          ]
-        },
-        "has_night_setback": {
-          "description": "Whether night setback / operational reduction is used.",
-          "default": false,
-          "type": "boolean"
-        },
-        "num_floors": {
-          "description": "Number of floors above ground.",
-          "default": 1,
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "qv10": {
-          "description": "Air tightness: q_v,10 value in dm³/s. Measured air volume flow at 10 Pa pressure difference.",
-          "type": "number",
-          "format": "double"
-        },
-        "security_class": {
-          "description": "Security class for heat loss to neighbors.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SecurityClass"
-            }
-          ]
-        },
-        "total_floor_area": {
-          "description": "Total usable floor area (gebruiksoppervlak) A_g in m².",
-          "type": "number",
-          "format": "double"
-        },
-        "warmup_time": {
-          "description": "Desired warm-up time in hours (typically 1 or 2).",
-          "default": 2.0,
-          "type": "number",
-          "format": "double"
-        }
-      }
+      "type": "object"
     },
     "BuildingType": {
       "description": "Building type classification.",
       "oneOf": [
         {
           "description": "Detached house",
-          "type": "string",
           "enum": [
             "detached"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Semi-detached house",
-          "type": "string",
           "enum": [
             "semi_detached"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Terraced/row house (tussenwoning)",
-          "type": "string",
           "enum": [
             "terraced"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "End-of-terrace (hoekwoning)",
-          "type": "string",
           "enum": [
             "end_of_terrace"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Apartment in a porch building (portiekwoning)",
-          "type": "string",
           "enum": [
             "porch"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Gallery apartment (galerijwoning)",
-          "type": "string",
           "enum": [
             "gallery"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Stacked housing (gestapeld)",
-          "type": "string",
           "enum": [
             "stacked"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
     "ConstructionElement": {
       "description": "A single construction element forming part of a room boundary. ISSO 51 §2.5 — each element contributes to the room's heat loss.",
-      "type": "object",
+      "properties": {
+        "adjacent_room_id": {
+          "description": "ID of the adjacent room (for `BoundaryType::AdjacentRoom`).\n\nThe transmission calculation resolves the adjacent room's design temperature at runtime by looking the room up in the `Project` room list. This is the canonical source — `adjacent_temperature` below is a legacy fallback only.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "adjacent_temperature": {
+          "description": "Legacy: hardcoded design temperature of the adjacent space in °C.\n\n**Deprecated** — the calculation now derives the adjacent-room temperature from `adjacent_room_id` via a live lookup in `Project.rooms`. This field is retained for backward compatibility with older saved projects and is only consulted as a fallback when `adjacent_room_id` cannot be resolved. New code should leave this field at `None` and rely on the live room lookup.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "area": {
+          "description": "Area of the element in m².",
+          "format": "double",
+          "type": "number"
+        },
+        "boundary_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/BoundaryType"
+            }
+          ],
+          "description": "Type of boundary this element faces."
+        },
+        "catalog_ref": {
+          "description": "Reference to a `CatalogEntry.id` produced by the thermal import. `None` for openings, manually-added elements and projects from before the catalog refactor (legacy projects keep working).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "custom_delta_u_tb": {
+          "description": "Custom ΔU_TB value in W/(m²·K) if not using the forfaitaire method. Overrides the default 0.1 W/(m²·K) correction.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "description": {
+          "description": "Human-readable description (e.g., \"buitenwand noord\", \"raam woonkamer\").",
+          "type": "string"
+        },
+        "ground_params": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GroundParameters"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Ground parameters, only for BoundaryType::Ground elements."
+        },
+        "has_embedded_heating": {
+          "default": false,
+          "description": "Whether this element has floor/wall/ceiling heating behind it. Relevant for system loss calculations (§2.9).",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Unique identifier for this element.",
+          "type": "string"
+        },
+        "material_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MaterialType"
+            }
+          ],
+          "description": "Material type: masonry or non-masonry. Affects thermal bridge correction in the forfaitaire method."
+        },
+        "temperature_factor": {
+          "description": "Temperature correction factor f_k (dimensionless). For exterior elements: typically 1.0. For unheated spaces: from ISSO 51 Table 4.1. For adjacent rooms: calculated from temperature difference. For neighboring dwellings: calculated with Δθ corrections. Set to `None` to have it auto-calculated.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "u_value": {
+          "description": "U-value (thermal transmittance) in W/(m²·K).",
+          "format": "double",
+          "type": "number"
+        },
+        "use_forfaitaire_thermal_bridge": {
+          "default": true,
+          "description": "Whether to use the forfaitaire thermal bridge correction (ΔU_TB = 0.1). Only applies to exterior boundary elements (BoundaryType::Exterior).",
+          "type": "boolean"
+        },
+        "vertical_position": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/VerticalPosition"
+            }
+          ],
+          "default": "wall",
+          "description": "Vertical position: floor, ceiling, or wall. Used for fb calculation to neighboring dwellings."
+        }
+      },
       "required": [
         "area",
         "boundary_type",
@@ -221,321 +349,329 @@
         "material_type",
         "u_value"
       ],
-      "properties": {
-        "adjacent_room_id": {
-          "description": "ID of the adjacent room (for BoundaryType::AdjacentRoom).",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "adjacent_temperature": {
-          "description": "Design temperature of the adjacent space in °C. Required for AdjacentRoom, AdjacentBuilding, UnheatedSpace.",
-          "type": [
-            "number",
-            "null"
+      "type": "object"
+    },
+    "ConstructionVariant": {
+      "description": "Uitvoeringsvariant volgens NTA 8800 Tabel 11.14 — bepaalt de correctie- factor `f_type` op de luchtdoorlatendheid op gebouwniveau.\n\nBron: NTA 8800:2024 p.487–488 Tabel 11.14.",
+      "oneOf": [
+        {
+          "description": "Tussenwoning / tussen-appartement → `f_type = 1.0`",
+          "enum": [
+            "tussen"
           ],
-          "format": "double"
-        },
-        "area": {
-          "description": "Area of the element in m².",
-          "type": "number",
-          "format": "double"
-        },
-        "boundary_type": {
-          "description": "Type of boundary this element faces.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/BoundaryType"
-            }
-          ]
-        },
-        "custom_delta_u_tb": {
-          "description": "Custom ΔU_TB value in W/(m²·K) if not using the forfaitaire method. Overrides the default 0.1 W/(m²·K) correction.",
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
-        },
-        "description": {
-          "description": "Human-readable description (e.g., \"buitenwand noord\", \"raam woonkamer\").",
           "type": "string"
         },
-        "ground_params": {
-          "description": "Ground parameters, only for BoundaryType::Ground elements.",
-          "anyOf": [
-            {
-              "$ref": "#/definitions/GroundParameters"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "has_embedded_heating": {
-          "description": "Whether this element has floor/wall/ceiling heating behind it. Relevant for system loss calculations (§2.9).",
-          "default": false,
-          "type": "boolean"
-        },
-        "id": {
-          "description": "Unique identifier for this element.",
+        {
+          "description": "Hoek-/kopwoning of kop-appartement → `f_type = 1.2`",
+          "enum": [
+            "kop"
+          ],
           "type": "string"
         },
-        "material_type": {
-          "description": "Material type: masonry or non-masonry. Affects thermal bridge correction in the forfaitaire method.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/MaterialType"
-            }
-          ]
-        },
-        "temperature_factor": {
-          "description": "Temperature correction factor f_k (dimensionless). For exterior elements: typically 1.0. For unheated spaces: from ISSO 51 Table 4.1. For adjacent rooms: calculated from temperature difference. For neighboring dwellings: calculated with Δθ corrections. Set to `None` to have it auto-calculated.",
-          "type": [
-            "number",
-            "null"
+        {
+          "description": "Vrijstaande woning → `f_type = 1.4`",
+          "enum": [
+            "vrijstaand"
           ],
-          "format": "double"
-        },
-        "u_value": {
-          "description": "U-value (thermal transmittance) in W/(m²·K).",
-          "type": "number",
-          "format": "double"
-        },
-        "use_forfaitaire_thermal_bridge": {
-          "description": "Whether to use the forfaitaire thermal bridge correction (ΔU_TB = 0.1). Only applies to exterior boundary elements (BoundaryType::Exterior).",
-          "default": true,
-          "type": "boolean"
-        },
-        "vertical_position": {
-          "description": "Vertical position: floor, ceiling, or wall. Used for fb calculation to neighboring dwellings.",
-          "default": "wall",
-          "allOf": [
-            {
-              "$ref": "#/definitions/VerticalPosition"
-            }
-          ]
+          "type": "string"
         }
-      }
+      ]
     },
     "DesignConditions": {
       "description": "Design conditions for the heat loss calculation. ISSO 51 §2.7.",
-      "type": "object",
       "properties": {
         "theta_b_non_residential": {
-          "description": "Temperature of adjacent buildings with non-residential function in °C.",
           "default": 14.0,
-          "type": "number",
-          "format": "double"
+          "description": "Temperature of adjacent buildings with non-residential function in °C.",
+          "format": "double",
+          "type": "number"
         },
         "theta_b_residential": {
-          "description": "Temperature of adjacent buildings with residential function θ_b in °C. Erratum 2023: 17°C for residential, 14°C for non-residential.",
           "default": 17.0,
-          "type": "number",
-          "format": "double"
+          "description": "Temperature of adjacent buildings with residential function θ_b in °C. Erratum 2023: 17°C for residential, 14°C for non-residential.",
+          "format": "double",
+          "type": "number"
         },
         "theta_e": {
-          "description": "Design outdoor temperature θ_e in °C. Standard for the Netherlands: -10°C.",
           "default": -10.0,
-          "type": "number",
-          "format": "double"
+          "description": "Design outdoor temperature θ_e in °C. Standard for the Netherlands: -10°C.",
+          "format": "double",
+          "type": "number"
+        },
+        "theta_ground": {
+          "default": 10.0,
+          "description": "Design temperature of the ground θ_ground in °C.\n\nUsed as a fallback reference for ground-contact constructions when no explicit ground parameters (`ground_params`) are available. Ground heat loss is normally computed via ISSO 51 §2.5.5 (`u_equivalent`, `f_g2`, `G_w`); this field only drives the simplified ΔT display in the frontend and reports. Default 10 °C.",
+          "format": "double",
+          "type": "number"
+        },
+        "theta_water": {
+          "default": 5.0,
+          "description": "Design temperature of open water θ_water in °C.\n\nUsed for `BoundaryType::Water` (woonboot use case). Default 5 °C. This is an engineering choice, not a norm value — overridable per project. Reports must include a footnote when any construction uses the Water boundary type.",
+          "format": "double",
+          "type": "number"
         },
         "wind_factor": {
-          "description": "Wind exposure factor (for infiltration correction). Typically 1.0 for normal exposure.",
           "default": 1.0,
-          "type": "number",
-          "format": "double"
+          "description": "Wind exposure factor (for infiltration correction). Typically 1.0 for normal exposure.",
+          "format": "double",
+          "type": "number"
         }
-      }
+      },
+      "type": "object"
+    },
+    "DwellingClass": {
+      "description": "Woningtype-classificatie volgens ISSO 51:2023 Tabel 2.8 — bepaalt de `q_i,spec` (specifieke infiltratie per m² gebruiksoppervlak) op basis van woningvorm + dakvorm.\n\n**Onderscheiden van** de bestaande [`BuildingType`]: `BuildingType` is een fijnmaziger gebouwclassificatie (Detached / SemiDetached / Terraced / etc.) die elders in de code gebruikt wordt voor warmwordingsfactoren (Tabel 2.13) en winddruk. `DwellingClass` is uitsluitend de drie-rijen-keying van Tabel 2.8 (en optioneel als input voor mapping naar `ConstructionVariant` in NTA 8800 Tabel 11.14).\n\nBron: ISSO 51:2023 p.41 Tabel 2.8 (waardes via NEN 8088-1).",
+      "oneOf": [
+        {
+          "description": "Eengezinswoning met kap (hellend dak) → `q_i,spec = 1.0 dm³/(s·m² Ag)`",
+          "enum": [
+            "eengezinswoning_met_kap"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Eengezinswoning met plat dak → `q_i,spec = 0.7 dm³/(s·m² Ag)`",
+          "enum": [
+            "eengezinswoning_platdak"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Etage / flat / portiekwoning → `q_i,spec = 0.5 dm³/(s·m² Ag)`",
+          "enum": [
+            "etage_flat_of_portiek"
+          ],
+          "type": "string"
+        }
+      ]
     },
     "FrostProtectionType": {
       "description": "Frost protection method for heat recovery units. Determines the supply temperature θ_t (ISSO 51 Table 2.14, erratum).",
       "oneOf": [
         {
           "description": "Unknown type of frost protection",
-          "type": "string",
           "enum": [
             "unknown"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Reduced fan speed and/or temporary imbalance (central)",
-          "type": "string",
           "enum": [
             "central_reduced_speed"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Enthalpy exchanger (central, min 70% thermal efficiency)",
-          "type": "string",
           "enum": [
             "central_enthalpy"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Pre-heating (central)",
-          "type": "string",
           "enum": [
             "central_preheating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Reduced fan speed and/or temporary imbalance (decentral)",
-          "type": "string",
           "enum": [
             "decentral_reduced_speed"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Enthalpy exchanger (decentral, min 70% thermal efficiency)",
-          "type": "string",
           "enum": [
             "decentral_enthalpy"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Pre-heating (decentral)",
-          "type": "string",
           "enum": [
             "decentral_preheating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Electric pre-heating without heat recovery",
-          "type": "string",
           "enum": [
             "electric_preheating"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
     "GroundParameters": {
       "description": "Parameters for ground heat loss calculation. ISSO 51 §2.5.5, formule (4.18): H_T,ig = 1.45 × G_w × Σ(A_k × f_g2 × U_e,k)",
-      "type": "object",
-      "required": [
-        "u_equivalent"
-      ],
       "properties": {
         "fg2": {
-          "description": "Temperature correction factor f_g2 (dimensionless). Accounts for seasonal ground temperature variation.",
           "default": 1.0,
-          "type": "number",
-          "format": "double"
+          "description": "Temperature correction factor f_g2 (dimensionless). Accounts for seasonal ground temperature variation.",
+          "format": "double",
+          "type": "number"
         },
         "ground_water_factor": {
-          "description": "Ground water correction factor G_w (dimensionless). Typically 1.0 for normal conditions, higher for high water table.",
           "default": 1.0,
-          "type": "number",
-          "format": "double"
+          "description": "Ground water correction factor G_w (dimensionless). Typically 1.0 for normal conditions, higher for high water table.",
+          "format": "double",
+          "type": "number"
         },
         "u_equivalent": {
           "description": "Equivalent U-value for the ground element U_e,k in W/(m²·K).",
-          "type": "number",
-          "format": "double"
+          "format": "double",
+          "type": "number"
         }
-      }
+      },
+      "required": [
+        "u_equivalent"
+      ],
+      "type": "object"
     },
     "HeatingSystem": {
       "description": "Type of heating system installed. Affects Δθ values (Table 2.12) and system losses (§2.9).",
       "oneOf": [
         {
           "description": "Gas heater, wall-mounted heater",
-          "type": "string",
           "enum": [
             "local_gas_heater"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "IR panels wall-mounted",
-          "type": "string",
           "enum": [
             "ir_panel_wall"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "IR panels ceiling-mounted",
-          "type": "string",
           "enum": [
             "ir_panel_ceiling"
-          ]
+          ],
+          "type": "string"
         },
         {
-          "description": "High-temperature radiators/convectors (medium temp > 50°C)",
-          "type": "string",
+          "description": "High-temperature radiators/convectors (medium temp > 50°C).\n\nDefault variant — statistisch meest voorkomende installatie in Nederlandse woningen. Gebruikt wanneer een Room-JSON zonder `heating_system` veld wordt gedeserialiseerd (third-party clients).",
           "enum": [
             "radiator_ht"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Low-temperature radiators/convectors (medium temp ≤ 50°C)",
-          "type": "string",
           "enum": [
             "radiator_lt"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Ceiling heating",
-          "type": "string",
           "enum": [
             "ceiling_heating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Wall heating",
-          "type": "string",
           "enum": [
             "wall_heating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Baseboard/plinth heating",
-          "type": "string",
           "enum": [
             "plinth_heating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Floor heating + HT radiators",
-          "type": "string",
           "enum": [
             "floor_heating_with_radiator_ht"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Floor heating + LT radiators",
-          "type": "string",
           "enum": [
             "floor_heating_with_radiator_lt"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Floor heating as main system (floor temp ≥ 27°C)",
-          "type": "string",
           "enum": [
             "floor_heating_main_high"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Floor heating as main system (floor temp < 27°C)",
-          "type": "string",
           "enum": [
             "floor_heating_main_low"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Floor + wall heating combined",
-          "type": "string",
           "enum": [
             "floor_and_wall_heating"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Fan-driven convectors/radiators (NEN-EN 16430)",
-          "type": "string",
           "enum": [
             "fan_convector"
-          ]
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "InfiltrationMethod": {
+      "description": "Infiltration calculation method. Determines how the specific infiltration rate is applied.\n\n**Legacy varianten** (`PerExteriorArea`, `PerFloorArea`) blijven beschikbaar voor backward-compatibiliteit met bestaande project-JSONs, maar zijn niet (meer) norm-conform met ISSO 51:2023 / NTA 8800 (Tabel 4.3 is geschrapt in de 2023-publicatie). Voor nieuwe projecten: gebruik `VabiCompat` of `Nta8800Strict`.\n\nZie ook `crates/isso51-core/src/tables/infiltration.rs` voor de onderliggende tabel-functies.",
+      "oneOf": [
+        {
+          "description": "**Legacy** — per m² exterior construction area (ISSO 51:2017 Tabel 4.3). `q_i = qi_spec_ext × ΣA_exterior`. Default blijft deze variant ivm backward-compat met bestaande fixtures; nieuwe rekenketen gaat via `VabiCompat` / `Nta8800Strict`.",
+          "enum": [
+            "per_exterior_area"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "**Legacy** — per m² floor area (eigen tabel, niet norm-conform). `q_i = qi_spec × A_floor`",
+          "enum": [
+            "per_floor_area"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "**Nieuw** — Vabi-compatibele hybride methode: ISSO 51:2023 Tabel 2.8 (`qi_spec` per gebouwtype) gecombineerd met NTA 8800 power-law (`n_lea = 0.67`) en design-Δp = 3.14 Pa (Vabi-fit). Aanbevolen voor projecten die met Vabi-DR resultaten moeten matchen.",
+          "enum": [
+            "vabi_compat"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "**Nieuw** — strikt NTA 8800 Tabel 11.14 + 11.13 keten: `q_v10;lea;ref = f_type × f_y × q_v10;spec;reken`, gevolgd door power-law (`n_lea = 0.67`). Geen Vabi-fit; design-Δp volgens NTA 8800 (4 Pa-domein).",
+          "enum": [
+            "nta8800_strict"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "**Nieuw** — formule (11.85) met `building.qv10` als directe input.\n\nVoor projecten waar de luchtdoorlatendheid daadwerkelijk gemeten is (blower-door test). Slaat Tabel 2.8 / `f_type` / `f_y` over — de gemeten waarde verdisconteert deze al. Keten reduceert tot: `qi = qv10 × (Δp_design / 10)^n_lea × f_inf`. Replicateert Vabi-DR-keten exact (Δp = 3.14 Pa) op fixtures waar `qv10` gemeten is.",
+          "enum": [
+            "measured_qv10"
+          ],
+          "type": "string"
         }
       ]
     },
@@ -544,26 +680,22 @@
       "oneOf": [
         {
           "description": "Masonry/stone-like materials (steenachtig)",
-          "type": "string",
           "enum": [
             "masonry"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Non-masonry materials like glass, doors (niet-steenachtig)",
-          "type": "string",
           "enum": [
             "non_masonry"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
     "ProjectInfo": {
       "description": "Project metadata.",
-      "type": "object",
-      "required": [
-        "name"
-      ],
       "properties": {
         "address": {
           "description": "Address of the building.",
@@ -611,83 +743,78 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
     },
     "Room": {
       "description": "A single room (vertrek) in the dwelling. ISSO 51 Chapter 4 — per-room heat loss calculation.",
-      "type": "object",
-      "required": [
-        "constructions",
-        "floor_area",
-        "function",
-        "heating_system",
-        "id",
-        "name",
-        "ventilation_rate"
-      ],
       "properties": {
         "clamp_positive": {
-          "description": "Whether this room is part of a heated zone that should not have negative heat loss (i.e., minimum Φ = 0).",
           "default": true,
+          "description": "Whether this room is part of a heated zone that should not have negative heat loss (i.e., minimum Φ = 0).",
           "type": "boolean"
         },
         "constructions": {
           "description": "Construction elements forming the room boundaries.",
-          "type": "array",
           "items": {
             "$ref": "#/definitions/ConstructionElement"
-          }
+          },
+          "type": "array"
         },
         "custom_temperature": {
           "description": "Custom design indoor temperature θ_i in °C. If set, overrides the temperature from RoomFunction.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "floor_area": {
           "description": "Floor area (gebruiksoppervlak) in m². Used for ventilation rate calculations.",
-          "type": "number",
-          "format": "double"
+          "format": "double",
+          "type": "number"
         },
         "fraction_outside_air": {
-          "description": "Fraction of ventilation air coming directly from outside (factor a). For rooms with both outside and internal air supply. ISSO 51 formule 4.7: H_v = 1.2 × ((a × q_v × f_v1) + (1-a) × q_v × f_v2)",
           "default": 1.0,
-          "type": "number",
-          "format": "double"
+          "description": "Fraction of ventilation air coming directly from outside (factor a). For rooms with both outside and internal air supply. ISSO 51 formule 4.7: H_v = 1.2 × ((a × q_v × f_v1) + (1-a) × q_v × f_v2)",
+          "format": "double",
+          "type": "number"
         },
         "function": {
-          "description": "Room function determines the design indoor temperature.",
           "allOf": [
             {
               "$ref": "#/definitions/RoomFunction"
             }
-          ]
+          ],
+          "description": "Room function determines the design indoor temperature."
         },
         "has_mechanical_exhaust": {
-          "description": "Whether this room has mechanical exhaust. Affects ventilation loss calculation (formule 4.7).",
           "default": false,
+          "description": "Whether this room has mechanical exhaust. Affects ventilation loss calculation (formule 4.7).",
           "type": "boolean"
         },
         "has_mechanical_supply": {
-          "description": "Whether this room has mechanical supply.",
           "default": false,
+          "description": "Whether this room has mechanical supply.",
           "type": "boolean"
         },
         "heating_system": {
-          "description": "Heating system installed in this room.",
           "allOf": [
             {
               "$ref": "#/definitions/HeatingSystem"
             }
-          ]
+          ],
+          "default": "radiator_ht",
+          "description": "Heating system installed in this room. Defaults to `HeatingSystem::default()` (`RadiatorHt`) when missing from input JSON — protects third-party clients from missing-field errors."
         },
         "height": {
-          "description": "Room height in m.",
           "default": 2.6,
-          "type": "number",
-          "format": "double"
+          "description": "Room height in m.",
+          "format": "double",
+          "type": "number"
         },
         "id": {
           "description": "Unique identifier for this room.",
@@ -695,11 +822,11 @@
         },
         "internal_air_temperature": {
           "description": "Temperature of the internal air source θ_a in °C. For rooms receiving air from a hallway or other internal space.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "name": {
           "description": "Human-readable name (e.g., \"Woonkamer\", \"Slaapkamer 1\").",
@@ -707,91 +834,102 @@
         },
         "supply_air_temperature": {
           "description": "Temperature of the supply air θ_t in °C. For natural supply: θ_t = θ_e (design outdoor temperature). For mechanical supply with heat recovery: depends on system.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "ventilation_rate": {
-          "description": "Ventilation volume flow rate q_v in dm³/s. From ventilation requirements (ISSO 51 Table 2.9/2.10).",
-          "type": "number",
-          "format": "double"
+          "description": "Ventilation volume flow rate q_v in dm³/s. If None, automatically calculated from BBL minimum requirements based on room function and floor area.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         }
-      }
+      },
+      "required": [
+        "constructions",
+        "floor_area",
+        "function",
+        "id",
+        "name"
+      ],
+      "type": "object"
     },
     "RoomFunction": {
       "description": "Room function determines the design indoor temperature (θ_i). Values from ISSO 51 Table 2.11.",
       "oneOf": [
         {
           "description": "Living room / verblijfsruimte (20°C)",
-          "type": "string",
           "enum": [
             "living_room"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Kitchen / keuken (20°C)",
-          "type": "string",
           "enum": [
             "kitchen"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Bedroom / slaapkamer (20°C)",
-          "type": "string",
           "enum": [
             "bedroom"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Bathroom / badkamer (22°C)",
-          "type": "string",
           "enum": [
             "bathroom"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Toilet / toiletruimte (15°C)",
-          "type": "string",
           "enum": [
             "toilet"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Hallway / entree/gang (15°C)",
-          "type": "string",
           "enum": [
             "hallway"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Landing / overloop (15°C)",
-          "type": "string",
           "enum": [
             "landing"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Storage room / bergruimte (5°C if frost protection needed)",
-          "type": "string",
           "enum": [
             "storage"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Attic / zolder used as living space (20°C)",
-          "type": "string",
           "enum": [
             "attic"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Custom temperature",
-          "type": "string",
           "enum": [
             "custom"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
@@ -800,36 +938,31 @@
       "oneOf": [
         {
           "description": "Class A: no heat loss to neighbors assumed (c_z = 0)",
-          "type": "string",
           "enum": [
             "a"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Class B: moderate risk (c_z = 0.5)",
-          "type": "string",
           "enum": [
             "b"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Class C: high risk, neighbors may not heat (c_z = 1.0)",
-          "type": "string",
           "enum": [
             "c"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
     "VentilationConfig": {
       "description": "Building-level ventilation system configuration. ISSO 51 §2.5.7.",
-      "type": "object",
-      "required": [
-        "system_type"
-      ],
       "properties": {
         "frost_protection": {
-          "description": "Frost protection type for the heat recovery unit.",
           "anyOf": [
             {
               "$ref": "#/definitions/FrostProtectionType"
@@ -837,89 +970,94 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Frost protection type for the heat recovery unit."
         },
         "has_heat_recovery": {
-          "description": "Whether heat recovery (WTW) is installed.",
           "default": false,
+          "description": "Whether heat recovery (WTW) is installed.",
           "type": "boolean"
         },
         "has_preheating": {
-          "description": "Whether there is pre-heating of supply air (without WTW).",
           "default": false,
+          "description": "Whether there is pre-heating of supply air (without WTW).",
           "type": "boolean"
         },
         "heat_recovery_efficiency": {
           "description": "Heat recovery efficiency (0.0 to 1.0). E.g., 0.85 for 85% efficiency.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "preheating_temperature": {
           "description": "Pre-heating supply temperature in °C.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "supply_temperature": {
           "description": "Supply air temperature θ_t in °C after heat recovery. If not set, will be calculated from efficiency and frost protection.",
+          "format": "double",
           "type": [
             "number",
             "null"
-          ],
-          "format": "double"
+          ]
         },
         "system_type": {
-          "description": "Type of ventilation system (A through E).",
           "allOf": [
             {
               "$ref": "#/definitions/VentilationSystemType"
             }
-          ]
+          ],
+          "description": "Type of ventilation system (A through E)."
         }
-      }
+      },
+      "required": [
+        "system_type"
+      ],
+      "type": "object"
     },
     "VentilationSystemType": {
       "description": "Ventilation system type (A through E). ISSO 51 §2.5.7.",
       "oneOf": [
         {
           "description": "System A: Natural supply and natural exhaust",
-          "type": "string",
           "enum": [
             "system_a"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "System B: Mechanical supply and natural exhaust",
-          "type": "string",
           "enum": [
             "system_b"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "System C: Natural supply and mechanical exhaust",
-          "type": "string",
           "enum": [
             "system_c"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "System D: Mechanical supply and mechanical exhaust (balanced)",
-          "type": "string",
           "enum": [
             "system_d"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "System E: Combination of systems within one dwelling",
-          "type": "string",
           "enum": [
             "system_e"
-          ]
+          ],
+          "type": "string"
         }
       ]
     },
@@ -928,26 +1066,78 @@
       "oneOf": [
         {
           "description": "Floor (below the room)",
-          "type": "string",
           "enum": [
             "floor"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Ceiling (above the room)",
-          "type": "string",
           "enum": [
             "ceiling"
-          ]
+          ],
+          "type": "string"
         },
         {
           "description": "Vertical wall",
-          "type": "string",
           "enum": [
             "wall"
-          ]
+          ],
+          "type": "string"
         }
       ]
     }
-  }
+  },
+  "description": "Top-level project containing all input data for the calculation.",
+  "properties": {
+    "building": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Building"
+        }
+      ],
+      "description": "Building characteristics."
+    },
+    "climate": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/DesignConditions"
+        }
+      ],
+      "description": "Climate/design conditions."
+    },
+    "info": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProjectInfo"
+        }
+      ],
+      "description": "Project metadata."
+    },
+    "rooms": {
+      "description": "All rooms in the dwelling.",
+      "items": {
+        "$ref": "#/definitions/Room"
+      },
+      "type": "array"
+    },
+    "ventilation": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/VentilationConfig"
+        }
+      ],
+      "description": "Ventilation system configuration."
+    }
+  },
+  "required": [
+    "building",
+    "climate",
+    "info",
+    "rooms",
+    "ventilation"
+  ],
+  "title": "Project",
+  "type": "object",
+  "version": "1.0.0"
 }

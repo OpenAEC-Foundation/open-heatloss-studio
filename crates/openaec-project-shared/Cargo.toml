@@ -1,0 +1,22 @@
+[package]
+name = "openaec-project-shared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "ProjectV2 multi-calc shared schema (shared + geometry + calcs[]). Zie ADR-002."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+thiserror = "2"
+isso51-core = { path = "../isso51-core" }
+nta8800-model = { path = "../nta8800-model" }
+nta8800-cooling = { path = "../nta8800-cooling" }
+nta8800-demand = { path = "../nta8800-demand" }
+nta8800-tables = { path = "../nta8800-tables" }
+nta8800-transmission = { path = "../nta8800-transmission" }
+nta8800-ventilation = { path = "../nta8800-ventilation" }
+
+[dev-dependencies]
+approx = "0.5"

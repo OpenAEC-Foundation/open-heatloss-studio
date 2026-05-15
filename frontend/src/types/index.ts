@@ -1,4 +1,5 @@
 export type {
+  AggregationMethod,
   BoundaryType,
   Building,
   BuildingType,

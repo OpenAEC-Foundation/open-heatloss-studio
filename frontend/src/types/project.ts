@@ -18,6 +18,19 @@ export type BuildingType =
   | "gallery"
   | "stacked";
 
+/**
+ * Aggregatiemethode voor `Φ_basis_gebouw` op gebouwniveau.
+ *
+ * - `vabi_compat` (default): Φ_T,iae NIET opgenomen in Φ_basis_gebouw
+ *   (Vabi-conventie, markt-compatible).
+ * - `norm_strict`: Φ_T,iae WEL in Φ_basis_gebouw conform ISSO 51:2023 §3.5.1
+ *   letterlijk. Geeft ~17% hogere connection_capacity.
+ *
+ * Default in Rust core = `vabi_compat`. Veld in `Building` is optioneel
+ * (serde default in Rust).
+ */
+export type AggregationMethod = "vabi_compat" | "norm_strict";
+
 export type SecurityClass = "a" | "b" | "c";
 
 export type RoomFunction =
@@ -157,6 +170,12 @@ export interface Building {
    * TODO: propagate default_heating_system naar Rust crates/isso51-core/src/model.
    */
   default_heating_system?: HeatingSystem;
+  /**
+   * Aggregatiemethode voor Φ_basis_gebouw op gebouwniveau. Zie
+   * `AggregationMethod`. Optioneel — Rust core gebruikt `serde(default)` =
+   * `vabi_compat` wanneer afwezig. UI volgt later (apart spoor).
+   */
+  aggregation_method?: AggregationMethod;
 }
 
 export interface DesignConditions {
