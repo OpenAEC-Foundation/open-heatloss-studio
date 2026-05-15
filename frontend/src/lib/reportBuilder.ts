@@ -135,6 +135,20 @@ export async function buildReportData(
         : {}),
     },
 
+    ...(project.info.footer_image
+      ? {
+          footer: {
+            image: {
+              data: project.info.footer_image.data,
+              media_type: project.info.footer_image.media_type,
+              ...(project.info.footer_image.filename
+                ? { filename: project.info.footer_image.filename }
+                : {}),
+            },
+          },
+        }
+      : {}),
+
     colofon: {
       enabled: toggles.colofon,
       opdrachtgever_naam: project.info.client ?? "",

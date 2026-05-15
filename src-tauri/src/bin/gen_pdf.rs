@@ -364,6 +364,7 @@ fn build_report_data(project: &Project, result: &ProjectResult) -> schema::Repor
         toc: None,
         sections,
         backcover: Some(BackcoverConfig { enabled: true }),
+        footer: None,
     }
 }
 

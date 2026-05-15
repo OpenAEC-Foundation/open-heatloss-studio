@@ -7,6 +7,15 @@
 
 use openaec_layout::{Color, DrawList, Mm, PageCallback, Pt, Size};
 
+/// Pre-decoded footer image data: raw bytes (PNG/JPEG) + intrinsic pixel
+/// dimensions for aspect-correct scaling on each page.
+#[derive(Debug, Clone)]
+pub struct FooterImageData {
+    pub bytes: Vec<u8>,
+    pub width_px: u32,
+    pub height_px: u32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct OhsBrand {
     pub primary: Color,
@@ -42,12 +51,14 @@ impl OhsBrand {
         project_name: &str,
         report_title: &str,
         suppress_chrome_on_last: bool,
+        footer_image: Option<FooterImageData>,
     ) -> OhsPageCallback {
         OhsPageCallback {
             brand: *self,
             project_name: project_name.to_string(),
             report_title: report_title.to_string(),
             suppress_chrome_on_last,
+            footer_image,
         }
     }
 }
@@ -58,6 +69,7 @@ pub struct OhsPageCallback {
     pub project_name: String,
     pub report_title: String,
     pub suppress_chrome_on_last: bool,
+    pub footer_image: Option<FooterImageData>,
 }
 
 impl PageCallback for OhsPageCallback {
@@ -97,6 +109,27 @@ impl PageCallback for OhsPageCallback {
         draw.set_line_width(Pt(0.5));
         draw.draw_line(margin, footer_y, right_edge, footer_y);
 
+        // Optional: footer image — rendered just above the border line,
+        // centered, aspect-ratio preserved. Max width = page width minus
+        // 2x margin; max height = 18mm so it never overlaps content.
+        if let Some(img) = &self.footer_image {
+            let max_w_pt: Pt = Pt(size.width.0 - margin.0 * 2.0);
+            let max_h_pt: Pt = Mm(18.0).into();
+            let aspect = img.width_px as f32 / img.height_px.max(1) as f32;
+            let max_aspect = max_w_pt.0 / max_h_pt.0;
+            let (w_pt, h_pt) = if aspect > max_aspect {
+                (max_w_pt, Pt(max_w_pt.0 / aspect))
+            } else {
+                (Pt(max_h_pt.0 * aspect), max_h_pt)
+            };
+            // y = bottom-anchored just above the footer-border line, with a
+            // 2mm gap so the image doesn't touch the line.
+            let gap: Pt = Mm(2.0).into();
+            let img_y = Pt(footer_y.0 - gap.0 - h_pt.0);
+            let img_x = Pt((size.width.0 - w_pt.0) / 2.0);
+            draw.draw_image(img.bytes.clone(), img_x, img_y, w_pt, h_pt);
+        }
+
         // Bottom-left: branding
         let txt_y = Pt(size.height.0 - Mm(10.0).0);
         draw.set_font("LiberationSans", Pt(7.0));
@@ -124,7 +157,7 @@ mod tests {
     #[test]
     fn callback_does_not_panic_on_first_page() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", false);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", false, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
@@ -139,7 +172,7 @@ mod tests {
     #[test]
     fn callback_suppresses_chrome_on_last_page_when_flag_set() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),
@@ -155,7 +188,7 @@ mod tests {
     #[test]
     fn callback_draws_chrome_on_non_last_page_when_flag_set() {
         let brand = OhsBrand::default();
-        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true);
+        let cb = brand.page_callback("Project X", "Warmteverliesberekening", true, None);
         let mut dl = openaec_layout::DrawList::new();
         let size = openaec_layout::Size {
             width: openaec_layout::Mm(210.0).into(),

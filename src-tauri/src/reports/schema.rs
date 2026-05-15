@@ -35,6 +35,18 @@ pub struct ReportData {
     pub sections: Vec<Section>,
     #[serde(default)]
     pub backcover: Option<BackcoverConfig>,
+    /// Optional per-page footer image rendered on every content page in the
+    /// bottom margin (above the page-number text-footer). Aspect ratio is
+    /// preserved; image is scaled to fit the printable width and a fixed
+    /// max-height in the bottom margin.
+    #[serde(default)]
+    pub footer: Option<Footer>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Footer {
+    #[serde(default)]
+    pub image: Option<ImageRef>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]

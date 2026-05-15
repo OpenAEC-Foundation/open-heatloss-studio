@@ -1,0 +1,149 @@
+/* Rapport opmaak dialog — OpenAEC huisstijl, hergebruikt de Modal.css basis. */
+
+.rapport-opmaak-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rapport-opmaak-intro {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--oaec-surface-2, rgba(127, 127, 127, 0.08));
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--oaec-on-surface-secondary, inherit);
+}
+
+.rapport-opmaak-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.2));
+  border-radius: 6px;
+  background: var(--theme-bg-lighter, var(--oaec-surface, transparent));
+}
+
+.rapport-opmaak-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text, inherit);
+}
+
+.rapport-opmaak-section-desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--theme-text-secondary, var(--oaec-on-surface-muted, inherit));
+}
+
+.rapport-opmaak-drop {
+  width: 100%;
+  padding: 28px 12px;
+  border: 1.5px dashed var(--theme-border, rgba(127, 127, 127, 0.4));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theme-text-secondary, inherit);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.rapport-opmaak-drop:hover {
+  background: var(--theme-hover, rgba(127, 127, 127, 0.06));
+  border-color: var(--theme-accent, currentColor);
+  color: var(--theme-accent, inherit);
+}
+
+.rapport-opmaak-image-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rapport-opmaak-preview {
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  background: var(--theme-bg, transparent);
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.2));
+  border-radius: 4px;
+}
+
+.rapport-opmaak-image-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rapport-opmaak-filename {
+  font-size: 11px;
+  color: var(--theme-text-secondary, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 80px;
+}
+
+.rapport-opmaak-image-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.rapport-opmaak-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--theme-border, transparent);
+  background: var(--theme-bg, transparent);
+  color: var(--theme-text, inherit);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.rapport-opmaak-btn:hover {
+  background: var(--theme-hover, rgba(127, 127, 127, 0.08));
+}
+
+.rapport-opmaak-btn-primary {
+  background: var(--theme-accent, #0f766e);
+  border-color: var(--theme-accent, #0f766e);
+  color: var(--theme-accent-text, white);
+}
+
+.rapport-opmaak-btn-primary:hover {
+  background: var(--theme-accent-hover, #0e6e66);
+  color: var(--theme-accent-text, white);
+}
+
+.rapport-opmaak-btn-secondary {
+  /* default styling */
+}
+
+.rapport-opmaak-btn-danger {
+  color: var(--theme-danger, #b91c1c);
+  border-color: var(--theme-border, rgba(127, 127, 127, 0.2));
+}
+
+.rapport-opmaak-btn-danger:hover {
+  background: var(--theme-danger-soft, rgba(185, 28, 28, 0.08));
+  border-color: var(--theme-danger, #b91c1c);
+}
+
+.rapport-opmaak-roadmap {
+  margin: 0;
+  font-size: 10px;
+  color: var(--theme-text-muted, var(--oaec-on-surface-muted, inherit));
+  font-style: italic;
+}
+
+.rapport-opmaak-hidden {
+  display: none;
+}

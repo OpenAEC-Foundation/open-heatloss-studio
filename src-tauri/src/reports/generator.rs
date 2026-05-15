@@ -8,8 +8,12 @@ use openaec_layout::{
     Pt, Rect, Spacer, shared_font_registry,
 };
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use image::GenericImageView;
+
 use super::blocks::render_block;
-use super::brand::OhsBrand;
+use super::brand::{FooterImageData, OhsBrand};
 use super::fonts;
 use super::schema::{Orientation, PaperFormat, ReportData};
 use super::special_pages::{
@@ -59,8 +63,28 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
     let frame = Frame::new(Rect::new(frame_x, frame_y, frame_w, frame_h));
 
     let backcover_present = data.backcover.as_ref().map(|b| b.enabled).unwrap_or(false);
+
+    // Decode optional footer image once so each page-callback invocation can
+    // re-use the same bytes + intrinsic pixel dimensions for aspect-correct
+    // scaling. Failure (invalid base64 or unsupported format) is logged as
+    // a warning and the report is still generated without the footer image.
+    let footer_image = data.footer.as_ref().and_then(|f| f.image.as_ref()).and_then(
+        |img| match decode_footer_image(&img.data) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                eprintln!("[reports] footer image decode failed: {e} — rendering without footer image");
+                None
+            }
+        },
+    );
+
     let tmpl = PageTemplate::new("content", page_size, frame).with_callback(Box::new(
-        brand.page_callback(&data.project, &report_title, backcover_present),
+        brand.page_callback(
+            &data.project,
+            &report_title,
+            backcover_present,
+            footer_image,
+        ),
     ));
     doc.add_page_template(tmpl);
 
@@ -128,6 +152,22 @@ pub fn generate_pdf(data: &ReportData) -> Result<Vec<u8>, String> {
 
     doc.build_to_bytes(flowables)
         .map_err(|e| format!("PDF build failed: {e}"))
+}
+
+/// Decode a base64-encoded PNG/JPEG into raw bytes + intrinsic pixel
+/// dimensions, ready for per-page rendering by the brand callback.
+fn decode_footer_image(b64: &str) -> Result<FooterImageData, String> {
+    let bytes = BASE64_STANDARD
+        .decode(b64)
+        .map_err(|e| format!("base64 decode: {e}"))?;
+    let img =
+        image::load_from_memory(&bytes).map_err(|e| format!("image decode: {e}"))?;
+    let (w, h) = img.dimensions();
+    Ok(FooterImageData {
+        bytes,
+        width_px: w,
+        height_px: h,
+    })
 }
 
 fn make_section_heading(title: &str, level: u32) -> Paragraph {

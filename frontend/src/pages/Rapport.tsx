@@ -12,6 +12,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 
+import RapportOpmaakDialog from "../components/rapport/RapportOpmaakDialog";
 import { useReportStore, type ReportSections } from "../store/reportStore";
 import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
@@ -38,6 +39,7 @@ export function Rapport() {
   const result = useProjectStore((s) => s.result);
   const project = useProjectStore((s) => s.project);
   const [optionsOpen, setOptionsOpen] = useState(true);
+  const [opmaakOpen, setOpmaakOpen] = useState(false);
   const updateProject = useProjectStore((s) => s.updateProject);
   const sections = useReportStore((s) => s.sections);
   const setSection = useReportStore((s) => s.setSection);
@@ -166,7 +168,17 @@ export function Rapport() {
           )}
         {optionsOpen && (
         <div className="h-full overflow-y-auto p-4 pt-10">
-          <h2 className="mb-3 text-sm font-semibold text-on-surface">Opties</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-on-surface">Opties</h2>
+            <button
+              type="button"
+              onClick={() => setOpmaakOpen(true)}
+              className="rounded border border-border bg-surface px-2 py-1 text-[11px] text-on-surface-secondary hover:bg-surface-alt"
+              title="Rapport opmaak instellingen openen"
+            >
+              Opmaak…
+            </button>
+          </div>
 
           {/* Pagina-instellingen — bovenaan zodat formaat + oriëntatie
               direct zichtbaar zijn vóór de inhoud-toggles. */}
@@ -321,6 +333,11 @@ export function Rapport() {
         </div>
         )}
         </aside>
+
+        <RapportOpmaakDialog
+          open={opmaakOpen}
+          onClose={() => setOpmaakOpen(false)}
+        />
 
         {/* Right: PDF preview */}
         <div className="flex-1 bg-surface-2">

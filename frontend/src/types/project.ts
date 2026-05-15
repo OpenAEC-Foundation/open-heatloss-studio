@@ -219,6 +219,10 @@ export interface ProjectInfo {
   engineer?: string | null;
   notes?: string | null;
   cover_image?: CoverImage | null;
+  /** Optionele footer-afbeelding die op elke content-pagina onderaan
+   * wordt gerenderd (boven het paginanummer-text-footer). Hergebruikt
+   * het CoverImage-shape (base64 + media_type). */
+  footer_image?: CoverImage | null;
 }
 
 export interface Project {
