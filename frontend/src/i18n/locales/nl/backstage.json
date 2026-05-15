@@ -27,6 +27,8 @@
   "localFile": "Lokaal bestand (.ifcenergy)",
   "toServer": "Op server",
   "localExport": "Lokaal bestand (.ifcenergy)",
+  "vabiElements": "Vabi Elements (.vp)",
+  "importedVabi": "Vabi project geïmporteerd",
   "projectName": "Projectnaam",
   "projectNamePrompt": "Voer een projectnaam in:",
   "saved": "Opgeslagen",

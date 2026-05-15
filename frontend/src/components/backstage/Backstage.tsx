@@ -28,6 +28,8 @@ const ICONS = {
   recent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   server: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
   file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
+  import: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  vabi: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
 };
 
 function MenuItem({
@@ -114,6 +116,7 @@ export default function Backstage({
   // eerst op het hoofd-item klikken om het submenu te ontdekken).
   const [openExpanded, setOpenExpanded] = useState(true);
   const [saveAsExpanded, setSaveAsExpanded] = useState(true);
+  const [importExpanded, setImportExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useToastStore((s) => s.addToast);
@@ -143,6 +146,7 @@ export default function Backstage({
       setActivePanel("none");
       setOpenExpanded(false);
       setSaveAsExpanded(false);
+      setImportExpanded(false);
       return;
     }
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -168,6 +172,34 @@ export default function Backstage({
       console.error("[backstage] handleNew failed:", err);
     }
   }, [reset, resetToExample, onClose, onNavigate, addToast, t]);
+
+  const handleImportVabi = useCallback(async () => {
+    if (!isTauri()) {
+      addToast("Vabi-import alleen beschikbaar in desktop-versie", "info");
+      return;
+    }
+    try {
+      // Empty file_path → Tauri opens native file dialog filtered on `.vp`.
+      const { invoke } = await import("@tauri-apps/api/core");
+      const imported = await invoke<typeof project>("import_vabi", {
+        filePath: "",
+      });
+      extractAndLinkConstructions(imported);
+      setProject(imported);
+      // .vp is intermediate — clear currentLocalPath so Save As prompts for
+      // a fresh .ifcenergy target rather than overwriting the .vp source.
+      useProjectStore.getState().setCurrentLocalPath(null);
+      onClose();
+      onNavigate?.("/rooms");
+      addToast(t("importedVabi"), "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // "Geen bestand geselecteerd" is a normal cancel — don't show as error.
+      if (!msg.includes("Geen bestand geselecteerd")) {
+        addToast(`${t("importError")}: ${msg}`, "error");
+      }
+    }
+  }, [addToast, project, setProject, onClose, onNavigate, t]);
 
   const handleOpenServer = useCallback(() => {
     onClose();
@@ -567,6 +599,24 @@ export default function Backstage({
                 label={t("localExport")}
                 onClick={handleSaveAsLocal}
               />
+            </>
+          )}
+
+          {/* Importeer */}
+          {!isWeb && (
+            <>
+              <MenuItem
+                icon={ICONS.import}
+                label={t("import")}
+                onClick={() => setImportExpanded((v) => !v)}
+              />
+              {importExpanded && (
+                <SubMenuItem
+                  icon={ICONS.vabi}
+                  label={t("vabiElements")}
+                  onClick={handleImportVabi}
+                />
+              )}
             </>
           )}
 
