@@ -3,18 +3,20 @@
 Generate the Open Heatloss Studio source logo as a 1024x1024 PNG.
 
 .DESCRIPTION
-Modern flat-design icon: stylized wall cross-section with a thermal
-gradient (warm interior -> cool exterior) suggesting laagopbouw +
-warmteverlies. Single bold shape, no skeuomorphic shadows.
+OpenAEC-stijl icoon: donker grijs achtergrond met amber/oranje
+wireframe-tekening van een isometrisch wand-segment. Matcht de
+OpenAEC Foundation huisstijl (charcoal background + amber outline,
+technical-drawing aesthetic), specifiek voor heat-loss met de
+laag-opbouw zichtbaar als binnen-grenzen van de wand-doorsnede en
+een kleine warmte-richtingspijl.
 
-Colour palette:
-  - Background : solid OHS teal (#0F766E)
-  - Wall frame : white, no shadow
-  - Gradient   : warm coral (#EF4444) -> amber (#F59E0B) -> cool cyan (#06B6D4)
-  - Arrow      : white, indicates direction of heat flow
+Colour palette (afgeleid van OpenAEC org-avatar):
+  - Background : OpenAEC charcoal #2A2D31
+  - Wireframe  : OpenAEC amber #E67E22
+  - Accent     : warmere amber #F39C12 voor heat-arrow
 
-Run once on Windows; commit the resulting src-tauri/icons/source.png.
-Then re-run the Tauri icon generator to refresh the icon-set:
+Run once on Windows; commit het resulting src-tauri/icons/source.png.
+Regenereer de Tauri icon-set:
 
     npx @tauri-apps/cli icon src-tauri/icons/source.png
 #>
@@ -35,112 +37,133 @@ $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQuality
 $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 
 # ---------------------------------------------------------------- background
-# Solid teal — flat-design, no vertical gradient. iOS/macOS app-icon style
-# squircle is added implicitly by Tauri's icon generator when targeting
-# those platforms; PNG source stays a square.
-$colBg = [System.Drawing.Color]::FromArgb(255, 15, 118, 110)   # #0F766E
+# Solid OpenAEC charcoal — flat, no gradient.
+$colBg = [System.Drawing.Color]::FromArgb(255, 42, 45, 49)       # #2A2D31
 $bgBrush = New-Object System.Drawing.SolidBrush $colBg
 $g.FillRectangle($bgBrush, 0, 0, $size, $size)
 
-# ---------------------------------------------------------------- wall card
-# Centered rounded-rectangle card representing a wall cross-section.
-# Three horizontal "layers" inside, each with a thermal gradient color
-# (warm at top = interior side, cool at bottom = exterior side).
-$cardW = 640
-$cardH = 720
-$cardLeft = ([int](($size - $cardW) / 2))
-$cardTop  = ([int](($size - $cardH) / 2))
-$cornerR = 56
+# ---------------------------------------------------------------- isometric wall
+# Een 3D-wand getoond in isometrisch perspectief. De wand is een rechte
+# kubus (kortere kant naar voren) waar de DOORSNEDE-kant naar voren is
+# gedraaid zodat je de laag-opbouw kunt zien als horizontale strepen op
+# het front-vlak. Dit pakt zowel "AEC bouwkundig" als "warmteverlies-
+# doorsnede" beeldend op in één wireframe-mark.
+#
+# Isometrische projectie:
+#   - Een 3D-punt (x, y, z) projecteert naar 2D als
+#       sx = (x − z) * cos(30°)
+#       sy = y + (x + z) * sin(30°)
+#   met 30° = π/6 radialen
+#
+# Onze wand is een box: width × height × depth, met
+#   - x-as = naar rechts-naar-achter (depth)
+#   - y-as = omhoog (height)
+#   - z-as = naar voren (width)
+# Hierdoor staat de "doorsnede" (z = 0) naar de kijker toe.
 
-function New-RoundedRectPath {
-    param([int]$x, [int]$y, [int]$w, [int]$h, [int]$r)
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $path.AddArc($x, $y, $r * 2, $r * 2, 180, 90)
-    $path.AddArc(($x + $w - $r * 2), $y, $r * 2, $r * 2, 270, 90)
-    $path.AddArc(($x + $w - $r * 2), ($y + $h - $r * 2), $r * 2, $r * 2, 0, 90)
-    $path.AddArc($x, ($y + $h - $r * 2), $r * 2, $r * 2, 90, 90)
-    $path.CloseFigure()
-    return $path
+$angle = [Math]::PI / 6   # 30°
+$cos = [Math]::Cos($angle)
+$sin = [Math]::Sin($angle)
+
+# Wand-afmetingen in canvas-units. Vult ~75% van canvas-breedte zodat
+# het wireframe-mark dominant op het icoon staat (vergelijkbaar met de
+# OpenAEC org-avatar die ~70% gevuld is).
+$wallW = 540   # breedte van de doorsnede (z-richting, naar voren)
+$wallH = 460   # hoogte
+$wallD = 330   # diepte (x-richting, naar achter)
+
+# centerX = canvas-midden. centerY = onderkant van de wand-box,
+# gepositioneerd zodanig dat de iso-bounding-box verticaal gecentreerd is.
+#
+# Iso-projectie geeft bounding-box hoogte = wallH + wallD*sin.
+# centerY = canvas-midden + (bbox-hoogte / 2)
+$centerX = [int]($size / 2)
+$totalH = $wallH + $wallD * $sin
+$centerY = [int]($size / 2 + $totalH / 2)
+
+function Project([double]$x, [double]$y, [double]$z) {
+    # Iso projection — voor onze oriëntatie:
+    #   sx = x*cos + (-z)*cos  →  (x - z) * cos
+    #   sy = y + (x + z) * sin   (omgekeerd want canvas y groeit naar onder)
+    $sx = $centerX + (($x - $z) * $cos)
+    $sy = $centerY - ($y + ($x + $z) * $sin)
+    return New-Object System.Drawing.PointF $sx, $sy
 }
 
-# White card backing — subtle off-white so the warm/cool stripes pop.
-$cardPath = New-RoundedRectPath $cardLeft $cardTop $cardW $cardH $cornerR
-$cardBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 245, 245, 245))
-$g.FillPath($cardBrush, $cardPath)
+# Definieer de 8 hoekpunten van de wand-box
+# Front (z = wallW/2): visible cross-section
+# Back (z = -wallW/2): far face
+# Left/right (x = ±wallD/2)
+# Bottom/top (y = 0/wallH)
+$x0 = -$wallD / 2.0   # left
+$x1 =  $wallD / 2.0   # right
+$y0 = 0.0             # bottom
+$y1 = $wallH * 1.0    # top
+$z0 = -$wallW / 2.0   # back
+$z1 =  $wallW / 2.0   # front
 
-# Clip subsequent draws to the rounded card so the stripes stay inside.
-$g.SetClip($cardPath)
+# Punten (numbered)
+$p000 = Project $x0 $y0 $z0   # back-left-bottom
+$p100 = Project $x1 $y0 $z0   # back-right-bottom
+$p110 = Project $x1 $y1 $z0   # back-right-top
+$p010 = Project $x0 $y1 $z0   # back-left-top
+$p001 = Project $x0 $y0 $z1   # front-left-bottom
+$p101 = Project $x1 $y0 $z1   # front-right-bottom
+$p111 = Project $x1 $y1 $z1   # front-right-top
+$p011 = Project $x0 $y1 $z1   # front-left-top
 
-# ---------------------------------------------------------------- stripes
-# Three horizontal layer-stripes that span the card width.
-# Each stripe has a soft vertical fade so the boundaries are smooth.
-$stripes = @(
-    @{ Color = [System.Drawing.Color]::FromArgb(255, 239, 68,  68); HeightFrac = 0.34 },  # coral (interior)
-    @{ Color = [System.Drawing.Color]::FromArgb(255, 245, 158, 11); HeightFrac = 0.32 },  # amber (mid)
-    @{ Color = [System.Drawing.Color]::FromArgb(255,   6, 182, 212); HeightFrac = 0.34 }  # cyan  (exterior)
-)
+# Pen voor het wireframe — dikker zodat hij ook leesbaar is op favicon
+# size. OpenAEC org-avatar gebruikt ~2-3% van canvas-width als stroke.
+$colWire = [System.Drawing.Color]::FromArgb(255, 230, 126, 34)   # #E67E22
+$penMain = New-Object System.Drawing.Pen $colWire, 18
+$penMain.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+$penMain.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+$penMain.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 
-$stripeY = $cardTop
-for ($i = 0; $i -lt $stripes.Count; $i++) {
-    $sh = [int]($cardH * $stripes[$i].HeightFrac)
-    $rect = New-Object System.Drawing.Rectangle $cardLeft, $stripeY, $cardW, $sh
-    $brush = New-Object System.Drawing.SolidBrush $stripes[$i].Color
-    $g.FillRectangle($brush, $rect)
-    $brush.Dispose()
-    $stripeY += $sh
+# Vlakken te tekenen: alleen ZICHTBARE randen (geen verstopte achterkant
+# lijnen, voor schone look).
+# Zichtbare randen in dit perspectief:
+#   - Top face: 4 randen (p010-p110-p111-p011)
+#   - Right face: 4 randen (p100-p101-p111-p110) — sharing met top
+#   - Front face: 4 randen (p001-p101-p111-p011) — sharing met top + right
+# Onzichtbare (achter): back-left-bottom hoek + bijbehorende randen.
+
+# Front face (de doorsnede)
+$g.DrawLine($penMain, $p001, $p101)   # front bottom
+$g.DrawLine($penMain, $p101, $p111)   # front right
+$g.DrawLine($penMain, $p111, $p011)   # front top
+$g.DrawLine($penMain, $p011, $p001)   # front left
+
+# Right face (zijaanzicht naar achter)
+$g.DrawLine($penMain, $p101, $p100)   # bottom-right diagonal
+$g.DrawLine($penMain, $p100, $p110)   # back-right vertical
+$g.DrawLine($penMain, $p110, $p111)   # top-right diagonal
+
+# Top face (dak/bovenkant)
+$g.DrawLine($penMain, $p011, $p010)   # left-top diagonal naar back
+$g.DrawLine($penMain, $p010, $p110)   # back-top
+
+# ---------------------------------------------------------------- layers
+# Op de front face (doorsnede) tekenen we 3-4 horizontale lijnen om de
+# layered wall opbouw te suggereren. Dit is het unieke heat-loss element
+# binnen de OpenAEC-stijl.
+$penLayer = New-Object System.Drawing.Pen $colWire, 10
+$penLayer.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+$penLayer.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+$penLayer.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+
+$layerFractions = @(0.25, 0.50, 0.75)
+foreach ($f in $layerFractions) {
+    $yL = $wallH * $f
+    $pL_left = Project $x0 $yL $z1   # front-left at this height
+    $pL_right = Project $x1 $yL $z1   # front-right at this height
+    $g.DrawLine($penLayer, $pL_left, $pL_right)
 }
 
-# Soft horizontal blend bands at the stripe boundaries — two small gradient
-# rects that fade adjacent colors into each other for a smooth transition
-# instead of hard color jumps.
-$blendH = 60
-$boundary1Y = $cardTop + [int]($cardH * $stripes[0].HeightFrac) - [int]($blendH / 2)
-$boundary2Y = $cardTop + [int]($cardH * ($stripes[0].HeightFrac + $stripes[1].HeightFrac)) - [int]($blendH / 2)
-
-$blend1Rect = New-Object System.Drawing.Rectangle $cardLeft, $boundary1Y, $cardW, $blendH
-$blend1Brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
-    $blend1Rect, $stripes[0].Color, $stripes[1].Color, 90
-$g.FillRectangle($blend1Brush, $blend1Rect)
-$blend1Brush.Dispose()
-
-$blend2Rect = New-Object System.Drawing.Rectangle $cardLeft, $boundary2Y, $cardW, $blendH
-$blend2Brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
-    $blend2Rect, $stripes[1].Color, $stripes[2].Color, 90
-$g.FillRectangle($blend2Brush, $blend2Rect)
-$blend2Brush.Dispose()
-
-$g.ResetClip()
-
-# Thin white border around the card to crisp the outline.
-$cardPen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 245, 245, 245)), 10
-$cardPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-$g.DrawPath($cardPen, $cardPath)
-
-# ---------------------------------------------------------------- heat-flow arrow
-# Bold arrow on the left pointing INTO the wall — heat flows from
-# warm interior (left/top) toward cool exterior. White, ~120px tall,
-# positioned just outside the card at the warm-stripe vertical center.
-$arrowCy = $cardTop + [int]($cardH * 0.17)         # vertical center in warm zone
-$arrowTipX = $cardLeft - 28
-$arrowTailX = $arrowTipX - 160
-$arrowHalfH = 38
-
-$arrowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-$arrowPts = New-Object 'System.Drawing.PointF[]' 7
-$arrowPts[0] = New-Object System.Drawing.PointF $arrowTipX, $arrowCy
-$arrowPts[1] = New-Object System.Drawing.PointF ($arrowTipX - 60), ($arrowCy - $arrowHalfH)
-$arrowPts[2] = New-Object System.Drawing.PointF ($arrowTipX - 60), ($arrowCy - 14)
-$arrowPts[3] = New-Object System.Drawing.PointF $arrowTailX, ($arrowCy - 14)
-$arrowPts[4] = New-Object System.Drawing.PointF $arrowTailX, ($arrowCy + 14)
-$arrowPts[5] = New-Object System.Drawing.PointF ($arrowTipX - 60), ($arrowCy + 14)
-$arrowPts[6] = New-Object System.Drawing.PointF ($arrowTipX - 60), ($arrowCy + $arrowHalfH)
-$arrowPath.AddPolygon($arrowPts)
-$arrowPath.CloseFigure()
-
-$arrowBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
-$g.FillPath($arrowBrush, $arrowPath)
-$arrowBrush.Dispose()
-$arrowPath.Dispose()
+# (Heat-arrow boven de cube weggehaald — onleesbaar op favicon-sizes en
+#  voegt visuele clutter toe. De gelaagde front-face is genoeg
+#  signifier voor "warmteverlies door wandopbouw" + matcht beter de
+#  minimalistische OpenAEC-stijl.)
 
 # ---------------------------------------------------------------- finish
 $outPath = 'src-tauri/icons/source.png'
@@ -149,8 +172,7 @@ $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose()
 $bmp.Dispose()
 $bgBrush.Dispose()
-$cardBrush.Dispose()
-$cardPath.Dispose()
-$cardPen.Dispose()
+$penMain.Dispose()
+$penLayer.Dispose()
 
 Write-Host "Wrote $outPath ($size x $size)"
