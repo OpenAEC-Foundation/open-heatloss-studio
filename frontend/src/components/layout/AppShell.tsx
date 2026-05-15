@@ -15,6 +15,7 @@ import i18next from "../../i18n/config";
 import { getSetting } from "../../tauriStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import TitleBar from "../TitleBar";
+import TabBar from "../TabBar";
 import Ribbon from "../ribbon/Ribbon";
 import StatusBar from "../StatusBar";
 import Backstage from "../backstage/Backstage";
@@ -278,6 +279,7 @@ export function AppShell({ children }: AppShellProps) {
         onSave={performSave}
       />
       <Ribbon onFileTabClick={() => setBackstageOpen(true)} />
+      <TabBar />
 
       <div className="flex min-h-0 flex-1">
         <Sidebar />

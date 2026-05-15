@@ -10,6 +10,7 @@ import {
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
 import { useRecentFilesStore, type RecentFile } from "../../store/recentFilesStore";
+import { useDocumentsStore } from "../../store/documentsStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import ExtensionManagerPanel from "./ExtensionManagerPanel";
 import RecentFilesPanel from "./RecentFilesPanel";
@@ -162,7 +163,10 @@ export default function Backstage({
 
   const handleNew = useCallback(() => {
     try {
-      reset();
+      // Tabbed views: open een nieuwe tab i.p.v. de huidige te overschrijven.
+      // De documents-store snapshot eerst de huidige tab, reset projectStore
+      // naar leeg, en zet de nieuwe tab actief.
+      useDocumentsStore.getState().newTab();
       resetToExample();
       onClose();
       onNavigate?.("/project");
@@ -173,7 +177,7 @@ export default function Backstage({
       // eslint-disable-next-line no-console
       console.error("[backstage] handleNew failed:", err);
     }
-  }, [reset, resetToExample, onClose, onNavigate, addToast, t]);
+  }, [resetToExample, onClose, onNavigate, addToast, t]);
 
   const handleImportVabi = useCallback(async () => {
     if (!isTauri()) {
@@ -186,6 +190,8 @@ export default function Backstage({
       const imported = await invoke<typeof project>("import_vabi", {
         filePath: "",
       });
+      // Tabbed views: open een nieuwe tab voor het geïmporteerde project.
+      useDocumentsStore.getState().newTab(imported.info?.name || "Vabi import");
       extractAndLinkConstructions(imported);
       setProject(imported);
       // .vp is intermediate — clear currentLocalPath so Save As prompts for
@@ -236,6 +242,12 @@ export default function Backstage({
           );
           return;
         }
+        // Tabbed views: nieuwe tab voor het geopende project
+        useDocumentsStore.getState().newTab(
+          imported.project.info?.name ||
+            selected.split(/[\\/]/).pop() ||
+            "Lokaal bestand",
+        );
         extractAndLinkConstructions(imported.project);
         setProject(imported.project);
         useProjectStore.getState().setCurrentLocalPath(selected);
