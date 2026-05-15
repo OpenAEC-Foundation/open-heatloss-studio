@@ -26,6 +26,7 @@ const SECTION_LABELS: ReadonlyArray<readonly [keyof ReportSections, string]> = [
   ["perVertrek", "Per vertrek (invoer + resultaten)"],
   ["diagrammen", "Diagrammen"],
   ["gebouwresultaten", "Gebouwresultaten"],
+  ["tojuli", "TO-juli (koelbehoefte indicatie)"],
   ["backcover", "Backcover"],
 ];
 

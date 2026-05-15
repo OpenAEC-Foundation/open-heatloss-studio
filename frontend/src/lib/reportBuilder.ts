@@ -59,6 +59,7 @@ export interface ReportSectionToggles {
   perVertrek: boolean;
   diagrammen: boolean;
   gebouwresultaten: boolean;
+  tojuli: boolean;
   backcover: boolean;
 }
 
@@ -71,6 +72,7 @@ const ALL_SECTIONS_ON: ReportSectionToggles = {
   perVertrek: true,
   diagrammen: true,
   gebouwresultaten: true,
+  tojuli: false,
   backcover: true,
 };
 
@@ -102,6 +104,9 @@ export async function buildReportData(
     thetaIDefault,
     thetaEDefault,
   );
+  const tojuliSection = toggles.tojuli
+    ? await buildTojuliSection(project)
+    : null;
 
   return {
     template: "standaard_rapport",
@@ -163,6 +168,7 @@ export async function buildReportData(
       ...(toggles.perVertrek ? buildRoomSections(project, result) : []),
       ...(toggles.diagrammen && diagrammenSection ? [diagrammenSection] : []),
       ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(result)] : []),
+      ...(toggles.tojuli && tojuliSection ? [tojuliSection] : []),
     ],
 
     backcover: { enabled: toggles.backcover },
@@ -740,6 +746,190 @@ async function buildConstructiesSection(
 
   return {
     title: "Constructie-opbouw & Rc-waarden",
+    level: 1,
+    content,
+  };
+}
+
+// =====================================================================
+// TO-juli sectie — vereenvoudigde koelbehoefte (NTA 8800 bijlage AA)
+// =====================================================================
+
+/** Resultaat-shape van `simplified_cooling` Tauri command — mirror van
+ *  `nta8800_cooling::SimplifiedCoolingResult`. */
+interface SimplifiedCoolingResult {
+  minimum_capacity_w: number;
+  internal_load_w: number;
+  outdoor_load_w: number;
+  opaque_transmission_w: number;
+  solar_load_w: number;
+  glazing_transmission_w: number;
+  peak_cooling_load_w: number;
+  maatgevende_koelbehoefte_w_per_m2: number;
+}
+
+/** Leid Simplified-cooling inputs af uit project + sane defaults.
+ *
+ * Wat afleidbaar is uit project geometrie/instellingen:
+ * - living_area_m2 = som van rooms[].area (woonkamers + slaapkamers)
+ * - infiltration_m3_per_h = qv10 (dm³/s) × 3.6
+ * - mechanical_supply_m3_per_h uit ventilation.q_v indien beschikbaar
+ * - construction_year uit project.info indien aanwezig, anders 1990
+ * - opaque_area_m2 = som van rooms[].boundaries waar boundary_type
+ *   exterior is en construction geen glas-aandeel heeft (heuristiek)
+ *
+ * Wat default krijgt (V1 — gebruiker kan via TojuliFull-page de echte
+ * waardes invullen voor de norm-conforme berekening):
+ * - dwelling_count = 1
+ * - persons_per_dwelling = 2.4 (Nederlandse default)
+ * - peak_hour = 14 (warmste uur — bijlage AA referentie)
+ * - solar_load_w / glazing_transmission_w = 0 (vereist V2 zon-pad)
+ */
+function deriveTojuliInputs(project: Project): {
+  living_area_m2: number;
+  other_area_m2: number;
+  dwelling_count: number;
+  persons_per_dwelling: number;
+  infiltration_m3_per_h: number;
+  natural_ventilation_m3_per_h: number;
+  mechanical_supply_m3_per_h: number;
+  peak_hour: number;
+  construction_year: number;
+  opaque_area_m2: number;
+  solar_load_w: number;
+  glazing_transmission_w: number;
+} {
+  const livingArea = project.rooms.reduce(
+    (sum, r) => sum + (r.floor_area ?? 0),
+    0,
+  );
+  const qv10DmPerS = project.building.qv10 ?? 0;
+  const infiltrationM3PerH = qv10DmPerS * 3.6; // dm³/s → m³/h
+  // ISSO 51 ventilation-model heeft geen centraal q_v veld; afleiden uit
+  // ruimte-rates wanneer beschikbaar (ventilation_rate in dm³/s per ruimte).
+  const mechanicalSupplyDmPerS = project.rooms.reduce(
+    (sum, r) => sum + (r.has_mechanical_supply ? r.ventilation_rate ?? 0 : 0),
+    0,
+  );
+  const mechanicalSupplyM3PerH = mechanicalSupplyDmPerS * 3.6;
+  const naturalVentM3PerH = 0;
+  // ProjectInfo bevat geen construction_year — defaulten op 2000 (recent
+  // bouwbesluit); user kan via TojuliFull-page exacter rekenen.
+  const constructionYear = 2000;
+  // Heuristiek: tel exterior-constructie-oppervlakken (m²).
+  let opaqueAreaM2 = 0;
+  for (const room of project.rooms) {
+    for (const c of room.constructions ?? []) {
+      if (c.boundary_type === "exterior" && c.area) {
+        opaqueAreaM2 += c.area;
+      }
+    }
+  }
+
+  return {
+    living_area_m2: livingArea,
+    other_area_m2: 0,
+    dwelling_count: 1,
+    persons_per_dwelling: 2.4,
+    infiltration_m3_per_h: infiltrationM3PerH,
+    natural_ventilation_m3_per_h: naturalVentM3PerH,
+    mechanical_supply_m3_per_h: mechanicalSupplyM3PerH,
+    peak_hour: 14,
+    construction_year: constructionYear,
+    opaque_area_m2: opaqueAreaM2,
+    solar_load_w: 0,
+    glazing_transmission_w: 0,
+  };
+}
+
+/** Bouw TO-juli rapport-sectie (Simplified — NTA 8800 bijlage AA).
+ *
+ * Roept `simplified_cooling` Tauri command aan met afgeleide inputs uit het
+ * project; faalt graceful (geeft een placeholder-paragraaf) als Tauri niet
+ * beschikbaar is of de berekening mislukt — het rapport moet altijd
+ * gegenereerd kunnen worden.
+ */
+async function buildTojuliSection(
+  project: Project,
+): Promise<Record<string, unknown> | null> {
+  const inputs = deriveTojuliInputs(project);
+
+  let result: SimplifiedCoolingResult | null = null;
+  let errorMessage: string | null = null;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    result = await invoke<SimplifiedCoolingResult>("simplified_cooling", {
+      req: inputs,
+    });
+  } catch (err) {
+    errorMessage =
+      err instanceof Error ? err.message : String(err ?? "onbekende fout");
+  }
+
+  const content: Array<Record<string, unknown>> = [
+    {
+      type: "paragraph",
+      text:
+        "Indicatieve koelbehoefte op basis van project-geometrie en standaard-aannames " +
+        "(1 woning, 2,4 personen, piekuur 14:00, geen zon-aandeel). Voor een norm-conforme " +
+        "TO-juli berekening volgens NTA 8800 hoofdstuk 10 zie de TO-juli pagina in de tool.",
+    },
+    {
+      type: "table",
+      title: "Afgeleide invoer",
+      headers: ["Parameter", "Waarde"],
+      rows: [
+        ["Vloeroppervlak (leefzone)", `${fmt2(inputs.living_area_m2)} m²`],
+        ["Infiltratie", `${fmt2(inputs.infiltration_m3_per_h)} m³/h`],
+        [
+          "Mechanische toevoer",
+          `${fmt2(inputs.mechanical_supply_m3_per_h)} m³/h`,
+        ],
+        ["Bouwjaar", String(inputs.construction_year)],
+        ["Opaak gevel-oppervlak", `${fmt2(inputs.opaque_area_m2)} m²`],
+        ["Aantal woningen", String(inputs.dwelling_count)],
+        ["Personen per woning", fmt2(inputs.persons_per_dwelling)],
+        ["Piekuur", `${inputs.peak_hour}:00`],
+      ],
+    },
+  ];
+
+  if (result) {
+    content.push({
+      type: "table",
+      title: "Resultaten (NTA 8800 bijlage AA)",
+      headers: ["Grootheid", "Waarde"],
+      rows: [
+        ["Piek-koelvermogen", `${fmtW(result.peak_cooling_load_w)} W`],
+        [
+          "Maatgevende koelbehoefte",
+          `${fmt2(result.maatgevende_koelbehoefte_w_per_m2)} W/m²`,
+        ],
+        ["Minimum koelcapaciteit", `${fmtW(result.minimum_capacity_w)} W`],
+        ["Interne warmtelast", `${fmtW(result.internal_load_w)} W`],
+        ["Buitenlucht warmtelast", `${fmtW(result.outdoor_load_w)} W`],
+        [
+          "Transmissie (opaak)",
+          `${fmtW(result.opaque_transmission_w)} W`,
+        ],
+        ["Zoninstraling", `${fmtW(result.solar_load_w)} W`],
+        [
+          "Transmissie (glas)",
+          `${fmtW(result.glazing_transmission_w)} W`,
+        ],
+      ],
+    });
+  } else {
+    content.push({
+      type: "paragraph",
+      text: errorMessage
+        ? `TO-juli berekening niet uitgevoerd: ${errorMessage}`
+        : "TO-juli berekening niet beschikbaar in deze omgeving (alleen desktop-versie).",
+    });
+  }
+
+  return {
+    title: "TO-juli — vereenvoudigde koelbehoefte",
     level: 1,
     content,
   };
