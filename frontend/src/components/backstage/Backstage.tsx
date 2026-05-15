@@ -469,13 +469,13 @@ export default function Backstage({
 
   if (!open) return null;
 
-  const handleContentClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   return (
-    <div className="backstage-overlay">
-      <div className="backstage-sidebar">
+    <>
+      {/* Transparente fullscreen click-catcher achter de sidebar:
+          klik buiten de backstage sluit hem, maar de app blijft zichtbaar. */}
+      <div className="backstage-backdrop" onClick={onClose} />
+      <div className="backstage-overlay">
+        <div className="backstage-sidebar">
         <button className="backstage-back" onClick={onClose}>
           <svg
             width="16"
@@ -683,17 +683,19 @@ export default function Backstage({
           />
         </div>
       </div>
-      <div className="backstage-content" onClick={handleContentClick}>
-        {activePanel === "about" && <AboutPanel />}
-        {activePanel === "extensions" && <ExtensionManagerPanel />}
-        {activePanel === "recent" && (
-          <RecentFilesPanel
-            onOpen={async (entry) => {
-              await handleOpenRecent(entry);
-            }}
-          />
-        )}
-      </div>
+      {activePanel !== "none" && (
+        <div className="backstage-content">
+          {activePanel === "about" && <AboutPanel />}
+          {activePanel === "extensions" && <ExtensionManagerPanel />}
+          {activePanel === "recent" && (
+            <RecentFilesPanel
+              onOpen={async (entry) => {
+                await handleOpenRecent(entry);
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Hidden file input for local open */}
       <input
@@ -703,7 +705,8 @@ export default function Backstage({
         onChange={handleFileSelected}
         style={{ display: "none" }}
       />
-    </div>
+      </div>
+    </>
   );
 }
 
