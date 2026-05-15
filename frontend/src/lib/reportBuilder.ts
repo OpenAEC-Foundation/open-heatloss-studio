@@ -163,11 +163,16 @@ export async function buildReportData(
 
     sections: [
       ...(toggles.uitgangspunten ? [buildUitgangspuntenSection(project)] : []),
-      ...(toggles.constructies && constructiesSection ? [constructiesSection] : []),
-      ...(toggles.vertrekkenOverzicht ? [buildVertrekkenOverzichtSection(result)] : []),
-      ...(toggles.perVertrek ? buildRoomSections(project, result) : []),
+      // Diagrammen + gebouwresultaten staan vooraan zodat de lezer eerst de
+      // samenvatting/overzicht ziet voordat de detail-secties (constructies +
+      // per-vertrek) volgen.
       ...(toggles.diagrammen && diagrammenSection ? [diagrammenSection] : []),
       ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(result)] : []),
+      ...(toggles.constructies && constructiesSection ? [constructiesSection] : []),
+      // "Vertrekken" is één parent-sectie (level 1) met overzicht-tabel als
+      // eerste content, gevolgd door per-vertrek sub-chapters (level 2). In
+      // de TOC krijgen de rooms zo automatisch een geneste positie.
+      ...buildVertrekkenChapter(project, result, toggles),
       ...(toggles.tojuli && tojuliSection ? [tojuliSection] : []),
     ],
 
@@ -243,38 +248,63 @@ function buildUitgangspuntenSection(project: Project): Record<string, unknown> {
   };
 }
 
-/** Sectie 2: Vertrekken overzicht. */
-function buildVertrekkenOverzichtSection(result: ProjectResult): Record<string, unknown> {
-  return {
-    title: "Vertrekken overzicht",
+/** Sectie "Vertrekken" — parent met overzicht-tabel + sub-chapters per vertrek.
+ *
+ * Output: array sections. Eerste is het parent-hoofdstuk "Vertrekken"
+ * (level 1) met de samenvatting-tabel als content. Daarna volgen per vertrek
+ * sub-secties (level 2) — die verschijnen in de TOC als geneste items onder
+ * het parent-hoofdstuk.
+ *
+ * Toggle-gedrag:
+ * - vertrekkenOverzicht uit + perVertrek uit -> niets
+ * - vertrekkenOverzicht aan + perVertrek uit -> alleen parent met tabel
+ * - vertrekkenOverzicht uit + perVertrek aan -> parent zonder tabel + sub-chapters
+ * - beide aan -> parent met tabel + sub-chapters (default)
+ */
+function buildVertrekkenChapter(
+  project: Project,
+  result: ProjectResult,
+  toggles: ReportSectionToggles,
+): Record<string, unknown>[] {
+  if (!toggles.vertrekkenOverzicht && !toggles.perVertrek) {
+    return [];
+  }
+  const parentContent: Record<string, unknown>[] = [];
+  if (toggles.vertrekkenOverzicht) {
+    parentContent.push({
+      type: "table",
+      title: "Samenvatting per vertrek",
+      headers: [
+        "Vertrek",
+        "θ_i [°C]",
+        "Φ_T [W]",
+        "Φ_i [W]",
+        "Φ_v [W]",
+        "Φ_hu [W]",
+        "Φ_sys [W]",
+        "Φ_totaal [W]",
+      ],
+      rows: result.rooms.map((r) => [
+        r.room_name,
+        fmt2(r.theta_i),
+        fmtW(r.transmission.phi_t),
+        fmtW(r.infiltration.phi_i),
+        fmtW(r.ventilation.phi_v),
+        fmtW(r.heating_up.phi_hu),
+        fmtW(r.system_losses.phi_system_total),
+        fmtW(r.total_heat_loss),
+      ]),
+    });
+  }
+  const parent: Record<string, unknown> = {
+    title: "Vertrekken",
     level: 1,
-    content: [
-      {
-        type: "table",
-        title: "Samenvatting per vertrek",
-        headers: [
-          "Vertrek",
-          "θ_i [°C]",
-          "\u03A6_T [W]",
-          "\u03A6_i [W]",
-          "\u03A6_v [W]",
-          "\u03A6_hu [W]",
-          "\u03A6_sys [W]",
-          "\u03A6_totaal [W]",
-        ],
-        rows: result.rooms.map((r) => [
-          r.room_name,
-          fmt2(r.theta_i),
-          fmtW(r.transmission.phi_t),
-          fmtW(r.infiltration.phi_i),
-          fmtW(r.ventilation.phi_v),
-          fmtW(r.heating_up.phi_hu),
-          fmtW(r.system_losses.phi_system_total),
-          fmtW(r.total_heat_loss),
-        ]),
-      },
-    ],
+    content: parentContent,
   };
+  return [
+    parent,
+    ...(toggles.perVertrek ? buildRoomSections(project, result) : []),
+  ];
 }
 
 /** Sectie 3.x: Detail per vertrek. */
@@ -597,6 +627,40 @@ async function buildConstructiesSection(
   if (projectConstructions.length === 0) return null;
 
   const content: Record<string, unknown>[] = [];
+
+  // Overzicht-tabel — alle constructies met Rc + U op een rij, zodat de
+  // lezer eerst de samenvatting ziet voordat de per-laag detail-blokken
+  // beginnen. Layer-loze opbouwen (kozijnen/glas) tonen alleen U.
+  const overviewRows: string[][] = projectConstructions.map((pc) => {
+    const typeLabel = pc.verticalPosition
+      ? VERTICAL_POSITION_LABELS[pc.verticalPosition] ?? pc.verticalPosition
+      : "—";
+    if (pc.layers.length === 0) {
+      const uText = pc.uValue != null ? fmt2(pc.uValue) : "—";
+      return [pc.name, typeLabel, "—", uText];
+    }
+    try {
+      const rcResult = calculateRc(
+        pc.layers.map((l) => ({
+          materialId: l.materialId,
+          thickness: l.thickness,
+          lambdaOverride: l.lambdaOverride,
+          stud: l.stud,
+        })),
+        pc.verticalPosition,
+      );
+      return [pc.name, typeLabel, fmt2(rcResult.rc), fmt2(rcResult.uValue)];
+    } catch {
+      return [pc.name, typeLabel, "—", "—"];
+    }
+  });
+  content.push({
+    type: "table",
+    title: "Overzicht — alle constructies",
+    headers: ["Naam", "Type", "Rc [m²·K/W]", "U [W/m²·K]"],
+    rows: overviewRows,
+  });
+  content.push({ type: "spacer", height_mm: 6 });
 
   for (const pc of projectConstructions) {
     // Sub-heading per constructie (level 2)
