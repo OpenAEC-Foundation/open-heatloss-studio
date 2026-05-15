@@ -158,21 +158,24 @@ impl PageCallback for OhsPageCallback {
         //     IS het visuele footer-element.
 
         if let Some(img) = &self.footer_image {
-            // -- pad B: image-footer --
-            let max_w_pt: Pt = Pt(size.width.0 - margin.0 * 2.0);
-            let max_h_pt: Pt = Mm(22.0).into();
+            // -- pad B: image-footer — full-bleed onderaan de pagina --
+            // User wil de footer-afbeelding fit op de VOLLEDIGE pagina-
+            // breedte (geen horizontale marge) en flush tegen de
+            // onderrand. Aspect-ratio behouden: height = page_w / aspect.
+            // Cap op 50mm zodat een vierkante/tall image niet half de
+            // pagina overneemt.
+            let w_pt: Pt = Pt(size.width.0);
             let aspect = img.width_px as f32 / img.height_px.max(1) as f32;
-            let max_aspect = max_w_pt.0 / max_h_pt.0;
-            let (w_pt, h_pt) = if aspect > max_aspect {
-                (max_w_pt, Pt(max_w_pt.0 / aspect))
+            let natural_h = w_pt.0 / aspect;
+            let max_h_mm: Pt = Mm(50.0).into();
+            let h_pt = if natural_h > max_h_mm.0 {
+                max_h_mm
             } else {
-                (Pt(max_h_pt.0 * aspect), max_h_pt)
+                Pt(natural_h)
             };
-            // Bottom anchor: image-bottom op page_h − 3mm (minimale safe-
-            // zone tegen edge-cropping bij printen)
-            let bottom_safe: Pt = Mm(3.0).into();
-            let img_y = Pt(size.height.0 - bottom_safe.0 - h_pt.0);
-            let img_x = Pt((size.width.0 - w_pt.0) / 2.0);
+            // Bottom-flush: image bottom op page_h exact (geen marge)
+            let img_y = Pt(size.height.0 - h_pt.0);
+            let img_x = Pt(0.0);
             draw.draw_image(img.bytes.clone(), img_x, img_y, w_pt, h_pt);
 
             // Paginanummer BOVEN de image (3mm gap), klein lettertype
