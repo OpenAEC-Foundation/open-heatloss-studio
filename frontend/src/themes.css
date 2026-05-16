@@ -1,5 +1,159 @@
 /* ============================================================
-   Light Theme (default)
+   Light Theme (default) — TRUE LIGHT
+
+   Primary:    Construction Amber #D97706
+   Background: Blueprint White #FAFAF9
+   Text:       Deep Forge #36363E
+   Hover:      Signal Orange #EA580C
+
+   Palette: OpenAEC style-book semantic.light tokens
+   (surface.light, text.light, border.light, brand.*)
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  /* ─── Core palette ─── */
+  --theme-bg: #FAFAF9;
+  --theme-bg-lighter: #FFFFFF;
+  --theme-docbar-bg: #F5F5F4;
+  --theme-surface: #FFFFFF;
+  --theme-border: #E7E5E4;
+  --theme-border-subtle: rgba(214, 211, 209, 0.6);
+  --theme-text: #36363E;
+  --theme-text-secondary: #57534E;
+  --theme-text-muted: #71717A;
+  --theme-text-faint: #A1A1AA;
+  --theme-accent: #D97706;
+  --theme-accent-hover: #EA580C;
+  --theme-accent-text: #FFFFFF;
+  --theme-accent-soft: rgba(217, 119, 6, 0.08);
+  --theme-accent-tint: rgba(217, 119, 6, 0.8);
+  --theme-hover: rgba(217, 119, 6, 0.06);
+  --theme-hover-strong: rgba(217, 119, 6, 0.12);
+  --theme-active: #D97706;
+
+  --theme-focus-color: #D97706;
+  --theme-danger-color: #dc2626;
+  --theme-danger-hover: #b91c1c;
+
+  /* ─── Shadows (lichter — donkere drop op witte canvas) ─── */
+  --theme-dialog-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --theme-panel-shadow: 2px 0 8px rgba(0, 0, 0, 0.06);
+  --theme-popover-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ─── File tab / accent bar ─── */
+  --theme-file-tab-bg: #D97706;
+  --theme-file-tab-hover: #EA580C;
+  --theme-file-tab-text: #FFFFFF;
+
+  /* ─── Content ─── */
+  --theme-content-bg: #FFFFFF;
+  --theme-placeholder-icon: rgba(54, 54, 62, 0.2);
+  --theme-placeholder-heading: rgba(54, 54, 62, 0.35);
+  --theme-placeholder-text: rgba(54, 54, 62, 0.25);
+
+  /* ─── Ribbon ─── */
+  --theme-ribbon-btn-hover: rgba(217, 119, 6, 0.10);
+  --theme-ribbon-btn-hover-border: rgba(217, 119, 6, 0.30);
+  --theme-ribbon-btn-active-bg: rgba(217, 119, 6, 0.15);
+  --theme-ribbon-btn-active-border: rgba(217, 119, 6, 0.40);
+  --theme-ribbon-btn-active-text: #D97706;
+  --theme-ribbon-icon-active: #D97706;
+  --theme-ribbon-text-hover: #D97706;
+  --theme-ribbon-group-separator: rgba(54, 54, 62, 0.15);
+  --theme-ribbon-group-label: rgba(217, 119, 6, 0.85);
+
+  /* ─── Status bar ─── */
+  --theme-status-bg: #F5F5F4;
+  --theme-status-border: #E7E5E4;
+  --theme-status-text: #57534E;
+  --theme-status-text-label: rgba(87, 83, 78, 0.75);
+  --theme-status-hover: rgba(54, 54, 62, 0.06);
+  --theme-status-separator: rgba(54, 54, 62, 0.15);
+
+  /* ─── Backstage (File menu) ─── */
+  --theme-backstage-item-shortcut: rgba(54, 54, 62, 0.5);
+  --theme-backstage-item-shortcut-hover: rgba(217, 119, 6, 0.85);
+
+  /* ─── Dialogs ─── */
+  --theme-dialog-overlay: rgba(0, 0, 0, 0.30);
+  --theme-dialog-bg: #FFFFFF;
+  --theme-dialog-border: rgba(54, 54, 62, 0.15);
+  --theme-dialog-header-bg: #F5F5F4;
+  --theme-dialog-header-text: #D97706;
+  --theme-dialog-sidebar-bg: #F5F5F4;
+  --theme-dialog-sidebar-border: rgba(54, 54, 62, 0.10);
+  --theme-dialog-tab-text: #36363E;
+  --theme-dialog-tab-hover: rgba(217, 119, 6, 0.08);
+  --theme-dialog-tab-hover-text: #D97706;
+  --theme-dialog-tab-active-bg: rgba(217, 119, 6, 0.12);
+  --theme-dialog-tab-active-text: #D97706;
+  --theme-dialog-tab-active-accent: #D97706;
+  --theme-dialog-content-bg: #FFFFFF;
+  --theme-dialog-content-text: #36363E;
+  --theme-dialog-content-secondary: #57534E;
+  --theme-dialog-input-bg: rgba(217, 119, 6, 0.05);
+  --theme-dialog-input-border: rgba(54, 54, 62, 0.20);
+  --theme-dialog-input-text: #36363E;
+  --theme-dialog-btn-bg: #D97706;
+  --theme-dialog-btn-text: #FFFFFF;
+  --theme-dialog-btn-hover: #EA580C;
+  --theme-dialog-section-border: rgba(54, 54, 62, 0.10);
+
+  /* ─── Buttons ─── */
+  --theme-btn-primary-bg: #D97706;
+  --theme-btn-primary-text: #FFFFFF;
+  --theme-btn-primary-border: #D97706;
+  --theme-btn-primary-hover-bg: #EA580C;
+  --theme-btn-primary-hover-text: #FFFFFF;
+  --theme-btn-secondary-bg: rgba(217, 119, 6, 0.08);
+  --theme-btn-secondary-text: #36363E;
+  --theme-btn-secondary-hover-bg: rgba(217, 119, 6, 0.16);
+  --theme-btn-secondary-hover-border: rgba(217, 119, 6, 0.35);
+
+  /* ─── Domain: Boundary types ─── */
+  --domain-boundary-exterior: #2563eb;
+  --domain-boundary-exterior-bg: rgba(37, 99, 235, 0.12);
+  --domain-boundary-unheated: #7c3aed;
+  --domain-boundary-unheated-bg: rgba(124, 58, 237, 0.12);
+  --domain-boundary-adjacent-room: #16a34a;
+  --domain-boundary-adjacent-room-bg: rgba(22, 163, 74, 0.12);
+  --domain-boundary-adjacent-building: #D97706;
+  --domain-boundary-adjacent-building-bg: rgba(217, 119, 6, 0.12);
+  --domain-boundary-ground: #92400e;
+  --domain-boundary-ground-bg: rgba(146, 64, 14, 0.12);
+
+  /* ─── Domain: Chart categories (zwart-based grid voor witte canvas) ─── */
+  --domain-chart-transmission: #2563eb;
+  --domain-chart-ventilation: #16a34a;
+  --domain-chart-heating-up: #d97706;
+  --domain-chart-system: #57534E;
+  --domain-chart-neighbor: #7c3aed;
+  --domain-chart-walls: #dc2626;
+  --domain-chart-glazing: #2563eb;
+  --domain-chart-roofs: #d97706;
+  --domain-chart-floors: #16a34a;
+  --domain-chart-internal-walls: #7c3aed;
+  --domain-chart-other: #57534E;
+  --domain-chart-grid: rgba(54, 54, 62, 0.10);
+  --domain-chart-grid-strong: rgba(54, 54, 62, 0.20);
+
+  /* ─── Domain: Diagram (Glaser) ─── */
+  --domain-diagram-psat: #2563eb;
+  --domain-diagram-pactual: #D97706;
+  --domain-diagram-condensation: #dc2626;
+  --domain-diagram-text: rgba(54, 54, 62, 0.70);
+  --domain-diagram-grid: rgba(54, 54, 62, 0.10);
+  --domain-diagram-grid-strong: rgba(54, 54, 62, 0.20);
+  --domain-diagram-grid-subtle: rgba(54, 54, 62, 0.15);
+
+  /* Tell native form controls (select dropdowns, scrollbars, input
+     spinners, datepickers) to use the light variant. */
+  color-scheme: light;
+}
+
+/* ============================================================
+   OpenAEC Forge Theme (dark with Deep Forge surface)
 
    Primary:    Construction Amber #D97706
    Background: Deep Forge #36363E
@@ -9,8 +163,7 @@
    Colors sourced from DESIGN-SYSTEM.md
    ============================================================ */
 
-:root,
-[data-theme="light"] {
+[data-theme="openaec-forge"] {
   /* ─── Core palette ─── */
   --theme-bg: #36363E;
   --theme-bg-lighter: #44444C;
@@ -147,9 +300,7 @@
   --domain-diagram-grid-subtle: rgba(250, 250, 249, 0.15);
 
   /* Tell native form controls (select dropdowns, scrollbars, input
-     spinners, datepickers) to use the dark variant. Without this the
-     <select> popup panel renders with the OS default white background,
-     ignoring our CSS. */
+     spinners, datepickers) to use the dark variant. */
   color-scheme: dark;
 }
 
@@ -263,5 +414,5 @@
   --theme-btn-secondary-hover-bg: rgba(217, 119, 6, 0.2);
   --theme-btn-secondary-hover-border: rgba(217, 119, 6, 0.3);
 
-  /* ─── Domain tokens (zelfde als light — content area is altijd wit) ─── */
+  /* ─── Domain tokens (zelfde als forge — content area is altijd wit) ─── */
 }

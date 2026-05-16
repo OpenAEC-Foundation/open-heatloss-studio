@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+type Theme = "light" | "openaec" | "openaec-forge";
 
 const STORAGE_KEY = "isso51-theme";
+const THEME_CYCLE: Theme[] = ["light", "openaec-forge", "openaec"];
+
+function isTheme(value: string | null): value is Theme {
+  return value === "light" || value === "openaec" || value === "openaec-forge";
+}
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "dark" || stored === "light") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (isTheme(stored)) return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "openaec" : "light";
 }
 
 export function useTheme() {
@@ -20,7 +25,10 @@ export function useTheme() {
   }, [theme]);
 
   const toggle = useCallback(() => {
-    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
+    setThemeState((prev) => {
+      const idx = THEME_CYCLE.indexOf(prev);
+      return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]!;
+    });
   }, []);
 
   return { theme, toggle } as const;

@@ -23,6 +23,7 @@
     "themeDescription": "Kies een kleurthema voor de applicatie.",
     "dark": "Donker",
     "light": "Licht",
+    "forge": "Donker (Deep Forge)",
     "font": "Lettertype",
     "uiFontSize": "UI-lettergrootte"
   },
