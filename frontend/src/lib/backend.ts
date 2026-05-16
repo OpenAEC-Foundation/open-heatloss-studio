@@ -204,6 +204,43 @@ export async function importIfcServer(file: File): Promise<IfcSidecarResult> {
 }
 
 // ---------------------------------------------------------------------------
+// TO-juli dispatch helpers (Tauri invoke or web fetch)
+// ---------------------------------------------------------------------------
+
+/** Dispatch helper that returns Tauri invoke or web fetch based on runtime. */
+async function invokeOrFetch<TPayload, TResult>(
+  tauriCmd: string,
+  webPath: string,
+  payload: TPayload,
+): Promise<TResult> {
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<TResult>(tauriCmd, { req: payload });
+  }
+  const res = await fetch(`${API_PREFIX}${webPath}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<TResult>;
+}
+
+/** TO-juli vereenvoudigde koelbehoefte (Tauri of web). */
+export function simplifiedCooling<TReq, TRes>(req: TReq): Promise<TRes> {
+  return invokeOrFetch<TReq, TRes>("simplified_cooling", "/cooling/simplified", req);
+}
+
+/** TO-juli volledige H.10 berekening (Tauri of web). */
+export function tojuliCalculate<TReq, TRes>(req: TReq): Promise<TRes> {
+  return invokeOrFetch<TReq, TRes>("tojuli_calculate", "/tojuli/calculate", req);
+}
+
+// ---------------------------------------------------------------------------
 // Authenticated API helpers (web only — uses Authentik forward_auth cookie)
 // ---------------------------------------------------------------------------
 
