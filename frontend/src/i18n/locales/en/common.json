@@ -62,6 +62,7 @@
     "rcValue": "R-value",
     "materials": "Materials",
     "projects": "Projects",
+    "warmteverliesInstellingen": "Settings",
     "unsaved": "Unsaved",
     "saved": "Saved",
     "groups": {
@@ -126,19 +127,10 @@
   },
   "projectSetup": {
     "title": "Project",
-    "subtitle": "Building and installation settings",
-    "tabs": {
-      "algemeen": "General",
-      "geometrie": "Geometry",
-      "isso51": "ISSO 51",
-      "tojuli": "Summer overheating",
-      "iso53": "ISSO 53",
-      "soon": "coming"
-    },
-    "geometriePlaceholder": "Manage rooms and constructions in the Modeller page (see sidebar).",
-    "tojuliPlaceholder": "Full TO-juli (NTA 8800 H.10 for residential + commercial) is coming in F7. For now: use the 'Quick check (dwellings)' under Summer overheating in the sidebar.",
-    "iso53Placeholder": "Coming soon.",
-    "openModeller": "Open Modeller",
-    "openTojuliQuick": "Open quick check"
+    "subtitle": "Building and installation settings"
+  },
+  "warmteverliesInstellingen": {
+    "title": "Heat loss settings",
+    "subtitle": "ISSO 51:2023 parameters"
   }
 }
