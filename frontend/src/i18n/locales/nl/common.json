@@ -62,6 +62,7 @@
     "rcValue": "Rc-waarde",
     "materials": "Materialen",
     "projects": "Projecten",
+    "warmteverliesInstellingen": "Instellingen",
     "unsaved": "Niet opgeslagen",
     "saved": "Opgeslagen",
     "groups": {
@@ -126,19 +127,10 @@
   },
   "projectSetup": {
     "title": "Project",
-    "subtitle": "Gebouw- en installatie-instellingen",
-    "tabs": {
-      "algemeen": "Algemeen",
-      "geometrie": "Geometrie",
-      "isso51": "ISSO 51",
-      "tojuli": "TO-juli",
-      "iso53": "ISSO 53",
-      "soon": "binnenkort"
-    },
-    "geometriePlaceholder": "Kamers en constructies beheer je in de Modeller-pagina (zie zijbalk).",
-    "tojuliPlaceholder": "Volledige TO-juli (NTA 8800 H.10 voor woning + utiliteit) komt in F7. Voor nu: gebruik 'Snelle check (woningen)' onder TO-juli in de zijbalk.",
-    "iso53Placeholder": "Binnenkort beschikbaar.",
-    "openModeller": "Open Modeller",
-    "openTojuliQuick": "Open snelle check"
+    "subtitle": "Gebouw- en installatie-instellingen"
+  },
+  "warmteverliesInstellingen": {
+    "title": "Warmteverlies-instellingen",
+    "subtitle": "ISSO 51:2023 parameters"
   }
 }

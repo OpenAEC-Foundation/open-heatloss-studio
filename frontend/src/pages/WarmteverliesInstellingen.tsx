@@ -1,0 +1,484 @@
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
+import { PageHeader } from "../components/layout/PageHeader";
+import { useBackend } from "../hooks/useBackend";
+import { useProjectStore } from "../store/projectStore";
+import { formatArea } from "../lib/formatNumber";
+import { prepareProjectForCalculation } from "../lib/frameOverride";
+import { useModellerStore } from "../components/modeller/modellerStore";
+import { useToastStore } from "../store/toastStore";
+import {
+  AGGREGATION_METHOD_LABELS,
+  BUILDING_TYPE_LABELS,
+  DEFAULT_AGGREGATION_METHOD,
+  DEFAULT_THETA_WATER,
+  FROST_PROTECTION_LABELS,
+  FROST_PROTECTION_SUPPLY_TEMP,
+  HEATING_SYSTEM_LABELS,
+  SECURITY_CLASS_LABELS,
+  VENTILATION_SYSTEM_LABELS,
+} from "../lib/constants";
+import type {
+  AggregationMethod,
+  Building,
+  DesignConditions,
+  FrostProtectionType,
+  HeatingSystem,
+  VentilationConfig,
+} from "../types";
+
+const BULK_APPLY_CONFIRM_THRESHOLD = 5;
+const DEFAULT_HEATING_SYSTEM: HeatingSystem = "radiator_ht";
+
+function toOptions(labels: Record<string, string>) {
+  return Object.entries(labels).map(([value, label]) => ({ value, label }));
+}
+
+export function WarmteverliesInstellingen() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const backend = useBackend();
+  const {
+    project,
+    updateProject,
+    isCalculating,
+    setCalculating,
+    setResult,
+    setError,
+    setFrameUValueOverride,
+    applyHeatingSystemToAllRooms,
+    setAggregationMethod,
+  } = useProjectStore();
+  const projectConstructions = useModellerStore((s) => s.projectConstructions);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const { building, climate, ventilation } = project;
+
+  const updateBuilding = useCallback(
+    (partial: Partial<Building>) => {
+      updateProject({ building: { ...project.building, ...partial } });
+    },
+    [project.building, updateProject],
+  );
+
+  const updateClimate = useCallback(
+    (partial: Partial<DesignConditions>) => {
+      updateProject({ climate: { ...project.climate, ...partial } });
+    },
+    [project.climate, updateProject],
+  );
+
+  const updateVentilation = useCallback(
+    (partial: Partial<VentilationConfig>) => {
+      updateProject({ ventilation: { ...project.ventilation, ...partial } });
+    },
+    [project.ventilation, updateProject],
+  );
+
+  const handleCalculate = useCallback(async () => {
+    setCalculating(true);
+    try {
+      const payload = prepareProjectForCalculation(project, projectConstructions);
+      const result = await backend.calculate(payload);
+      setResult(result);
+      navigate("/results");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Berekening mislukt");
+    }
+  }, [
+    backend,
+    project,
+    projectConstructions,
+    setCalculating,
+    setResult,
+    setError,
+    navigate,
+  ]);
+
+  const numVal = (v: string) => (v === "" ? 0 : Number(v));
+
+  const title = t("warmteverliesInstellingen.title", "Warmteverlies-instellingen");
+  const subtitle = t("warmteverliesInstellingen.subtitle", "ISSO 51:2023 parameters");
+
+  return (
+    <div>
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        breadcrumbs={[
+          { label: "Warmteverlies", to: "/results" },
+          { label: title },
+        ]}
+        actions={
+          <Button
+            onClick={handleCalculate}
+            disabled={isCalculating || project.rooms.length === 0}
+          >
+            {isCalculating ? "Berekenen..." : "Berekenen"}
+          </Button>
+        }
+      />
+
+      <div className="space-y-6 p-6">
+        {/* Building */}
+        <Card title="Gebouw">
+          <div className="grid grid-cols-3 gap-4">
+            <Select
+              id="building_type"
+              label="Gebouwtype"
+              value={building.building_type}
+              options={toOptions(BUILDING_TYPE_LABELS)}
+              onChange={(e) =>
+                updateBuilding({ building_type: e.target.value as Building["building_type"] })
+              }
+            />
+            <Input
+              id="qv10"
+              label="Luchtdichtheid qv10"
+              type="number"
+              unit="dm³/s"
+              value={building.qv10}
+              onChange={(e) => updateBuilding({ qv10: numVal(e.target.value) })}
+            />
+            <Input
+              id="total_floor_area"
+              label="Gebruiksoppervlak"
+              type="number"
+              unit="m²"
+              value={building.total_floor_area}
+              onChange={(e) => updateBuilding({ total_floor_area: numVal(e.target.value) })}
+            />
+            <Select
+              id="security_class"
+              label="Zekerheidsklasse"
+              value={building.security_class}
+              options={toOptions(SECURITY_CLASS_LABELS)}
+              onChange={(e) =>
+                updateBuilding({ security_class: e.target.value as Building["security_class"] })
+              }
+            />
+            <Input
+              id="num_floors"
+              label="Aantal verdiepingen"
+              type="number"
+              value={building.num_floors ?? 1}
+              onChange={(e) => updateBuilding({ num_floors: Math.max(1, numVal(e.target.value)) })}
+            />
+            <Input
+              id="warmup_time"
+              label="Opwarmtijd"
+              type="number"
+              unit="uur"
+              value={building.warmup_time ?? 2}
+              onChange={(e) => updateBuilding({ warmup_time: numVal(e.target.value) })}
+            />
+            <div>
+              <Select
+                id="default_heating_system"
+                label="Standaard verwarmingssysteem"
+                value={building.default_heating_system ?? DEFAULT_HEATING_SYSTEM}
+                options={toOptions(HEATING_SYSTEM_LABELS)}
+                onChange={(e) =>
+                  updateBuilding({
+                    default_heating_system: e.target.value as HeatingSystem,
+                  })
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Wordt gebruikt bij nieuwe vertrekken. Gebruik de knop hieronder
+                om dit systeem op alle bestaande vertrekken toe te passen.
+                Bepaalt Δθ₁/Δθ₂/Δθᵥ correcties (ISSO 51 Tabel 2.12).
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={building.has_night_setback ?? false}
+                onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
+                className="rounded border-[var(--oaec-border)] accent-primary"
+              />
+              Nachtreductie
+            </label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const system =
+                  building.default_heating_system ?? DEFAULT_HEATING_SYSTEM;
+                const count = project.rooms.length;
+                if (count === 0) {
+                  addToast("Geen vertrekken om aan te passen", "info", 2000);
+                  return;
+                }
+                if (count > BULK_APPLY_CONFIRM_THRESHOLD) {
+                  const label = HEATING_SYSTEM_LABELS[system] ?? system;
+                  if (
+                    !window.confirm(
+                      `Weet je zeker dat je "${label}" wilt toepassen op alle ${count} vertrekken? Dit overschrijft eventuele per-vertrek afwijkingen.`,
+                    )
+                  ) {
+                    return;
+                  }
+                }
+                applyHeatingSystemToAllRooms(system);
+                addToast(
+                  `Verwarmingssysteem toegepast op ${count} vertrekken`,
+                  "success",
+                  2500,
+                );
+              }}
+            >
+              Toepassen op alle vertrekken
+            </Button>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+            <div>
+              <Input
+                id="frame_u_override"
+                label="U-waarde kozijnen (override)"
+                type="number"
+                unit="W/(m²·K)"
+                step={0.1}
+                min={0}
+                max={10}
+                value={project.frameUValueOverride ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setFrameUValueOverride(undefined);
+                  } else {
+                    setFrameUValueOverride(Number(raw));
+                  }
+                }}
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Leeg laten voor individuele waarden per element. Vervangt
+                in de berekening alle U-waarden van kozijnen en vullingen
+                (categorie kozijnen_vullingen) in één keer.
+              </p>
+            </div>
+            <div className="col-span-2">
+              <Select
+                id="aggregation_method"
+                label="Aggregatiemethode"
+                value={
+                  building.aggregation_method ?? DEFAULT_AGGREGATION_METHOD
+                }
+                options={toOptions(AGGREGATION_METHOD_LABELS)}
+                onChange={(e) =>
+                  setAggregationMethod(e.target.value as AggregationMethod)
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Bepaalt hoe Φ_T,iae op gebouwniveau wordt geaggregeerd.
+                Vabi-conform sluit transmissie via onverwarmde ruimtes uit
+                van het basis-verlies op gebouwniveau (markt-conventie).
+                Norm-strict volgt §3.5.1 letterlijk en geeft ~17% hoger
+                aansluitvermogen.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Climate */}
+        <Card title="Klimaat (ontwerpcondities)">
+          <div className="grid grid-cols-4 gap-4">
+            <Input
+              id="theta_e"
+              label="Buitentemperatuur θ_e"
+              type="number"
+              unit="°C"
+              value={climate.theta_e ?? -10}
+              onChange={(e) => updateClimate({ theta_e: numVal(e.target.value) })}
+            />
+            <Input
+              id="theta_b_res"
+              label="Buurwoning θ_b (wonen)"
+              type="number"
+              unit="°C"
+              value={climate.theta_b_residential ?? 17}
+              onChange={(e) => updateClimate({ theta_b_residential: numVal(e.target.value) })}
+            />
+            <Input
+              id="theta_b_nonres"
+              label="Buurwoning θ_b (overig)"
+              type="number"
+              unit="°C"
+              value={climate.theta_b_non_residential ?? 14}
+              onChange={(e) => updateClimate({ theta_b_non_residential: numVal(e.target.value) })}
+            />
+            <Input
+              id="wind_factor"
+              label="Windfactor"
+              type="number"
+              value={climate.wind_factor ?? 1.0}
+              onChange={(e) => updateClimate({ wind_factor: numVal(e.target.value) })}
+            />
+            <Input
+              id="theta_water"
+              label="Watertemperatuur θ_w"
+              type="number"
+              unit="°C"
+              value={climate.theta_water ?? DEFAULT_THETA_WATER}
+              onChange={(e) => updateClimate({ theta_water: numVal(e.target.value) })}
+            />
+          </div>
+          <p className="mt-2 text-xs text-on-surface-muted">
+            Watertemperatuur is een engineering-aanname voor grensvlakken aan water
+            (bv. woonboten). Geen norm-waarde; default {DEFAULT_THETA_WATER} °C is
+            conservatief voor Nederlandse binnenwateren in winterconditie. Komt
+            automatisch terug in het PDF-rapport als er water-grensvlakken in het
+            project zitten.
+          </p>
+        </Card>
+
+        {/* Ventilation */}
+        <Card title="Ventilatie">
+          <div className="grid grid-cols-3 gap-4">
+            <Select
+              id="system_type"
+              label="Ventilatiesysteem"
+              value={ventilation.system_type}
+              options={toOptions(VENTILATION_SYSTEM_LABELS)}
+              onChange={(e) => {
+                const newType = e.target.value as VentilationConfig["system_type"];
+                // Systems A, B, C have no mechanical supply → WTW impossible
+                const supportsWtw = newType === "system_d" || newType === "system_e";
+                updateVentilation({
+                  system_type: newType,
+                  ...(!supportsWtw && {
+                    has_heat_recovery: false,
+                    heat_recovery_efficiency: undefined,
+                    frost_protection: undefined,
+                    supply_temperature: undefined,
+                  }),
+                });
+              }}
+            />
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 pb-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={ventilation.has_heat_recovery ?? false}
+                  disabled={ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e"}
+                  onChange={(e) => updateVentilation({ has_heat_recovery: e.target.checked })}
+                  className="rounded border-[var(--oaec-border)] accent-primary disabled:opacity-40"
+                />
+                Warmteterugwinning (WTW)
+                {ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e" && (
+                  <span className="text-[10px] text-on-surface-muted">(alleen bij systeem D/E)</span>
+                )}
+              </label>
+            </div>
+            {ventilation.has_heat_recovery && (
+              <Input
+                id="heat_recovery_efficiency"
+                label="WTW-rendement"
+                type="number"
+                unit="%"
+                value={
+                  ventilation.heat_recovery_efficiency != null
+                    ? ventilation.heat_recovery_efficiency * 100
+                    : 85
+                }
+                onChange={(e) =>
+                  updateVentilation({
+                    heat_recovery_efficiency: numVal(e.target.value) / 100,
+                  })
+                }
+              />
+            )}
+          </div>
+          {ventilation.has_heat_recovery && (
+            <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+              <Select
+                id="frost_protection"
+                label="Vorstbeveiliging"
+                value={ventilation.frost_protection ?? "unknown"}
+                options={toOptions(FROST_PROTECTION_LABELS)}
+                onChange={(e) =>
+                  updateVentilation({
+                    frost_protection: e.target.value as FrostProtectionType,
+                  })
+                }
+              />
+              <div>
+                <Input
+                  id="supply_temperature"
+                  label="Toevoertemperatuur θ_t"
+                  type="number"
+                  unit="°C"
+                  value={
+                    ventilation.supply_temperature ??
+                    FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ??
+                    10
+                  }
+                  onChange={(e) =>
+                    updateVentilation({
+                      supply_temperature: e.target.value === "" ? null : numVal(e.target.value),
+                    })
+                  }
+                />
+                <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                  ISSO 51 Tabel 2.14 (erratum). Wordt automatisch bepaald op basis
+                  van vorstbeveiliging. Handmatig aanpassen overschrijft de tabelwaarde.
+                </p>
+              </div>
+              <div className="flex items-center">
+                <div className="rounded-md bg-[var(--oaec-accent-soft)] px-3 py-2 text-sm">
+                  <span className="text-on-surface-muted">ΔT ventilatie: </span>
+                  <span className="font-semibold tabular-nums">
+                    {20 - (ventilation.supply_temperature ?? FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ?? 10)}
+                  </span>
+                  <span className="text-on-surface-muted"> K</span>
+                  <span className="ml-2 text-xs text-on-surface-muted">(bij θ_i = 20°C)</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Rooms hint */}
+        {project.rooms.length === 0 && (
+          <Card>
+            <div className="flex flex-col items-center gap-2 py-2">
+              <p className="text-sm text-on-surface-muted">
+                Voeg vertrekken toe om de berekening te kunnen starten.
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => navigate("/rooms")}>
+                Vertrekken invoeren
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Room count summary */}
+        {project.rooms.length > 0 && (
+          <Card title={`Vertrekken (${project.rooms.length})`}>
+            <ul className="space-y-1">
+              {project.rooms.map((room) => (
+                <li
+                  key={room.id}
+                  className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-[var(--oaec-hover)]"
+                >
+                  <span className="font-medium">{room.name}</span>
+                  <span className="font-mono text-xs text-on-surface-muted">
+                    {formatArea(room.floor_area)} m²
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
