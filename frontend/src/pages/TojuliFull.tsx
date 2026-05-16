@@ -14,13 +14,13 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useProjectStore } from "../store/projectStore";
 import { buildV2Payload } from "../lib/projectV2Migration";
+import { tojuliCalculate } from "../lib/backend";
 import type { ProjectV2 } from "../types/projectV2";
 
 // ---------------------------------------------------------------------------
@@ -150,9 +150,10 @@ export function TojuliFull() {
     setBusy(true);
     setError(null);
     try {
-      const r = await invoke<TojuliResult>("tojuli_calculate", {
-        req: { project: projectV2, inputs },
-      });
+      const r = await tojuliCalculate<
+        { project: ProjectV2; inputs: TojuliFullInputs },
+        TojuliResult
+      >({ project: projectV2, inputs });
       setResult(r);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
