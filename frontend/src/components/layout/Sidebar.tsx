@@ -149,8 +149,6 @@ type NavGroupSpec = {
   /** Default collapsed state (used on first load before localStorage hydrates) */
   defaultCollapsed: boolean;
   items: ReadonlyArray<NavItemSpec>;
-  /** Render extra footer node inside the group (e.g. Projects link in web mode) */
-  webFooter?: boolean;
 };
 
 /* ─── Nav data ─── */
@@ -160,7 +158,6 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     key: "project",
     titleKey: "sidebar.groups.project",
     defaultCollapsed: false,
-    webFooter: true,
     items: [
       { to: "/project", labelKey: "sidebar.project", Icon: IconHome },
       { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
@@ -319,24 +316,17 @@ function DisabledNavItem({ labelKey, Icon, titleKey }: { labelKey: string; Icon:
 
 /** Shows Projects nav link in web mode. */
 function ProjectsNavLink() {
-  return (
-    <>
-      <li className="mx-3 my-3 border-t border-[var(--oaec-border-subtle)]" />
-      <NavItem to="/projects" labelKey="sidebar.projects" Icon={IconFolder} />
-    </>
-  );
+  return <NavItem to="/projects" labelKey="sidebar.projects" Icon={IconFolder} />;
 }
 
 function NavGroup({
   group,
   expanded,
   onToggle,
-  showWebFooter,
 }: {
   group: NavGroupSpec;
   expanded: boolean;
   onToggle: () => void;
-  showWebFooter: boolean;
 }) {
   const { t } = useTranslation();
   const regionId = `sidebar-group-${group.key}`;
@@ -371,7 +361,6 @@ function NavGroup({
               <NavItem key={item.to} to={item.to} labelKey={item.labelKey} Icon={item.Icon} />
             ),
           )}
-          {showWebFooter && group.webFooter && <ProjectsNavLink />}
         </ul>
       </div>
     </div>
@@ -431,13 +420,20 @@ export function Sidebar() {
     <aside className="flex w-sidebar shrink-0 flex-col border-r border-[var(--oaec-border-subtle)] bg-surface-alt text-on-surface-secondary overflow-hidden">
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {isWeb && (
+          <>
+            <ul className="mb-2 space-y-0.5">
+              <ProjectsNavLink />
+            </ul>
+            <div className="mx-3 my-2 border-t border-[var(--oaec-border-subtle)]" />
+          </>
+        )}
         {NAV_GROUPS.map((group, idx) => (
           <div key={group.key}>
             <NavGroup
               group={group}
               expanded={effectiveExpanded[group.key]}
               onToggle={() => toggle(group.key)}
-              showWebFooter={isWeb}
             />
             {idx < NAV_GROUPS.length - 1 && (
               <div className="mx-3 my-2 border-t border-[var(--oaec-border-subtle)]" />
