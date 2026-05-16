@@ -8,8 +8,9 @@ import "../ThemedSelect.css";
 import "./SettingsDialog.css";
 
 const THEME_OPTIONS = [
-  { value: "light", labelKey: "appearance.light", swatches: ["#3E3636", "#D97706", "#F5F0EB", "#B45309"] },
-  { value: "openaec", labelKey: "appearance.dark", swatches: ["#1a1a2e", "#D97706", "#C4B199", "#B45309"] },
+  { value: "light",         labelKey: "appearance.light", swatches: ["#FAFAF9", "#D97706", "#36363E", "#EA580C"] },
+  { value: "openaec-forge", labelKey: "appearance.forge", swatches: ["#36363E", "#D97706", "#FAFAF9", "#EA580C"] },
+  { value: "openaec",       labelKey: "appearance.dark",  swatches: ["#27272A", "#D97706", "#FAFAF9", "#EA580C"] },
 ];
 
 const TAB_IDS = ["general", "appearance", "editor", "files", "shortcuts", "plugins", "about"] as const;

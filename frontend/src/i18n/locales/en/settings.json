@@ -25,6 +25,7 @@
     "themeDescription": "Choose a color theme for the application.",
     "dark": "Dark",
     "light": "Light",
+    "forge": "Dark (Deep Forge)",
     "font": "Font",
     "uiFontSize": "UI Font Size"
   },
