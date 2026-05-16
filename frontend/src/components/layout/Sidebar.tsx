@@ -171,6 +171,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     titleKey: "sidebar.groups.warmteverlies",
     defaultCollapsed: false,
     items: [
+      { to: "/warmteverlies/instellingen", labelKey: "sidebar.warmteverliesInstellingen", Icon: IconLayers },
       { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
     ],
   },
