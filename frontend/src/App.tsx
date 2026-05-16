@@ -8,6 +8,7 @@ import { ProjectSetup } from "./pages/ProjectSetup";
 import { RoomEditor } from "./pages/RoomEditor";
 import { RcCalculator } from "./pages/RcCalculator";
 import { Results } from "./pages/Results";
+import { WarmteverliesInstellingen } from "./pages/WarmteverliesInstellingen";
 import { Tojuli } from "./pages/Tojuli";
 import { TojuliFull } from "./pages/TojuliFull";
 import { Modeller } from "./pages/Modeller";
@@ -42,6 +43,7 @@ export function App() {
             <Route path="/tojuli" element={<TojuliFull />} />
             <Route path="/library" element={<Library />} />
             <Route path="/materialen" element={<Library initialSection="materialen" />} />
+            <Route path="/warmteverlies/instellingen" element={<WarmteverliesInstellingen />} />
             <Route path="/results" element={<Results />} />
             <Route path="/modeller" element={<Modeller />} />
             <Route path="/ifc" element={<Ifc />} />
