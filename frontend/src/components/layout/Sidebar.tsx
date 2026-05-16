@@ -85,6 +85,19 @@ function IconFolder({ className }: { className?: string }) {
   );
 }
 
+function IconIfc({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M8.5 17.5l3 1.5 3-1.5v-3l-3-1.5-3 1.5z" />
+      <line x1="11.5" y1="19" x2="11.5" y2="16" />
+      <line x1="8.5" y1="14.5" x2="11.5" y2="16" />
+      <line x1="14.5" y1="14.5" x2="11.5" y2="16" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -119,7 +132,7 @@ function IconChevron({ className, expanded }: { className?: string; expanded: bo
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
-type GroupKey = "warmteverlies" | "tojuli" | "rcwaarde" | "library";
+type GroupKey = "project" | "warmteverlies" | "tojuli" | "rcwaarde" | "library";
 
 type NavItemSpec = {
   to: string;
@@ -144,8 +157,8 @@ type NavGroupSpec = {
 
 const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
   {
-    key: "warmteverlies",
-    titleKey: "sidebar.groups.warmteverlies",
+    key: "project",
+    titleKey: "sidebar.groups.project",
     defaultCollapsed: false,
     webFooter: true,
     items: [
@@ -153,6 +166,14 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
       { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
       { to: "/constructies", labelKey: "sidebar.constructions", Icon: IconClipboardList },
       { to: "/modeller", labelKey: "sidebar.modeller", Icon: IconCube },
+      { to: "/ifc", labelKey: "sidebar.ifc", Icon: IconIfc },
+    ],
+  },
+  {
+    key: "warmteverlies",
+    titleKey: "sidebar.groups.warmteverlies",
+    defaultCollapsed: false,
+    items: [
       { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
     ],
   },
