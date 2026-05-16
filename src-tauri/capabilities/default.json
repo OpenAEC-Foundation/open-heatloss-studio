@@ -1,16 +1,38 @@
 {
   "$schema": "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/capability.json",
   "identifier": "default",
-  "description": "Default permissions for the ISSO 51 app",
+  "description": "Default permissions for Open Heatloss Studio main window",
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:app:allow-version",
+    "core:app:allow-name",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
+    "core:webview:default",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
-    "shell:allow-execute"
+    "fs:allow-mkdir",
+    "core:path:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**" }]
+    },
+    "shell:allow-execute",
+    "shell:allow-open"
   ]
 }

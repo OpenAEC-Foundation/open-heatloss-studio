@@ -12,6 +12,8 @@ import { Tojuli } from "./pages/Tojuli";
 import { TojuliFull } from "./pages/TojuliFull";
 import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
+import { Rapport } from "./pages/Rapport";
+import { Ifc } from "./pages/Ifc";
 import { ThermalImportWizard } from "./components/import/ThermalImportWizard";
 
 /**
@@ -42,6 +44,8 @@ export function App() {
             <Route path="/materialen" element={<Library initialSection="materialen" />} />
             <Route path="/results" element={<Results />} />
             <Route path="/modeller" element={<Modeller />} />
+            <Route path="/ifc" element={<Ifc />} />
+            <Route path="/rapport" element={<Rapport />} />
             <Route path="/import/thermal" element={<ThermalImportWizard />} />
             <Route path="/projects" element={<Projects />} />
           </Routes>

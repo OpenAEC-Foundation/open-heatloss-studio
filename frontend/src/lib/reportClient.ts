@@ -1,24 +1,44 @@
 /**
  * API-client voor OpenAEC Reports.
  *
- * Stuurt het OIDC Bearer token van de ingelogde gebruiker mee.
- * POST naar warmteverlies-backend `/api/v1/report/generate`, die de request
- * doorproxyt naar report-rs met een Authentik service-token (svc-warmteverlies)
- * + `X-Original-Tenant` header. Tenant-templating gebeurt in report-rs o.b.v.
- * die header. Geen API keys in de frontend — per-user access control via SSO.
+ * Desktop (Tauri): genereert lokaal via Rust openaec-layout engine.
+ * Browser: POST naar warmteverlies-backend `/api/v1/report/generate` proxy.
+ *
+ * De runtime-detectie kijkt per call (niet gecached) zodat tests of
+ * webview-inits die later mounten de juiste branch krijgen.
  */
 
 import { getBearerToken } from "./authHeader";
+import { generateReportTauri } from "./reportClient.tauri";
 
 const REPORTS_URL = "/api/v1/report/generate";
 
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 /**
- * Genereer een PDF rapport via de warmteverlies backend proxy.
+ * Genereer een PDF rapport.
+ *
+ * Onder Tauri: lokaal via openaec-layout (geen netwerk-call).
+ * Anders: HTTP POST naar de warmteverlies-backend proxy.
  *
  * @param reportData - BM Reports JSON conform report.schema.json
  * @returns PDF als Blob
  */
 export async function generateReportDirect(
+  reportData: Record<string, unknown>,
+): Promise<Blob> {
+  if (isTauriRuntime()) {
+    if (import.meta.env.DEV) {
+      console.log("[report] Tauri runtime — lokale PDF-generatie via Rust");
+    }
+    return generateReportTauri(reportData);
+  }
+  return generateReportHttp(reportData);
+}
+
+async function generateReportHttp(
   reportData: Record<string, unknown>,
 ): Promise<Blob> {
   const token = await getBearerToken();
@@ -31,7 +51,11 @@ export async function generateReportDirect(
   }
 
   if (import.meta.env.DEV) {
-    console.log("[report] POST", REPORTS_URL, token ? "(met token)" : "(zonder token)");
+    console.log(
+      "[report] POST",
+      REPORTS_URL,
+      token ? "(met token)" : "(zonder token)",
+    );
   }
 
   const res = await fetch(REPORTS_URL, {
@@ -60,7 +84,9 @@ export async function generateReportDirect(
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/pdf")) {
     console.error("[report] Onverwacht content-type:", contentType);
-    throw new Error("Server retourneerde geen PDF — controleer de backend configuratie.");
+    throw new Error(
+      "Server retourneerde geen PDF — controleer de backend configuratie.",
+    );
   }
 
   return res.blob();

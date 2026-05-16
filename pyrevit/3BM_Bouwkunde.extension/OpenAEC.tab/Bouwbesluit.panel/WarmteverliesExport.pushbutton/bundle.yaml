@@ -5,3 +5,7 @@ tooltip: >-
 author: 3BM Bouwkunde
 highlight: new
 context: zero-doc
+# Verse IronPython AppDomain bij elke klik — voorkomt module-caching
+# zodat updates aan lib/ui_template.py direct doorwerken zonder Revit
+# restart.
+clean_engine: true

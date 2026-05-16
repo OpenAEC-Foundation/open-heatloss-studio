@@ -1,0 +1,123 @@
+/* TabBar — geopende project tabs in OpenAEC huisstijl. */
+
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  background: var(--theme-bg-lighter, var(--oaec-surface-2, rgba(127, 127, 127, 0.05)));
+  border-bottom: 1px solid var(--theme-border, rgba(127, 127, 127, 0.2));
+  padding: 2px 4px 0 4px;
+  user-select: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  min-height: 30px;
+  flex-shrink: 0;
+}
+
+.tabbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tabbar-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 12px;
+  border: 1px solid var(--theme-border, rgba(127, 127, 127, 0.2));
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: var(--theme-bg, transparent);
+  color: var(--theme-text-secondary, var(--oaec-on-surface-secondary, inherit));
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  max-width: 220px;
+  position: relative;
+  top: 1px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tabbar-tab:hover {
+  background: var(--theme-hover, rgba(127, 127, 127, 0.06));
+  color: var(--theme-text, inherit);
+}
+
+.tabbar-tab-active {
+  background: var(--theme-bg, white);
+  border-color: var(--theme-border, rgba(127, 127, 127, 0.3));
+  color: var(--theme-text, inherit);
+  font-weight: 500;
+  /* Verberg de onderrand zodat de active tab visueel verbonden lijkt
+     met de content eronder. */
+  border-bottom: 1px solid var(--theme-bg, white);
+  z-index: 1;
+}
+
+.tabbar-tab-active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--theme-accent, #0f766e);
+  border-radius: 5px 5px 0 0;
+}
+
+.tabbar-dirty {
+  color: var(--theme-accent, #0f766e);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.tabbar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.tabbar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--theme-text-muted, var(--oaec-on-surface-muted, inherit));
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.tabbar-close:hover {
+  background: var(--theme-danger-soft, rgba(220, 38, 38, 0.12));
+  color: var(--theme-danger, #b91c1c);
+}
+
+.tabbar-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  border: 1px dashed var(--theme-border, rgba(127, 127, 127, 0.3));
+  background: transparent;
+  color: var(--theme-text-secondary, inherit);
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0;
+}
+
+.tabbar-new:hover {
+  background: var(--theme-hover, rgba(127, 127, 127, 0.08));
+  border-color: var(--theme-accent, currentColor);
+  color: var(--theme-accent, inherit);
+}

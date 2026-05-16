@@ -1,0 +1,6 @@
+Liberation Fonts version 2.1.5
+SIL Open Font License 1.1 — https://scripts.sil.org/OFL
+Copyright (c) 2010 Red Hat, Inc., 2012 Google Corporation. All rights reserved.
+
+For the full license text, see:
+https://github.com/liberationfonts/liberation-fonts/blob/main/LICENSE

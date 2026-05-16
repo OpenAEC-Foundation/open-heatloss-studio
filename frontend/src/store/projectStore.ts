@@ -81,6 +81,16 @@ interface ProjectStore {
   serverUpdatedAt: string | null;
   /** Whether a save conflict was detected. */
   hasConflict: boolean;
+  /**
+   * Local filesystem path waar dit project nu naartoe geschreven kan worden
+   * (Tauri-mode). Wordt geset wanneer:
+   *   - de user een `.ifcenergy` opent via de Tauri open-dialog
+   *   - de app wordt gestart via file-association (argv pad)
+   *   - de user "Opslaan als…" doet
+   * Bestand → Opslaan schrijft stil naar dit pad als het bekend is;
+   * anders valt het terug op de save-as dialog.
+   */
+  currentLocalPath: string | null;
 
   /** Update V2 sidecar velden (partial merge). */
   updateSharedExtra: (partial: Partial<SharedExtra>) => void;
@@ -104,6 +114,8 @@ interface ProjectStore {
   setProject: (project: Project) => void;
   /** Set the active server-side project ID. */
   setActiveProjectId: (id: string | null) => void;
+  /** Set the local filesystem path (or clear with null on New). */
+  setCurrentLocalPath: (path: string | null) => void;
   /** Set the calculation result. */
   setResult: (result: ProjectResult) => void;
   /** Set an error from a failed calculation. */
@@ -168,6 +180,7 @@ export const useProjectStore = create<ProjectStore>()(
       activeProjectId: null,
       serverUpdatedAt: null,
       hasConflict: false,
+      currentLocalPath: null,
       _past: [],
       _future: [],
 
@@ -181,6 +194,7 @@ export const useProjectStore = create<ProjectStore>()(
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
+      setCurrentLocalPath: (path) => set({ currentLocalPath: path }),
 
       updateProject: (partial) => {
         const snap = takeProjectSnapshot(get());
@@ -222,6 +236,7 @@ export const useProjectStore = create<ProjectStore>()(
           activeProjectId: null,
           serverUpdatedAt: null,
           hasConflict: false,
+          currentLocalPath: null,
           _past: [],
           _future: [],
         }),
@@ -236,6 +251,7 @@ export const useProjectStore = create<ProjectStore>()(
           isCalculating: false,
           serverUpdatedAt: updatedAt ?? null,
           hasConflict: false,
+          currentLocalPath: null,
           _past: [],
           _future: [],
         }),
@@ -263,6 +279,7 @@ export const useProjectStore = create<ProjectStore>()(
           activeProjectId: null,
           serverUpdatedAt: null,
           hasConflict: false,
+          currentLocalPath: null,
           _past: [],
           _future: [],
         }),

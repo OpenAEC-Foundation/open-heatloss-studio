@@ -5,6 +5,16 @@
   flex: 1;
 }
 
+.feedback-intro {
+  margin: 0 0 14px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--oaec-surface-2, rgba(127, 127, 127, 0.08));
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--oaec-on-surface-secondary, inherit);
+}
+
 .feedback-section {
   margin-bottom: 12px;
 }
