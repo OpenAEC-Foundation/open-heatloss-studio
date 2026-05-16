@@ -12,11 +12,11 @@
  */
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/layout/PageHeader";
+import { simplifiedCooling } from "../lib/backend";
 
 /** Mirrors `SimplifiedCoolingRequest` in src-tauri/commands.rs. */
 interface SimplifiedCoolingRequest {
@@ -163,10 +163,7 @@ export function Tojuli() {
     setBusy(true);
     setError(null);
     try {
-      const r = await invoke<SimplifiedCoolingResult>(
-        "simplified_cooling",
-        { req: input },
-      );
+      const r = await simplifiedCooling<SimplifiedCoolingRequest, SimplifiedCoolingResult>(input);
       setResult(r);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
