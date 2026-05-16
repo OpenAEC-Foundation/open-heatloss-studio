@@ -3,8 +3,10 @@
     "file": "File",
     "vertrekken": "Rooms",
     "constructies": "Constructions",
-    "modeller": "Modeller",
-    "resultaten": "Results"
+    "modeller": "Modeller ❄️",
+    "ifc": "IFC",
+    "resultaten": "Results",
+    "rapport": "Report"
   },
   "vertrekken": {
     "rooms": "Rooms",

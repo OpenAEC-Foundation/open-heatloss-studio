@@ -6,13 +6,22 @@ import VertrekkenTab from "./VertrekkenTab";
 import ConstructiesTab from "./ConstructiesTab";
 import ModellerTab from "./ModellerTab";
 import ResultatenTab from "./ResultatenTab";
+import RapportTab from "./RapportTab";
+import IfcTab from "./IfcTab";
 import "./Ribbon.css";
 
 interface RibbonProps {
   onFileTabClick?: () => void;
 }
 
-const TABS = ["vertrekken", "constructies", "modeller", "resultaten"] as const;
+const TABS = [
+  "vertrekken",
+  "constructies",
+  "modeller",
+  "ifc",
+  "resultaten",
+  "rapport",
+] as const;
 type TabId = (typeof TABS)[number];
 
 /** Map routes to their corresponding ribbon tab. */
@@ -24,7 +33,9 @@ const ROUTE_TO_TAB: Record<string, TabId> = {
   "/library": "constructies",
   "/materialen": "constructies",
   "/modeller": "modeller",
+  "/ifc": "ifc",
   "/results": "resultaten",
+  "/rapport": "rapport",
 };
 
 /** Map tabs to the default route when clicked. */
@@ -32,7 +43,9 @@ const TAB_TO_ROUTE: Record<TabId, string> = {
   vertrekken: "/rooms",
   constructies: "/constructies",
   modeller: "/modeller",
+  ifc: "/ifc",
   resultaten: "/results",
+  rapport: "/rapport",
 };
 
 export default function Ribbon({ onFileTabClick }: RibbonProps) {
@@ -126,7 +139,9 @@ export default function Ribbon({ onFileTabClick }: RibbonProps) {
       case "vertrekken": return <VertrekkenTab />;
       case "constructies": return <ConstructiesTab />;
       case "modeller": return <ModellerTab />;
+      case "ifc": return <IfcTab />;
       case "resultaten": return <ResultatenTab />;
+      case "rapport": return <RapportTab />;
     }
   };
 

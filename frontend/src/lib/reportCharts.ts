@@ -17,6 +17,53 @@ import type {
 } from "../types";
 import { DEFAULT_THETA_WATER, ROOM_FUNCTION_TEMPERATURES } from "./constants";
 import { buildRoomLookup, computeDeltaT } from "../components/charts/deltaT";
+import type { MaterialCategory } from "./materialsDatabase";
+
+/** Materiaal-categorie → fill kleur voor de doorsnede-strook in het
+ * temperatuurverloop-diagram. Architectonisch herkenbare kleuren — baksteen
+ * roodbruin, hout warm bruin, isolatie geel/beige, beton grijs, etc.
+ * Subtiele tint zodat de temperatuurcurve eroverheen leesbaar blijft. */
+const MATERIAL_COLOR: Record<MaterialCategory, string> = {
+  spouw: "#e0f2fe",              // sky-100 — luchtspouw
+  mortel: "#d6d3d1",             // stone-300 — voegmortel
+  natuursteen: "#a8a29e",        // stone-400 — natuursteen
+  metselwerk: "#c2410c",         // orange-700 — baksteen rood-bruin
+  beton: "#9ca3af",              // gray-400 — beton
+  plaatmateriaal: "#e7e5e4",     // stone-200 — gips/spaanplaat
+  hout: "#92400e",               // amber-800 — hout bruin
+  isolatie_mineraal: "#fde68a",  // amber-200 — minerale wol (geel)
+  isolatie_kunststof: "#bae6fd", // sky-200 — PIR/PUR (lichtblauw)
+  isolatie_natuurlijk: "#fef3c7", // amber-100 — natuurvezel (beige)
+  folie: "#cbd5e1",              // slate-300 — folie (zilver-grijs)
+  afwerking: "#f5f5f4",          // stone-100 — gipsplaat/pleister
+  vloer: "#a16207",              // yellow-700 — vloerafwerking
+  metaal: "#64748b",             // slate-500 — staal/metaal
+  kunststof: "#e0e7ff",          // indigo-100 — kunststof
+  glas: "#bfdbfe",               // blue-200 — glas
+  overig: "#d4d4d8",             // zinc-300 — onbekend/overig
+};
+
+/** Subtiele rand-kleur per materiaal-categorie zodat aangrenzende lagen
+ * visueel gescheiden blijven zelfs als ze dezelfde fill-kleur zouden hebben. */
+const MATERIAL_BORDER: Record<MaterialCategory, string> = {
+  spouw: "#93c5fd",
+  mortel: "#a8a29e",
+  natuursteen: "#78716c",
+  metselwerk: "#9a3412",
+  beton: "#6b7280",
+  plaatmateriaal: "#a8a29e",
+  hout: "#78350f",
+  isolatie_mineraal: "#ca8a04",
+  isolatie_kunststof: "#7dd3fc",
+  isolatie_natuurlijk: "#fbbf24",
+  folie: "#94a3b8",
+  afwerking: "#d6d3d1",
+  vloer: "#854d0e",
+  metaal: "#475569",
+  kunststof: "#a5b4fc",
+  glas: "#93c5fd",
+  overig: "#a1a1aa",
+};
 
 // ---------------------------------------------------------------------------
 // Report-specifieke styling: donker op wit, hex inline
@@ -644,4 +691,201 @@ export function buildConstructionLossSvg(
   });
 
   return wrapSvg(CHART_WIDTH, CHART_HEIGHT, parts.join(""));
+}
+
+// ---------------------------------------------------------------------------
+// Temperature gradient through a layered construction
+// ---------------------------------------------------------------------------
+
+/** Single layer's contribution to the temperature gradient curve. */
+export interface TemperatureGradientLayer {
+  /** Display name for the layer (material). */
+  name: string;
+  /** Thickness [mm]. */
+  thickness: number;
+  /** Effective thermal resistance of this layer [m²·K/W]. */
+  r: number;
+  /** Materiaal-categorie voor kleur-coding. Bepaalt de fill van de
+   * laag-kolom (baksteen = rood-bruin, hout = bruin, isolatie = geel,
+   * beton = grijs, enz.). Optioneel — bij ontbreken valt 'ie terug op
+   * "overig" (neutraal grijs). */
+  category?: MaterialCategory;
+}
+
+/**
+ * Bouwt een temperatuurverloop-SVG voor één layered constructie.
+ *
+ * Toont temperatuur (°C) als functie van positie door de constructie:
+ *   - X-as: positie [mm] van binnen (links) naar buiten (rechts)
+ *   - Y-as: temperatuur [°C], schaal afgeleid van θ_i en θ_e
+ *   - Inkleuring: lichtblauwe zones voor binnen/buiten-lucht (R_si / R_se),
+ *     wisselende grijstinten voor materiaallagen
+ *   - Curve: lineair tussen elk laag-grensvlak (warmtestroom is constant
+ *     in stationair regime, dus ΔT per laag = R_laag / R_totaal × ΔT_totaal)
+ *   - Annotaties: laagnaam onderlangs, grensvlak-temperaturen bovenlangs
+ *
+ * Geeft `null` als er geen lagen zijn of als de totale R nul is.
+ */
+export function buildTemperatureGradientSvg(
+  layers: TemperatureGradientLayer[],
+  rSi: number,
+  rSe: number,
+  thetaI: number,
+  thetaE: number,
+): string | null {
+  if (layers.length === 0) return null;
+  const rTotal = rSi + layers.reduce((s, l) => s + l.r, 0) + rSe;
+  if (rTotal <= 0) return null;
+
+  // ────────────────────────────────────────────────────────── canvas / layout
+  const WIDTH = 640;
+  const HEIGHT = 280;
+  const MARGIN = { top: 30, right: 30, bottom: 60, left: 48 };
+  const PLOT_W = WIDTH - MARGIN.left - MARGIN.right;
+  const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
+  const AIR_ZONE_PX = 26; // visual width of R_si / R_se zones
+
+  // ───────────────────────────────────────────────────────────── temp scale
+  // Round y-bounds to whole degrees for a clean axis (small padding on top/bot)
+  const yMin = Math.floor(Math.min(thetaI, thetaE) - 2);
+  const yMax = Math.ceil(Math.max(thetaI, thetaE) + 2);
+  const yToPx = (t: number) =>
+    MARGIN.top + ((yMax - t) / (yMax - yMin)) * PLOT_H;
+
+  // ───────────────────────────────────────────────────────── x scale (mm)
+  const totalThicknessMm = layers.reduce((s, l) => s + l.thickness, 0);
+  // Reserve AIR_ZONE_PX on each side for the surface-resistance zones, so the
+  // layered material region gets PLOT_W − 2·AIR_ZONE_PX pixels.
+  const layerAreaPx = PLOT_W - 2 * AIR_ZONE_PX;
+  const mmToPx = (mm: number) => (mm / Math.max(totalThicknessMm, 1)) * layerAreaPx;
+  const innerX = MARGIN.left + AIR_ZONE_PX;
+  const outerX = MARGIN.left + AIR_ZONE_PX + layerAreaPx;
+
+  // ───────────────────────────────────────────────────── temp at interfaces
+  // Stationair regime: warmtestroom q = ΔT / R_totaal is constant.
+  // T(x_interface_i) = θ_i − (R_si + Σ_{j<=i} R_j) / R_totaal × (θ_i − θ_e)
+  const totalDeltaT = thetaI - thetaE;
+  const innerSurfaceT = thetaI - (rSi / rTotal) * totalDeltaT;
+
+  const interfaceTemps: number[] = [innerSurfaceT];
+  let cumR = rSi;
+  for (const l of layers) {
+    cumR += l.r;
+    interfaceTemps.push(thetaI - (cumR / rTotal) * totalDeltaT);
+  }
+  // Final entry equals outerSurfaceT = θ_e + (R_se/R_total)·ΔT modulo floats.
+
+  // ─────────────────────────────────────────────────────────────── render
+  const parts: string[] = [];
+
+  // Plot area bg + frame
+  parts.push(
+    `<rect x="${MARGIN.left}" y="${MARGIN.top}" width="${PLOT_W}" height="${PLOT_H}" fill="#fafafa" stroke="${REPORT_COLORS.grid}"/>`,
+  );
+
+  // Air zones (interior / exterior surface resistance) — light blue
+  parts.push(
+    `<rect x="${MARGIN.left}" y="${MARGIN.top}" width="${AIR_ZONE_PX}" height="${PLOT_H}" fill="#dbeafe"/>`,
+    `<rect x="${outerX}" y="${MARGIN.top}" width="${AIR_ZONE_PX}" height="${PLOT_H}" fill="#dbeafe"/>`,
+  );
+
+  // Layer columns — materiaal-categorie bepaalt de fill-kleur zodat de
+  // doorsnede leest als een echte wand-opbouw (baksteen rood, hout bruin,
+  // isolatie geel, beton grijs, enz.). Bij ontbrekende category valt 'ie
+  // terug op een neutraal grijs zodat de curve altijd leesbaar blijft.
+  let xCursor = innerX;
+  layers.forEach((l) => {
+    const w = mmToPx(l.thickness);
+    const cat: MaterialCategory = l.category ?? "overig";
+    const fill = MATERIAL_COLOR[cat];
+    const border = MATERIAL_BORDER[cat];
+    parts.push(
+      `<rect x="${xCursor.toFixed(2)}" y="${MARGIN.top}" width="${w.toFixed(2)}" height="${PLOT_H}" fill="${fill}" stroke="${border}" stroke-width="0.5"/>`,
+    );
+    xCursor += w;
+  });
+
+  // Y-axis grid lines (per 5°C if span > 20, else per 2°C)
+  const yStep = (yMax - yMin) > 20 ? 5 : 2;
+  for (let t = Math.ceil(yMin / yStep) * yStep; t <= yMax; t += yStep) {
+    const yp = yToPx(t);
+    parts.push(
+      `<line x1="${MARGIN.left}" y1="${yp.toFixed(2)}" x2="${MARGIN.left + PLOT_W}" y2="${yp.toFixed(2)}" stroke="${REPORT_COLORS.grid}" stroke-width="0.5"/>`,
+      `<text x="${MARGIN.left - 6}" y="${yp.toFixed(2)}" text-anchor="end" dominant-baseline="middle" fill="${REPORT_COLORS.textMuted}" font-size="10" font-family="${FONT_FAMILY}">${t.toFixed(0)}°C</text>`,
+    );
+  }
+
+  // Temperature curve — line segments between interfaces (linear in each layer)
+  // Path starts at the inner surface (innerX, T = innerSurfaceT) and walks to
+  // the outer surface, with one segment per layer + the two air zones.
+  const pathPts: string[] = [];
+  // Interior air zone — flat at θ_i then drops linearly to innerSurfaceT
+  pathPts.push(`M ${MARGIN.left.toFixed(2)} ${yToPx(thetaI).toFixed(2)}`);
+  pathPts.push(`L ${innerX.toFixed(2)} ${yToPx(innerSurfaceT).toFixed(2)}`);
+  // Per-layer interface
+  let lx = innerX;
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i]!;
+    const tInterface = interfaceTemps[i + 1] ?? thetaE;
+    lx += mmToPx(layer.thickness);
+    pathPts.push(`L ${lx.toFixed(2)} ${yToPx(tInterface).toFixed(2)}`);
+  }
+  // Exterior air zone — exit at θ_e
+  pathPts.push(`L ${(MARGIN.left + PLOT_W).toFixed(2)} ${yToPx(thetaE).toFixed(2)}`);
+
+  parts.push(
+    `<path d="${pathPts.join(" ")}" stroke="${REPORT_COLORS.transmission}" stroke-width="2" fill="none" stroke-linejoin="round"/>`,
+  );
+
+  // Interface temperature markers + labels
+  let mx = innerX;
+  parts.push(
+    `<circle cx="${innerX}" cy="${yToPx(innerSurfaceT).toFixed(2)}" r="2.5" fill="${REPORT_COLORS.transmission}"/>`,
+    `<text x="${innerX}" y="${(yToPx(innerSurfaceT) - 8).toFixed(2)}" text-anchor="middle" fill="${REPORT_COLORS.text}" font-size="9" font-family="${FONT_FAMILY}">${innerSurfaceT.toFixed(1)}°C</text>`,
+  );
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i]!;
+    const tInterface = interfaceTemps[i + 1] ?? thetaE;
+    mx += mmToPx(layer.thickness);
+    parts.push(
+      `<circle cx="${mx.toFixed(2)}" cy="${yToPx(tInterface).toFixed(2)}" r="2.5" fill="${REPORT_COLORS.transmission}"/>`,
+    );
+    // Show numeric label every interface — small text, slightly above marker
+    parts.push(
+      `<text x="${mx.toFixed(2)}" y="${(yToPx(tInterface) - 8).toFixed(2)}" text-anchor="middle" fill="${REPORT_COLORS.text}" font-size="9" font-family="${FONT_FAMILY}">${tInterface.toFixed(1)}°C</text>`,
+    );
+  }
+
+  // Boundary annotations — θ_i / θ_e at the left/right edges
+  parts.push(
+    `<text x="${(MARGIN.left + 4).toFixed(2)}" y="${(MARGIN.top + 12).toFixed(2)}" fill="${REPORT_COLORS.textSecondary}" font-size="9" font-family="${FONT_FAMILY}">θ_i = ${thetaI.toFixed(0)}°C</text>`,
+    `<text x="${(MARGIN.left + PLOT_W - 4).toFixed(2)}" y="${(MARGIN.top + 12).toFixed(2)}" text-anchor="end" fill="${REPORT_COLORS.textSecondary}" font-size="9" font-family="${FONT_FAMILY}">θ_e = ${thetaE.toFixed(0)}°C</text>`,
+  );
+
+  // Layer labels under the plot
+  let labelX = innerX;
+  layers.forEach((l) => {
+    const w = mmToPx(l.thickness);
+    const cx = labelX + w / 2;
+    const labelY = MARGIN.top + PLOT_H + 14;
+    // Truncate long names so they don't run together
+    const maxLabelChars = Math.max(4, Math.floor(w / 6));
+    const name = l.name.length > maxLabelChars
+      ? l.name.slice(0, maxLabelChars - 1) + "…"
+      : l.name;
+    parts.push(
+      `<text x="${cx.toFixed(2)}" y="${labelY}" text-anchor="middle" fill="${REPORT_COLORS.textSecondary}" font-size="9" font-family="${FONT_FAMILY}">${xmlEscape(name)}</text>`,
+      `<text x="${cx.toFixed(2)}" y="${labelY + 11}" text-anchor="middle" fill="${REPORT_COLORS.textMuted}" font-size="8" font-family="${FONT_FAMILY}">${l.thickness.toFixed(0)} mm</text>`,
+    );
+    labelX += w;
+  });
+
+  // Axis labels
+  parts.push(
+    `<text x="${(MARGIN.left + AIR_ZONE_PX / 2).toFixed(2)}" y="${(MARGIN.top + PLOT_H + 38).toFixed(2)}" text-anchor="middle" fill="${REPORT_COLORS.textMuted}" font-size="8" font-family="${FONT_FAMILY}">R_si</text>`,
+    `<text x="${(outerX + AIR_ZONE_PX / 2).toFixed(2)}" y="${(MARGIN.top + PLOT_H + 38).toFixed(2)}" text-anchor="middle" fill="${REPORT_COLORS.textMuted}" font-size="8" font-family="${FONT_FAMILY}">R_se</text>`,
+    `<text x="${(WIDTH / 2).toFixed(2)}" y="${(HEIGHT - 6).toFixed(2)}" text-anchor="middle" fill="${REPORT_COLORS.textMuted}" font-size="9" font-family="${FONT_FAMILY}">Positie door constructie (binnen → buiten)</text>`,
+  );
+
+  return wrapSvg(WIDTH, HEIGHT, parts.join(""));
 }

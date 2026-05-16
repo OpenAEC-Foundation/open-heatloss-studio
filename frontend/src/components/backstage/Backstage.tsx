@@ -3,13 +3,17 @@ import { useTranslation } from "react-i18next";
 
 import { isTauri, createProject, updateProject } from "../../lib/backend";
 import {
-  importProject,
-  exportProject,
+  openProjectFile,
+  exportIfcEnergy,
   extractAndLinkConstructions,
 } from "../../lib/importExport";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
+import { useRecentFilesStore, type RecentFile } from "../../store/recentFilesStore";
+import { useDocumentsStore } from "../../store/documentsStore";
 import { useModellerStore } from "../modeller/modellerStore";
+import ExtensionManagerPanel from "./ExtensionManagerPanel";
+import RecentFilesPanel from "./RecentFilesPanel";
 import "./Backstage.css";
 
 const ICONS = {
@@ -21,8 +25,12 @@ const ICONS = {
   preferences: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
   about: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
   exit: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  extensions: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>',
+  recent: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   server: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
   file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
+  import: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  vabi: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
 };
 
 function MenuItem({
@@ -104,8 +112,12 @@ export default function Backstage({
 }: BackstageProps) {
   const { t } = useTranslation("backstage");
   const [activePanel, setActivePanel] = useState<string>("none");
-  const [openExpanded, setOpenExpanded] = useState(false);
-  const [saveAsExpanded, setSaveAsExpanded] = useState(false);
+  // Openen + Opslaan als zijn standaard uitgeklapt zodat de Lokaal /
+  // Server sub-items direct zichtbaar zijn (anders moet de gebruiker
+  // eerst op het hoofd-item klikken om het submenu te ontdekken).
+  const [openExpanded, setOpenExpanded] = useState(true);
+  const [saveAsExpanded, setSaveAsExpanded] = useState(true);
+  const [importExpanded, setImportExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useToastStore((s) => s.addToast);
@@ -133,10 +145,13 @@ export default function Backstage({
   useEffect(() => {
     if (!open) {
       setActivePanel("none");
-      setOpenExpanded(false);
-      setSaveAsExpanded(false);
       return;
     }
+    // Bij elke opening: forceer sub-items uitgeklapt zodat user direct de
+    // Lokaal/Server/Vabi sub-keuzes ziet zonder eerst te moeten klikken.
+    setOpenExpanded(true);
+    setSaveAsExpanded(true);
+    setImportExpanded(true);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -147,21 +162,92 @@ export default function Backstage({
   // --- File actions ---
 
   const handleNew = useCallback(() => {
-    reset();
-    resetToExample();
-    onClose();
-    onNavigate?.("/project");
-    addToast(t("newProject"), "info");
-  }, [reset, resetToExample, onClose, onNavigate, addToast, t]);
+    try {
+      // Tabbed views: open een nieuwe tab i.p.v. de huidige te overschrijven.
+      // De documents-store snapshot eerst de huidige tab, reset projectStore
+      // naar leeg, en zet de nieuwe tab actief.
+      useDocumentsStore.getState().newTab();
+      resetToExample();
+      onClose();
+      onNavigate?.("/project");
+      addToast(t("newProject"), "info");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast(`Nieuw mislukt: ${msg}`, "error");
+      // eslint-disable-next-line no-console
+      console.error("[backstage] handleNew failed:", err);
+    }
+  }, [resetToExample, onClose, onNavigate, addToast, t]);
+
+  // Vabi import handler — momenteel disabled in de UI omdat de Vabi-keten
+  // nog in ontwikkeling is. Verwijderd uit de file; herinschakelen vereist
+  // dat het SubMenuItem onClick weer wijst naar een nieuwe handleImportVabi
+  // implementatie (Git-history bevat de oude versie).
 
   const handleOpenServer = useCallback(() => {
     onClose();
     onNavigate?.("/projects");
   }, [onClose, onNavigate]);
 
-  const handleOpenLocal = useCallback(() => {
+  const handleOpenLocal = useCallback(async () => {
+    // Tauri: native open dialog met .ifcenergy filter — geeft een echt pad
+    // terug zodat de recent-files-lijst persistent kan refereren.
+    if (isTauri()) {
+      try {
+        const [{ open }, { readTextFile }] = await Promise.all([
+          import("@tauri-apps/plugin-dialog"),
+          import("@tauri-apps/plugin-fs"),
+        ]);
+        const selected = await open({
+          multiple: false,
+          filters: [
+            {
+              name: "Open Heatloss Studio Project",
+              extensions: ["ifcenergy", "json", "isso51.json"],
+            },
+          ],
+        });
+        if (!selected || Array.isArray(selected)) return;
+        const text = await readTextFile(selected);
+        const imported = openProjectFile(text);
+        if (imported.type === "thermal") {
+          addToast(
+            "Thermal import gedetecteerd — open via de wizard i.p.v. Bestand",
+            "info",
+          );
+          return;
+        }
+        // Tabbed views: nieuwe tab voor het geopende project
+        useDocumentsStore.getState().newTab(
+          imported.project.info?.name ||
+            selected.split(/[\\/]/).pop() ||
+            "Lokaal bestand",
+        );
+        extractAndLinkConstructions(imported.project);
+        setProject(imported.project);
+        useProjectStore.getState().setCurrentLocalPath(selected);
+        if (imported.result) {
+          useProjectStore.getState().setResult(imported.result);
+        }
+        const fileName = selected.split(/[\\/]/).pop() ?? "project.ifcenergy";
+        useRecentFilesStore.getState().push({
+          name: imported.project.info.name || fileName,
+          fileName,
+          path: selected,
+        });
+        onClose();
+        onNavigate?.("/rooms");
+        addToast(t("opened"), "success");
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${t("importError")}: ${msg}`, "error");
+        return;
+      }
+    }
+    // Browser fallback: hidden file input
     fileInputRef.current?.click();
-  }, []);
+  }, [setProject, onClose, onNavigate, addToast, t]);
 
   const handleFileSelected = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,7 +256,7 @@ export default function Backstage({
 
       try {
         const text = await file.text();
-        const imported = importProject(text);
+        const imported = openProjectFile(text);
 
         // Thermal import detected — redirect to wizard with raw JSON
         if (imported.type === "thermal") {
@@ -189,6 +275,12 @@ export default function Backstage({
         if (imported.result) {
           useProjectStore.getState().setResult(imported.result);
         }
+        // Track in recent files (file-input has no absolute path in browser,
+        // so we record just the file name + project name).
+        useRecentFilesStore.getState().push({
+          name: imported.project.info.name || file.name,
+          fileName: file.name,
+        });
         onClose();
         onNavigate?.("/rooms");
         addToast(t("opened"), "success");
@@ -201,6 +293,56 @@ export default function Backstage({
 
       // Reset file input so the same file can be selected again
       e.target.value = "";
+    },
+    [setProject, onClose, onNavigate, addToast, t],
+  );
+
+  const recent = useRecentFilesStore((s) => s.recent);
+  const removeRecent = useRecentFilesStore((s) => s.remove);
+  const clearRecent = useRecentFilesStore((s) => s.clear);
+
+  const handleOpenRecent = useCallback(
+    async (entry: RecentFile) => {
+      // Tauri path: lees via plugin-fs als we een absoluut pad hebben
+      if (entry.path && isTauri()) {
+        try {
+          const { readTextFile } = await import("@tauri-apps/plugin-fs");
+          const text = await readTextFile(entry.path);
+          const imported = openProjectFile(text);
+          if (imported.type === "thermal") {
+            addToast(
+              "Recent: thermal-import bestand, open via Bestand → Openen",
+              "info",
+            );
+            return;
+          }
+          extractAndLinkConstructions(imported.project);
+          setProject(imported.project);
+          useProjectStore.getState().setCurrentLocalPath(entry.path);
+          if (imported.result) {
+            useProjectStore.getState().setResult(imported.result);
+          }
+          useRecentFilesStore.getState().push({
+            name: imported.project.info.name || entry.fileName,
+            fileName: entry.fileName,
+            path: entry.path,
+          });
+          onClose();
+          onNavigate?.("/rooms");
+          addToast(t("opened"), "success");
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          addToast(`Recent openen mislukt: ${msg}`, "error");
+          // Fall through to the file-picker hint below.
+        }
+      }
+      // Browser of geen pad: trigger de file-input zodat user opnieuw selecteert
+      addToast(
+        "Kies het bestand opnieuw — recent-lijst houdt geen browser-pad bij.",
+        "info",
+      );
+      fileInputRef.current?.click();
     },
     [setProject, onClose, onNavigate, addToast, t],
   );
@@ -241,10 +383,41 @@ export default function Backstage({
         );
       }
     } else {
-      // Not logged in — export locally
-      exportProject(project, result);
-      onClose();
-      addToast(t("savedLocally"), "success");
+      // Not logged in — schrijf als .ifcenergy. Bestand → Opslaan moet
+      // ALTIJD silent: gebruik currentLocalPath als bekend, anders derive
+      // een default-pad in <Documents>/Open Heatloss Studio/<naam>.ifcenergy.
+      // Save As (apart menu-item) toont wel de dialog.
+      try {
+        let targetPath = useProjectStore.getState().currentLocalPath;
+        if (!targetPath && isTauri()) {
+          const safe = (project.info.name || "project")
+            .replace(/[^a-zA-Z0-9_\-\s]/g, "")
+            .trim() || "project";
+          const [{ documentDir, join }, { mkdir }] = await Promise.all([
+            import("@tauri-apps/api/path"),
+            import("@tauri-apps/plugin-fs"),
+          ]);
+          const docs = await documentDir();
+          const folder = await join(docs, "Open Heatloss Studio");
+          try {
+            await mkdir(folder, { recursive: true });
+          } catch {
+            // Folder bestaat al — geen probleem.
+          }
+          targetPath = await join(folder, `${safe}.ifcenergy`);
+        }
+        const writtenPath = await exportIfcEnergy(project, result, targetPath);
+        if (writtenPath) {
+          useProjectStore.getState().setCurrentLocalPath(writtenPath);
+        }
+        onClose();
+        addToast(t("savedLocally"), "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`${t("saveError")}: ${msg}`, "error");
+        // eslint-disable-next-line no-console
+        console.error("[backstage] exportIfcEnergy failed:", err);
+      }
     }
   }, [
     activeProjectId,
@@ -278,10 +451,21 @@ export default function Backstage({
     }
   }, [project, setActiveProjectId, onClose, addToast, t]);
 
-  const handleSaveAsLocal = useCallback(() => {
-    exportProject(project, result);
-    onClose();
-    addToast(t("savedLocally"), "success");
+  const handleSaveAsLocal = useCallback(async () => {
+    // "Opslaan als" → altijd save-as dialog, ook als currentLocalPath bekend.
+    try {
+      const writtenPath = await exportIfcEnergy(project, result, undefined);
+      if (writtenPath) {
+        useProjectStore.getState().setCurrentLocalPath(writtenPath);
+      }
+      onClose();
+      addToast(t("savedLocally"), "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast(`${t("saveError")}: ${msg}`, "error");
+      // eslint-disable-next-line no-console
+      console.error("[backstage] exportIfcEnergy (saveAs) failed:", err);
+    }
   }, [project, result, onClose, addToast, t]);
 
   const handleClose = useCallback(() => {
@@ -292,13 +476,13 @@ export default function Backstage({
 
   if (!open) return null;
 
-  const handleContentClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   return (
-    <div className="backstage-overlay">
-      <div className="backstage-sidebar">
+    <>
+      {/* Transparente fullscreen click-catcher achter de sidebar:
+          klik buiten de backstage sluit hem, maar de app blijft zichtbaar. */}
+      <div className="backstage-backdrop" onClick={onClose} />
+      <div className="backstage-overlay">
+        <div className="backstage-sidebar">
         <button className="backstage-back" onClick={onClose}>
           <svg
             width="16"
@@ -344,6 +528,65 @@ export default function Backstage({
                 label={t("localFile")}
                 onClick={handleOpenLocal}
               />
+              {!isWeb && (
+                <SubMenuItem
+                  icon={ICONS.vabi}
+                  label={`${t("vabiElements")} — in ontwikkeling`}
+                  onClick={() => {
+                    addToast(
+                      "Vabi import is nog in ontwikkeling — werkt nog niet betrouwbaar.",
+                      "info",
+                    );
+                  }}
+                  disabled={true}
+                />
+              )}
+              {recent.length > 0 && (
+                <div className="mt-2 ml-3 border-l border-border pl-3">
+                  <div className="mb-1 flex items-center justify-between pr-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-muted">
+                      Recent
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => clearRecent()}
+                      className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary"
+                      title="Lijst wissen"
+                    >
+                      wissen
+                    </button>
+                  </div>
+                  {recent.map((entry) => (
+                    <div
+                      key={(entry.path ?? "") + entry.fileName + entry.openedAt}
+                      className="group flex items-center justify-between gap-2 rounded px-2 py-1 text-xs text-on-surface-secondary hover:bg-[var(--oaec-hover)]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRecent(entry)}
+                        className="min-w-0 flex-1 text-left"
+                        title={entry.path ?? entry.fileName}
+                      >
+                        <div className="truncate text-on-surface">{entry.name}</div>
+                        <div className="truncate text-[10px] text-on-surface-muted">
+                          {entry.fileName}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeRecent(entry);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-on-surface-muted hover:text-on-surface-secondary"
+                        title="Uit lijst halen"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -379,6 +622,30 @@ export default function Backstage({
             </>
           )}
 
+          {/* Importeer */}
+          {!isWeb && (
+            <>
+              <MenuItem
+                icon={ICONS.import}
+                label={t("import")}
+                onClick={() => setImportExpanded((v) => !v)}
+              />
+              {importExpanded && (
+                <SubMenuItem
+                  icon={ICONS.vabi}
+                  label={`${t("vabiElements")} — in ontwikkeling`}
+                  onClick={() => {
+                    addToast(
+                      "Vabi import is nog in ontwikkeling — werkt nog niet betrouwbaar.",
+                      "info",
+                    );
+                  }}
+                  disabled={true}
+                />
+              )}
+            </>
+          )}
+
           <Divider />
 
           {/* Sluiten */}
@@ -399,6 +666,22 @@ export default function Backstage({
           />
 
           <Divider />
+
+          {/* Recent files */}
+          <MenuItem
+            icon={ICONS.recent}
+            label={t("recent")}
+            active={activePanel === "recent"}
+            onClick={() => setActivePanel("recent")}
+          />
+
+          {/* Extensies */}
+          <MenuItem
+            icon={ICONS.extensions}
+            label={t("extensions")}
+            active={activePanel === "extensions"}
+            onClick={() => setActivePanel("extensions")}
+          />
 
           {/* Over */}
           <MenuItem
@@ -426,19 +709,30 @@ export default function Backstage({
           />
         </div>
       </div>
-      <div className="backstage-content" onClick={handleContentClick}>
-        {activePanel === "about" && <AboutPanel />}
-      </div>
+      {activePanel !== "none" && (
+        <div className="backstage-content">
+          {activePanel === "about" && <AboutPanel />}
+          {activePanel === "extensions" && <ExtensionManagerPanel />}
+          {activePanel === "recent" && (
+            <RecentFilesPanel
+              onOpen={async (entry) => {
+                await handleOpenRecent(entry);
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Hidden file input for local open */}
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,.isso51.json"
+        accept=".ifcenergy,.json,.isso51.json"
         onChange={handleFileSelected}
         style={{ display: "none" }}
       />
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -461,7 +755,7 @@ function AboutPanel() {
           </svg>
         </div>
         <div className="bs-about-app-info">
-          <h1 className="bs-about-app-name">ISSO 51 Warmteverliesberekening</h1>
+          <h1 className="bs-about-app-name">Open Heatloss Studio</h1>
           <p className="bs-about-version">{t("aboutPanel.version")} {__APP_VERSION__}</p>
         </div>
       </div>

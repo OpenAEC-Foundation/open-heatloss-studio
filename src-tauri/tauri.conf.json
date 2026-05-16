@@ -1,43 +1,63 @@
 {
-  "$schema": "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/tauri.conf.json",
-  "productName": "ISSO 51 Warmteverliesberekening",
-  "version": "0.1.0",
-  "identifier": "nl.openaec.isso51",
-  "build": {
-    "frontendDist": "../frontend/dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
-  },
-  "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "ISSO 51 Warmteverliesberekening",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 900,
-        "minHeight": 600,
-        "resizable": true,
-        "decorations": false,
-        "visible": false,
-        "center": true
-      }
-    ],
-    "security": {
-      "csp": null
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "externalBin": ["binaries/ifc-tool"],
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
-  }
+    "$schema":  "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/tauri.conf.json",
+    "productName":  "Open Heatloss Studio",
+    "version":  "0.1.1",
+    "identifier":  "nl.openaec.isso51",
+    "build":  {
+                  "frontendDist":  "../frontend/dist",
+                  "devUrl":  "http://localhost:5173",
+                  "beforeDevCommand":  "npm --prefix ../frontend run dev",
+                  "beforeBuildCommand":  "npm --prefix ../frontend run build"
+              },
+    "app":  {
+                "windows":  [
+                                {
+                                    "label":  "main",
+                                    "title":  "Open Heatloss Studio",
+                                    "width":  1280,
+                                    "height":  800,
+                                    "minWidth":  900,
+                                    "minHeight":  600,
+                                    "resizable":  true,
+                                    "decorations":  false,
+                                    "visible":  false,
+                                    "center":  true
+                                }
+                            ],
+                "security":  {
+                                 "csp":  null
+                             }
+            },
+    "bundle":  {
+                   "active":  true,
+                   "targets":  "all",
+                   "externalBin":  [
+                                       "binaries/ifc-tool"
+                                   ],
+                   "icon":  [
+                                "icons/32x32.png",
+                                "icons/128x128.png",
+                                "icons/128x128@2x.png",
+                                "icons/icon.icns",
+                                "icons/icon.ico"
+                            ],
+                   "fileAssociations":  [
+                                            {
+                                                "ext":  ["ifcenergy"],
+                                                "name":  "Open Heatloss Studio Project",
+                                                "description":  "Open Heatloss Studio warmteverliesproject (IFCX)",
+                                                "role":  "Editor"
+                                            }
+                                        ],
+                   "windows":  {
+                                   "nsis":  {
+                                                "installMode":  "currentUser",
+                                                "languages":  [
+                                                                  "Dutch"
+                                                              ],
+                                                "displayLanguageSelector":  false,
+                                                "installerIcon":  "icons/icon.ico"
+                                            }
+                               }
+               }
 }

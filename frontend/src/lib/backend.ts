@@ -75,14 +75,52 @@ export interface Backend {
   importIfc?(filePath: string): Promise<IfcSidecarResult>;
 }
 
-/** Check if running inside Tauri. */
+/**
+ * Check if running inside Tauri.
+ *
+ * Tries multiple detection methods because Tauri 2's `__TAURI_INTERNALS__`
+ * global is injected synchronously by the webview runtime — but in some
+ * webview implementations there may be a tiny window where it is not yet
+ * present when initial JS evaluates. The user-agent and `__TAURI__` fallback
+ * cover those edge cases.
+ */
 export function isTauri(): boolean {
-  return "__TAURI_INTERNALS__" in window;
+  if (typeof window === "undefined") return false;
+  if ("__TAURI_INTERNALS__" in window) return true;
+  if ("__TAURI__" in window) return true; // legacy
+  if (typeof navigator !== "undefined" && /Tauri\//.test(navigator.userAgent)) return true;
+  return false;
 }
 
-/** Create the appropriate backend for the current environment. */
+/**
+ * Create a backend that re-detects the runtime environment on each call.
+ *
+ * Detecting per-call (instead of once at construction) avoids a subtle
+ * footgun: if `useBackend()` was called before Tauri injected its globals,
+ * the cached web-mode backend would survive forever — silently routing
+ * desktop calls to a non-existent HTTP server. Per-call detection costs
+ * almost nothing and guarantees correctness as soon as Tauri is ready.
+ */
 export function createBackend(): Backend {
-  return isTauri() ? createTauriBackend() : createWebBackend();
+  return {
+    async calculate(project) {
+      return isTauri()
+        ? createTauriBackend().calculate(project)
+        : createWebBackend().calculate(project);
+    },
+    async getSchema(name) {
+      return isTauri()
+        ? createTauriBackend().getSchema(name)
+        : createWebBackend().getSchema(name);
+    },
+    async importIfc(filePath) {
+      if (!isTauri()) {
+        throw new Error("IFC import via sidecar vereist desktop-app");
+      }
+      // createTauriBackend().importIfc is always defined (zie createTauriBackend).
+      return createTauriBackend().importIfc!(filePath);
+    },
+  };
 }
 
 function createWebBackend(): Backend {

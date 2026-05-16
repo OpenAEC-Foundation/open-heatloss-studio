@@ -14,8 +14,21 @@ import type {
   VerticalPosition,
 } from "../types";
 import type { CatalogueCategory } from "./constructionCatalogue";
-import type { ProjectConstruction } from "../components/modeller/types";
+import type {
+  ModelDoor,
+  ModelRoom,
+  ModelWindow,
+  ProjectConstruction,
+} from "../components/modeller/types";
 import { useModellerStore } from "../components/modeller/modellerStore";
+import {
+  buildIfcEnergyDocument,
+  detectFormat,
+  parseIfcEnergy,
+  serializeIfcEnergy,
+  type ModellerSnapshot,
+} from "./ifcenergy";
+import { isTauri } from "./backend";
 
 const SCHEMA_ID = "isso51-project-v1";
 const EXPORT_VERSION = "1.0.0";
@@ -28,6 +41,13 @@ export interface ThermalImportDetected {
   type: "thermal";
   /** Raw JSON string to pass to the thermal import wizard. */
   rawJson: string;
+}
+
+/** Modeller geometry section of the envelope. */
+interface ModellerEnvelope {
+  rooms: ModelRoom[];
+  windows: ModelWindow[];
+  doors: ModelDoor[];
 }
 
 /** Envelope format written to disk. */
@@ -43,6 +63,13 @@ interface ProjectEnvelope {
    * Optional for backwards-compat with envelopes written before bug H fix.
    */
   project_constructions?: ProjectConstruction[];
+  /**
+   * Modeller geometry (2D/3D rooms, windows, doors). Optional —
+   * envelopes written before this field existed don't have it; the
+   * importer treats the absence as "this project has no modeller data"
+   * and clears the modeller store accordingly.
+   */
+  modeller?: ModellerEnvelope;
 }
 
 /** Result of a successful regular project import. */
@@ -59,11 +86,13 @@ export function exportProject(
   project: Project,
   result: ProjectResult | null,
 ): void {
-  // Snapshot project constructions from modellerStore. These live outside
-  // the Project type but are required to keep room.constructions[].
-  // project_construction_id references valid after re-import elsewhere.
-  const projectConstructions =
-    useModellerStore.getState().projectConstructions;
+  // Snapshot project constructions and modeller geometry from modellerStore.
+  // Both live outside the Project type but are needed for a faithful re-import:
+  //   - project_construction_id references on Room.constructions[]
+  //   - 2D/3D room polygons, windows, doors drawn in the modeller
+  // Without persisting modeller data, re-import would show a different
+  // modeller state than what was authored (stale localStorage).
+  const storeState = useModellerStore.getState();
 
   const envelope: ProjectEnvelope = {
     version: EXPORT_VERSION,
@@ -71,7 +100,12 @@ export function exportProject(
     exported_at: new Date().toISOString(),
     project,
     result,
-    project_constructions: projectConstructions,
+    project_constructions: storeState.projectConstructions,
+    modeller: {
+      rooms: storeState.rooms,
+      windows: storeState.windows,
+      doors: storeState.doors,
+    },
   };
 
   const json = JSON.stringify(envelope, null, 2);
@@ -86,6 +120,172 @@ export function exportProject(
   a.download = `${safeName}.isso51.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Snapshot the entire modellerStore state into a `ModellerSnapshot` for the
+ * .ifcenergy envelope. Centralized here so future modeller fields land in
+ * both legacy and new export paths consistently.
+ */
+function snapshotModellerState(): ModellerSnapshot {
+  const s = useModellerStore.getState();
+  return {
+    rooms: s.rooms,
+    windows: s.windows,
+    doors: s.doors,
+    projectConstructions: s.projectConstructions,
+    wallConstructions: s.wallConstructions,
+    floorConstructions: s.floorConstructions,
+    roofConstructions: s.roofConstructions,
+    wallBoundaryTypes: s.wallBoundaryTypes,
+    underlay: s.underlay,
+  };
+}
+
+/**
+ * Export project + result + modeller as a `.ifcenergy` file.
+ *
+ * In Tauri-mode: opent een native Windows save-dialog (filter `.ifcenergy`)
+ * en schrijft het document naar het gekozen pad via `@tauri-apps/plugin-fs`.
+ * In web-mode: fall-back naar Blob + anchor-download (browser default).
+ *
+ * Het bestand is een geldige IFCX (IFC5 alpha) document — zie `ifcenergy.ts`
+ * voor envelope-structuur. Legacy `.isso51.json` blijft beschikbaar via
+ * `exportProject` voor backwards-compat use cases.
+ */
+/**
+ * Schrijf het project + result als `.ifcenergy` IFCX document.
+ *
+ * Gedrag bij `targetPath`:
+ *   - `undefined` (default) → Tauri: opent save-as dialog;
+ *     web: blob-download via anchor click. Standaard "Opslaan als" flow.
+ *   - `string` (Tauri-mode) → schrijf direct naar dit pad, géén dialog.
+ *     Gebruikt voor "Opslaan" wanneer de file al een bekend pad heeft.
+ *
+ * Returns het pad dat geschreven werd (Tauri) of `null` (web / cancelled /
+ * geen pad bekend). Caller kan dat terugschrijven naar
+ * `projectStore.currentLocalPath` zodat een volgende "Opslaan" stil naar
+ * dezelfde locatie schrijft.
+ */
+export async function exportIfcEnergy(
+  project: Project,
+  result: ProjectResult | null,
+  targetPath?: string | null,
+): Promise<string | null> {
+  const doc = buildIfcEnergyDocument({
+    project,
+    result,
+    modeller: snapshotModellerState(),
+  });
+  const json = serializeIfcEnergy(doc);
+
+  const name = project.info.name || "project";
+  const safeName = name.replace(/[^a-zA-Z0-9_\-\s]/g, "").trim() || "project";
+
+  if (isTauri()) {
+    try {
+      const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+
+      // Direct-write pad: geen dialog, alleen overschrijven
+      if (targetPath) {
+        await writeTextFile(targetPath, json);
+        recordRecent(project.info.name || safeName, targetPath);
+        return targetPath;
+      }
+
+      // Geen pad → save-as dialog
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const filePath = await save({
+        defaultPath: `${safeName}.ifcenergy`,
+        filters: [
+          { name: "Open Heatloss Studio", extensions: ["ifcenergy"] },
+        ],
+      });
+      if (!filePath) return null; // user cancelled
+      await writeTextFile(filePath, json);
+      recordRecent(project.info.name || safeName, filePath);
+      return filePath;
+    } catch (err) {
+      console.error("Tauri save failed, falling back to browser download:", err);
+    }
+  }
+
+  // Web-mode (of Tauri fallback): blob + anchor download (geen pad terug)
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName}.ifcenergy`;
+  a.click();
+  URL.revokeObjectURL(url);
+  return null;
+}
+
+/** Schuif een entry op de top van de recent-files lijst. */
+function recordRecent(displayName: string, filePath: string): void {
+  try {
+    // Dynamic import om geen module-cycle te creëren met de store
+    void import("../store/recentFilesStore").then(({ useRecentFilesStore }) => {
+      const fileName = filePath.split(/[\\/]/).pop() ?? "project.ifcenergy";
+      useRecentFilesStore.getState().push({
+        name: displayName,
+        fileName,
+        path: filePath,
+      });
+    });
+  } catch {
+    // store/import missing — non-fatal
+  }
+}
+
+/**
+ * Top-level open dispatcher: route file content to the correct importer
+ * based on shape detection.
+ *
+ * Returns the same shape as `importProject` for legacy compatibility, plus
+ * an extra `format` field so callers can show "loaded as .ifcenergy" vs
+ * "loaded as legacy .isso51.json" UI hints if desired.
+ *
+ * Side effects on the modellerStore are identical to `importProject` — geometry
+ * arrays are replaced (or cleared if absent in the file) so the modeller stays
+ * in sync with the loaded project.
+ */
+export function openProjectFile(
+  jsonString: string,
+): (ImportResult | ThermalImportDetected) & { format?: "ifcenergy" | "isso51-legacy" | "thermal-import" } {
+  const fmt = detectFormat(jsonString);
+
+  if (fmt === "ifcenergy") {
+    const parsed = parseIfcEnergy(jsonString);
+    const project = validateProject(parsed.project);
+    const result = parsed.result ? validateProjectResult(parsed.result) : null;
+
+    // Restore project constructions if present.
+    if (parsed.modeller.projectConstructions.length > 0) {
+      useModellerStore.getState().replaceProjectConstructions(
+        parsed.modeller.projectConstructions,
+      );
+    }
+
+    // Restore modeller geometry — same semantics as legacy: replace arrays
+    // (or clear when empty) so tables and modeller stay in sync.
+    useModellerStore.getState().importModel(
+      parsed.modeller.rooms,
+      parsed.modeller.windows,
+      parsed.modeller.doors,
+    );
+
+    return { type: "project", project, result, format: "ifcenergy" };
+  }
+
+  // Fall back to legacy importer for `.isso51.json`, raw Project JSON,
+  // or thermal-import files. The legacy importer also handles modeller
+  // state side effects in importProject().
+  const legacy = importProject(jsonString);
+  if (legacy.type === "thermal") {
+    return { ...legacy, format: "thermal-import" };
+  }
+  return { ...legacy, format: "isso51-legacy" };
 }
 
 /**
@@ -134,11 +334,25 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
       useModellerStore.getState().replaceProjectConstructions(pcs);
     }
 
+    // Replace modeller geometry to match the imported project. If the
+    // envelope omits modeller data (legacy `.isso51.json` files exported
+    // before this field existed), we clear the store so the user doesn't
+    // see stale rooms/windows/doors from a previously-loaded project's
+    // localStorage. Same root cause as the Memeleiland mismatch bug.
+    const modeller = obj.modeller as ModellerEnvelope | undefined;
+    useModellerStore.getState().importModel(
+      modeller?.rooms ?? [],
+      modeller?.windows ?? [],
+      modeller?.doors ?? [],
+    );
+
     return { type: "project", project, result };
   }
 
-  // Try as raw Project JSON.
+  // Try as raw Project JSON. No envelope means no modeller data either —
+  // clear the store so tables and modeller stay in sync.
   const project = validateProject(data);
+  useModellerStore.getState().importModel([], [], []);
   return { type: "project", project, result: null };
 }
 

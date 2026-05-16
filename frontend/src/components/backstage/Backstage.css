@@ -1,14 +1,28 @@
-/* Backstage Overlay */
-.backstage-overlay {
+/* Backdrop achter de sidebar — transparante click-catcher zodat een klik
+   buiten de backstage hem sluit. App-content blijft zichtbaar onder de
+   backdrop (geen dim). */
+.backstage-backdrop {
   position: fixed;
   top: 32px; /* titlebar height */
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+/* Backstage Overlay — alleen links zichtbaar, app blijft rechts in beeld.
+   Breedte wordt bepaald door inhoud (sidebar 260px + optioneel panel). */
+.backstage-overlay {
+  position: fixed;
+  top: 32px; /* titlebar height */
+  left: 0;
+  bottom: 0;
   z-index: 1000;
   display: flex;
   flex-direction: row;
-  background: var(--theme-bg);
+  background: transparent;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
 }
 
 /* Sidebar */
@@ -142,11 +156,15 @@
   margin: 4px 16px;
 }
 
-/* Content area */
+/* Content area — alleen zichtbaar als een panel (Recent / Extensions /
+   Over) actief is. Vaste breedte naast de sidebar zodat de backstage
+   compact blijft (geen schermvullend backstage zoals MS Office). */
 .backstage-content {
-  flex: 1;
+  width: 500px;
+  max-width: calc(100vw - 260px - 8px);
   background: var(--theme-bg);
-  padding: 40px;
+  border-left: 1px solid var(--theme-border);
+  padding: 32px;
   overflow-y: auto;
   color: var(--theme-text);
 }

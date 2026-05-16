@@ -42,10 +42,9 @@ node_modules/
 frontend/dist/
 frontend/tsconfig.tsbuildinfo
 
-# Tauri
-src-tauri/icons/*.png
-src-tauri/icons/*.ico
-src-tauri/icons/*.icns
+# Built installers (lokaal in PR 2; CI artifacts staan op GitHub)
+dist/installer/
 
 # Stray working files
 mockup-brandbook.html
+PROMPTS.md

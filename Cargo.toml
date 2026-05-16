@@ -21,6 +21,10 @@ members = [
     "crates/openaec-project-shared",
     "src-tauri",
 ]
+# openaec-reports is een aparte workspace (Rust 2024 edition) die
+# alleen via path-deps wordt benaderd. Excluden voorkomt dat cargo
+# de inner workspace opslokt en met onze 2021 edition probeert te bouwen.
+exclude = ["libs/openaec-reports"]
 
 [workspace.package]
 version = "0.1.1"

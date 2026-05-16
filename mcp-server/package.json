@@ -1,0 +1,26 @@
+{
+  "name": "open-heatloss-studio-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Open Heatloss Studio — heat loss calculation per ISSO 51:2023",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ohs-mcp": "dist/ohs-mcp.mjs"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/ohs-mcp.mjs --banner:js=\"#!/usr/bin/env node\"",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

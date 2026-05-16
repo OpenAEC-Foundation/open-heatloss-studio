@@ -420,7 +420,7 @@ function AboutTabContent() {
   const { t } = useTranslation("settings");
   return (
     <div className="settings-section">
-      <h3>ISSO 51 Warmteverliesberekening</h3>
+      <h3>Open Heatloss Studio</h3>
       <div style={{ fontSize: 11, lineHeight: 1.8 }}>
         <p><strong>{t("about.version")}:</strong> {__APP_VERSION__}</p>
         <p><strong>{t("about.framework")}:</strong> Tauri + React + TypeScript + Rust</p>

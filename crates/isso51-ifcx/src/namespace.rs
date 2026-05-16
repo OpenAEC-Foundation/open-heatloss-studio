@@ -51,6 +51,32 @@ pub mod ns {
 
     /// Building-level report/summary.
     pub const CALC_REPORT: &str = "isso51::report";
+
+    // ---------------------------------------------------------------------
+    // Modeller namespace — 2D/3D geometry forward-storage.
+    //
+    // PR D maakt de modeller een read-only viewer van project.rooms; deze
+    // attributen worden in huidige flow vrijwel altijd leeg (lege arrays of
+    // afwezig) maar zijn toekomst-proof voor de editable-modeller fase.
+    // ---------------------------------------------------------------------
+
+    /// Modeller room geometry (polygon, floor index, height, elevation) on IfcSpace.
+    pub const MODELLER_ROOM: &str = "isso51::modeller::room";
+
+    /// Modeller window opening (wall_index, offset, width, sill height) on IfcWindow.
+    pub const MODELLER_WINDOW: &str = "isso51::modeller::window";
+
+    /// Modeller door opening (wall_index, offset, width, swing) on IfcDoor.
+    pub const MODELLER_DOOR: &str = "isso51::modeller::door";
+
+    /// Per-project ProjectConstruction library (laag-stacks) on IfcProject.
+    pub const MODELLER_PROJECT_CONSTRUCTIONS: &str = "isso51::modeller::project_constructions";
+
+    /// Wall/floor/roof construction assignment maps on IfcBuilding.
+    pub const MODELLER_ASSIGNMENTS: &str = "isso51::modeller::assignments";
+
+    /// Optional underlay image (base64 PNG + scale/rotation/position) on IfcBuilding.
+    pub const MODELLER_UNDERLAY: &str = "isso51::modeller::underlay";
 }
 
 // ---------------------------------------------------------------------------
