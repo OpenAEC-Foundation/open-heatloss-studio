@@ -127,9 +127,9 @@ export function TojuliFull() {
   const [busy, setBusy] = useState(false);
 
   // Bouw huidige V1 Project + sharedExtra naar ProjectV2 voor de backend call.
-  // V1-rooms worden door buildV2Payload nog niet naar geometry verplaatst —
-  // dat is F6+ frontend werk. Voor nu draait de orchestrator op gross_floor_area
-  // fallback voor lege geometry.
+  // V1-rooms worden door buildV2Payload naar geometry.spaces[] gemapt
+  // (F6.2). Layers/openings blijven leeg — TO-juli H_T leest alleen
+  // area * u_value per boundary.
   const projectV2: ProjectV2 = useMemo(
     () => buildV2Payload(project, sharedExtra),
     [project, sharedExtra],

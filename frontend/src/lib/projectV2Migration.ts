@@ -16,17 +16,25 @@
  */
 
 import type {
+  BoundaryType,
   BuildingType,
+  ConstructionElement,
   Project,
   ProjectInfo,
+  Room,
+  VerticalPosition,
 } from "../types";
 import {
   DEFAULT_SHARED_EXTRA,
+  type BoundaryKind,
   type BuildingTypeShared,
+  type Construction,
+  type ConstructionKind,
   type ProjectV2,
   type ResidentialType,
   type SharedExtra,
   type SharedProject,
+  type Space,
   SCHEMA_VERSION_V2,
 } from "../types/projectV2";
 
@@ -170,6 +178,47 @@ function reconstructV1FromShared(v2: ProjectV2): Project {
   };
 }
 
+/** Map V1 BoundaryType → V2 BoundaryKind. Verschil: V1 "water" → V2 "open_water". */
+function mapBoundary(v1: BoundaryType): BoundaryKind {
+  if (v1 === "water") return "open_water";
+  return v1; // overige waarden zijn 1:1 identiek
+}
+
+/** Map V1 VerticalPosition → V2 ConstructionKind. Default "wall". */
+function mapConstructionKind(vp: VerticalPosition | undefined): ConstructionKind {
+  if (vp === "floor") return "floor";
+  if (vp === "ceiling") return "ceiling";
+  return "wall";
+}
+
+/** Map één V1 ConstructionElement → V2 Construction. Layers + openings blijven leeg
+ *  — V1-layers hebben andere shape (materialId i.p.v. material/thickness_mm); voor de
+ *  TO-juli H_T berekening volstaan area_m2 + u_value + boundary. */
+function mapV1ConstructionToV2(c: ConstructionElement): Construction {
+  return {
+    id: c.id,
+    description: c.description,
+    kind: mapConstructionKind(c.vertical_position),
+    boundary: mapBoundary(c.boundary_type),
+    area_m2: c.area,
+    u_value: c.u_value,
+    adjacent_space_id: c.adjacent_room_id ?? null,
+  };
+}
+
+/** Map één V1 Room → V2 Space. Height fallback 2.7 m (NTA 8800 standaard). */
+function mapV1RoomToSpace(room: Room): Space {
+  return {
+    id: room.id,
+    name: room.name,
+    function: room.function,
+    floor_area_m2: room.floor_area,
+    height_m: room.height ?? 2.7,
+    theta_i_winter_c: room.custom_temperature ?? null,
+    constructions: room.constructions.map(mapV1ConstructionToV2),
+  };
+}
+
 /**
  * Bouw een V2-payload voor save (toekomstige V2 backend). Combineert
  * V1-store + sidecar tot één `ProjectV2`.
@@ -197,7 +246,7 @@ export function buildV2Payload(
       gross_floor_area_m2: project.building.total_floor_area ?? null,
       num_storeys: sharedExtra.num_storeys ?? project.building.num_floors ?? null,
     },
-    geometry: { spaces: [] }, // F6 vult dit
+    geometry: { spaces: project.rooms.map(mapV1RoomToSpace) },
     calcs: {
       isso51: { legacy_v1: project },
       tojuli: null,
