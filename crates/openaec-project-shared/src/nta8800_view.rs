@@ -37,7 +37,7 @@ use nta8800_model::ModelResult;
 
 use crate::geometry::{
     BoundaryKind, Construction as SharedConstruction, ConstructionKind, Opening,
-    OpeningKind, SharedGeometry, Space,
+    OpeningKind, SharedGeometry,
 };
 use crate::project::ProjectV2;
 use crate::shared::{BuildingTypeShared, SharedProject, UtilityType};

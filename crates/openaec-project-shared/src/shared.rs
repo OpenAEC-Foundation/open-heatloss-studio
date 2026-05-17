@@ -56,6 +56,18 @@ pub struct SharedProject {
     /// Aantal bouwlagen.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub num_storeys: Option<u32>,
+
+    /// Type ventilatiesysteem.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ventilation_system: Option<VentilationSystemKind>,
+
+    /// Warmteterugwinning configuratie.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heat_recovery: Option<HeatRecovery>,
+
+    /// Infiltratie luchtvolumestroom in m³/h.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub infiltration_m3_per_h: Option<f64>,
 }
 
 impl SharedProject {
@@ -75,6 +87,9 @@ impl SharedProject {
             construction_year: None,
             gross_floor_area_m2: None,
             num_storeys: None,
+            ventilation_system: None,
+            heat_recovery: None,
+            infiltration_m3_per_h: None,
         }
     }
 }
@@ -144,4 +159,32 @@ pub enum UtilityType {
     Industrial,
     /// Overig — vereist user-input van NTA 8800 functietype apart.
     Other,
+}
+
+/// Ventilatiesysteem types voor V2 SharedProject.
+///
+/// Gebaseerd op NTA 8800 ventilation-categorieën, vereenvoudigd voor v1.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VentilationSystemKind {
+    /// Mechanische toevoer en afvoer (gebalanceerde ventilatie).
+    MechBalanced,
+    /// Alleen mechanische toevoer (natuurlijke afvoer).
+    MechSupply,
+    /// Alleen mechanische afvoer (natuurlijke toevoer).
+    MechExhaust,
+    /// Natuurlijke ventilatie (toevoer en afvoer).
+    Natural,
+}
+
+/// Warmteterugwinning (WTW/WRG) configuratie.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct HeatRecovery {
+    /// Rendement warmteterugwinning (0.0 tot 1.0).
+    pub efficiency: f64,
+    /// Heeft vorstbeveiliging.
+    pub frost_protection: bool,
+    /// Toevoertemperatuur na WTW in °C.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supply_temperature: Option<f64>,
 }
