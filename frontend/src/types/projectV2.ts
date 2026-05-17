@@ -18,6 +18,27 @@ import type { Project } from "./project";
 export const SCHEMA_VERSION_V2 = 2 as const;
 
 // ---------------------------------------------------------------------------
+// SharedProject — ventilation types (gespiegeld van VentilationSystemKind in Rust)
+// ---------------------------------------------------------------------------
+
+/** V2 ventilatiesysteem soorten — snake_case JSON keys (Rust serde rename_all). */
+export type VentilationSystemKind =
+  | "mech_balanced"
+  | "mech_supply"
+  | "mech_exhaust"
+  | "natural";
+
+/** Warmteterugwinning (WTW/WRG) configuratie. */
+export interface HeatRecovery {
+  /** Rendement (0.0–1.0). */
+  efficiency: number;
+  /** Heeft vorstbeveiliging. */
+  frost_protection: boolean;
+  /** Toevoertemperatuur na WTW in °C (optioneel). */
+  supply_temperature?: number;
+}
+
+// ---------------------------------------------------------------------------
 // SharedProject
 // ---------------------------------------------------------------------------
 
@@ -60,6 +81,9 @@ export interface SharedProject {
   construction_year?: number | null;
   gross_floor_area_m2?: number | null;
   num_storeys?: number | null;
+  ventilation_system?: VentilationSystemKind;
+  heat_recovery?: HeatRecovery;
+  infiltration_m3_per_h?: number;
 }
 
 // ---------------------------------------------------------------------------
