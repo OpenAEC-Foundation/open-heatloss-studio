@@ -16,7 +16,7 @@
   input[type="text"],
   select {
     color: var(--oaec-text);
-    background-color: var(--oaec-surface);
+    background-color: var(--oaec-bg-input);
   }
 
   [data-theme="openaec"] {
