@@ -34,15 +34,68 @@ use nta8800_demand::result::DemandResult;
 use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::{Energy, Temperature};
 use nta8800_tables::climate::de_bilt_climate_data;
-use nta8800_transmission::result::{TransmissionBreakdown, TransmissionResult};
+use nta8800_transmission::{
+    calculate_transmission,
+    BoundaryType as TransmissionBoundaryType, TransmissionElement,
+};
 use nta8800_ventilation::result::VentilationResult;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::geometry::BoundaryKind;
-use crate::nta8800_view::{Nta8800View, geometry_to_nta8800};
+use crate::geometry::{BoundaryKind, SharedGeometry};
+use crate::nta8800_view::geometry_to_nta8800;
 use crate::project::ProjectV2;
 use crate::shared::BuildingTypeShared;
+
+/// Map geometry::BoundaryKind to nta8800_transmission::BoundaryType.
+///
+/// Dit is de enum-mapper die verplicht is om de geometry-laag te koppelen
+/// aan de nta8800-transmission crate (zie sessie-handoff §bekende valkuilen).
+fn map_boundary_kind_to_transmission_type(kind: BoundaryKind, adjacent_space_id: Option<&String>) -> TransmissionBoundaryType {
+    match kind {
+        BoundaryKind::Exterior => TransmissionBoundaryType::Outdoor,
+        BoundaryKind::Ground => TransmissionBoundaryType::Ground,
+        BoundaryKind::OpenWater => TransmissionBoundaryType::Outdoor, // Water behandeld als Outdoor met aparte θ_e
+        BoundaryKind::UnheatedSpace => TransmissionBoundaryType::UnheatedSpace {
+            id: adjacent_space_id.cloned().unwrap_or_else(|| "default_unheated".to_string()),
+        },
+        BoundaryKind::AdjacentRoom => TransmissionBoundaryType::AdjacentZone {
+            id: adjacent_space_id.cloned().unwrap_or_else(|| "unknown_adjacent".to_string()),
+        },
+        BoundaryKind::AdjacentBuilding => TransmissionBoundaryType::AdjacentZone {
+            id: adjacent_space_id.cloned().unwrap_or_else(|| "adjacent_building".to_string()),
+        },
+    }
+}
+
+/// Bouw TransmissionElement lijst uit SharedGeometry voor calculate_transmission.
+///
+/// Converteert alle Construction's uit alle Space's naar TransmissionElement's
+/// met de juiste BoundaryType mapping.
+fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionElement> {
+    let mut elements = Vec::new();
+
+    for space in &geometry.spaces {
+        for construction in &space.constructions {
+            let boundary_type = map_boundary_kind_to_transmission_type(
+                construction.boundary,
+                construction.adjacent_space_id.as_ref()
+            );
+
+            let element = TransmissionElement {
+                id: format!("{}_{}", space.id, construction.id),
+                area: construction.area_m2,
+                u_value: construction.u_value,
+                boundary_type,
+                construction_id: Some(construction.id.clone()),
+            };
+
+            elements.push(element);
+        }
+    }
+
+    elements
+}
 
 /// TO-juli specifieke inputs voor de volledige H.10-berekening.
 ///
@@ -115,6 +168,9 @@ pub enum TojuliError {
     /// Cooling-keten faalde.
     #[error("nta8800-cooling error: {0}")]
     Cooling(#[from] nta8800_cooling::CoolingError),
+    /// Transmission-keten faalde.
+    #[error("nta8800-transmission error: {0}")]
+    Transmission(#[from] nta8800_transmission::errors::TransmissionError),
     /// Project mist een rekenzone (lege geometrie + geen gross_floor_area).
     #[error("project levert geen rekenzone (lege geometrie)")]
     EmptyProject,
@@ -140,8 +196,36 @@ pub fn compute_tojuli_full(
     let view = geometry_to_nta8800(&project.shared, &project.geometry)?;
     let zone = view.rekenzones.first().ok_or(TojuliError::EmptyProject)?;
 
-    // ---- 2. H_T uit Σ A·U ----
-    let h_t = compute_h_t_from_geometry(&project.geometry, &view);
+    // ---- 2. Echte transmissie via nta8800-transmission ----
+    let climate = de_bilt_climate_data();
+    let elements = build_transmission_elements(&project.geometry);
+    let thermal_bridges_linear = Vec::new(); // Forfaitair 0 (NTA §7.3.3)
+    let thermal_bridges_point = Vec::new();  // Forfaitair 0 (NTA §7.3.3)
+
+    let indoor_temperature = MonthlyProfile::from_constant(inputs.heating_setpoint_c);
+
+    // Forfaitaire defaults voor v1 norm-strict:
+    // h_g_an via NTA §8.3.1 minimum voor residentieel: 10 W/K voor gemiddeld huis
+    let h_g_an = 10.0; // NTA §8.3.1 forfaitair minimum voor woningen zonder grondcontact-details
+
+    // b_factors: alle onverwarmde ruimtes krijgen 0.5 (NTA §8.4.1 default)
+    let mut unheated_space_b_factors = std::collections::HashMap::new();
+    unheated_space_b_factors.insert("default_unheated".to_string(), 0.5);
+
+    // Lege adjacent_zone_temperatures: geen adjacent rooms in v1
+    let adjacent_zone_temperatures: std::collections::HashMap<String, MonthlyProfile<Temperature>> = std::collections::HashMap::new();
+
+    let transmission = calculate_transmission(
+        zone,
+        &elements,
+        &thermal_bridges_linear,
+        &thermal_bridges_point,
+        &indoor_temperature,
+        &climate,
+        h_g_an,
+        &unheated_space_b_factors,
+        &adjacent_zone_temperatures,
+    ).map_err(TojuliError::Transmission)?;
 
     // ---- 3. H_V uit ach × volume × ρ·c_p (0.34 W/(m³/h·K)) ----
     let ach = if inputs.air_change_rate_per_h > 0.0 {
@@ -151,30 +235,9 @@ pub fn compute_tojuli_full(
     };
     let h_v = ach * zone.volume * 0.34;
 
-    // ---- 4. Synthesize TransmissionResult + VentilationResult ----
-    let climate = de_bilt_climate_data();
-    let theta_i_winter = inputs.heating_setpoint_c;
-    let monthly_q_t = build_monthly_q(h_t, &climate.outdoor_temperature, theta_i_winter);
-    let monthly_q_v = build_monthly_q(h_v, &climate.outdoor_temperature, theta_i_winter);
-
-    let annual_q_t: Energy = Month::all().iter().map(|m| monthly_q_t[*m]).sum();
+    // ---- 4. Synthesize VentilationResult ----
+    let monthly_q_v = build_monthly_q(h_v, &climate.outdoor_temperature, inputs.heating_setpoint_c);
     let annual_q_v: Energy = Month::all().iter().map(|m| monthly_q_v[*m]).sum();
-
-    let transmission = TransmissionResult {
-        monthly_q_t: monthly_q_t.clone(),
-        annual_q_t,
-        breakdown: TransmissionBreakdown {
-            outdoor: monthly_q_t.clone(),
-            unheated_space: MonthlyProfile::from_constant(0.0),
-            ground: MonthlyProfile::from_constant(0.0),
-            adjacent_zone: MonthlyProfile::from_constant(0.0),
-            thermal_bridges: MonthlyProfile::from_constant(0.0),
-        },
-        h_d: h_t,
-        h_u: 0.0,
-        h_g_an: 0.0,
-        h_a: 0.0,
-    };
 
     let ventilation = VentilationResult {
         monthly_q_v: monthly_q_v.clone(),
@@ -192,7 +255,7 @@ pub fn compute_tojuli_full(
         .map(|e| e.usage_function)
         .unwrap_or(nta8800_model::zoning::UsageFunction::Woonfunctie);
     let internal_gains = InternalGains::forfaitair(usage_function);
-    let heating_sp = HeatingSetpoint::new(MonthlyProfile::from_constant(theta_i_winter));
+    let heating_sp = HeatingSetpoint::new(MonthlyProfile::from_constant(inputs.heating_setpoint_c));
     let cooling_sp = CoolingSetpoint::new(MonthlyProfile::from_constant(inputs.cooling_setpoint_c));
     let thermal_mass = ThermalMassInput::light_woning(); // default; F7.2 user-input
 
@@ -229,34 +292,13 @@ pub fn compute_tojuli_full(
         annual_q_c_use_mj,
         annual_q_c_use_kwh,
         monthly_q_h_nd_mj: demand.monthly_heating_demand,
-        transmission_h_t_w_per_k: h_t,
+        transmission_h_t_w_per_k: transmission.h_d + transmission.h_u + transmission.h_g_an + transmission.h_a,
         ventilation_h_v_w_per_k: h_v,
         monthly_theta_e_c: climate.outdoor_temperature,
         tau_hours: demand.breakdown.time_constant_hours,
     })
 }
 
-/// Σ A·U voor constructies aan exterior / ground / unheated / adjacent_building.
-/// Adjacent_room en open_water tellen niet mee (interne uitwisseling resp.
-/// aparte boundary-modeling, V2).
-fn compute_h_t_from_geometry(geometry: &crate::geometry::SharedGeometry, _view: &Nta8800View) -> f64 {
-    let mut h_t = 0.0;
-    for space in &geometry.spaces {
-        for c in &space.constructions {
-            let counts = matches!(
-                c.boundary,
-                BoundaryKind::Exterior
-                    | BoundaryKind::Ground
-                    | BoundaryKind::UnheatedSpace
-                    | BoundaryKind::AdjacentBuilding
-            );
-            if counts {
-                h_t += c.area_m2 * c.u_value;
-            }
-        }
-    }
-    h_t
-}
 
 /// Default ach (1/h) op basis van gebouwtype voor V1 stub.
 fn default_ach(bt: &BuildingTypeShared) -> f64 {
@@ -375,5 +417,53 @@ mod tests {
         // H_V > 0 want volume = 100 × 2.7
         assert!(r.ventilation_h_v_w_per_k > 0.0);
         assert!(r.annual_q_c_use_mj >= 0.0);
+    }
+
+    #[test]
+    fn enum_mapper_covers_all_boundary_kinds() {
+        use crate::geometry::BoundaryKind::*;
+        let id = "test_id".to_string();
+
+        // Test alle 6 BoundaryKind varianten
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(Exterior, None),
+            TransmissionBoundaryType::Outdoor
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(Ground, None),
+            TransmissionBoundaryType::Ground
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(OpenWater, None),
+            TransmissionBoundaryType::Outdoor
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(UnheatedSpace, Some(&id)),
+            TransmissionBoundaryType::UnheatedSpace { id: id.clone() }
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(AdjacentRoom, Some(&id)),
+            TransmissionBoundaryType::AdjacentZone { id: id.clone() }
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(AdjacentBuilding, None),
+            TransmissionBoundaryType::AdjacentZone { id: "adjacent_building".to_string() }
+        );
+
+        // Test fallbacks voor missing adjacent_space_id
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(UnheatedSpace, None),
+            TransmissionBoundaryType::UnheatedSpace { id: "default_unheated".to_string() }
+        );
+
+        assert_eq!(
+            map_boundary_kind_to_transmission_type(AdjacentRoom, None),
+            TransmissionBoundaryType::AdjacentZone { id: "unknown_adjacent".to_string() }
+        );
     }
 }

@@ -23,6 +23,7 @@ import type {
   ProjectInfo,
   Room,
   VerticalPosition,
+  VentilationConfig,
 } from "../types";
 import {
   DEFAULT_SHARED_EXTRA,
@@ -30,11 +31,13 @@ import {
   type BuildingTypeShared,
   type Construction,
   type ConstructionKind,
+  type HeatRecovery,
   type ProjectV2,
   type ResidentialType,
   type SharedExtra,
   type SharedProject,
   type Space,
+  type VentilationSystemKind,
   SCHEMA_VERSION_V2,
 } from "../types/projectV2";
 
@@ -220,6 +223,70 @@ function mapV1RoomToSpace(room: Room): Space {
 }
 
 /**
+ * Map V1 `VentilationSystemType` → V2 `VentilationSystemKind`.
+ *
+ * V1 ISSO 51-systemen:
+ *   system_a = natuurlijke toe- én afvoer          → "natural"
+ *   system_b = mechanische toevoer, nat. afvoer    → "mech_supply"
+ *   system_c = nat. toevoer, mechanische afvoer    → "mech_exhaust"
+ *   system_d = mechanische toe- én afvoer          → "mech_balanced"
+ *   system_e = decentraal (gebalanceerd per unit)  → "mech_balanced" (best fit)
+ */
+function mapV1SystemTypeToV2(systemType: string): VentilationSystemKind {
+  switch (systemType) {
+    case "system_a":
+      return "natural";
+    case "system_b":
+      return "mech_supply";
+    case "system_c":
+      return "mech_exhaust";
+    case "system_d":
+      return "mech_balanced";
+    case "system_e":
+      return "mech_balanced"; // decentraal gebalanceerd → closest V2 match
+    default:
+      return "natural"; // defensieve fallback
+  }
+}
+
+/**
+ * Map V1 ventilation config → V2 SharedProject ventilation velden.
+ *
+ * - `ventilation_system` altijd gezet als v1Vent aanwezig is
+ * - `heat_recovery` alleen als `has_heat_recovery === true` (efficiency verplicht)
+ * - `infiltration_m3_per_h` niet beschikbaar in V1 VentilationConfig → altijd undefined
+ */
+export function mapV1VentilationToV2(v1Vent: VentilationConfig | undefined): {
+  ventilation_system?: VentilationSystemKind;
+  heat_recovery?: HeatRecovery;
+  infiltration_m3_per_h?: number;
+} {
+  if (!v1Vent) return {};
+
+  const ventilation_system = mapV1SystemTypeToV2(v1Vent.system_type);
+
+  let heat_recovery: HeatRecovery | undefined;
+  if (v1Vent.has_heat_recovery === true && v1Vent.heat_recovery_efficiency != null) {
+    heat_recovery = {
+      efficiency: v1Vent.heat_recovery_efficiency,
+      // V1 frost_protection is een enum-string (FrostProtectionType); aanwezigheid
+      // (niet "unknown") betekent dat er vorstbeveiliging is.
+      frost_protection:
+        v1Vent.frost_protection != null && v1Vent.frost_protection !== "unknown",
+      ...(v1Vent.supply_temperature != null
+        ? { supply_temperature: v1Vent.supply_temperature }
+        : {}),
+    };
+  }
+
+  return {
+    ventilation_system,
+    ...(heat_recovery !== undefined ? { heat_recovery } : {}),
+    // infiltratie is niet aanwezig in V1 VentilationConfig — veld weglaten
+  };
+}
+
+/**
  * Bouw een V2-payload voor save (toekomstige V2 backend). Combineert
  * V1-store + sidecar tot één `ProjectV2`.
  */
@@ -245,6 +312,7 @@ export function buildV2Payload(
       construction_year: sharedExtra.construction_year ?? null,
       gross_floor_area_m2: project.building.total_floor_area ?? null,
       num_storeys: sharedExtra.num_storeys ?? project.building.num_floors ?? null,
+      ...mapV1VentilationToV2(project.ventilation),
     },
     geometry: { spaces: project.rooms.map(mapV1RoomToSpace) },
     calcs: {
