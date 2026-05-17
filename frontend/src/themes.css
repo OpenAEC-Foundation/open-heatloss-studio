@@ -147,10 +147,22 @@
   --domain-diagram-grid-strong: rgba(54, 54, 62, 0.20);
   --domain-diagram-grid-subtle: rgba(54, 54, 62, 0.15);
 
-  /* ─── @openaec/ui token overrides (light mode) ───────────────
-     The shared package defines --oaec-* with dark-grey defaults
-     under [data-theme="light"] (legacy mis-naming). Override here
-     so Card / Input / textareas render truly light. */
+  /* Tell native form controls (select dropdowns, scrollbars, input
+     spinners, datepickers) to use the light variant. */
+  color-scheme: light;
+}
+
+/* ─── @openaec/ui token overrides (light mode) ───────────────
+   The shared package defines --oaec-* with dark-grey defaults
+   under [data-theme="light"] (legacy mis-naming). Override here
+   so Card / Input / Select / textareas render truly light.
+
+   Selector uses `html[data-theme="light"]` (specificity 0,1,1)
+   so it beats upstream `[data-theme="light"]` (0,1,0) regardless
+   of bundle cascade order. `:root` deliberately NOT included —
+   that would leak `--oaec-surface: #FFFFFF` into dark theme via
+   the index.css base rule on input[type="number"]. */
+html[data-theme="light"] {
   --oaec-bg:             var(--theme-bg);
   --oaec-bg-lighter:     var(--theme-bg-lighter);
   --oaec-bg-surface:     var(--theme-surface);
@@ -168,10 +180,6 @@
   --oaec-shadow-sm:      0 1px 3px rgba(0, 0, 0, 0.06);
   --oaec-shadow-md:      0 4px 12px rgba(0, 0, 0, 0.08);
   --oaec-shadow-lg:      0 8px 24px rgba(0, 0, 0, 0.12);
-
-  /* Tell native form controls (select dropdowns, scrollbars, input
-     spinners, datepickers) to use the light variant. */
-  color-scheme: light;
 }
 
 /* ============================================================
