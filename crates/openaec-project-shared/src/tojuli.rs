@@ -77,6 +77,12 @@ fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionEle
 
     for space in &geometry.spaces {
         for construction in &space.constructions {
+            // Skip interne wanden tussen verwarmde ruimtes — netto-transmissie ≈ 0
+            // bij identiek heating-setpoint. AdjacentRoom support komt met multi-zone in latere release.
+            if matches!(construction.boundary, BoundaryKind::AdjacentRoom) {
+                continue;
+            }
+
             let boundary_type = map_boundary_kind_to_transmission_type(
                 construction.boundary,
                 construction.adjacent_space_id.as_ref()
@@ -210,7 +216,18 @@ pub fn compute_tojuli_full(
 
     // b_factors: alle onverwarmde ruimtes krijgen 0.5 (NTA §8.4.1 default)
     let mut unheated_space_b_factors = std::collections::HashMap::new();
-    unheated_space_b_factors.insert("default_unheated".to_string(), 0.5);
+    for space in &project.geometry.spaces {
+        for construction in &space.constructions {
+            if matches!(construction.boundary, BoundaryKind::UnheatedSpace) {
+                let key = construction.adjacent_space_id
+                    .clone()
+                    .unwrap_or_else(|| "default_unheated".to_string());
+                unheated_space_b_factors.entry(key).or_insert(0.5);
+            }
+        }
+    }
+    // Behoud de default-key zodat lege geometrie ook werkt
+    unheated_space_b_factors.entry("default_unheated".to_string()).or_insert(0.5);
 
     // Lege adjacent_zone_temperatures: geen adjacent rooms in v1
     let adjacent_zone_temperatures: std::collections::HashMap<String, MonthlyProfile<Temperature>> = std::collections::HashMap::new();
@@ -465,5 +482,64 @@ mod tests {
             map_boundary_kind_to_transmission_type(AdjacentRoom, None),
             TransmissionBoundaryType::AdjacentZone { id: "unknown_adjacent".to_string() }
         );
+    }
+
+    #[test]
+    fn compute_tojuli_full_with_adjacent_room_and_named_unheated_space() {
+        let mut p = sample_project();
+
+        // Voeg constructions toe die de bugs zouden triggeren
+        p.geometry.spaces[0].constructions.extend(vec![
+            SC {
+                id: "C_adjacent".into(),
+                description: "Binnenwand naar woonkamer".into(),
+                kind: ConstructionKind::Wall,
+                boundary: BoundaryKind::AdjacentRoom,
+                area_m2: 20.0,
+                u_value: 0.5,
+                orientation_deg: None,
+                slope_deg: Some(90.0),
+                openings: vec![],
+                layers: vec![],
+                adjacent_space_id: Some("woonkamer".to_string()),
+                psi_thermal_bridge: None,
+            },
+            SC {
+                id: "C_unheated".into(),
+                description: "Wand naar garage".into(),
+                kind: ConstructionKind::Wall,
+                boundary: BoundaryKind::UnheatedSpace,
+                area_m2: 15.0,
+                u_value: 0.8,
+                orientation_deg: None,
+                slope_deg: Some(90.0),
+                openings: vec![],
+                layers: vec![],
+                adjacent_space_id: Some("garage".to_string()),
+                psi_thermal_bridge: None,
+            },
+        ]);
+
+        let i = sample_inputs();
+
+        // Dit zou moeten slagen zonder panic/error
+        let r = compute_tojuli_full(&p, &i).expect("compute_tojuli_full should succeed with adjacent_room and named_unheated");
+
+        // Verifieer dat resultaat valide is (geen NaN/Inf)
+        assert!(r.transmission_h_t_w_per_k.is_finite());
+        assert!(r.transmission_h_t_w_per_k >= 0.0);
+
+        // De transmission H_T zou nu alleen exterior + unheated moeten bevatten
+        // Exterior: 150 × 0.3 = 45 W/K
+        // UnheatedSpace: 15 × 0.8 × b_factor(0.5) = 6 W/K
+        // AdjacentRoom: wordt geskipt, dus 0 W/K
+        // Verwachte H_T ≈ 45 + 6 = 51 W/K (plus kleine h_g_an)
+        assert!(r.transmission_h_t_w_per_k > 45.0); // Minstens de exterior component
+        assert!(r.transmission_h_t_w_per_k < 65.0); // Realistisch bovengrens
+
+        // Verifieer dat de rest van het resultaat ook geldig is
+        assert!(r.annual_q_c_use_mj >= 0.0);
+        assert!(r.annual_q_c_use_kwh >= 0.0);
+        assert!(r.tau_hours > 0.0);
     }
 }
