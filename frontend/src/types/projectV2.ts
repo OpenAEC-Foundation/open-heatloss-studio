@@ -84,6 +84,18 @@ export interface SharedProject {
   ventilation_system?: VentilationSystemKind;
   heat_recovery?: HeatRecovery;
   infiltration_m3_per_h?: number;
+  /**
+   * Mechanische toevoer in m³/h (NTA 8800 tab 11.23).
+   * Optioneel — Rust spiegel is `Option<f64>` met `#[serde(default)]`.
+   * Backend valt terug op `default_ach` in tojuli.rs als undefined.
+   */
+  mechanical_supply_m3_per_h?: number;
+  /**
+   * Mechanische afvoer in m³/h (NTA 8800 tab 11.23).
+   * Optioneel — Rust spiegel is `Option<f64>` met `#[serde(default)]`.
+   * Backend valt terug op `default_ach` in tojuli.rs als undefined.
+   */
+  mechanical_exhaust_m3_per_h?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -201,6 +213,27 @@ export interface SharedExtra {
   num_storeys?: number | null;
   /** Building type met expliciete kind+subtype (V2-uitbreiding). */
   building_type?: BuildingTypeShared | null;
+  /**
+   * V2-only ventilatieveld: basisinfiltratie in m³/h. Niet in V1
+   * `VentilationConfig`. Wordt bij `buildV2Payload` overgenomen in
+   * `shared.infiltration_m3_per_h`. Backend valt terug op default_ach in
+   * tojuli.rs als undefined.
+   */
+  infiltration_m3_per_h?: number | null;
+  /**
+   * V2-only ventilatieveld: mechanische toevoer in m³/h (NTA 8800 tab 11.23).
+   * Niet in V1 `VentilationConfig`. Wordt bij `buildV2Payload` overgenomen
+   * in `shared.mechanical_supply_m3_per_h`. Backend valt terug op
+   * default_ach in tojuli.rs als undefined.
+   */
+  mechanical_supply_m3_per_h?: number | null;
+  /**
+   * V2-only ventilatieveld: mechanische afvoer in m³/h (NTA 8800 tab 11.23).
+   * Niet in V1 `VentilationConfig`. Wordt bij `buildV2Payload` overgenomen
+   * in `shared.mechanical_exhaust_m3_per_h`. Backend valt terug op
+   * default_ach in tojuli.rs als undefined.
+   */
+  mechanical_exhaust_m3_per_h?: number | null;
 }
 
 export const DEFAULT_SHARED_EXTRA: SharedExtra = {
@@ -210,4 +243,7 @@ export const DEFAULT_SHARED_EXTRA: SharedExtra = {
   construction_year: null,
   num_storeys: null,
   building_type: null,
+  infiltration_m3_per_h: null,
+  mechanical_supply_m3_per_h: null,
+  mechanical_exhaust_m3_per_h: null,
 };

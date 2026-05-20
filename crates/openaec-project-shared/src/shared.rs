@@ -68,6 +68,16 @@ pub struct SharedProject {
     /// Infiltratie luchtvolumestroom in m³/h.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infiltration_m3_per_h: Option<f64>,
+
+    /// Mechanische toevoer luchtvolumestroom in m³/h.
+    /// Zie NTA 8800 tabel 11.23 voor referentiewaarden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mechanical_supply_m3_per_h: Option<f64>,
+
+    /// Mechanische afvoer luchtvolumestroom in m³/h.
+    /// Zie NTA 8800 tabel 11.23 voor referentiewaarden.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mechanical_exhaust_m3_per_h: Option<f64>,
 }
 
 impl SharedProject {
@@ -90,6 +100,8 @@ impl SharedProject {
             ventilation_system: None,
             heat_recovery: None,
             infiltration_m3_per_h: None,
+            mechanical_supply_m3_per_h: None,
+            mechanical_exhaust_m3_per_h: None,
         }
     }
 }

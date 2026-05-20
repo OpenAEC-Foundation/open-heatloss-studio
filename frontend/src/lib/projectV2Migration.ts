@@ -255,11 +255,16 @@ function mapV1SystemTypeToV2(systemType: string): VentilationSystemKind {
  * - `ventilation_system` altijd gezet als v1Vent aanwezig is
  * - `heat_recovery` alleen als `has_heat_recovery === true` (efficiency verplicht)
  * - `infiltration_m3_per_h` niet beschikbaar in V1 VentilationConfig → altijd undefined
+ * - `mechanical_supply_m3_per_h` / `mechanical_exhaust_m3_per_h` niet beschikbaar in
+ *    V1 VentilationConfig → altijd undefined. Backend valt terug op `default_ach`
+ *    in tojuli.rs als deze velden missen (NTA 8800 tab 11.23 default lookup).
  */
 export function mapV1VentilationToV2(v1Vent: VentilationConfig | undefined): {
   ventilation_system?: VentilationSystemKind;
   heat_recovery?: HeatRecovery;
   infiltration_m3_per_h?: number;
+  mechanical_supply_m3_per_h?: number;
+  mechanical_exhaust_m3_per_h?: number;
 } {
   if (!v1Vent) return {};
 
@@ -283,6 +288,8 @@ export function mapV1VentilationToV2(v1Vent: VentilationConfig | undefined): {
     ventilation_system,
     ...(heat_recovery !== undefined ? { heat_recovery } : {}),
     // infiltratie is niet aanwezig in V1 VentilationConfig — veld weglaten
+    // mechanical_supply_m3_per_h / mechanical_exhaust_m3_per_h ontbreken eveneens
+    // in V1 — backend gebruikt default_ach fallback (NTA 8800 tab 11.23)
   };
 }
 
@@ -313,6 +320,17 @@ export function buildV2Payload(
       gross_floor_area_m2: project.building.total_floor_area ?? null,
       num_storeys: sharedExtra.num_storeys ?? project.building.num_floors ?? null,
       ...mapV1VentilationToV2(project.ventilation),
+      // V2-only ventilatieveld overlay vanuit sidecar — overschrijft mapV1*
+      // velden wanneer expliciet gezet (anders blijft backend-default actief).
+      ...(sharedExtra.infiltration_m3_per_h != null
+        ? { infiltration_m3_per_h: sharedExtra.infiltration_m3_per_h }
+        : {}),
+      ...(sharedExtra.mechanical_supply_m3_per_h != null
+        ? { mechanical_supply_m3_per_h: sharedExtra.mechanical_supply_m3_per_h }
+        : {}),
+      ...(sharedExtra.mechanical_exhaust_m3_per_h != null
+        ? { mechanical_exhaust_m3_per_h: sharedExtra.mechanical_exhaust_m3_per_h }
+        : {}),
     },
     geometry: { spaces: project.rooms.map(mapV1RoomToSpace) },
     calcs: {

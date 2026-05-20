@@ -7,6 +7,7 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/layout/PageHeader";
+import { VentilationPanel } from "../components/projectSetup/VentilationPanel";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { formatArea } from "../lib/formatNumber";
@@ -22,7 +23,6 @@ import {
   FROST_PROTECTION_SUPPLY_TEMP,
   HEATING_SYSTEM_LABELS,
   SECURITY_CLASS_LABELS,
-  VENTILATION_SYSTEM_LABELS,
 } from "../lib/constants";
 import type {
   AggregationMethod,
@@ -288,6 +288,9 @@ export function WarmteverliesInstellingen() {
           </div>
         </Card>
 
+        {/* V2 Ventilation (TO-juli / NTA 8800) — sidecar + V1 spiegel */}
+        <VentilationPanel />
+
         {/* Climate */}
         <Card title="Klimaat (ontwerpcondities)">
           <div className="grid grid-cols-4 gap-4">
@@ -340,65 +343,10 @@ export function WarmteverliesInstellingen() {
           </p>
         </Card>
 
-        {/* Ventilation */}
-        <Card title="Ventilatie">
-          <div className="grid grid-cols-3 gap-4">
-            <Select
-              id="system_type"
-              label="Ventilatiesysteem"
-              value={ventilation.system_type}
-              options={toOptions(VENTILATION_SYSTEM_LABELS)}
-              onChange={(e) => {
-                const newType = e.target.value as VentilationConfig["system_type"];
-                // Systems A, B, C have no mechanical supply → WTW impossible
-                const supportsWtw = newType === "system_d" || newType === "system_e";
-                updateVentilation({
-                  system_type: newType,
-                  ...(!supportsWtw && {
-                    has_heat_recovery: false,
-                    heat_recovery_efficiency: undefined,
-                    frost_protection: undefined,
-                    supply_temperature: undefined,
-                  }),
-                });
-              }}
-            />
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 pb-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={ventilation.has_heat_recovery ?? false}
-                  disabled={ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e"}
-                  onChange={(e) => updateVentilation({ has_heat_recovery: e.target.checked })}
-                  className="rounded border-[var(--oaec-border)] accent-primary disabled:opacity-40"
-                />
-                Warmteterugwinning (WTW)
-                {ventilation.system_type !== "system_d" && ventilation.system_type !== "system_e" && (
-                  <span className="text-[10px] text-on-surface-muted">(alleen bij systeem D/E)</span>
-                )}
-              </label>
-            </div>
-            {ventilation.has_heat_recovery && (
-              <Input
-                id="heat_recovery_efficiency"
-                label="WTW-rendement"
-                type="number"
-                unit="%"
-                value={
-                  ventilation.heat_recovery_efficiency != null
-                    ? ventilation.heat_recovery_efficiency * 100
-                    : 85
-                }
-                onChange={(e) =>
-                  updateVentilation({
-                    heat_recovery_efficiency: numVal(e.target.value) / 100,
-                  })
-                }
-              />
-            )}
-          </div>
-          {ventilation.has_heat_recovery && (
-            <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+        {/* WTW vorstbeveiliging — alleen tonen als heat recovery actief */}
+        {ventilation.has_heat_recovery && (
+          <Card title="WTW vorstbeveiliging">
+            <div className="grid grid-cols-3 gap-4">
               <Select
                 id="frost_protection"
                 label="Vorstbeveiliging"
@@ -443,8 +391,8 @@ export function WarmteverliesInstellingen() {
                 </div>
               </div>
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
 
         {/* Rooms hint */}
         {project.rooms.length === 0 && (
