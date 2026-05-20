@@ -402,6 +402,12 @@ export function validateProject(data: unknown): Project {
   if (!obj.ventilation || typeof obj.ventilation !== "object") {
     throw new Error("Verplicht veld 'ventilation' ontbreekt");
   }
+  // NB: V2 SharedProject ventilation kent extra optionele velden
+  // (mechanical_supply_m3_per_h, mechanical_exhaust_m3_per_h) — in V2 schema
+  // `Option<f64>` met `#[serde(default)]` in Rust, dus `?:` in TS. Legacy
+  // JSONs zonder deze velden parsen correct; backend valt terug op
+  // `default_ach` fallback in tojuli.rs als ze undefined zijn. Geen
+  // backfill nodig op V1-niveau — V1 VentilationConfig heeft deze velden niet.
 
   if (!Array.isArray(obj.rooms)) {
     throw new Error("Verplicht veld 'rooms' ontbreekt of is geen array");
