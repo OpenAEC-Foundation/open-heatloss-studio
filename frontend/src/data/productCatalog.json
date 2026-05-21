@@ -1,0 +1,306 @@
+{
+  "_meta": {
+    "description": "BCRG-productcatalogus voor WTW-units en koelunits. Statische referentiedata, frontend-bundled (geen backend-call).",
+    "how_to_add_a_unit": [
+      "Voeg een object toe aan de array 'wtw_units' of 'cooling_units'.",
+      "WTW-unit velden: id (uniek), brand, model, eta_hr (rendement 0..1), f_sfp (specifiek ventilatorvermogen W/(dm3/s), optioneel), bcrg_declaration_nr, year_indication.",
+      "Koelunit velden: id (uniek), brand, model, type ('compression_cooling' | 'absorption_cooling' | 'free_cooling'), scop_cooling (compressie), cop (absorptie), factor (vrije koeling), bcrg_declaration_nr, year_indication.",
+      "Geef per unit precies een van scop_cooling / cop / factor mee, passend bij 'type'.",
+      "id mag niet botsen met de gereserveerde waarde 'manual' (= optie Handmatig invoeren in de UI)."
+    ],
+    "verification_note": "De onderstaande seed-waarden zijn publiek bekende, plausibele richtwaarden bedoeld als startpunt. Verifieer en corrigeer rendement, SCOP/COP en de BCRG-verklaringnummers tegen het officiele register op https://www.bcrg.nl voordat ze in een norm-rapportage worden gebruikt. De seed is geen norm-claim.",
+    "bcrg_declaration_nr_format": "Veld 'bcrg_declaration_nr' is een tekenreeks; gebruik leeg ('') wanneer nog niet geverifieerd."
+  },
+  "wtw_units": [
+    {
+      "id": "itho-hru-eco-350",
+      "brand": "Itho Daalderop",
+      "model": "HRU ECO 350",
+      "eta_hr": 0.92,
+      "f_sfp": 0.45,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2018+"
+    },
+    {
+      "id": "itho-hru-350",
+      "brand": "Itho Daalderop",
+      "model": "HRU 350",
+      "eta_hr": 0.95,
+      "f_sfp": 0.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2015+"
+    },
+    {
+      "id": "itho-demandflow",
+      "brand": "Itho Daalderop",
+      "model": "DemandFlow / WTW basis",
+      "eta_hr": 0.9,
+      "f_sfp": 0.55,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2014+"
+    },
+    {
+      "id": "zehnder-comfoair-q350",
+      "brand": "Zehnder",
+      "model": "ComfoAir Q350",
+      "eta_hr": 0.92,
+      "f_sfp": 0.4,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2016+"
+    },
+    {
+      "id": "zehnder-comfoair-q450",
+      "brand": "Zehnder",
+      "model": "ComfoAir Q450",
+      "eta_hr": 0.92,
+      "f_sfp": 0.42,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2016+"
+    },
+    {
+      "id": "zehnder-comfoair-q600",
+      "brand": "Zehnder",
+      "model": "ComfoAir Q600",
+      "eta_hr": 0.91,
+      "f_sfp": 0.45,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2016+"
+    },
+    {
+      "id": "brink-renovent-excellent-300",
+      "brand": "Brink",
+      "model": "Renovent Excellent 300",
+      "eta_hr": 0.95,
+      "f_sfp": 0.45,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2013+"
+    },
+    {
+      "id": "brink-renovent-excellent-400",
+      "brand": "Brink",
+      "model": "Renovent Excellent 400",
+      "eta_hr": 0.95,
+      "f_sfp": 0.47,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2013+"
+    },
+    {
+      "id": "brink-renovent-sky-300",
+      "brand": "Brink",
+      "model": "Renovent Sky 300",
+      "eta_hr": 0.93,
+      "f_sfp": 0.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2017+"
+    },
+    {
+      "id": "brink-flair-400",
+      "brand": "Brink",
+      "model": "Flair 400",
+      "eta_hr": 0.95,
+      "f_sfp": 0.42,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2019+"
+    },
+    {
+      "id": "vasco-d350-ep-ii",
+      "brand": "Vasco",
+      "model": "D350 EP II",
+      "eta_hr": 0.92,
+      "f_sfp": 0.48,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2016+"
+    },
+    {
+      "id": "stork-wtw-cmf-eco",
+      "brand": "Stork Air / Zehnder",
+      "model": "ComfoFan WTW eco",
+      "eta_hr": 0.88,
+      "f_sfp": 0.6,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2010+"
+    },
+    {
+      "id": "orcon-hrc-350",
+      "brand": "Orcon",
+      "model": "HRC 350",
+      "eta_hr": 0.92,
+      "f_sfp": 0.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2015+"
+    },
+    {
+      "id": "orcon-hrc-400",
+      "brand": "Orcon",
+      "model": "HRC 400 EcoMax",
+      "eta_hr": 0.93,
+      "f_sfp": 0.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2017+"
+    },
+    {
+      "id": "ubbink-ubiflux-vigor-w325",
+      "brand": "Ubbink",
+      "model": "Ubiflux Vigor W325",
+      "eta_hr": 0.93,
+      "f_sfp": 0.46,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2018+"
+    },
+    {
+      "id": "j-e-stork-whr-930",
+      "brand": "J.E. StorkAir",
+      "model": "WHR 930",
+      "eta_hr": 0.95,
+      "f_sfp": 0.55,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2008+"
+    }
+  ],
+  "cooling_units": [
+    {
+      "id": "daikin-stylish-ftxa",
+      "brand": "Daikin",
+      "model": "Stylish FTXA-AW (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 4.2,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2018+"
+    },
+    {
+      "id": "daikin-perfera-ftxm",
+      "brand": "Daikin",
+      "model": "Perfera FTXM-R (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 4.0,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2019+"
+    },
+    {
+      "id": "daikin-vrv-iv",
+      "brand": "Daikin",
+      "model": "VRV IV (multisplit/VRF)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.6,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2014+"
+    },
+    {
+      "id": "mitsubishi-msz-ln",
+      "brand": "Mitsubishi Electric",
+      "model": "MSZ-LN (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 4.3,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2017+"
+    },
+    {
+      "id": "mitsubishi-city-multi-vrf",
+      "brand": "Mitsubishi Electric",
+      "model": "City Multi (VRF)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2015+"
+    },
+    {
+      "id": "mitsubishi-heavy-srk-zs",
+      "brand": "Mitsubishi Heavy Industries",
+      "model": "SRK-ZS (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.9,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2018+"
+    },
+    {
+      "id": "lg-artcool-ac",
+      "brand": "LG",
+      "model": "Artcool (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.8,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2017+"
+    },
+    {
+      "id": "lg-multi-v-vrf",
+      "brand": "LG",
+      "model": "Multi V (VRF)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.5,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2016+"
+    },
+    {
+      "id": "panasonic-etherea-z",
+      "brand": "Panasonic",
+      "model": "Etherea Z-serie (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 4.1,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2019+"
+    },
+    {
+      "id": "toshiba-haori",
+      "brand": "Toshiba",
+      "model": "Haori (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 4.0,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2021+"
+    },
+    {
+      "id": "samsung-windfree",
+      "brand": "Samsung",
+      "model": "Wind-Free (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.7,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2018+"
+    },
+    {
+      "id": "nefit-enviline-airconditioning",
+      "brand": "Nefit Bosch",
+      "model": "Climate (split)",
+      "type": "compression_cooling",
+      "scop_cooling": 3.6,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2017+"
+    },
+    {
+      "id": "robur-gahp-a",
+      "brand": "Robur",
+      "model": "GAHP-A (gasabsorptie)",
+      "type": "absorption_cooling",
+      "cop": 0.75,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2015+"
+    },
+    {
+      "id": "yazaki-wfc-sc-absorptie",
+      "brand": "Yazaki",
+      "model": "WFC-SC (absorptiekoeler)",
+      "type": "absorption_cooling",
+      "cop": 0.7,
+      "bcrg_declaration_nr": "",
+      "year_indication": "2010+"
+    },
+    {
+      "id": "generieke-nachtventilatie",
+      "brand": "Generiek",
+      "model": "Nachtventilatie / spuiventilatie",
+      "type": "free_cooling",
+      "factor": 0.3,
+      "bcrg_declaration_nr": "",
+      "year_indication": "n.v.t."
+    },
+    {
+      "id": "generieke-bodemkoeling-wko",
+      "brand": "Generiek",
+      "model": "Passieve bodemkoeling (WKO)",
+      "type": "free_cooling",
+      "factor": 0.35,
+      "bcrg_declaration_nr": "",
+      "year_indication": "n.v.t."
+    }
+  ]
+}

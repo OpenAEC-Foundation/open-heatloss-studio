@@ -22,10 +22,19 @@
  *    V2-kind-select downgrade systeem E stil naar D.
  *  - 21-05 (werkpakket A): m³/h-debieten verplaatst naar de TO-juli-tab —
  *    ze voeden alleen de NTA 8800-engine, niet de ISSO 51-berekening.
+ *  - 21-05 (feature D): BCRG-WTW-productselector naast het rendement-veld;
+ *    catalogus-keuze vult `heat_recovery_efficiency`, "Handmatig" behoudt
+ *    de vrije invoer. Géén parallelle state — de selector-keuze is puur
+ *    UI-lokaal (`selectedWtwId`), de berekening leest enkel V1.
  */
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import { VENTILATION_SYSTEM_LABELS } from "../../lib/constants";
+import {
+  MANUAL_PRODUCT_ID,
+  findWtwUnit,
+  getWtwUnits,
+} from "../../lib/productCatalog";
 import { useProjectStore } from "../../store/projectStore";
 import type { VentilationConfig, VentilationSystemType } from "../../types";
 import type { HeatRecovery } from "../../types/projectV2";
@@ -71,11 +80,32 @@ const VENTILATION_SYSTEM_OPTIONS: Array<{
 }));
 
 // ---------------------------------------------------------------------------
+// BCRG WTW-productselector (feature D)
+// ---------------------------------------------------------------------------
+
+/**
+ * Dropdown-opties voor de WTW-productselector: één "Handmatig invoeren"-optie
+ * (sentinel) gevolgd door de BCRG-catalogus-units. De catalogus is statisch,
+ * dus de lijst hoeft niet per render herberekend te worden.
+ */
+const WTW_PRODUCT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: MANUAL_PRODUCT_ID, label: "Handmatig invoeren" },
+  ...getWtwUnits().map((u) => ({
+    value: u.id,
+    label: `${u.brand} ${u.model} — η_hr ${Math.round(u.eta_hr * 100)}%`,
+  })),
+];
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function VentilationPanel() {
   const { project, updateProject } = useProjectStore();
+
+  // Catalogus-keuze is puur UI-lokaal — de berekening leest uitsluitend V1
+  // `heat_recovery_efficiency`. `MANUAL_PRODUCT_ID` = vrije invoer behouden.
+  const [selectedWtwId, setSelectedWtwId] = useState<string>(MANUAL_PRODUCT_ID);
 
   const v1Vent = project.ventilation;
   const currentSystem: VentilationSystemType = v1Vent.system_type;
@@ -92,6 +122,10 @@ export function VentilationPanel() {
     (next: VentilationSystemType) => {
       // WTW alleen behouden bij gebalanceerde systemen (D/E). Anders wissen.
       const keepWtw = SYSTEM_CAPABILITIES[next].hasWtw;
+      if (!keepWtw) {
+        // WTW vervalt → catalogus-keuze terug naar handmatig (geen herkomst).
+        setSelectedWtwId(MANUAL_PRODUCT_ID);
+      }
       updateVentilation({
         system_type: next,
         ...(keepWtw
@@ -114,6 +148,9 @@ export function VentilationPanel() {
       : "";
 
   const handleHeatRecoveryEfficiencyChange = (raw: string) => {
+    // Handmatige aanpassing van het rendement → de catalogus-herkomst klopt
+    // niet meer; selector terug naar "Handmatig invoeren".
+    setSelectedWtwId(MANUAL_PRODUCT_ID);
     if (raw === "") {
       updateVentilation({
         has_heat_recovery: false,
@@ -129,6 +166,23 @@ export function VentilationPanel() {
       heat_recovery_efficiency: clamped / 100,
     });
   };
+
+  // BCRG-productselector: een catalogus-keuze vult het bestaande V1
+  // `heat_recovery_efficiency`-veld (geen parallelle state). f_SFP blijft
+  // catalogus-data zonder UI-binding — er is nog geen SFP-invoerveld in V1.
+  const handleWtwProductChange = (id: string) => {
+    setSelectedWtwId(id);
+    if (id === MANUAL_PRODUCT_ID) return;
+    const unit = findWtwUnit(id);
+    if (!unit) return;
+    updateVentilation({
+      has_heat_recovery: true,
+      heat_recovery_efficiency: unit.eta_hr,
+    });
+  };
+
+  const selectedWtwUnit =
+    selectedWtwId === MANUAL_PRODUCT_ID ? undefined : findWtwUnit(selectedWtwId);
 
   // Toon hint over hoe het WTW-veld zich verhoudt tot V1 ISSO 51 ventilatie.
   const heatRecoveryHint: HeatRecovery | null =
@@ -163,6 +217,19 @@ export function VentilationPanel() {
       {hasWtw && (
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
           <div>
+            <Select
+              id="wtw_product"
+              label="WTW-unit (BCRG)"
+              value={selectedWtwId}
+              options={WTW_PRODUCT_OPTIONS}
+              onChange={(e) => handleWtwProductChange(e.target.value)}
+            />
+            <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+              Kies een BCRG-unit om η_hr automatisch in te vullen, of
+              "Handmatig invoeren" voor een eigen waarde.
+            </p>
+          </div>
+          <div>
             <Input
               id="heat_recovery_efficiency_v2"
               label="WTW-rendement"
@@ -178,12 +245,17 @@ export function VentilationPanel() {
               }
             />
             <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-              Leeg laten voor geen WTW. Spiegelt naar V1 ISSO 51
-              `has_heat_recovery` + `heat_recovery_efficiency`.
+              {selectedWtwUnit
+                ? `${selectedWtwUnit.brand} ${selectedWtwUnit.model} — η_hr=${Math.round(
+                    selectedWtwUnit.eta_hr * 100,
+                  )}% (BCRG-verkl. nr. ${
+                    selectedWtwUnit.bcrg_declaration_nr || "—"
+                  })`
+                : "(handmatige invoer) — leeg laten voor geen WTW. Spiegelt naar V1 ISSO 51 `has_heat_recovery` + `heat_recovery_efficiency`."}
             </p>
           </div>
           {heatRecoveryHint && (
-            <div className="col-span-2 flex items-center">
+            <div className="flex items-center">
               <div className="rounded-md bg-[var(--oaec-accent-soft)] px-3 py-2 text-xs">
                 <span className="text-on-surface-muted">η_WTW: </span>
                 <span className="font-semibold tabular-nums">
