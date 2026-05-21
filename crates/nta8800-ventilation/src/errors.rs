@@ -28,4 +28,23 @@ pub enum VentilationError {
     /// kwalificeert (NTA 8800 §11.1 / bijlage S).
     #[error("WTW-specificatie opgegeven voor ventilatiesysteem zonder balansventilatie")]
     WtwWithoutBalancedSystem,
+
+    /// De iteratieve `p_z;ref`-drukoplosroutine (NTA 8800 §11.2.1.6) heeft
+    /// binnen de harde iteratie-cap geen oplossing met de vereiste
+    /// nauwkeurigheid (formule (11.14)) gevonden.
+    ///
+    /// In de praktijk wijst dit op een numeriek pathologisch invoergeval
+    /// (bv. een opening-set zonder enige conductantie, of een massabalans
+    /// die geen tekenwissel kent). De `iterations` geeft het bereikte
+    /// iteratie-aantal; `residual` de laatst-berekende `|Σq_m|` in kg/h.
+    #[error(
+        "p_z;ref-drukoplosroutine (§11.2.1.6) niet geconvergeerd na {iterations} \
+         iteraties — laatste massabalans-residu |Σq_m| = {residual} kg/h"
+    )]
+    PressureSolverDidNotConverge {
+        /// Aantal uitgevoerde iteraties voordat de cap werd bereikt.
+        iterations: u32,
+        /// Laatst-berekende massabalans-residu `|Σq_m|`, in kg/h.
+        residual: f64,
+    },
 }

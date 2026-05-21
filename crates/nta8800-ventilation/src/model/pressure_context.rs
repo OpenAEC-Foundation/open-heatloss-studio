@@ -178,6 +178,27 @@ impl BuildingPressureContext {
     pub fn within_c2_scope(&self) -> bool {
         self.building_height_m < C2_MAX_BUILDING_HEIGHT_M
     }
+
+    /// Forfaitaire specifieke luchtdoorlatendheid bij 10 Pa, `q_v10;lea;ref`
+    /// (dm³/(s·m²)), volgens NTA 8800 formule (11.86) — met de
+    /// `build_year`-`None`-check ingebouwd.
+    ///
+    /// Geeft `None` wanneer [`Self::build_year`] onbekend is: zonder bouwjaar
+    /// kan de bouwjaarcorrectiefactor `f_y` (tabel 11.13) niet worden bepaald
+    /// en is een forfaitaire waarde dus niet af te leiden — dan is een
+    /// meetwaarde uit een luchtdoorlatendheidsmeting (NEN 2686:1988) vereist.
+    ///
+    /// Deze methode neemt de `unwrap()` van het bouwjaar weg bij de
+    /// solver-call-sites: zij krijgen een `Option<f64>` in plaats van zelf
+    /// `build_year` te moeten ontleden.
+    ///
+    /// Referentie: NTA 8800:2025+C1:2026 formule (11.86), §11.2.5.2,
+    /// PDF p. 485-486.
+    #[must_use]
+    pub fn forfait_q_v10(&self) -> Option<f64> {
+        self.build_year
+            .map(|year| crate::calc::infiltration::q_v10_lea_ref_forfait(self.leakage_type, year))
+    }
 }
 
 #[cfg(test)]
@@ -264,6 +285,32 @@ mod tests {
         let back: BuildingPressureContext = serde_json::from_str(&json).unwrap();
         assert_eq!(ctx, back);
         assert_eq!(back.build_year, None);
+    }
+
+    #[test]
+    fn forfait_q_v10_known_build_year_matches_formula_11_86() {
+        // Grondgebonden tussenwoning met kap, bouwjaar 2015:
+        //   q_v10;spec;reken = 1,0 · f_type = 1,0 · f_y = 0,7 → 0,7 dm³/(s·m²).
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            Some(2015),
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        );
+        let q = ctx.forfait_q_v10().expect("bouwjaar bekend → Some");
+        assert!((q - 0.7).abs() < 1e-12);
+    }
+
+    #[test]
+    fn forfait_q_v10_unknown_build_year_is_none() {
+        // Zonder bouwjaar kan f_y niet bepaald worden → geen forfait.
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            None,
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        );
+        assert_eq!(ctx.forfait_q_v10(), None);
     }
 
     #[test]
