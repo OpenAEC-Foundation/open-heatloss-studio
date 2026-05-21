@@ -2,6 +2,12 @@
 
 Belangrijke wijzigingen in Open Heatloss Studio. Volgt [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) en [Semver](https://semver.org/lang/nl/).
 
+## [Unreleased] — 2026-05-21
+
+### 🐛 Bug fixes
+
+- **NTA 8800 drukmodel integratie (C2.3)**: Norm-exacte massabalans (§11.2.1.5/§11.2.1.6) gewired in TO-juli rekenketen met conditionele inzet bij gebouwen binnen C2-scope (H < 15m, bekend bouwjaar) en veilige terugval op heuristiek buiten scope. Bevat forfaitaire `derive_building_height_m()` en `derive_building_leakage_type()` afleiders plus `h_path_lea` detectie-logica.
+
 ## [Unreleased] — branch `claude/laughing-kirch-752da4`
 
 Eerste publieke release van Open Heatloss Studio (voorheen "ISSO 51 Warmteverliesberekening"). Deze build bundelt 9 hoofdwijzigingen — installer + format + UI + reports + IFC + MCP.

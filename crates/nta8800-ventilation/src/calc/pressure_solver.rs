@@ -869,10 +869,23 @@ fn initial_estimate(openings: &[Opening], month: Month, theta_e_c: f64, rho_i: f
         p_e_max = p_e_max.max(p_e);
     }
     let p_z_path_gem = f64::midpoint(p_e_min, p_e_max);
-    // H_path;lea — hoogte van de loef-lek-opening. build_openings plaatst die
-    // als eerste; voor een set zonder lek-openingen nemen we de eerste
-    // opening als pragmatische proxy.
-    let h_path_lea = openings[0].height_m;
+    // H_path;lea — hoogte van de loef-lek-opening (formule (11.15)).
+    //
+    // [`build_openings`] plaatst de lek-openingen (n_lea = 0,67) altijd vóór de
+    // natuurlijke vent-openingen (n_vent = 0,5), dus de eerste lek-opening is
+    // tevens de loef-lek-opening. Zoek die expliciet op via de stromingsexponent
+    // i.p.v. blind `openings[0]` te nemen: bij een opening-set zonder forfaitaire
+    // C_lea (onbekend bouwjaar → geen lek-openingen) zou `openings[0]` een
+    // natuurlijke vent-opening zijn. De stack-correctie `ρ·H·g` blijft dan toch
+    // op de juiste 0,5·H-hoogte van die opening — een gedocumenteerde benadering:
+    // zonder lek-openingen bestaat er strikt genomen geen `H_path;lea`, en de
+    // initiële schatting (11.15) hoeft alleen de bracket-zoektocht te starten,
+    // niet exact te zijn. Bij een volledig lege set valt de functie hierboven
+    // al terug op 0 Pa.
+    let h_path_lea = openings
+        .iter()
+        .find(|o| (o.flow_exponent_n - FLOW_EXPONENT_LEAKAGE).abs() < f64::EPSILON)
+        .map_or(openings[0].height_m, |lea| lea.height_m);
     // Formule (11.15).
     p_z_path_gem + rho_i * h_path_lea * GRAVITY_M_PER_S2
 }
@@ -1010,6 +1023,14 @@ pub fn solve_zone_airflow(
 
     // --- Nauwkeurigheid x (formule (11.14)) ------------------------------
     // q_V;ODA;req-proxy: de relevante mechanische ventilatiestroom.
+    //
+    // Systeem A heeft per definitie GEEN mechanisch debiet (§11.2.2.2.1:
+    // q_V;SUP;eff = q_V;ETA;eff = 0). De `mechanical_supply`/`mechanical_exhaust`-
+    // velden van [`AirFlow`] dienen voor systeem A uitsluitend als forfaitaire
+    // q_V;ODA;req-proxy (zie [`build_openings`] §11.2.2.2.1): consumers die de
+    // natuurlijke ventilatie-conductantie willen voeden, zetten daar de
+    // ontwerp-ventilatiestroom in. De `max()` pakt de hoogste van de twee zodat
+    // de nauwkeurigheidsterm (11.14) niet onderschat wordt.
     let q_v_oda_req = match system {
         VentilationSystem::A => flow.mechanical_supply.max(flow.mechanical_exhaust),
         VentilationSystem::B => flow.mechanical_supply,

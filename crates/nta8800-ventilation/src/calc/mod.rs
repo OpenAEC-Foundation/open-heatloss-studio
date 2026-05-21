@@ -177,6 +177,199 @@ pub fn calculate_ventilation(
     })
 }
 
+/// Bereken ventilatie-warmteverliezen en ventilator-energie met de
+/// **norm-exacte massabalans** uit NTA 8800 §11.2.1.5/§11.2.1.6 i.p.v. de
+/// [`system_total_airflow`]-heuristiek.
+///
+/// Deze variant lost per maand de interne referentiedruk `p_z;ref` op
+/// ([`pressure_solver::solve_zone_airflow`]) en gebruikt de daaruit volgende
+/// effectieve luchtvolumestroom — de som van mechanische toevoer, ingaande
+/// natuurlijke ventilatie en ingaande infiltratie ([`ZoneAirflowSolution`]) —
+/// als `q_V;tot` voor het ventilatie-warmteverlies (formule (11.106)). Bij een
+/// gebalanceerd systeem (D/E) wordt zo de mechanische onbalans (supply ≠
+/// exhaust) en de stack-/wind-gedreven infiltratie norm-exact verrekend i.p.v.
+/// `q_V;tot = q_V;SUP;eff` te benaderen.
+///
+/// De bestaande [`calculate_ventilation`] (oude signatuur, heuristiek) blijft
+/// ongewijzigd bestaan voor backward-compat en voor consumers die geen
+/// [`BuildingPressureContext`] kunnen leveren.
+///
+/// # C2-scope
+///
+/// `ctx.building_height_m` moet `< 15 m` zijn (één luchtstroomzone). De
+/// scope-toets ([`BuildingPressureContext::within_c2_scope`]) hoort vóór de
+/// aanroep te gebeuren; een gebouw `≥ 15 m` levert nog steeds een resultaat
+/// (gedocumenteerde 1-zone-benadering, zie [`pressure_solver::build_openings`])
+/// maar dat is geen norm-conforme multi-zone-berekening.
+///
+/// # Verschil met `calculate_ventilation`
+///
+/// | Aspect | `calculate_ventilation` | deze functie |
+/// |---|---|---|
+/// | `q_V;tot` | `system_total_airflow`-heuristiek | massabalans `p_z;ref` (§11.2.1.6) |
+/// | Infiltratie | losse `flow.infiltration`-scalar | stack/wind-gedreven uit drukmodel |
+/// | Onbalans D/E | genegeerd (`q_V;tot = supply`) | norm-exact verrekend |
+/// | Ventilator-energie | gelijk | gelijk (drukonafhankelijk debiet) |
+/// | WTW-recovery | gelijk | gelijk |
+///
+/// # WTW-toevoertemperatuur
+///
+/// De massabalans gebruikt — net als de geïsoleerde solver — de luchtdichtheid
+/// bij de buitentemperatuur voor de mechanische toevoer. De WTW verwarmt de
+/// toevoerlucht (en verlaagt dus de dichtheid van `q_V;SUP;eff`); dat effect op
+/// `p_z;ref` is een tweede-orde-verfijning en blijft V2-scope. De `wtw`-
+/// parameter wordt — net als in [`calculate_ventilation`] — wél gebruikt voor
+/// de WTW-recovery en de toevoertemperatuur ϑ_sup in het warmteverlies.
+///
+/// # Systeem A — caller-contract
+///
+/// Bij systeem A (natuurlijke ventilatie) modelleert het drukmodel de
+/// natuurlijke ventilatie-openingen via een conductantie `C_vent = q_V;ODA;req`
+/// ([`pressure_solver::build_openings`], §11.2.2.2.1). `build_openings` leest
+/// die `q_V;ODA;req` af uit de **mechanische** debietvelden van [`AirFlow`]
+/// (`flow.mechanical_supply` / `flow.mechanical_exhaust`) — systeem A heeft per
+/// definitie geen mechanisch debiet, dus die velden zijn hier het transport-
+/// kanaal voor de norm-bepaalde natuurlijke toevoer.
+///
+/// **Contract:** de caller MOET voor systeem A `flow.mechanical_supply` én
+/// `flow.mechanical_exhaust` vullen met de norm-conforme `q_V;ODA;req`
+/// (NTA 8800 §11.2.2). Doet de caller dat niet, dan krijgt `build_openings`
+/// een `C_vent = 0`-openings-set: de natuurlijke ventilatie-conductantie
+/// vervalt en de massabalans levert dan alléén infiltratie via de
+/// lek-conductantie.
+///
+/// `0` is een **geldige** waarde voor die velden: dat representeert een
+/// volledig dichte schil of een nog niet uitgewerkt ventilatie-ontwerp —
+/// de massabalans loopt dan zuiver op de lek-conductantie `C_lea`. Er is
+/// daarom bewust géén `debug_assert!` op `mechanical_supply > 0`; een
+/// nul-waarde mag niet paniekeren.
+///
+/// # Errors
+///
+/// Naast de errors van [`calculate_ventilation`]:
+/// - [`VentilationError::PressureSolverDidNotConverge`] als de iteratieve
+///   `p_z;ref`-routine niet binnen de cap convergeert.
+///
+/// Referentie: NTA 8800:2025+C1:2026 §11.2.1.5/§11.2.1.6/§11.2.1.7,
+/// PDF p. 440-447.
+#[allow(clippy::too_many_arguments)]
+pub fn calculate_ventilation_with_pressure_model(
+    _zone: &Rekenzone,
+    system: &VentilationSystem,
+    flow: &AirFlow,
+    wtw: Option<&WtwSpecification>,
+    pressure_context: &crate::model::BuildingPressureContext,
+    indoor_temperature: &MonthlyProfile<Temperature>,
+    climate: &ClimateData,
+) -> Result<VentilationResult, VentilationError> {
+    // --- input-validatie (gelijk aan calculate_ventilation) --------------
+    if flow.mechanical_supply < 0.0 {
+        return Err(VentilationError::NegativeAirFlow {
+            name: "mechanical_supply",
+            value: flow.mechanical_supply,
+        });
+    }
+    if flow.mechanical_exhaust < 0.0 {
+        return Err(VentilationError::NegativeAirFlow {
+            name: "mechanical_exhaust",
+            value: flow.mechanical_exhaust,
+        });
+    }
+    if flow.infiltration < 0.0 {
+        return Err(VentilationError::NegativeAirFlow {
+            name: "infiltration",
+            value: flow.infiltration,
+        });
+    }
+
+    if let Some(wtw) = wtw {
+        if !(0.0..=1.0).contains(&wtw.efficiency) {
+            return Err(VentilationError::InvalidWtwEfficiency(wtw.efficiency));
+        }
+        if wtw.fan_sfp < 0.0 {
+            return Err(VentilationError::InvalidFanSfp(wtw.fan_sfp));
+        }
+        if !system.is_balanced() {
+            return Err(VentilationError::WtwWithoutBalancedSystem);
+        }
+    }
+
+    // Effectieve WTW — alleen D/E mét `with_wtw = true` + aangeleverde spec.
+    let effective_wtw = match system {
+        VentilationSystem::D { with_wtw: true } | VentilationSystem::E => wtw,
+        _ => None,
+    };
+
+    // --- per-maand-berekening met massabalans ----------------------------
+    let mut monthly_q_v = [0.0_f64; 12];
+    let mut monthly_w_fan = [0.0_f64; 12];
+    let mut monthly_wtw_recovery = [0.0_f64; 12];
+
+    // Mechanische stroom voor ventilator-energie — drukonafhankelijk, dus
+    // identiek aan calculate_ventilation (W_fan rekent met q_V;ODA;req, niet
+    // met de massabalans-`q_V;tot`).
+    let q_v_mech = match system {
+        VentilationSystem::A => 0.0,
+        VentilationSystem::B | VentilationSystem::D { .. } | VentilationSystem::E => {
+            flow.mechanical_supply
+        }
+        VentilationSystem::C => flow.mechanical_exhaust,
+    };
+
+    for month in Month::all() {
+        let theta_e = climate.outdoor_temperature[month];
+        let theta_i = indoor_temperature[month];
+        let t_mi = DE_BILT_MONTH_LENGTHS_HOURS[month]; // h
+
+        // --- Massabalans (§11.2.1.6) → q_V;tot voor deze maand -----------
+        // De solver levert de effectieve in-/uitgaande debieten; `q_V;tot`
+        // voor het warmteverlies is de totale verse-lucht-toevoer over de
+        // gebouwschil (mechanische toevoer + ingaande natuurlijke ventilatie
+        // + ingaande infiltratie, formule (11.20)).
+        let solution = pressure_solver::solve_zone_airflow(
+            *system,
+            flow,
+            wtw,
+            pressure_context,
+            theta_e,
+            theta_i,
+            month,
+        )?;
+        let q_v_total = solution.total_inflow();
+
+        // --- WTW toevoertemperatuur + recovery ---------------------------
+        let (theta_supply, wtw_recovered_mj) = if let Some(wtw) = effective_wtw {
+            wtw_recovery::apply_wtw(theta_e, theta_i, wtw.efficiency, q_v_total, t_mi)
+        } else {
+            (theta_e, 0.0)
+        };
+
+        // --- Q_V ventilatie-warmteverlies (formule (11.106)) -------------
+        let q_v_mj = monthly_heat_loss::heat_loss_mj(q_v_total, theta_i, theta_supply, t_mi);
+
+        // --- W_fan ventilator-energie (forfaitair, formule (11.142)) -----
+        let f_sfp = effective_wtw.map_or(0.0, |wtw| wtw.fan_sfp);
+        let w_fan_mj = fan_energy::fan_energy_mj(f_sfp, system.f_systype(), q_v_mech, t_mi);
+
+        monthly_q_v[month.index()] = q_v_mj;
+        monthly_w_fan[month.index()] = w_fan_mj;
+        monthly_wtw_recovery[month.index()] = wtw_recovered_mj;
+    }
+
+    let monthly_q_v = MonthlyProfile::new(monthly_q_v);
+    let monthly_w_fan = MonthlyProfile::new(monthly_w_fan);
+    let monthly_wtw_recovery = MonthlyProfile::new(monthly_wtw_recovery);
+
+    Ok(VentilationResult {
+        annual_q_v: sum_monthly(&monthly_q_v),
+        annual_w_fan: sum_monthly(&monthly_w_fan),
+        annual_wtw_recovery: sum_monthly(&monthly_wtw_recovery),
+        monthly_q_v,
+        monthly_w_fan,
+        monthly_wtw_recovery,
+    })
+}
+
 /// Bepaal de totale ventilatiestroom `q_V;tot` (m³/h) op basis van het
 /// systeem-type en de opgegeven luchtstromen.
 ///
@@ -191,8 +384,13 @@ pub fn calculate_ventilation(
 /// hergebruiken in plaats van een eigen `max()`-heuristiek — één bron van
 /// waarheid.
 ///
-/// Pragmatische V1-heuristiek — de volledige massabalans uit §11.2.1.5
-/// (stap 4, `p_z;ref` oplossen) is V2-scope.
+/// Pragmatische heuristiek — de norm-exacte massabalans uit §11.2.1.5/§11.2.1.6
+/// (de iteratieve `p_z;ref`-oplosroutine) leeft in
+/// [`pressure_solver::solve_zone_airflow`] en wordt door
+/// [`calculate_ventilation_with_pressure_model`] gebruikt. Deze functie blijft
+/// als snelle, schema-vrije heuristiek bestaan voor consumers die geen
+/// [`crate::BuildingPressureContext`] kunnen leveren, en voor gebouwen buiten
+/// C2-scope (`H ≥ 15 m`, multi-luchtstroomzone — V2).
 #[must_use]
 pub fn system_total_airflow(system: VentilationSystem, flow: &AirFlow) -> f64 {
     match system {
