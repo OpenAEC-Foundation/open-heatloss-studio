@@ -5,19 +5,20 @@
 //! geometrie + cooling-system inputs een [`TojuliResult`] berekent met
 //! maandelijkse Q_C;use en jaarsom.
 //!
-//! ## V1 scope
+//! ## Scope
 //!
-//! Transmissie en ventilatie worden in V1 **gesynthesizeerd** uit de
-//! geometry-mapper (Σ A·U voor H_T) en een eenvoudig ach-model (0.5 ach
-//! woning / 1.0 ach utiliteit voor H_V). Dat is genoeg om de demand-keten
-//! te voeden zonder dat de volledige `nta8800-transmission` /
-//! `nta8800-ventilation` integratie nodig is — die landen in F7.2.
+//! Transmissie loopt via `nta8800-transmission::calculate_transmission`
+//! (Σ A·U + b-factoren), ventilatie via
+//! `nta8800-ventilation::calculate_ventilation` — de echte engines, geen
+//! synthese meer. Het ventilatie-warmteverlies Q_V (inclusief WTW-recovery)
+//! komt uit de engine-output; de losse H_V die `calculate_demand` voedt
+//! voor de tijdconstante τ wordt systeem-bewust afgeleid via
+//! `system_total_airflow`. Als geen ventilatie-configuratie bekend is valt
+//! de keten terug op een ach-gebaseerde infiltratie-schatting.
 //!
 //! ## V2 / vervolg
 //!
-//! - Echte transmissie via `nta8800-transmission::calculate_transmission`
-//! - Echte ventilatie via `nta8800-ventilation::calculate_ventilation`
-//!   met WTW + n_air uit `TojuliInputs`
+//! - Volledige §11.2.1.5-massabalans bij gebalanceerde systemen (D/E)
 //! - Schaduw-factor uit BuildingPart-overstek/luifel-modellering
 //! - Multi-rekenzone splitsing
 //! - EP-bijdrage berekening (energieprestatie-index)
@@ -39,7 +40,7 @@ use nta8800_transmission::{
     BoundaryType as TransmissionBoundaryType, TransmissionElement,
 };
 use nta8800_ventilation::{
-    calculate_ventilation,
+    calculate_ventilation, system_total_airflow, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
     model::{AirFlow, VentilationSystem, WtwSpecification},
 };
 use schemars::JsonSchema;
@@ -203,7 +204,9 @@ pub struct TojuliResult {
     pub monthly_q_h_nd_mj: MonthlyProfile<Energy>,
     /// H_T (W/K) gebruikt voor demand — Σ A·U op exterior/ground/adjacent.
     pub transmission_h_t_w_per_k: f64,
-    /// H_V (W/K) gebruikt voor demand — synthetisch uit ach + volume.
+    /// H_V (W/K) die de tijdconstante τ voedt — afgeleid uit de
+    /// systeem-bewuste `q_V;tot` (engine-functie) × ρ_a·c_a/3600, mét
+    /// WTW-reductiefactor (1 − η_hr) voor gebalanceerde systemen.
     pub ventilation_h_v_w_per_k: f64,
     /// Maandelijkse buitenluchttemperatuur (input De Bilt, voor UI-context).
     pub monthly_theta_e_c: MonthlyProfile<Temperature>,
@@ -238,11 +241,11 @@ pub enum TojuliError {
 ///
 /// Pipeline:
 /// 1. `geometry_to_nta8800` levert Rekenzone + EFR + Window + Construction
-/// 2. H_T = Σ A·U op exterior/ground/unheated/adjacent_building constructions
-/// 3. H_V uit `air_change_rate × volume × ρc_p` (default 0.5 of 1.0 ach)
-/// 4. Synthetische `TransmissionResult` + `VentilationResult` (monthly Q uit H × Δθ × uren)
-/// 5. `calculate_demand` → Q_C;nd 12 maanden
-/// 6. `calculate_cooling` → Q_C;use 12 maanden + jaarsom
+/// 2. Echte transmissie via `nta8800-transmission::calculate_transmission`
+/// 3. Echte ventilatie via `nta8800-ventilation::calculate_ventilation`
+///    (Q_V mét WTW-recovery); H_V voor τ afgeleid via `system_total_airflow`
+/// 4. `calculate_demand` → Q_C;nd + Q_H;nd 12 maanden
+/// 5. `calculate_cooling` → Q_C;use 12 maanden + jaarsom
 ///
 /// # Errors
 /// Zie [`TojuliError`].
@@ -331,9 +334,24 @@ pub fn compute_tojuli_full(
         &climate,
     ).map_err(TojuliError::Ventilation)?;
 
-    // h_v voor demand calc: leid af uit q_v_total via factor 1.2 kJ/(m³·K) → 0.34 W/(m³/h·K)
-    let q_v_total = flow.mechanical_supply.max(flow.mechanical_exhaust).max(flow.infiltration);
-    let h_v = q_v_total * 0.34;
+    // H_V (W/K) voor de demand-calc — voedt uitsluitend de tijdconstante τ
+    // (`time_constant_hours`); het ventilatie-warmteverlies Q_ht komt al uit
+    // `ventilation.monthly_q_v` (engine-output, inclusief WTW-recovery).
+    //
+    // Afleiding consistent met de ventilation-engine:
+    //   1. q_V;tot via `system_total_airflow` — systeem-bewust, dezelfde bron
+    //      van waarheid als `calculate_ventilation` zelf gebruikt.
+    //   2. Norm-exacte volumetrische warmtecapaciteit ρ_a·c_a (≈1212,23
+    //      J/(m³·K), NTA 8800 formule 11.106) gedeeld door 3600 → W/(m³/h·K).
+    //   3. WTW-reductie: een gebalanceerd systeem met WTW levert de
+    //      toevoerlucht op ϑ_sup = ϑ_e + η·(ϑ_i − ϑ_e), zodat de effectieve
+    //      temperatuursprong ϑ_i − ϑ_sup = (ϑ_i − ϑ_e)·(1 − η). De effectieve
+    //      ventilatie-warmteoverdracht — en daarmee H_V — schaalt dus met
+    //      (1 − η). Volgt direct uit `wtw_recovery::apply_wtw`; geen aanname.
+    let q_v_total = system_total_airflow(system, &flow);
+    let h_v_per_m3h = AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+    let wtw_factor = wtw.as_ref().map_or(1.0, |w| 1.0 - w.efficiency);
+    let h_v = q_v_total * h_v_per_m3h * wtw_factor;
 
     // ---- 5. Demand calc ----
     let usage_function = view
@@ -485,8 +503,11 @@ mod tests {
         let r = compute_tojuli_full(&p, &i).expect("compute_tojuli_full ok");
         // H_T = 150 × 0.3 = 45 W/K
         assert!((r.transmission_h_t_w_per_k - 45.0).abs() < 1e-6);
-        // H_V default 0.5 ach × 120 × 2.7 × 0.34 = 55.08 W/K
-        assert!((r.ventilation_h_v_w_per_k - 55.08).abs() < 0.1);
+        // Geen ventilatie-config → systeem C-fallback, infiltratie uit ach:
+        // q_V;tot = 0.5 ach × 120 × 2.7 = 162 m³/h
+        // H_V = 162 × (1212.23/3600) ≈ 54.55 W/K (geen WTW)
+        let expected_h_v = 162.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!((r.ventilation_h_v_w_per_k - expected_h_v).abs() < 0.1);
         // Q_C;use jaar > 0 (woning heeft ramen, krijgt zonbelasting in zomer)
         assert!(r.annual_q_c_use_mj >= 0.0);
         assert!(r.annual_q_c_use_kwh >= 0.0);
@@ -615,25 +636,49 @@ mod tests {
 
     #[test]
     fn ventilation_system_d_balanced_with_wtw_uses_engine() {
-        let mut p = sample_project();
-        p.shared.ventilation_system = Some(VentilationSystemKind::MechBalanced);
-        p.shared.heat_recovery = Some(HeatRecovery {
+        // Bouw twee identieke System D-projecten — één mét WTW, één zonder —
+        // en verifieer dat de WTW-reductie (1 − η) de H_V die τ voedt verlaagt.
+        let mut p_wtw = sample_project();
+        p_wtw.shared.ventilation_system = Some(VentilationSystemKind::MechBalanced);
+        p_wtw.shared.heat_recovery = Some(HeatRecovery {
             efficiency: 0.85,
             frost_protection: false,
-            supply_temperature: None
+            supply_temperature: None,
         });
-        p.shared.mechanical_supply_m3_per_h = Some(120.0);
-        p.shared.mechanical_exhaust_m3_per_h = Some(120.0);
+        p_wtw.shared.mechanical_supply_m3_per_h = Some(120.0);
+        p_wtw.shared.mechanical_exhaust_m3_per_h = Some(120.0);
+
+        // Ceteris paribus: zelfde geometrie + debieten, alleen WTW eraf.
+        let mut p_no_wtw = p_wtw.clone();
+        p_no_wtw.shared.heat_recovery = None;
 
         let i = sample_inputs();
-        let r = compute_tojuli_full(&p, &i).expect("compute ok with System D + WTW");
+        let r_wtw = compute_tojuli_full(&p_wtw, &i).expect("compute ok with System D + WTW");
+        let r_no_wtw =
+            compute_tojuli_full(&p_no_wtw, &i).expect("compute ok with System D without WTW");
 
-        assert!(r.ventilation_h_v_w_per_k > 0.0);
-        // Met WTW zou de h_v lager moeten zijn dan zonder (recovery effect)
-        // Verify that WTW recovery happened by checking result is fault-free
-        assert!(r.annual_q_c_use_mj >= 0.0);
-        assert!(r.annual_q_c_use_kwh >= 0.0);
-        assert!(r.tau_hours > 0.0);
+        assert!(r_wtw.ventilation_h_v_w_per_k > 0.0);
+        assert!(r_no_wtw.ventilation_h_v_w_per_k > 0.0);
+
+        // Met WTW is de effectieve ventilatie-warmteoverdracht lager:
+        // H_V;wtw = H_V;no_wtw × (1 − η).
+        assert!(
+            r_wtw.ventilation_h_v_w_per_k < r_no_wtw.ventilation_h_v_w_per_k,
+            "WTW moet H_V verlagen: wtw={}, no_wtw={}",
+            r_wtw.ventilation_h_v_w_per_k,
+            r_no_wtw.ventilation_h_v_w_per_k
+        );
+        // Exacte reductiefactor: η = 0.85 → factor 0.15.
+        let expected_ratio = 1.0 - 0.85;
+        let actual_ratio = r_wtw.ventilation_h_v_w_per_k / r_no_wtw.ventilation_h_v_w_per_k;
+        assert!(
+            (actual_ratio - expected_ratio).abs() < 1e-9,
+            "verwachte (1−η)-reductie {expected_ratio}, gemeten {actual_ratio}"
+        );
+
+        assert!(r_wtw.annual_q_c_use_mj >= 0.0);
+        assert!(r_wtw.annual_q_c_use_kwh >= 0.0);
+        assert!(r_wtw.tau_hours > 0.0);
     }
 
     #[test]
@@ -648,8 +693,10 @@ mod tests {
         let i = sample_inputs();
         let r = compute_tojuli_full(&p, &i).expect("compute ok with System B");
 
-        // H_V = 150 × 0.34 = 51.0 W/K
-        assert!((r.ventilation_h_v_w_per_k - 51.0).abs() < 0.5);
+        // Systeem B: q_V;tot = max(supply 150, infil 0) = 150 m³/h
+        // H_V = 150 × (1212.23/3600) ≈ 50.51 W/K (geen WTW)
+        let expected_h_v = 150.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!((r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6);
         assert!(r.annual_q_c_use_mj >= 0.0);
     }
 
@@ -665,8 +712,10 @@ mod tests {
         let i = sample_inputs();
         let r = compute_tojuli_full(&p, &i).expect("compute ok with System C");
 
-        // H_V = 100 × 0.34 = 34.0 W/K
-        assert!((r.ventilation_h_v_w_per_k - 34.0).abs() < 0.5);
+        // Systeem C: q_V;tot = max(exhaust 100, infil 0) = 100 m³/h
+        // H_V = 100 × (1212.23/3600) ≈ 33.67 W/K (geen WTW)
+        let expected_h_v = 100.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!((r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6);
         assert!(r.annual_q_c_use_mj >= 0.0);
     }
 
@@ -682,8 +731,10 @@ mod tests {
         let i = sample_inputs();
         let r = compute_tojuli_full(&p, &i).expect("compute ok with System A");
 
-        // H_V = 80 × 0.34 = 27.2 W/K
-        assert!((r.ventilation_h_v_w_per_k - 27.2).abs() < 0.5);
+        // Systeem A: q_V;tot = infiltratie = 80 m³/h
+        // H_V = 80 × (1212.23/3600) ≈ 26.94 W/K (geen WTW)
+        let expected_h_v = 80.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!((r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6);
         assert!(r.annual_q_c_use_mj >= 0.0);
     }
 

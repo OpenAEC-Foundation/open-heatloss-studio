@@ -179,9 +179,21 @@ pub fn calculate_ventilation(
 /// Bepaal de totale ventilatiestroom `q_V;tot` (m³/h) op basis van het
 /// systeem-type en de opgegeven luchtstromen.
 ///
+/// Dit is de canonieke systeem-bewuste bepaling van de zone-ventilatiestroom:
+/// - A → infiltratie (q_V;lea)
+/// - B → max(mech. toevoer, infiltratie)
+/// - C → max(mech. afvoer, infiltratie)
+/// - D/E → mech. toevoer
+///
+/// Consumers buiten deze crate (o.a. `openaec-project-shared::tojuli`, voor
+/// de afleiding van H_V t.b.v. de tijdconstante τ) horen deze functie te
+/// hergebruiken in plaats van een eigen `max()`-heuristiek — één bron van
+/// waarheid.
+///
 /// Pragmatische V1-heuristiek — de volledige massabalans uit §11.2.1.5
 /// (stap 4, `p_z;ref` oplossen) is V2-scope.
-fn system_total_airflow(system: VentilationSystem, flow: &AirFlow) -> f64 {
+#[must_use]
+pub fn system_total_airflow(system: VentilationSystem, flow: &AirFlow) -> f64 {
     match system {
         VentilationSystem::A => flow.infiltration,
         VentilationSystem::B => flow.mechanical_supply.max(flow.infiltration),
