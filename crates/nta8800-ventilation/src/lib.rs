@@ -83,7 +83,10 @@ pub mod model;
 pub mod references;
 pub mod result;
 
-pub use calc::calculate_ventilation;
+pub use calc::{
+    calculate_ventilation, system_total_airflow, AIR_DENSITY_KG_PER_M3,
+    AIR_SPECIFIC_HEAT_J_PER_KG_K, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
+};
 pub use errors::VentilationError;
 pub use model::{AirFlow, VentilationSystem, WtwSpecification};
 pub use result::VentilationResult;

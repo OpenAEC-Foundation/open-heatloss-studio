@@ -71,12 +71,12 @@ pub struct SharedProject {
 
     /// Mechanische toevoer luchtvolumestroom in m³/h.
     /// Zie NTA 8800 tabel 11.23 voor referentiewaarden.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub mechanical_supply_m3_per_h: Option<f64>,
 
     /// Mechanische afvoer luchtvolumestroom in m³/h.
     /// Zie NTA 8800 tabel 11.23 voor referentiewaarden.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub mechanical_exhaust_m3_per_h: Option<f64>,
 }
 
