@@ -1,27 +1,27 @@
 /**
- * VentilationPanel — ventilatie-instellingen op project-niveau.
+ * VentilationPanel — ventilatie-instellingen op project-niveau (ISSO 51).
  *
  * Schrijft naar:
  *  - V1 `project.ventilation.system_type` (ISSO 51 systeem A–E, direct)
  *  - V1 `project.ventilation.has_heat_recovery` + `heat_recovery_efficiency`
- *  - V2 sidecar `sharedExtra.{infiltration,mechanical_supply,mechanical_exhaust}_m3_per_h`
  *
  * V1 blijft single-source-of-truth voor de ISSO 51 backend; de gebruiker
  * kiest hier rechtstreeks het ISSO 51 ventilatiesysteem (A t/m E). De
  * V1→V2 mapping voor de NTA 8800 / TO-juli backend gebeurt in
  * `projectV2Migration.ts` (`mapV1SystemTypeToV2`) bij `buildV2Payload`.
  *
- * De V2-only m³/h velden (infiltratie + mechanisch toe/afvoer) landen via
- * `buildV2Payload` in de SharedProject ventilation surface en blijven
- * `undefined` als de gebruiker leeg laat, zodat de Rust engine terugvalt
- * op `default_ach` lookup.
+ * De NTA 8800 / TO-juli m³/h-debieten (infiltratie + mechanisch toe/afvoer)
+ * staan NIET hier — die voeden uitsluitend de TO-juli-engine en worden op
+ * de TO-juli-tab ingevoerd (`pages/TojuliFull.tsx`). Dit paneel is puur
+ * ISSO 51. De m³/h-velden landen nog steeds in de `sharedExtra`-sidecar.
  *
  * Lessons learned:
- *  - 10-04 (water θ): norm-afwijkende aannames structureel tonen → SFP
- *    forfaitair-voetnoot is altijd zichtbaar onder de invoer.
+ *  - 10-04 (water θ): norm-afwijkende aannames structureel tonen.
  *  - 17-05 (light theme): gebruik `--oaec-*` tokens, geen hardcoded kleuren.
  *  - 21-05 (regressie b546610): systeemkeuze terug naar ISSO 51 A–E;
  *    V2-kind-select downgrade systeem E stil naar D.
+ *  - 21-05 (werkpakket A): m³/h-debieten verplaatst naar de TO-juli-tab —
+ *    ze voeden alleen de NTA 8800-engine, niet de ISSO 51-berekening.
  */
 import { useCallback } from "react";
 
@@ -38,15 +38,16 @@ import { Select } from "../ui/Select";
 // ---------------------------------------------------------------------------
 
 /**
- * Per ISSO 51 systeemtype: welke mechanische debiet-velden + WTW-veld zichtbaar
- * zijn. Consistent met de oude `WarmteverliesInstellingen.tsx` vóór b546610:
- * `supportsWtw = system_d || system_e`.
+ * Per ISSO 51 systeemtype: of het WTW-veld zichtbaar is. Consistent met de
+ * oude `WarmteverliesInstellingen.tsx` vóór b546610: `supportsWtw =
+ * system_d || system_e`. `hasSupply`/`hasExhaust` blijven gedefinieerd zodat
+ * de TO-juli-tab dezelfde capability-tabel kan spiegelen voor de m³/h-velden.
  *
- *   A — natuurlijke toe- en afvoer            → geen mech velden, geen WTW
- *   B — mechanische toevoer, natuurlijke afvoer → toevoer
- *   C — natuurlijke toevoer, mechanische afvoer → afvoer
- *   D — gebalanceerd mechanisch (centraal)     → toevoer + afvoer + WTW
- *   E — combinatie (decentraal gebalanceerd)   → toevoer + afvoer + WTW
+ *   A — natuurlijke toe- en afvoer            → geen WTW
+ *   B — mechanische toevoer, natuurlijke afvoer → geen WTW
+ *   C — natuurlijke toevoer, mechanische afvoer → geen WTW
+ *   D — gebalanceerd mechanisch (centraal)     → WTW
+ *   E — combinatie (decentraal gebalanceerd)   → WTW
  */
 const SYSTEM_CAPABILITIES: Record<
   VentilationSystemType,
@@ -74,12 +75,11 @@ const VENTILATION_SYSTEM_OPTIONS: Array<{
 // ---------------------------------------------------------------------------
 
 export function VentilationPanel() {
-  const { project, updateProject, sharedExtra, updateSharedExtra } =
-    useProjectStore();
+  const { project, updateProject } = useProjectStore();
 
   const v1Vent = project.ventilation;
   const currentSystem: VentilationSystemType = v1Vent.system_type;
-  const { hasSupply, hasExhaust, hasWtw } = SYSTEM_CAPABILITIES[currentSystem];
+  const { hasWtw } = SYSTEM_CAPABILITIES[currentSystem];
 
   const updateVentilation = useCallback(
     (partial: Partial<VentilationConfig>) => {
@@ -130,27 +130,6 @@ export function VentilationPanel() {
     });
   };
 
-  // V2-only m³/h velden — naar sidecar.
-  const supplyValue = sharedExtra.mechanical_supply_m3_per_h ?? "";
-  const exhaustValue = sharedExtra.mechanical_exhaust_m3_per_h ?? "";
-  const infiltrationValue = sharedExtra.infiltration_m3_per_h ?? "";
-
-  const writeNumericExtra = (
-    key:
-      | "mechanical_supply_m3_per_h"
-      | "mechanical_exhaust_m3_per_h"
-      | "infiltration_m3_per_h",
-    raw: string,
-  ) => {
-    if (raw === "") {
-      updateSharedExtra({ [key]: null });
-      return;
-    }
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return;
-    updateSharedExtra({ [key]: n });
-  };
-
   // Toon hint over hoe het WTW-veld zich verhoudt tot V1 ISSO 51 ventilatie.
   const heatRecoveryHint: HeatRecovery | null =
     hasWtw &&
@@ -168,7 +147,7 @@ export function VentilationPanel() {
       : null;
 
   return (
-    <Card title="Ventilatie (ISSO 51 / TO-juli)">
+    <Card title="Ventilatie (ISSO 51)">
       <div className="grid grid-cols-3 gap-4">
         <Select
           id="ventilation_system_type"
@@ -179,80 +158,6 @@ export function VentilationPanel() {
             handleSystemChange(e.target.value as VentilationSystemType)
           }
         />
-      </div>
-
-      <div className="mt-4 border-t border-[var(--oaec-border-subtle)] pt-4">
-        <p className="mb-2 text-xs font-medium text-on-surface-secondary">
-          Debieten (optioneel — NTA 8800 / TO-juli)
-        </p>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <Input
-              id="infiltration_m3_per_h"
-              label="Basisinfiltratie"
-              type="number"
-              unit="m³/h"
-              step={1}
-              min={0}
-              placeholder="Auto (NTA 8800)"
-              value={infiltrationValue}
-              onChange={(e) =>
-                writeNumericExtra("infiltration_m3_per_h", e.target.value)
-              }
-            />
-            <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-              TO-juli/NTA 8800 debiet-override. Niet de ISSO 51 luchtdichtheid
-              `qv10` (Gebouw-tabblad) — leeg laten = backend rekent zelf
-              (`default_ach`).
-            </p>
-          </div>
-          {hasSupply && (
-            <div>
-              <Input
-                id="mechanical_supply_m3_per_h"
-                label="Mechanische toevoer"
-                type="number"
-                unit="m³/h"
-                step={1}
-                min={0}
-                placeholder="Auto (NTA 8800)"
-                value={supplyValue}
-                onChange={(e) =>
-                  writeNumericExtra(
-                    "mechanical_supply_m3_per_h",
-                    e.target.value,
-                  )
-                }
-              />
-              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-                Optionele debiet-override; leeg laten = `default_ach`.
-              </p>
-            </div>
-          )}
-          {hasExhaust && (
-            <div>
-              <Input
-                id="mechanical_exhaust_m3_per_h"
-                label="Mechanische afvoer"
-                type="number"
-                unit="m³/h"
-                step={1}
-                min={0}
-                placeholder="Auto (NTA 8800)"
-                value={exhaustValue}
-                onChange={(e) =>
-                  writeNumericExtra(
-                    "mechanical_exhaust_m3_per_h",
-                    e.target.value,
-                  )
-                }
-              />
-              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-                Optionele debiet-override; leeg laten = `default_ach`.
-              </p>
-            </div>
-          )}
-        </div>
       </div>
 
       {hasWtw && (
@@ -301,14 +206,8 @@ export function VentilationPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
-        Fan SFP forfaitair 0,125 W/(m³/h) per NTA 8800 tab 11.23
-        (engineering-aanname, geen norm-waarde — backend gebruikt deze
-        constante voor TO-juli electrische ventilator-energie).
-      </p>
-      <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-        Laat de m³/h-velden leeg om de backend default (NTA 8800 tabel 11.23
-        `default_ach` lookup op basis van GO en systeemtype) te gebruiken.
-        Vul ze in om met gemeten/ontworpen debieten te rekenen.
+        ISSO 51 ventilatie — systeemtype A–E + WTW-rendement. De NTA 8800 /
+        TO-juli luchtdebieten (m³/h) staan op de TO-juli-tab.
       </p>
     </Card>
   );
