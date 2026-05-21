@@ -127,8 +127,8 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] Auto-save + dark/light theme
 - [ ] Materialen: inline bewerken, lambda nat, zoekwoorden
 - [x] U_w kozijn-calculator Fase 1: `uw_breakdown`-datamodel + `Spacer`-enum (`7727e79`)
-- [ ] U_w kozijn-calculator Fase 2: rekenlogica + per-kozijn modal — zie `docs/uw-calculator-fase2-spec.md`
-- [ ] U_w kozijn-calculator Fase 3: `uw_breakdown`-onderbouwing in PDF-rapport
+- [ ] U_w kozijn-calculator Fase 2: `uwCalculation.ts` + spacer-tabel + `/uw`-calculatorpagina
+- [ ] U_w kozijn-calculator Fase 3: opslaan op kozijn-element + opbouw in project-rapport + zelfstandig U_w-rapport
 
 ## Modeller features
 - [x] 2D/3D modeller met pan/zoom, grid, polygonen, wanden, ramen, deuren
