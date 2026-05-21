@@ -60,6 +60,7 @@
     "results": "Results",
     "library": "Library",
     "rcValue": "R-value",
+    "uwValue": "Window U-value",
     "materials": "Materials",
     "projects": "Projects",
     "warmteverliesInstellingen": "Settings",
@@ -132,5 +133,32 @@
   "warmteverliesInstellingen": {
     "title": "Heat loss settings",
     "subtitle": "ISSO 51:2023 parameters"
+  },
+  "uw": {
+    "title": "Window U-value",
+    "subtitle": "Composite window U-value U_w per NEN-EN-ISO 10077-1",
+    "groupGeometry": "Dimensions & pane layout",
+    "groupMaterials": "U-values (glazing & frame)",
+    "groupSpacer": "Glazing edge (Ψ_g)",
+    "manualPsiG": "Manual Ψ_g",
+    "normRef": "U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f) — NEN-EN-ISO 10077-1.",
+    "invalidInput": "Check the input values.",
+    "fields": {
+      "width": "Width [mm]",
+      "height": "Height [mm]",
+      "frameWidth": "Frame width [mm]",
+      "paneColumns": "Pane columns",
+      "paneRows": "Pane rows",
+      "uG": "U_g — glazing [W/(m²·K)]",
+      "uF": "U_f — frame [W/(m²·K)]",
+      "spacer": "Edge spacer",
+      "psiG": "Ψ_g [W/(m·K)]"
+    },
+    "hints": {
+      "uG": "Manual input — glazing supplier",
+      "uF": "Manual input — frame manufacturer",
+      "psiGTable": "Table value from the selected spacer type",
+      "psiGManual": "Manual override of the spacer table value"
+    }
   }
 }

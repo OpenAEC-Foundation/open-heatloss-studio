@@ -198,6 +198,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     defaultCollapsed: false,
     items: [
       { to: "/rc", labelKey: "sidebar.rcValue", Icon: IconLayers },
+      { to: "/uw", labelKey: "sidebar.uwValue", Icon: IconLayers },
       {
         to: "",
         labelKey: "sidebar.rcCompare",
