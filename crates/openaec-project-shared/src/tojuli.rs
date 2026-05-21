@@ -13,8 +13,10 @@
 //! synthese meer. Het ventilatie-warmteverlies Q_V (inclusief WTW-recovery)
 //! komt uit de engine-output; de losse H_V die `calculate_demand` voedt
 //! voor de tijdconstante τ wordt systeem-bewust afgeleid via
-//! `system_total_airflow`. Als geen ventilatie-configuratie bekend is valt
-//! de keten terug op een ach-gebaseerde infiltratie-schatting.
+//! `system_total_airflow`. Als geen luchtdebieten bekend zijn valt de keten
+//! terug op de norm-conforme benodigde luchtvolumestroom van buitenlucht
+//! `q_V;ODA;req` (NTA 8800 §11.2.2 — functie van gebruiksfunctie + A_g),
+//! géén handmatige ach-schatting.
 //!
 //! ## V2 / vervolg
 //!
@@ -49,10 +51,55 @@ use serde::{Deserialize, Serialize};
 /// Forfaitair specifiek ventilator vermogen (NTA 8800 tabel 11.23, modern DC-unit).
 const VENTILATION_FAN_SFP_W_PER_M3H: f64 = 0.125;
 
+// --- NTA 8800 §11.2.2 forfaitaire ventilatie-parameters ---------------------
+//
+// Wanneer geen luchtdebieten zijn opgegeven valt de TO-juli-keten terug op de
+// norm-bepaalde benodigde luchtvolumestroom van buitenlucht `q_V;ODA;req`
+// (§11.2.2.1, formule 11.22) — een traceerbare norm-bepaling, géén handmatige
+// ach-schatting. De keten luidt:
+//   q_usi;spec  → tabel 11.8 per gebruiksfunctie          [dm³/(s·m²)]
+//   f_τ         → tabel 11.8 bezettingstijd-correctie     [-]
+//   (11.56)     q_V;ODA;req;des;reken
+//                 = f_lea;du · f_lea;ahu · f_τ · (q_usi;spec · A_g) · 3,6
+//   (11.63)     woning-ondergrens (q_usi;spec · A_g) ≥ 35 dm³/s
+//   (11.57)     installatie onbekend → q_V;ODA;req;des = q_V;ODA;req;des;reken
+//   (11.22)     q_V;ODA;req = f_ctrl · f_sys · q_V;ODA;req;des / (ε_V · f_prac;req)
+
+/// NTA 8800 §11.2.2.1.1, formule (11.22): praktijkprestatiefactor voor het
+/// vereiste toevoerdebiet `f_prac;req`. Norm-vaste waarde.
+const NTA_F_PRAC_REQ: f64 = 0.95;
+
+/// NTA 8800 §11.2.2.1.1, formule (11.22): ventilatie-efficiëntie `ε_V`.
+/// Norm-vaste waarde 1.
+const NTA_EPSILON_V: f64 = 1.0;
+
+/// NTA 8800 tabel 11.9: correctiefactor luchtlekken ventilatiekanalen
+/// `f_lea;du` voor luchtdichtheidsklasse "Onbekend" — de norm-conforme default
+/// wanneer geen kanaalspecificatie bekend is.
+const NTA_F_LEA_DU_UNKNOWN: f64 = 1.10;
+
+/// NTA 8800 §11.2.2.5.2: correctiefactor luchtlekken AHU `f_lea;ahu` bij het
+/// ontbreken van een AHU (`f_lea;ahu = 1,0`).
+const NTA_F_LEA_AHU_NONE: f64 = 1.0;
+
+/// NTA 8800 §11.2.2.4.1, formule (11.56)/(11.55): omrekenfactor 3,6 van de
+/// specifieke ventilatiecapaciteit (dm³/s) naar de luchtvolumestroom (m³/h).
+const NTA_DM3S_TO_M3H: f64 = 3.6;
+
+/// NTA 8800 §11.2.2.5.1, formule (11.63): woning-ondergrens voor de absolute
+/// ventilatiecapaciteit `(q_usi;spec · A_g) ≥ 35 dm³/s`.
+const NTA_WONING_MIN_CAPACITY_DM3S: f64 = 35.0;
+
+/// Forfaitaire vrije verdiepingshoogte [m] om uit een rekenzone-volume het
+/// gebruiksoppervlak `A_g` te schatten wanneer `gross_floor_area_m2` ontbreekt
+/// (`A_g ≈ V / h`). Komt overeen met de in `nta8800_view` gehanteerde
+/// standaard-verdiepingshoogte voor woningen.
+const NTA_DEFAULT_ZONE_HEIGHT_M: f64 = 2.7;
+
 use crate::geometry::{BoundaryKind, SharedGeometry};
 use crate::nta8800_view::geometry_to_nta8800;
 use crate::project::ProjectV2;
-use crate::shared::{BuildingTypeShared, VentilationSystemKind, HeatRecovery};
+use crate::shared::{VentilationSystemKind, HeatRecovery};
 
 /// Map geometry::BoundaryKind to nta8800_transmission::BoundaryType.
 ///
@@ -168,9 +215,6 @@ pub struct TojuliFullInputs {
     /// Schaduw-factor F_sh (0..=1). 1.0 = geen schaduw. V2: per-construction.
     #[serde(default = "default_shading")]
     pub shading_factor: f64,
-    /// Ventilatievoud n_air (ach, 1/h). 0 = auto uit gebouwtype.
-    #[serde(default)]
-    pub air_change_rate_per_h: f64,
     /// Verwarmings-setpoint °C (constant alle maanden).
     #[serde(default = "default_heating_setpoint")]
     pub heating_setpoint_c: f64,
@@ -300,18 +344,56 @@ pub fn compute_tojuli_full(
     ).map_err(TojuliError::Transmission)?;
 
     // ---- 3. Ventilation via nta8800-ventilation engine ----
-    // Legacy fallback: als geen ventilatie-configuratie, gebruik ach-gebaseerde infiltratie
+    //
+    // Norm-forfait i.p.v. handmatige ach-schatting: als geen luchtdebieten zijn
+    // opgegeven valt de keten terug op de NTA 8800 §11.2.2 benodigde
+    // luchtvolumestroom van buitenlucht `q_V;ODA;req` (functie van
+    // gebruiksfunctie + gebruiksoppervlak A_g) — een traceerbare norm-bepaling.
+    //
+    // De fallback triggert in twee situaties:
+    //  (a) géén systeemtype én géén mechanische debieten bekend (volledig
+    //      ontbrekende ventilatie-configuratie); en
+    //  (b) systeemtype A (natuurlijke ventilatie) zonder ingevoerd
+    //      infiltratie-/natuurlijk-toevoerdebiet — QC-bevinding 5: zonder dit
+    //      forfait levert systeem A een stille `flow.infiltration = 0` en
+    //      daarmee `h_v = 0`. Voor systeem A is `q_V;ODA;eff = q_V;vent;in`
+    //      (§11.2.2.2.1), dus de norm-bepaalde `q_V;ODA;req` is hier de
+    //      correcte natuurlijke toevoer.
+    //
+    // A_g uit `shared.gross_floor_area_m2`; bij ontbreken afgeleid uit het
+    // rekenzone-volume / verdiepingshoogte (`zone.volume / NTA_DEFAULT_ZONE_HEIGHT_M`).
+    let usage_function_for_ventilation = view
+        .efrs
+        .first()
+        .map(|e| e.usage_function)
+        .unwrap_or(nta8800_model::zoning::UsageFunction::Woonfunctie);
     let effective_infiltration_m3_per_h = project.shared.infiltration_m3_per_h.or_else(|| {
-        let needs_fallback = project.shared.ventilation_system.is_none()
-            && project.shared.mechanical_supply_m3_per_h.is_none()
+        let no_mech_config = project.shared.mechanical_supply_m3_per_h.is_none()
             && project.shared.mechanical_exhaust_m3_per_h.is_none();
+        // De Natural-tak triggert het forfait ook wanneer er wél
+        // `mechanical_supply/exhaust_m3_per_h` zijn ingevuld maar
+        // `infiltration_m3_per_h` leeg is. Dat is bewust: bij systeem A
+        // (natuurlijke toe- én afvoer) ís de buitenluchttoevoer per definitie
+        // de natuurlijke luchtvolumestroom — eventueel ingevoerde mechanische
+        // debieten horen niet bij systeem A en mogen de toevoer niet bepalen
+        // (§11.2.2.2.1: q_V;SUP;eff = q_V;ETA;eff = 0, q_V;ODA;eff =
+        // q_V;vent;in). Het norm-forfait `q_V;ODA;req` is dan de juiste bron.
+        let needs_fallback = (project.shared.ventilation_system.is_none() && no_mech_config)
+            || matches!(
+                project.shared.ventilation_system,
+                Some(VentilationSystemKind::Natural)
+            );
         if needs_fallback {
-            let ach = if inputs.air_change_rate_per_h > 0.0 {
-                inputs.air_change_rate_per_h
-            } else {
-                default_ach(&project.shared.building_type)
-            };
-            Some(ach * zone.volume)
+            // A_g: bij voorkeur expliciet uit shared, anders uit het zone-volume.
+            let a_g = project
+                .shared
+                .gross_floor_area_m2
+                .filter(|v| *v > 0.0)
+                .unwrap_or_else(|| zone.volume / NTA_DEFAULT_ZONE_HEIGHT_M);
+            Some(nta8800_q_v_oda_req_m3_per_h(
+                usage_function_for_ventilation,
+                a_g,
+            ))
         } else {
             None
         }
@@ -354,12 +436,7 @@ pub fn compute_tojuli_full(
     let h_v = q_v_total * h_v_per_m3h * wtw_factor;
 
     // ---- 5. Demand calc ----
-    let usage_function = view
-        .efrs
-        .first()
-        .map(|e| e.usage_function)
-        .unwrap_or(nta8800_model::zoning::UsageFunction::Woonfunctie);
-    let internal_gains = InternalGains::forfaitair(usage_function);
+    let internal_gains = InternalGains::forfaitair(usage_function_for_ventilation);
     let heating_sp = HeatingSetpoint::new(MonthlyProfile::from_constant(inputs.heating_setpoint_c));
     let cooling_sp = CoolingSetpoint::new(MonthlyProfile::from_constant(inputs.cooling_setpoint_c));
     let thermal_mass = ThermalMassInput::light_woning(); // default; F7.2 user-input
@@ -405,12 +482,109 @@ pub fn compute_tojuli_full(
 }
 
 
-/// Default ach (1/h) op basis van gebouwtype voor V1 stub.
-fn default_ach(bt: &BuildingTypeShared) -> f64 {
-    match bt {
-        BuildingTypeShared::Woning { .. } => 0.5,
-        BuildingTypeShared::Utiliteit { .. } => 1.0,
+/// NTA 8800 tabel 11.8 — aan de gebruiksfunctie gerelateerde specifieke
+/// ventilatiecapaciteit `q_usi;spec` [dm³/(s·m²)] én de bezettingstijd-
+/// correctiefactor `f_τ` [-].
+///
+/// Voor utiliteitsfuncties geeft de tabel een vaste `f_τ`; voor de woonfunctie
+/// is `f_τ` oppervlakte-afhankelijk: `f_τ = min[(0,38 + A_g · 0,006); 0,8]`.
+/// Daarom retourneert deze functie voor de woonfunctie de reeds met `A_g`
+/// uitgerekende `f_τ`.
+///
+/// Bronwaarden (tabel 11.8, kolom `q_usi;spec` en kolom `f_τ`):
+/// - Woonfunctie:           q_usi;spec = 0,50  ; f_τ = min[(0,38+A_g·0,006);0,8]
+/// - Bijeenkomstfunctie:    q_usi;spec = 1,71  ; f_τ = 0,15  (andere bijeenkomst)
+/// - Celfunctie:            q_usi;spec = 0,84  ; f_τ = 0,80
+/// - Gezondheidszorg:       q_usi;spec = 1,11  ; f_τ = 0,30  (ander verblijfsgebied)
+/// - Industriefunctie:      q_usi;spec = 1,11  ; f_τ = 0,30  (zie OPMERKING hieronder)
+/// - Kantoorfunctie:        q_usi;spec = 1,11  ; f_τ = 0,30
+/// - Logiesfunctie:         q_usi;spec = 0,84  ; f_τ = 0,40
+/// - Onderwijsfunctie:      q_usi;spec = 3,64  ; f_τ = 0,30
+/// - Sportfunctie:          q_usi;spec = 0,46  ; f_τ = 0,30
+/// - Winkelfunctie:         q_usi;spec = 0,28  ; f_τ = 0,40
+///
+/// OPMERKING — Industriefunctie: tabel 11.8 geeft voor deze functie alleen een
+/// specifieke capaciteit volgens bouwregelgeving (6,5 dm³/s/pers.) en géén
+/// kolomwaarden `q_usi;spec`/`f_τ`. Bij gebrek aan een norm-waarde wordt hier
+/// de kantoor-rij aangehouden (conservatieve, traceerbare keuze in plaats van
+/// een verzonnen getal). Voor industriële projecten met afwijkende
+/// procesventilatie moeten de werkelijke debieten worden ingevoerd.
+fn nta8800_usi_spec_and_f_tau(
+    usage: nta8800_model::zoning::UsageFunction,
+    gross_floor_area_m2: f64,
+) -> (f64, f64) {
+    use nta8800_model::zoning::UsageFunction as UF;
+    match usage {
+        UF::Woonfunctie => {
+            // Tabel 11.8: f_τ = min[(0,38 + A_g · 0,006); 0,8].
+            let f_tau = (0.38 + gross_floor_area_m2 * 0.006).min(0.8);
+            (0.50, f_tau)
+        }
+        UF::Bijeenkomstfunctie => (1.71, 0.15),
+        UF::Celfunctie => (0.84, 0.80),
+        UF::Gezondheidszorgfunctie => (1.11, 0.30),
+        // Industriefunctie: geen kolomwaarde in tabel 11.8 → kantoor-rij (zie doc).
+        UF::Industriefunctie => (1.11, 0.30),
+        UF::Kantoorfunctie => (1.11, 0.30),
+        UF::Logiesfunctie => (0.84, 0.40),
+        UF::Onderwijsfunctie => (3.64, 0.30),
+        UF::Sportfunctie => (0.46, 0.30),
+        UF::Winkelfunctie => (0.28, 0.40),
+        // OverigeGebruiksfunctie: tabel 11.8 kent deze niet → kantoor-rij als
+        // norm-traceerbare default; afwijkende functies vereisen debiet-invoer.
+        UF::OverigeGebruiksfunctie => (1.11, 0.30),
     }
+}
+
+/// Norm-conforme forfaitaire benodigde luchtvolumestroom van buitenlucht
+/// `q_V;ODA;req` [m³/h] volgens NTA 8800:2025+C1:2026 §11.2.2.
+///
+/// Vervangt de oude handmatige ach-schatting: een ventilatievoud is
+/// norm-technisch niet traceerbaar. Wanneer geen luchtdebieten zijn ingevoerd
+/// rekent de norm de benodigde buitenluchtstroom uit de gebruiksfunctie en het
+/// gebruiksoppervlak `A_g`.
+///
+/// Keten:
+/// 1. `q_usi;spec` + `f_τ` uit tabel 11.8 (`nta8800_usi_spec_and_f_tau`).
+/// 2. Woning-ondergrens (11.63): `(q_usi;spec · A_g) ≥ 35 dm³/s`.
+/// 3. (11.56): `q_V;ODA;req;des;reken =
+///        f_lea;du · f_lea;ahu · f_τ · (q_usi;spec · A_g) · 3,6` [m³/h].
+///    `f_lea;du` = 1,10 (kanaal-luchtdichtheidsklasse "Onbekend", tabel 11.9);
+///    `f_lea;ahu` = 1,0 (geen AHU, §11.2.2.5.2).
+/// 4. (11.57): geïnstalleerde capaciteit onbekend → `q_V;ODA;req;des` =
+///    `q_V;ODA;req;des;reken`.
+/// 5. (11.22): `q_V;ODA;req = f_ctrl · f_sys · q_V;ODA;req;des /
+///        (ε_V · f_prac;req)` met `ε_V = 1` en `f_prac;req = 0,95`.
+///    De systeem-correctiefactoren `f_ctrl` en `f_sys` (§11.2.2.3) hangen van
+///    het ventilatie-systeemtype af. In de forfait-tak is per definitie geen
+///    systeem opgegeven; de norm-neutrale keuze is `f_ctrl = f_sys = 1` (geen
+///    vraag-/systeemsturing). Zodra wél een systeem of debieten bekend zijn
+///    loopt de berekening via de `nta8800-ventilation`-engine en niet via dit
+///    forfait.
+fn nta8800_q_v_oda_req_m3_per_h(
+    usage: nta8800_model::zoning::UsageFunction,
+    gross_floor_area_m2: f64,
+) -> f64 {
+    let a_g = gross_floor_area_m2.max(0.0);
+    let (q_usi_spec, f_tau) = nta8800_usi_spec_and_f_tau(usage, a_g);
+
+    // (11.63) — woning-ondergrens op de absolute capaciteit (q_usi;spec · A_g).
+    let mut capacity_dm3s = q_usi_spec * a_g;
+    if matches!(usage, nta8800_model::zoning::UsageFunction::Woonfunctie) {
+        capacity_dm3s = capacity_dm3s.max(NTA_WONING_MIN_CAPACITY_DM3S);
+    }
+
+    // (11.56) — q_V;ODA;req;des;reken in m³/h.
+    let q_des_reken_m3h =
+        NTA_F_LEA_DU_UNKNOWN * NTA_F_LEA_AHU_NONE * f_tau * capacity_dm3s * NTA_DM3S_TO_M3H;
+
+    // (11.57) — geïnstalleerde capaciteit onbekend → q_V;ODA;req;des = reken.
+    let q_des_m3h = q_des_reken_m3h;
+
+    // (11.22) — f_ctrl = f_sys = 1 in de forfait-tak (geen systeem opgegeven).
+    let f_ctrl = 1.0;
+    let f_sys = 1.0;
+    f_ctrl * f_sys * q_des_m3h / (NTA_EPSILON_V * NTA_F_PRAC_REQ)
 }
 
 /// Bouw maandelijkse Q [MJ] uit H [W/K] × Δθ [°C] × uren [h] / 1e6.
@@ -438,7 +612,7 @@ mod tests {
     use crate::geometry::{
         Construction as SC, ConstructionKind, OpeningKind, SharedGeometry, Space,
     };
-    use crate::shared::ResidentialType;
+    use crate::shared::{BuildingTypeShared, ResidentialType};
 
     fn sample_project() -> ProjectV2 {
         let mut p = ProjectV2::new("Test Woning");
@@ -490,10 +664,27 @@ mod tests {
                 regulation_factor: 0.95,
             },
             shading_factor: 1.0,
-            air_change_rate_per_h: 0.0, // auto
             heating_setpoint_c: 20.0,
             cooling_setpoint_c: 24.0,
         }
+    }
+
+    /// Norm-referentie voor de tests die op de §11.2.2-forfait-tak leunen.
+    ///
+    /// Reproduceert `nta8800_q_v_oda_req_m3_per_h` voor een woonfunctie met
+    /// gebruiksoppervlak `a_g` zodat de verwachte H_V-waarden traceerbaar uit
+    /// de norm-keten zijn afgeleid (NTA 8800 §11.2.2, formules 11.56/11.57/
+    /// 11.22 + tabel 11.8 + ondergrens 11.63):
+    ///   q_usi;spec = 0,50 dm³/(s·m²)  (tabel 11.8, woonfunctie)
+    ///   f_τ        = min[(0,38 + A_g · 0,006); 0,8]
+    ///   capacity   = max(q_usi;spec · A_g; 35) dm³/s   (11.63)
+    ///   q_des      = 1,10 · 1,0 · f_τ · capacity · 3,6  (11.56/11.57)
+    ///   q_oda;req  = q_des / (1 · 0,95)                 (11.22)
+    fn expected_q_v_oda_req_woning(a_g: f64) -> f64 {
+        let f_tau = (0.38 + a_g * 0.006).min(0.8);
+        let capacity = (0.50 * a_g).max(35.0);
+        let q_des = 1.10 * 1.0 * f_tau * capacity * 3.6;
+        q_des / (1.0 * 0.95)
     }
 
     #[test]
@@ -503,11 +694,22 @@ mod tests {
         let r = compute_tojuli_full(&p, &i).expect("compute_tojuli_full ok");
         // H_T = 150 × 0.3 = 45 W/K
         assert!((r.transmission_h_t_w_per_k - 45.0).abs() < 1e-6);
-        // Geen ventilatie-config → systeem C-fallback, infiltratie uit ach:
-        // q_V;tot = 0.5 ach × 120 × 2.7 = 162 m³/h
-        // H_V = 162 × (1212.23/3600) ≈ 54.55 W/K (geen WTW)
-        let expected_h_v = 162.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
-        assert!((r.ventilation_h_v_w_per_k - expected_h_v).abs() < 0.1);
+        // Geen ventilatie-config → systeem C-fallback. De infiltratie komt nu
+        // uit het NTA 8800 §11.2.2-forfait `q_V;ODA;req` i.p.v. een handmatige
+        // ach. A_g = 120 m² (woonfunctie):
+        //   f_τ      = min[(0,38 + 120·0,006); 0,8] = min[1,10; 0,8] = 0,80
+        //   capacity = max(0,50·120; 35) = max(60; 35) = 60 dm³/s
+        //   q_des    = 1,10·1,0·0,80·60·3,6 = 190,08 m³/h
+        //   q_oda    = 190,08 / 0,95 = 200,08 m³/h
+        // Systeem C: q_V;tot = max(exhaust 0, infil 200,08) = 200,08 m³/h.
+        // H_V = q_V;tot × (1212.23/3600) (geen WTW).
+        let expected_q_v = expected_q_v_oda_req_woning(120.0);
+        let expected_h_v = expected_q_v * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6,
+            "verwachte H_V {expected_h_v}, gemeten {}",
+            r.ventilation_h_v_w_per_k
+        );
         // Q_C;use jaar > 0 (woning heeft ramen, krijgt zonbelasting in zomer)
         assert!(r.annual_q_c_use_mj >= 0.0);
         assert!(r.annual_q_c_use_kwh >= 0.0);
@@ -522,7 +724,15 @@ mod tests {
         let r = compute_tojuli_full(&p, &i).expect("compute ok");
         // H_T = 0 want geen constructies
         assert_eq!(r.transmission_h_t_w_per_k, 0.0);
-        // H_V > 0 want volume = 100 × 2.7
+        // Geen ventilatie-config → §11.2.2-forfait `q_V;ODA;req` op A_g = 100 m²
+        // (woonfunctie, default-gebouwtype). H_V volgt uit q_V;tot × ρ_a·c_a.
+        let expected_q_v = expected_q_v_oda_req_woning(100.0);
+        let expected_h_v = expected_q_v * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6,
+            "verwachte H_V {expected_h_v}, gemeten {}",
+            r.ventilation_h_v_w_per_k
+        );
         assert!(r.ventilation_h_v_w_per_k > 0.0);
         assert!(r.annual_q_c_use_mj >= 0.0);
     }
@@ -738,6 +948,40 @@ mod tests {
         assert!(r.annual_q_c_use_mj >= 0.0);
     }
 
+    /// QC-bevinding 5: systeem A (natuurlijke ventilatie) zonder ingevoerd
+    /// infiltratie-/toevoerdebiet mag geen stille `h_v = 0` opleveren. De
+    /// §11.2.2-forfait-tak moet ook voor systeem A triggeren, zodat de
+    /// natuurlijke toevoer `q_V;ODA;eff = q_V;ODA;req > 0` gegarandeerd is.
+    #[test]
+    fn ventilation_system_a_without_infiltration_uses_norm_forfait() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::Natural);
+        p.shared.heat_recovery = None;
+        p.shared.infiltration_m3_per_h = None; // geen debiet ingevoerd
+        p.shared.mechanical_supply_m3_per_h = None;
+        p.shared.mechanical_exhaust_m3_per_h = None;
+
+        let i = sample_inputs();
+        let r = compute_tojuli_full(&p, &i)
+            .expect("compute ok with System A zonder infiltratie");
+
+        // Systeem A zonder debiet → §11.2.2-forfait op A_g = 120 m² (woonfunctie).
+        // q_V;tot = q_V;ODA;req (natuurlijke toevoer), H_V = q_V;tot × ρ_a·c_a.
+        let expected_q_v = expected_q_v_oda_req_woning(120.0);
+        let expected_h_v = expected_q_v * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6,
+            "verwachte H_V {expected_h_v}, gemeten {}",
+            r.ventilation_h_v_w_per_k
+        );
+        // Kern van de bevinding: geen stille h_v = 0 meer.
+        assert!(
+            r.ventilation_h_v_w_per_k > 0.0,
+            "systeem A zonder infiltratie moet H_V > 0 hebben, niet stil 0"
+        );
+        assert!(r.annual_q_c_use_mj >= 0.0);
+    }
+
     #[test]
     fn ventilation_wtw_with_unbalanced_system_is_filtered() {
         let mut p = sample_project();
@@ -782,5 +1026,65 @@ mod tests {
         let serialized = serde_json::to_string(&shared).expect("serialize back");
         assert!(!serialized.contains("mechanical_supply_m3_per_h"));
         assert!(!serialized.contains("mechanical_exhaust_m3_per_h"));
+    }
+
+    /// Norm-referentietest met een HARDGECODEERDE verwachtingswaarde — bewust
+    /// NIET via `expected_q_v_oda_req_woning` (die helper is een inlining van
+    /// de productie-formule, dus alleen een consistentie-check). Deze test
+    /// verifieert de norm-correctheid zelf.
+    ///
+    /// Verwachte waarde, stap-voor-stap geverifieerd tegen NTA 8800:2025+C1:2026
+    /// (woonfunctie, A_g = 120 m²; formules 11.22 + 11.56 + 11.57 + 11.63;
+    /// tabel 11.8 + tabel 11.9):
+    ///   q_usi;spec = 0,50 dm³/(s·m²)                       (tabel 11.8)
+    ///   f_τ        = min[(0,38 + 120·0,006); 0,8]
+    ///              = min[1,10; 0,8] = 0,80                 (tabel 11.8)
+    ///   capaciteit = max(q_usi;spec·A_g; 35)
+    ///              = max(0,50·120; 35) = max(60; 35) = 60 dm³/s   (11.63)
+    ///   q_des;reken (11.56)
+    ///              = f_lea;du · f_lea;ahu · f_τ · capaciteit · 3,6
+    ///              = 1,10 · 1,0 · 0,80 · 60 · 3,6 = 190,08 m³/h
+    ///   q_des (11.57, installatie onbekend) = 190,08 m³/h
+    ///   q_V;ODA;req (11.22)
+    ///              = q_des / (ε_V · f_prac;req)
+    ///              = 190,08 / (1,0 · 0,95) = 200,08 m³/h
+    #[test]
+    fn nta8800_q_v_oda_req_woning_120m2_matches_norm_literal() {
+        let q = nta8800_q_v_oda_req_m3_per_h(
+            nta8800_model::zoning::UsageFunction::Woonfunctie,
+            120.0,
+        );
+        // Hardgecodeerde, PDF-geverifieerde verwachtingswaarde — 200,08 m³/h.
+        assert!(
+            (q - 200.08).abs() < 0.01,
+            "NTA 8800 §11.2.2 forfait voor 120 m² woning moet 200,08 m³/h zijn, gemeten {q}"
+        );
+    }
+
+    /// Edge-case: A_g = 0 (lege/ontbrekende gross floor area). `a_g.max(0.0)`
+    /// laat dit pad uitvoerbaar, maar dan moet de woning-ondergrens (11.63)
+    /// van 35 dm³/s correct intreden i.p.v. een capaciteit van 0.
+    ///
+    /// Verwachte waarde (woonfunctie, A_g = 0; zelfde norm-keten als hierboven):
+    ///   f_τ        = min[(0,38 + 0·0,006); 0,8] = min[0,38; 0,8] = 0,38
+    ///   capaciteit = max(0,50·0; 35) = max(0; 35) = 35 dm³/s     (11.63)
+    ///   q_des;reken (11.56)
+    ///              = 1,10 · 1,0 · 0,38 · 35 · 3,6 = 52,668 m³/h
+    ///   q_des (11.57) = 52,668 m³/h
+    ///   q_V;ODA;req (11.22)
+    ///              = 52,668 / (1,0 · 0,95) = 55,440 m³/h
+    #[test]
+    fn nta8800_q_v_oda_req_woning_zero_area_triggers_minimum() {
+        let q = nta8800_q_v_oda_req_m3_per_h(
+            nta8800_model::zoning::UsageFunction::Woonfunctie,
+            0.0,
+        );
+        // Hardgecodeerde verwachtingswaarde — woning-ondergrens (11.63) actief.
+        assert!(
+            (q - 55.44).abs() < 0.01,
+            "bij A_g = 0 moet de woning-ondergrens (11.63) intreden → 55,44 m³/h, gemeten {q}"
+        );
+        // De ondergrens garandeert een strikt positieve toevoer.
+        assert!(q > 0.0, "woning-ondergrens moet q_V;ODA;req > 0 garanderen");
     }
 }
