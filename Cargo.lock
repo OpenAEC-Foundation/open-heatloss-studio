@@ -2350,6 +2350,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "isso53-core"
+version = "0.1.1"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

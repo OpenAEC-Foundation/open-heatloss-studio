@@ -12,6 +12,9 @@ tests/references/*.pdf
 *.vp
 tests/references/*.vp
 
+# Te groot voor git-history (54 MB) — blijft lokaal
+/tests/references/TR03 - Houtfabriek.vp.zip
+
 # Excel spreadsheets
 *.xls
 *.xlsx
