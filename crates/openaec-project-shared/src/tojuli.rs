@@ -801,25 +801,6 @@ fn nta8800_q_v_oda_req_m3_per_h(
     f_ctrl * f_sys * q_des_m3h / (NTA_EPSILON_V * NTA_F_PRAC_REQ)
 }
 
-/// Bouw maandelijkse Q [MJ] uit H [W/K] × Δθ [°C] × uren [h] / 1e6.
-/// Δθ = theta_i_winter - theta_e[m] gewoon positief = warmteverlies.
-fn build_monthly_q(
-    h: f64,
-    theta_e: &MonthlyProfile<Temperature>,
-    theta_i: Temperature,
-) -> MonthlyProfile<Energy> {
-    let hours_per_month = [
-        744.0_f64, 672.0, 744.0, 720.0, 744.0, 720.0, 744.0, 744.0, 720.0, 744.0, 720.0, 744.0,
-    ];
-    let months = Month::all();
-    let mut values = [0.0_f64; 12];
-    for (i, &m) in months.iter().enumerate() {
-        let delta = (theta_i - theta_e[m]).max(0.0);
-        values[i] = h * delta * hours_per_month[i] * 3600.0 / 1e6;
-    }
-    MonthlyProfile::new(values)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
