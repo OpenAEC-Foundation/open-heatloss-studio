@@ -287,10 +287,21 @@ function buildUitgangspuntenSection(project: Project): Record<string, unknown> {
           ["Systeemtype", VENTILATION_SYSTEM_LABELS[ventilation.system_type] ?? ventilation.system_type],
           ["Warmteterugwinning", ventilation.has_heat_recovery ? "Ja" : "Nee"],
           ...(ventilation.has_heat_recovery && ventilation.heat_recovery_efficiency != null
-            ? [["WTW rendement", `${(ventilation.heat_recovery_efficiency * 100).toFixed(0)}%`]]
+            ? [["WTW rendement (η_hr)", `${(ventilation.heat_recovery_efficiency * 100).toFixed(0)}%`]]
             : []),
         ],
       },
+      ...(ventilation.has_heat_recovery && ventilation.heat_recovery_efficiency != null
+        ? [
+            {
+              type: "paragraph",
+              text:
+                "<i>Het WTW-rendement η_hr is ingevoerd via de BCRG-" +
+                "productselector of handmatig opgegeven. Verifieer een " +
+                "catalogus-waarde tegen de kwaliteitsverklaring op bcrg.nl.</i>",
+            },
+          ]
+        : []),
     ],
   };
 }

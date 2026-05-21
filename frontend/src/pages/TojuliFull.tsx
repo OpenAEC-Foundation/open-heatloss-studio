@@ -22,6 +22,11 @@ import { useProjectStore } from "../store/projectStore";
 import { buildV2Payload } from "../lib/projectV2Migration";
 import { tojuliCalculate } from "../lib/backend";
 import { VENTILATION_SYSTEM_LABELS } from "../lib/constants";
+import {
+  MANUAL_PRODUCT_ID,
+  findCoolingUnit,
+  getCoolingUnits,
+} from "../lib/productCatalog";
 import type { VentilationSystemType } from "../types";
 import type { ProjectV2 } from "../types/projectV2";
 
@@ -104,6 +109,39 @@ const DEFAULT_INPUTS: TojuliFullInputs = {
   heating_setpoint_c: 20,
   cooling_setpoint_c: 24,
 };
+
+// ---------------------------------------------------------------------------
+// BCRG koelunit-productselector (feature D)
+// ---------------------------------------------------------------------------
+
+/**
+ * Dropdown-opties voor de koelunit-selector: "Handmatig invoeren" (sentinel)
+ * gevolgd door de BCRG-catalogus-units. Statische lijst — buiten de component.
+ */
+const COOLING_PRODUCT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: MANUAL_PRODUCT_ID, label: "Handmatig invoeren" },
+  ...getCoolingUnits().map((u) => ({
+    value: u.id,
+    label: `${u.brand} ${u.model}`,
+  })),
+];
+
+/**
+ * Vertaal een catalogus-koelunit naar een `CoolingSystem`-payload. Vult per
+ * type het juiste prestatieveld; valt terug op de bestaande TojuliFull-
+ * defaults wanneer de catalogus-unit dat veld niet bevat.
+ */
+function coolingSystemFromCatalog(id: string): CoolingSystem | null {
+  const unit = findCoolingUnit(id);
+  if (!unit) return null;
+  if (unit.type === "compression_cooling") {
+    return { type: unit.type, scop_cooling: unit.scop_cooling ?? 3.5 };
+  }
+  if (unit.type === "absorption_cooling") {
+    return { type: unit.type, cop: unit.cop ?? 0.8 };
+  }
+  return { type: unit.type, factor: unit.factor ?? 0.3 };
+}
 
 function numVal(v: string): number {
   return v === "" ? 0 : Number(v);
@@ -189,6 +227,10 @@ export function TojuliFull() {
   const [result, setResult] = useState<TojuliResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // BCRG koelunit-keuze — puur UI-lokaal; de berekening leest enkel
+  // `inputs.system`. `MANUAL_PRODUCT_ID` = vrije invoer behouden.
+  const [selectedCoolingId, setSelectedCoolingId] =
+    useState<string>(MANUAL_PRODUCT_ID);
 
   // Ventilatie — ISSO 51 systeemtype (Warmteverlies-tab) bepaalt welke
   // mechanische debiet-velden zinvol zijn. Bij ontbrekend systeem valt de
@@ -244,9 +286,27 @@ export function TojuliFull() {
     [],
   );
 
+  // Handmatige wijziging van type/SCOP/COP → catalogus-herkomst klopt niet
+  // meer; selector terug naar "Handmatig invoeren".
   const setSystem = useCallback((sys: CoolingSystem) => {
+    setSelectedCoolingId(MANUAL_PRODUCT_ID);
     setInputs((prev) => ({ ...prev, system: sys }));
   }, []);
+
+  // BCRG-productselector: een catalogus-keuze zet `system.type` +
+  // `scop_cooling`/`cop`/`factor` (geen parallelle state).
+  const selectCoolingProduct = useCallback((id: string) => {
+    setSelectedCoolingId(id);
+    if (id === MANUAL_PRODUCT_ID) return;
+    const sys = coolingSystemFromCatalog(id);
+    if (!sys) return;
+    setInputs((prev) => ({ ...prev, system: sys }));
+  }, []);
+
+  const selectedCoolingUnit =
+    selectedCoolingId === MANUAL_PRODUCT_ID
+      ? undefined
+      : findCoolingUnit(selectedCoolingId);
 
   const handleCalculate = useCallback(async () => {
     setBusy(true);
@@ -267,6 +327,7 @@ export function TojuliFull() {
 
   const handleReset = useCallback(() => {
     setInputs(DEFAULT_INPUTS);
+    setSelectedCoolingId(MANUAL_PRODUCT_ID);
     setResult(null);
     setError(null);
   }, []);
@@ -356,6 +417,29 @@ export function TojuliFull() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium text-on-surface">
+                {t("tojuliFull.fields.cooling_product", "Koelunit (BCRG)")}
+              </span>
+              <select
+                value={selectedCoolingId}
+                onChange={(e) => selectCoolingProduct(e.target.value)}
+                className="rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-3 py-1.5 text-on-surface"
+              >
+                {COOLING_PRODUCT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-on-surface-muted">
+                {t(
+                  "tojuliFull.fields.coolingProductHint",
+                  "Kies een BCRG-unit of 'Handmatig invoeren'.",
+                )}
+              </span>
+            </label>
+
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-on-surface">
                 {t("tojuliFull.fields.system_type", "Type")}
               </span>
               <select
@@ -415,6 +499,17 @@ export function TojuliFull() {
               />
             )}
           </div>
+          <p className="mt-3 text-xs text-on-surface-muted">
+            {selectedCoolingUnit
+              ? `${selectedCoolingUnit.brand} ${selectedCoolingUnit.model} — ${
+                  selectedCoolingUnit.scop_cooling != null
+                    ? `SCOP=${selectedCoolingUnit.scop_cooling}`
+                    : selectedCoolingUnit.cop != null
+                      ? `COP=${selectedCoolingUnit.cop}`
+                      : `benuttingsfractie=${selectedCoolingUnit.factor ?? "—"}`
+                } (BCRG-verkl. nr. ${selectedCoolingUnit.bcrg_declaration_nr || "—"})`
+              : "(handmatige invoer)"}
+          </p>
         </Card>
 
         <Card title={t("tojuliFull.systemAuxTitle", "Distributie + emissie")}>
