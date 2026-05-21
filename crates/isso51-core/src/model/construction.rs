@@ -10,7 +10,7 @@ use super::enums::{BoundaryType, MaterialType, VerticalPosition};
 
 /// A single construction element forming part of a room boundary.
 /// ISSO 51 §2.5 — each element contributes to the room's heat loss.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ConstructionElement {
     /// Unique identifier for this element.
     pub id: String,
@@ -89,11 +89,99 @@ pub struct ConstructionElement {
     /// before the catalog refactor (legacy projects keep working).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub catalog_ref: Option<String>,
+
+    /// Onderbouwing van de samengestelde raam-U-waarde (U_w).
+    ///
+    /// Optioneel, alleen aanwezig op kozijn-/vullings-elementen waarvoor de
+    /// U_w-calculator is gebruikt. De rekenkern negeert dit veld volledig —
+    /// uitsluitend `u_value` is de rekeningang. `uw_breakdown` dient als
+    /// persistente onderbouwing zodat de calculator herladen kan worden en
+    /// de opbouw in het rapport terechtkomt. `None` voor alle niet-kozijn
+    /// elementen en voor projecten van vóór de U_w-calculator.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uw_breakdown: Option<UwBreakdown>,
+}
+
+/// Type randafstandhouder voor de Ψ_g-waarde van de beglazingsrand.
+///
+/// Mirror van `nta8800_tables::glazing_edge::SpacerKind` — lokaal
+/// gedefinieerd om geen crate-dependency op `nta8800-tables` te introduceren
+/// in `isso51-core`. De 4 varianten en hun snake_case serialisatie moeten
+/// gelijk blijven aan de bron-enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Spacer {
+    /// Aluminium spacer (standaard, koudebruggend)
+    Aluminium,
+    /// RVS spacer (verbeterde prestatie)
+    Stainless,
+    /// Warm-edge polymeer spacer
+    WarmEdgePolymer,
+    /// Warm-edge schuim spacer (beste prestatie)
+    WarmEdgeFoam,
+}
+
+/// Onderbouwing van de samengestelde raam-U-waarde U_w.
+///
+/// Volgens NEN-EN-ISO 10077-1:
+/// `U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f)`.
+///
+/// Standaard-detailniveau: uniform kozijn — één U_g voor alle ruiten, één
+/// U_f, uniforme profielbreedte. Afgeleide waarden (`a_g_m2`, `a_f_m2`,
+/// `l_g_m`, `u_w`) worden gecachet maar zijn herberekenbaar uit de invoer.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct UwBreakdown {
+    /// Raambreedte buitenwerks in mm.
+    pub width_mm: f64,
+
+    /// Raamhoogte buitenwerks in mm.
+    pub height_mm: f64,
+
+    /// Uniforme profielbreedte (buitenkozijn + tussenprofielen) in mm.
+    pub frame_width_mm: f64,
+
+    /// Aantal ruit-kolommen (ruit-indeling), standaard 1.
+    pub pane_columns: u32,
+
+    /// Aantal ruit-rijen (ruit-indeling), standaard 1.
+    pub pane_rows: u32,
+
+    /// Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier.
+    pub u_g: f64,
+
+    /// Profiel-U-waarde U_f in W/(m²·K) — handmatige invoer van de profielfabrikant.
+    pub u_f: f64,
+
+    /// Type randafstandhouder voor de Ψ_g-tabelwaarde.
+    /// `None` = volledig handmatige Ψ_g-invoer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spacer: Option<Spacer>,
+
+    /// Effectieve lineaire warmtedoorgangscoëfficiënt Ψ_g van de
+    /// beglazingsrand in W/(m·K).
+    pub psi_g: f64,
+
+    /// `true` wanneer `psi_g` een handmatige override is op de
+    /// spacer-tabelwaarde.
+    pub psi_g_is_manual: bool,
+
+    /// Afgeleid: totale glasoppervlakte ΣA_g in m². Gecachet, herberekenbaar.
+    pub a_g_m2: f64,
+
+    /// Afgeleid: totale profieloppervlakte ΣA_f in m². Gecachet, herberekenbaar.
+    pub a_f_m2: f64,
+
+    /// Afgeleid: totale zichtbare glasrand-omtrek Σl_g in m.
+    /// Gecachet, herberekenbaar.
+    pub l_g_m: f64,
+
+    /// Resultaat: samengestelde raam-U-waarde U_w in W/(m²·K).
+    pub u_w: f64,
 }
 
 /// Parameters for ground heat loss calculation.
 /// ISSO 51 §2.5.5, formule (4.18): H_T,ig = 1.45 × G_w × Σ(A_k × f_g2 × U_e,k)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct GroundParameters {
     /// Equivalent U-value for the ground element U_e,k in W/(m²·K).
     pub u_equivalent: f64,
@@ -169,6 +257,7 @@ impl ConstructionLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::enums::{BoundaryType, MaterialType};
 
     #[test]
     fn test_layer_thermal_resistance() {
@@ -179,5 +268,116 @@ mod tests {
         };
         let r = layer.thermal_resistance();
         assert!((r - 2.857).abs() < 0.01);
+    }
+
+    /// Build a minimal ConstructionElement for serde tests.
+    fn sample_element() -> ConstructionElement {
+        ConstructionElement {
+            id: "ce1".to_string(),
+            description: "raam woonkamer".to_string(),
+            area: 2.4,
+            u_value: 1.4,
+            boundary_type: BoundaryType::Exterior,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+            uw_breakdown: None,
+        }
+    }
+
+    #[test]
+    fn construction_element_round_trips_without_uw_breakdown() {
+        let element = sample_element();
+        let json = serde_json::to_string(&element).expect("serialize");
+        // Optioneel veld met skip_serializing_if mag niet in de JSON staan.
+        assert!(
+            !json.contains("uw_breakdown"),
+            "afwezig uw_breakdown moet wegvallen uit de JSON: {json}"
+        );
+        let parsed: ConstructionElement = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed, element);
+        assert!(parsed.uw_breakdown.is_none());
+    }
+
+    #[test]
+    fn construction_element_round_trips_with_uw_breakdown() {
+        let mut element = sample_element();
+        element.uw_breakdown = Some(UwBreakdown {
+            width_mm: 1200.0,
+            height_mm: 1500.0,
+            frame_width_mm: 80.0,
+            pane_columns: 1,
+            pane_rows: 1,
+            u_g: 1.1,
+            u_f: 1.3,
+            spacer: Some(Spacer::WarmEdgePolymer),
+            psi_g: 0.04,
+            psi_g_is_manual: false,
+            a_g_m2: 1.5,
+            a_f_m2: 0.3,
+            l_g_m: 5.0,
+            u_w: 1.18,
+        });
+        let json = serde_json::to_string(&element).expect("serialize");
+        assert!(json.contains("uw_breakdown"));
+        // Spacer moet snake_case serialiseren.
+        assert!(
+            json.contains("warm_edge_polymer"),
+            "spacer moet als snake_case string serialiseren: {json}"
+        );
+        let parsed: ConstructionElement = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed, element);
+    }
+
+    #[test]
+    fn construction_element_without_field_deserializes_to_none() {
+        // Een project-JSON van vóór de U_w-calculator heeft geen
+        // `uw_breakdown` veld — moet foutloos naar None deserialiseren.
+        let json = r#"{
+            "id": "ce1",
+            "description": "buitenwand noord",
+            "area": 12.0,
+            "u_value": 0.3,
+            "boundary_type": "exterior",
+            "material_type": "masonry"
+        }"#;
+        let parsed: ConstructionElement = serde_json::from_str(json).expect("should parse");
+        assert!(parsed.uw_breakdown.is_none());
+    }
+
+    #[test]
+    fn uw_breakdown_round_trips_with_manual_psi_g() {
+        // spacer = None betekent volledig handmatige Ψ_g-invoer.
+        let breakdown = UwBreakdown {
+            width_mm: 1000.0,
+            height_mm: 1000.0,
+            frame_width_mm: 70.0,
+            pane_columns: 2,
+            pane_rows: 1,
+            u_g: 1.0,
+            u_f: 1.5,
+            spacer: None,
+            psi_g: 0.05,
+            psi_g_is_manual: true,
+            a_g_m2: 0.7,
+            a_f_m2: 0.3,
+            l_g_m: 3.6,
+            u_w: 1.2,
+        };
+        let json = serde_json::to_string(&breakdown).expect("serialize");
+        assert!(
+            !json.contains("spacer"),
+            "afwezige spacer moet wegvallen uit de JSON: {json}"
+        );
+        let parsed: UwBreakdown = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed, breakdown);
+        assert!(parsed.spacer.is_none());
     }
 }

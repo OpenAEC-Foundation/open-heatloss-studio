@@ -267,6 +267,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         });
 
         let err = validate_project(&project).expect_err("should reject");
@@ -297,6 +298,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         });
 
         assert!(validate_project(&project).is_ok());
@@ -323,6 +325,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         });
 
         assert!(validate_project(&project).is_ok());

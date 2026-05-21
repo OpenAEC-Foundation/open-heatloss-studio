@@ -107,6 +107,63 @@ export interface ConstructionElementLayer {
   };
 }
 
+/**
+ * Type randafstandhouder voor de Ψ_g-waarde van de beglazingsrand.
+ * Mirror van het Rust `Spacer`-enum (`construction.rs`) en van
+ * `nta8800_tables::glazing_edge::SpacerKind`. snake_case serialisatie.
+ */
+export type Spacer =
+  | "aluminium"
+  | "stainless"
+  | "warm_edge_polymer"
+  | "warm_edge_foam";
+
+/**
+ * Onderbouwing van de samengestelde raam-U-waarde U_w.
+ *
+ * Volgens NEN-EN-ISO 10077-1:
+ * `U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f)`.
+ *
+ * Standaard-detailniveau: uniform kozijn — één U_g voor alle ruiten, één
+ * U_f, uniforme profielbreedte. Afgeleide waarden (`a_g_m2`, `a_f_m2`,
+ * `l_g_m`, `u_w`) worden gecachet maar zijn herberekenbaar uit de invoer.
+ * Niet naar de Rust rekenkern gestuurd — uitsluitend persistente
+ * onderbouwing op het kozijn-element.
+ */
+export interface UwBreakdown {
+  /** Raambreedte buitenwerks in mm. */
+  width_mm: number;
+  /** Raamhoogte buitenwerks in mm. */
+  height_mm: number;
+  /** Uniforme profielbreedte (buitenkozijn + tussenprofielen) in mm. */
+  frame_width_mm: number;
+  /** Aantal ruit-kolommen (ruit-indeling), standaard 1. */
+  pane_columns: number;
+  /** Aantal ruit-rijen (ruit-indeling), standaard 1. */
+  pane_rows: number;
+  /** Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier. */
+  u_g: number;
+  /** Profiel-U-waarde U_f in W/(m²·K) — handmatige invoer van de profielfabrikant. */
+  u_f: number;
+  /**
+   * Type randafstandhouder voor de Ψ_g-tabelwaarde.
+   * `null`/afwezig = volledig handmatige Ψ_g-invoer.
+   */
+  spacer?: Spacer | null;
+  /** Effectieve lineaire warmtedoorgangscoëfficiënt Ψ_g in W/(m·K). */
+  psi_g: number;
+  /** `true` wanneer `psi_g` een handmatige override op de spacer-tabelwaarde is. */
+  psi_g_is_manual: boolean;
+  /** Afgeleid: totale glasoppervlakte ΣA_g in m². Gecachet, herberekenbaar. */
+  a_g_m2: number;
+  /** Afgeleid: totale profieloppervlakte ΣA_f in m². Gecachet, herberekenbaar. */
+  a_f_m2: number;
+  /** Afgeleid: totale zichtbare glasrand-omtrek Σl_g in m. Gecachet, herberekenbaar. */
+  l_g_m: number;
+  /** Resultaat: samengestelde raam-U-waarde U_w in W/(m²·K). */
+  u_w: number;
+}
+
 export interface ConstructionElement {
   id: string;
   description: string;
@@ -128,6 +185,13 @@ export interface ConstructionElement {
   project_construction_id?: string;
   /** Verwijzing naar een CatalogEntry uit de thermal import (None voor openings/handmatige elementen). */
   catalog_ref?: string | null;
+  /**
+   * Onderbouwing van de samengestelde raam-U-waarde (U_w). Optioneel —
+   * alleen aanwezig op kozijn-/vullings-elementen waarvoor de U_w-calculator
+   * is gebruikt. De rekenkern negeert dit veld; alleen `u_value` is de
+   * rekeningang.
+   */
+  uw_breakdown?: UwBreakdown;
 }
 
 export interface Room {

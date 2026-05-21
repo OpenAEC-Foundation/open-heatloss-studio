@@ -384,6 +384,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         }
     }
 
@@ -448,6 +449,7 @@ mod tests {
                 ground_params: None,
                 has_embedded_heating: false,
                 catalog_ref: None,
+                uw_breakdown: None,
             };
             let h = h_t_adjacent_room_element(&element, theta_i, *theta_a, theta_e, 2.0, -1.0);
             assert!(
@@ -501,6 +503,7 @@ mod tests {
                 ground_params: None,
                 has_embedded_heating: false,
                 catalog_ref: None,
+                uw_breakdown: None,
             };
             sum += h_t_adjacent_building_element(&element, theta_i, theta_b, theta_e, delta_1, delta_2);
         }
@@ -581,6 +584,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         }
     }
 
@@ -800,6 +804,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         };
 
         let theta_i = 20.0;
@@ -853,6 +858,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         };
 
         // Default path
@@ -949,6 +955,7 @@ mod tests {
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         };
 
         // theta_i == theta_e → denom = 0 → guard must fire.

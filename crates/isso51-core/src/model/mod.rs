@@ -14,7 +14,9 @@ pub mod ventilation;
 // Re-export key types for convenience
 pub use building::{Building, Project, ProjectInfo};
 pub use climate::DesignConditions;
-pub use construction::{ConstructionElement, ConstructionLayer, ConstructionType, GroundParameters};
+pub use construction::{
+    ConstructionElement, ConstructionLayer, ConstructionType, GroundParameters, Spacer, UwBreakdown,
+};
 pub use enums::*;
 pub use room::Room;
 pub use ventilation::VentilationConfig;
