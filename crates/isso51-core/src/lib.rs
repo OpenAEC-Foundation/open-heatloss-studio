@@ -399,6 +399,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c2".to_string(),
@@ -416,6 +417,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c3".to_string(),
@@ -433,6 +435,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c4".to_string(),
@@ -450,6 +453,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 // Adjacent rooms within dwelling
                 // NOTE: adjacent_room_id deliberately set to None so this
@@ -473,6 +477,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c6".to_string(),
@@ -490,6 +495,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c7".to_string(),
@@ -507,6 +513,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c8".to_string(),
@@ -524,6 +531,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c9".to_string(),
@@ -541,6 +549,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 // Adjacent building (neighboring dwellings)
                 ConstructionElement {
@@ -559,6 +568,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c11".to_string(),
@@ -576,6 +586,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 ConstructionElement {
                     id: "c12".to_string(),
@@ -593,6 +604,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
             ],
             heating_system: HeatingSystem::RadiatorLt,

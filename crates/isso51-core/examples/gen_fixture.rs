@@ -189,6 +189,7 @@ fn ext(id: &str, desc: &str, area: f64, u: f64, mat: MaterialType) -> Constructi
         ground_params: None,
         has_embedded_heating: false,
         catalog_ref: None,
+        uw_breakdown: None,
     }
 }
 
@@ -209,6 +210,7 @@ fn adj(id: &str, desc: &str, area: f64, u: f64, adj_temp: f64) -> ConstructionEl
         ground_params: None,
         has_embedded_heating: false,
         catalog_ref: None,
+        uw_breakdown: None,
     }
 }
 
@@ -229,6 +231,7 @@ fn nb(id: &str, desc: &str, area: f64, u: f64, pos: VerticalPosition) -> Constru
         ground_params: None,
         has_embedded_heating: false,
         catalog_ref: None,
+        uw_breakdown: None,
     }
 }
 
@@ -249,6 +252,7 @@ fn unheated(id: &str, desc: &str, area: f64, u: f64, f_k: f64) -> ConstructionEl
         ground_params: None,
         has_embedded_heating: false,
         catalog_ref: None,
+        uw_breakdown: None,
     }
 }
 

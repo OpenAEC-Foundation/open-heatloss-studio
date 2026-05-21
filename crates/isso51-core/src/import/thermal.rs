@@ -490,6 +490,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                     ground_params,
                     has_embedded_heating: false,
                     catalog_ref: None, // filled in during phase 3
+                    uw_breakdown: None,
                 });
 
                 grouping_infos.push(GroupingInfo {
@@ -550,6 +551,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                             ground_params: None,
                             has_embedded_heating: false,
                             catalog_ref: None, // openings are intentionally outside the catalog
+                            uw_breakdown: None,
                         });
                     }
                 }
@@ -707,6 +709,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                 ground_params: first_elem.ground_params.clone(),
                 has_embedded_heating: first_elem.has_embedded_heating,
                 catalog_ref: None, // filled in during phase 3
+                uw_breakdown: None,
             });
 
             // Record one RawSurface per source raw_element in this group for the

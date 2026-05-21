@@ -331,6 +331,17 @@
           "description": "Whether to use the forfaitaire thermal bridge correction (ΔU_TB = 0.1). Only applies to exterior boundary elements (BoundaryType::Exterior).",
           "type": "boolean"
         },
+        "uw_breakdown": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/UwBreakdown"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Onderbouwing van de samengestelde raam-U-waarde (U_w).\n\nOptioneel, alleen aanwezig op kozijn-/vullings-elementen waarvoor de U_w-calculator is gebruikt. De rekenkern negeert dit veld volledig — uitsluitend `u_value` is de rekeningang. `uw_breakdown` dient als persistente onderbouwing zodat de calculator herladen kan worden en de opbouw in het rapport terechtkomt. `None` voor alle niet-kozijn elementen en voor projecten van vóór de U_w-calculator."
+        },
         "vertical_position": {
           "allOf": [
             {
@@ -958,6 +969,137 @@
           "type": "string"
         }
       ]
+    },
+    "Spacer": {
+      "description": "Type randafstandhouder voor de Ψ_g-waarde van de beglazingsrand.\n\nMirror van `nta8800_tables::glazing_edge::SpacerKind` — lokaal gedefinieerd om geen crate-dependency op `nta8800-tables` te introduceren in `isso51-core`. De 4 varianten en hun snake_case serialisatie moeten gelijk blijven aan de bron-enum.",
+      "oneOf": [
+        {
+          "description": "Aluminium spacer (standaard, koudebruggend)",
+          "enum": [
+            "aluminium"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "RVS spacer (verbeterde prestatie)",
+          "enum": [
+            "stainless"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Warm-edge polymeer spacer",
+          "enum": [
+            "warm_edge_polymer"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Warm-edge schuim spacer (beste prestatie)",
+          "enum": [
+            "warm_edge_foam"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "UwBreakdown": {
+      "description": "Onderbouwing van de samengestelde raam-U-waarde U_w.\n\nVolgens NEN-EN-ISO 10077-1: `U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f)`.\n\nStandaard-detailniveau: uniform kozijn — één U_g voor alle ruiten, één U_f, uniforme profielbreedte. Afgeleide waarden (`a_g_m2`, `a_f_m2`, `l_g_m`, `u_w`) worden gecachet maar zijn herberekenbaar uit de invoer.",
+      "properties": {
+        "a_f_m2": {
+          "description": "Afgeleid: totale profieloppervlakte ΣA_f in m². Gecachet, herberekenbaar.",
+          "format": "double",
+          "type": "number"
+        },
+        "a_g_m2": {
+          "description": "Afgeleid: totale glasoppervlakte ΣA_g in m². Gecachet, herberekenbaar.",
+          "format": "double",
+          "type": "number"
+        },
+        "frame_width_mm": {
+          "description": "Uniforme profielbreedte (buitenkozijn + tussenprofielen) in mm.",
+          "format": "double",
+          "type": "number"
+        },
+        "height_mm": {
+          "description": "Raamhoogte buitenwerks in mm.",
+          "format": "double",
+          "type": "number"
+        },
+        "l_g_m": {
+          "description": "Afgeleid: totale zichtbare glasrand-omtrek Σl_g in m. Gecachet, herberekenbaar.",
+          "format": "double",
+          "type": "number"
+        },
+        "pane_columns": {
+          "description": "Aantal ruit-kolommen (ruit-indeling), standaard 1.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "pane_rows": {
+          "description": "Aantal ruit-rijen (ruit-indeling), standaard 1.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "psi_g": {
+          "description": "Effectieve lineaire warmtedoorgangscoëfficiënt Ψ_g van de beglazingsrand in W/(m·K).",
+          "format": "double",
+          "type": "number"
+        },
+        "psi_g_is_manual": {
+          "description": "`true` wanneer `psi_g` een handmatige override is op de spacer-tabelwaarde.",
+          "type": "boolean"
+        },
+        "spacer": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Spacer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Type randafstandhouder voor de Ψ_g-tabelwaarde. `None` = volledig handmatige Ψ_g-invoer."
+        },
+        "u_f": {
+          "description": "Profiel-U-waarde U_f in W/(m²·K) — handmatige invoer van de profielfabrikant.",
+          "format": "double",
+          "type": "number"
+        },
+        "u_g": {
+          "description": "Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier.",
+          "format": "double",
+          "type": "number"
+        },
+        "u_w": {
+          "description": "Resultaat: samengestelde raam-U-waarde U_w in W/(m²·K).",
+          "format": "double",
+          "type": "number"
+        },
+        "width_mm": {
+          "description": "Raambreedte buitenwerks in mm.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "a_f_m2",
+        "a_g_m2",
+        "frame_width_mm",
+        "height_mm",
+        "l_g_m",
+        "pane_columns",
+        "pane_rows",
+        "psi_g",
+        "psi_g_is_manual",
+        "u_f",
+        "u_g",
+        "u_w",
+        "width_mm"
+      ],
+      "type": "object"
     },
     "VentilationConfig": {
       "description": "Building-level ventilation system configuration. ISSO 51 §2.5.7.",

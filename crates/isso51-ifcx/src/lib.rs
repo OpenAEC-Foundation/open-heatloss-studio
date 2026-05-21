@@ -113,6 +113,7 @@ mod tests {
                         ground_params: None,
                         has_embedded_heating: false,
                         catalog_ref: None,
+                        uw_breakdown: None,
                     },
                     construction::ConstructionElement {
                         id: "c2".to_string(),
@@ -130,6 +131,7 @@ mod tests {
                         ground_params: None,
                         has_embedded_heating: false,
                         catalog_ref: None,
+                        uw_breakdown: None,
                     },
                 ],
                 heating_system: HeatingSystem::RadiatorLt,
@@ -274,6 +276,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
                 construction::ConstructionElement {
                     id: "c2".to_string(),
@@ -291,6 +294,7 @@ mod tests {
                     ground_params: None,
                     has_embedded_heating: false,
                     catalog_ref: None,
+                    uw_breakdown: None,
                 },
             ],
             heating_system: HeatingSystem::RadiatorLt,
@@ -323,6 +327,7 @@ mod tests {
                 ground_params: None,
                 has_embedded_heating: false,
                 catalog_ref: None,
+                uw_breakdown: None,
             });
 
         // Roundtrip
@@ -385,6 +390,7 @@ mod tests {
                 }),
                 has_embedded_heating: false,
                 catalog_ref: None,
+                uw_breakdown: None,
             });
 
         // Roundtrip

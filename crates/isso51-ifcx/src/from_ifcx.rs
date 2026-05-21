@@ -250,6 +250,7 @@ fn map_construction(
         ground_params,
         has_embedded_heating: constr.has_embedded_heating,
         catalog_ref: None,
+        uw_breakdown: None,
     }
 }
 

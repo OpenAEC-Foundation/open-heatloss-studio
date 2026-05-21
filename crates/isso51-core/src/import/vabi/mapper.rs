@@ -425,6 +425,7 @@ fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i6
             ground_params: None,
             has_embedded_heating: false,
             catalog_ref: None,
+            uw_breakdown: None,
         };
 
         constructions.push(construction);
