@@ -1,0 +1,28 @@
+//! Building-level configuration for ISSO 53 calculations.
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use super::enums::{BuildingShape, GebouwTypePositie, ThermalMass, VentilationSystemType};
+
+/// Building-level configuration for heat loss calculation.
+/// ISSO 53 requires building-level properties for infiltration and thermal mass.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Building {
+    /// Gebouwvorm voor infiltratie-berekening bij onbekende q_v10,kar (tabel 4.9).
+    pub building_shape: BuildingShape,
+
+    /// Bouwjaar voor infiltratie-berekening (formule 4.34).
+    pub construction_year: u32,
+
+    /// Positie binnen gebouw (enkellaags/meerlaags, tussen/kop/vrijstaand).
+    /// Voor f_typ in tabel 4.8.
+    pub building_position: GebouwTypePositie,
+
+    /// Ventilatiesysteemtype A/B/C/D/E (tabel 4.7).
+    pub ventilation_system: VentilationSystemType,
+
+    /// Thermische massa van het gebouw (tabel 2.4).
+    pub thermal_mass: ThermalMass,
+}
