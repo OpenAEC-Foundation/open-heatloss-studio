@@ -60,6 +60,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] **PerFloorArea infiltratie bug** — gefixed (commit 7464e78)
 - [x] **BBL ventilatie magic numbers** — gefixed, gebruikt nu `BBL_QV_*` constanten
 - [x] **Runtime validatie server-responses** — `validateProjectResult()` toegevoegd, blinde casts vervangen in Projects.tsx, ConflictDialog.tsx, importExport.ts
+- [x] **NTA 8800 drukmodel integratie (C2.3)** — gefixed, norm-exacte massabalans (§11.2.1) gewired in TO-juli rekenketen
 
 ## Verificatie & testing
 - [x] Vabi vrijstaande woning test fixture (9 kamers, 110 constructies, verwachte resultaten)

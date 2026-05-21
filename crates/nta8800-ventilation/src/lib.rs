@@ -85,8 +85,8 @@ pub mod result;
 pub mod tables;
 
 pub use calc::{
-    calculate_ventilation, system_total_airflow, AIR_DENSITY_KG_PER_M3,
-    AIR_SPECIFIC_HEAT_J_PER_KG_K, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
+    calculate_ventilation, calculate_ventilation_with_pressure_model, system_total_airflow,
+    AIR_DENSITY_KG_PER_M3, AIR_SPECIFIC_HEAT_J_PER_KG_K, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
 };
 pub use calc::pressure_solver::{
     accuracy_threshold, air_density, build_openings, external_pressure, pressure_difference,

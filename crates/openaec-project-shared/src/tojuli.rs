@@ -42,8 +42,9 @@ use nta8800_transmission::{
     BoundaryType as TransmissionBoundaryType, TransmissionElement,
 };
 use nta8800_ventilation::{
-    calculate_ventilation, system_total_airflow, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
-    model::{AirFlow, VentilationSystem, WtwSpecification},
+    calculate_ventilation, calculate_ventilation_with_pressure_model, system_total_airflow,
+    AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
+    model::{AirFlow, BuildingLeakageType, BuildingPressureContext, VentilationSystem, WtwSpecification},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -96,10 +97,30 @@ const NTA_WONING_MIN_CAPACITY_DM3S: f64 = 35.0;
 /// standaard-verdiepingshoogte voor woningen.
 const NTA_DEFAULT_ZONE_HEIGHT_M: f64 = 2.7;
 
+/// Forfaitaire bruto verdiepingshoogte [m] voor de afleiding van de
+/// gebouwhoogte uit `num_storeys`.
+///
+/// De gebouwhoogte voedt het NTA 8800 §11.2.1 drukmodel (winddruk-hoogteklasse
+/// tabel 11.3 + C2-scopegrens van 15 m). Het projectmodel kent geen expliciet
+/// gebouwhoogte-veld; `Space::height_m` is de *binnenwerkse* verdiepingshoogte.
+/// We tellen daar een forfaitaire vloer-/plafonddikte bij op zodat de
+/// *bruto* verdiepingshoogte ontstaat — `2,7 m` binnenwerks + `0,3 m`
+/// constructie ≈ `3,0 m` bruto, een gangbare aanname voor Nederlandse
+/// woningbouw. Dit is een **gedocumenteerde forfaitaire aanname**, geen
+/// norm-waarde: NTA 8800 schrijft geen vaste verdiepingshoogte voor.
+const FORFAIT_GROSS_STOREY_HEIGHT_M: f64 = 3.0;
+
+/// Forfaitaire constructie-dikte [m] (vloer + plafondopbouw) die bij de
+/// binnenwerkse `Space::height_m` wordt opgeteld om de bruto verdiepingshoogte
+/// te krijgen. Gedocumenteerde aanname (zie [`FORFAIT_GROSS_STOREY_HEIGHT_M`]).
+const FORFAIT_STOREY_CONSTRUCTION_THICKNESS_M: f64 = 0.3;
+
 use crate::geometry::{BoundaryKind, SharedGeometry};
 use crate::nta8800_view::geometry_to_nta8800;
 use crate::project::ProjectV2;
-use crate::shared::{VentilationSystemKind, HeatRecovery};
+use crate::shared::{
+    BuildingTypeShared, HeatRecovery, ResidentialType, SharedProject, VentilationSystemKind,
+};
 
 /// Map geometry::BoundaryKind to nta8800_transmission::BoundaryType.
 ///
@@ -198,6 +219,103 @@ fn map_ventilation_to_nta8800(
     };
 
     (system, flow, wtw)
+}
+
+/// Leid een forfaitaire **gebouwhoogte** [m] af voor het NTA 8800 §11.2.1
+/// drukmodel.
+///
+/// Het projectmodel kent geen expliciet gebouwhoogte-veld (een schema-veld
+/// toevoegen zou een frontend-migratie forceren — bewust niet gedaan). De
+/// hoogte wordt daarom afgeleid uit de wél aanwezige velden, in deze
+/// prioriteitsvolgorde:
+///
+/// 1. **`num_storeys`** — `num_storeys × 3,0 m` bruto verdiepingshoogte
+///    ([`FORFAIT_GROSS_STOREY_HEIGHT_M`]). Dit is de meest betrouwbare bron.
+/// 2. **Som van de space-hoogtes** — als `num_storeys` ontbreekt: de som van
+///    `Space::height_m` (binnenwerks) over alle spaces, elk verhoogd met de
+///    forfaitaire constructie-dikte ([`FORFAIT_STOREY_CONSTRUCTION_THICKNESS_M`]).
+///    Let op: dit klopt alleen als de spaces verschillende verdiepingen zijn;
+///    bij een meerdere-kamers-per-verdieping-model overschat dit. Het is een
+///    bewuste, gedocumenteerde benadering — overschatting trekt het gebouw
+///    eerder buiten C2-scope (`≥ 15 m`), wat een veilige terugval op de
+///    heuristiek triggert i.p.v. een twijfelachtige massabalans.
+/// 3. **Fallback** — geen van beide bekend: één bruto verdiepingshoogte
+///    (`3,0 m`), de meest conservatieve aanname (laagbouw, binnen C2-scope).
+///
+/// De afgeleide hoogte is een **forfaitaire aanname**, geen norm-waarde.
+fn derive_building_height_m(shared: &SharedProject, geometry: &SharedGeometry) -> f64 {
+    // 1. num_storeys is de betrouwbaarste bron.
+    if let Some(storeys) = shared.num_storeys {
+        if storeys > 0 {
+            return f64::from(storeys) * FORFAIT_GROSS_STOREY_HEIGHT_M;
+        }
+    }
+
+    // 2. Som van de space-hoogtes (binnenwerks → bruto).
+    let summed: f64 = geometry
+        .spaces
+        .iter()
+        .map(|s| s.height_m + FORFAIT_STOREY_CONSTRUCTION_THICKNESS_M)
+        .sum();
+    if summed > 0.0 {
+        return summed;
+    }
+
+    // 3. Conservatieve fallback: één bruto verdiepingshoogte (laagbouw).
+    FORFAIT_GROSS_STOREY_HEIGHT_M
+}
+
+/// Map het project-`BuildingTypeShared` naar de NTA 8800 tabel-11.14
+/// gebouwtype-classificatie [`BuildingLeakageType`].
+///
+/// Tabel 11.14 onderscheidt de gebouwcategorie (grondgebonden / eengezins plat
+/// dak / meerlaags) én de uitvoeringsvariant (tussen-/kop-/vrijstaande
+/// ligging). Het projectmodel codeert dat niet één-op-één; deze mapper maakt
+/// een **gedocumenteerde, conservatieve** vertaling:
+///
+/// - **Woning** — het `ResidentialType` bepaalt de variant. Eén-/tweelaagse
+///   grondgebonden woningen (vrijstaand, 2-onder-1-kap, tussen-/hoekwoning)
+///   gaan naar de grondgebonden-met-kap-categorie; gestapelde/portiek-/
+///   galerijwoningen naar de meerlaagse categorie. `num_storeys ≥ 3` schuift
+///   een grondgebonden woning niet om — de woningvorm is leidend in tabel 11.14.
+/// - **Utiliteit** — enkellaagse utiliteitsbouw (`num_storeys ≤ 1`) valt onder
+///   de grondgebonden categorie als vrijstaand gebouw; meerlaagse
+///   utiliteitsbouw onder de meerlaagse categorie, behandeld als het
+///   gebouw-als-geheel (footnote a).
+///
+/// Bij twijfel kiest de mapper de **vrijstaande / hoogste-`f_type`-variant**
+/// binnen een categorie: dat geeft een hogere forfaitaire luchtlekkage
+/// (`f_type` 1,2-1,4 i.p.v. 1,0) en daarmee een conservatievere — niet te
+/// optimistische — infiltratieschatting.
+fn derive_building_leakage_type(shared: &SharedProject) -> BuildingLeakageType {
+    use BuildingLeakageType as L;
+    match &shared.building_type {
+        BuildingTypeShared::Woning { subtype } => match subtype {
+            // Grondgebonden eengezinswoningen met kap — variant uit de ligging.
+            ResidentialType::Detached => L::GroundBoundDetachedPitchedRoof,
+            ResidentialType::SemiDetached | ResidentialType::EndOfTerrace => {
+                L::GroundBoundEndPitchedRoof
+            }
+            ResidentialType::Terraced => L::GroundBoundTerracedPitchedRoof,
+            // Gestapelde / portiek- / galerijwoningen → meerlaagse categorie.
+            // Zonder verdieping-positie nemen we het gebouw als geheel
+            // (footnote a, f_type = 1,2) — conservatief t.o.v. de
+            // tussenligging-variant (f_type = 1,0).
+            ResidentialType::Porch | ResidentialType::Gallery | ResidentialType::Stacked => {
+                L::MultiStoreyWholeBuilding
+            }
+        },
+        BuildingTypeShared::Utiliteit { .. } => {
+            // Enkellaagse utiliteitsbouw → grondgebonden categorie, vrijstaand
+            // gebouw met (deels) plat dak (f_type = 1,2). Meerlaagse
+            // utiliteitsbouw → meerlaagse categorie, gebouw als geheel.
+            if shared.num_storeys.is_none_or(|n| n <= 1) {
+                L::GroundBoundDetachedPartlyFlatRoof
+            } else {
+                L::MultiStoreyWholeBuilding
+            }
+        }
+    }
 }
 
 /// TO-juli specifieke inputs voor de volledige H.10-berekening.
@@ -407,22 +525,118 @@ pub fn compute_tojuli_full(
         project.shared.heat_recovery.as_ref(),
     );
 
-    let ventilation = calculate_ventilation(
-        zone,
-        &system,
-        &flow,
-        wtw.as_ref(),
-        &indoor_temperature,
-        &climate,
-    ).map_err(TojuliError::Ventilation)?;
+    // --- NTA 8800 §11.2.1 drukmodel: massabalans-context + scope-toets ---
+    //
+    // Het ventilatie-warmteverlies komt sinds C2.3 uit de norm-exacte
+    // massabalans (§11.2.1.5/§11.2.1.6): per maand wordt de interne
+    // referentiedruk `p_z;ref` opgelost en daaruit de effectieve
+    // luchtvolumestroom afgeleid. Dat vereist een `BuildingPressureContext`
+    // met gebouwhoogte, bouwjaar, A_g en het tabel-11.14-gebouwtype.
+    //
+    // De gebouwhoogte is forfaitair afgeleid (`derive_building_height_m` —
+    // het projectmodel kent geen expliciet hoogte-veld). Het drukmodel wordt
+    // alleen ingezet als aan TWEE voorwaarden is voldaan:
+    //
+    //  1. **C2-scope** — de afgeleide gebouwhoogte `< 15 m`. NTA 8800
+    //     tabel 11.1 splitst een rekenzone met `H ≥ 15 m` op in meerdere
+    //     luchtstroomzones, elk met een eigen massabalans — dat is V2-scope
+    //     (multi-luchtstroomzone).
+    //  2. **Bekend bouwjaar** — zonder `construction_year` levert
+    //     `forfait_q_v10()` géén forfaitaire `q_v10;lea;ref` (tabel 11.13 `f_y`
+    //     niet bepaalbaar) en dus géén lek-conductantie `C_lea`. De gebouwschil
+    //     is dan effectief dicht: de massabalans (11.5) kan een
+    //     temperatuur-asymmetrische of onbalans-mechanische configuratie niet
+    //     sluiten en de `p_z;ref`-routine zou niet convergeren. NTA 8800
+    //     §11.2.5 vereist in dat geval een luchtdoorlatendheidsmeting
+    //     (NEN 2686:1988) — een meetwaarde-invoerpad is V2-scope.
+    //
+    // Valt het project buiten één van beide voorwaarden, dan valt de keten
+    // terug op de bestaande `calculate_ventilation`-heuristiek i.p.v. een
+    // niet-convergerende of twijfelachtige 1-zone-massabalans te forceren.
+    let pressure_a_g = project
+        .shared
+        .gross_floor_area_m2
+        .filter(|v| *v > 0.0)
+        .unwrap_or_else(|| zone.volume / NTA_DEFAULT_ZONE_HEIGHT_M);
+    let pressure_context = BuildingPressureContext::new(
+        derive_building_height_m(&project.shared, &project.geometry),
+        project.shared.construction_year,
+        pressure_a_g,
+        derive_building_leakage_type(&project.shared),
+    );
+    let use_pressure_model =
+        pressure_context.within_c2_scope() && pressure_context.forfait_q_v10().is_some();
+
+    let ventilation = if use_pressure_model {
+        // C2-scope + bekend bouwjaar: norm-exacte §11.2.1.6 massabalans per maand.
+        //
+        // --- q_V;ODA;req-keten voor de natuurlijke ventilatie-conductantie ---
+        //
+        // Het §11.2.1 drukmodel modelleert de natuurlijke ventilatie-openingen
+        // (systeem A) via een conductantie `C_vent = q_V;ODA;req`
+        // (`pressure_solver::build_openings`, §11.2.2.2.1). Die functie leest
+        // `q_V;ODA;req` af uit de mechanische-debietvelden van [`AirFlow`] — bij
+        // systeem A heeft die geen mechanisch debiet, dus zonder ingreep blijft
+        // de natuurlijke vent-conductantie 0 en levert de massabalans alleen
+        // infiltratie.
+        //
+        // De échte `q_V;ODA;req` is hierboven al norm-conform bepaald
+        // (werkpakket B, formules 11.22/11.56/11.57/11.63 —
+        // `nta8800_q_v_oda_req_m3_per_h`) en landt in `flow.infiltration`. We
+        // propageren die waarde naar de mechanische velden zodat
+        // `build_openings` voor systeem A de natuurlijke toe- én
+        // afvoer-conductantie krijgt (`C_vent;in = C_vent;out = q_V;ODA;req`,
+        // §11.2.2.2.1) — hergebruik van de werkpakket-B-keten, geen duplicatie.
+        //
+        // De propagatie gebeurt op een **lokale kopie** en uitsluitend op dit
+        // drukmodel-pad: de heuristiek-terugval ([`calculate_ventilation`])
+        // leest die mechanische velden voor systeem A niet en moet de
+        // ongemoeide `flow`-struct krijgen — `flow.infiltration` blijft daar de
+        // lek-/heuristiek-input voor de `system_total_airflow`-terugval.
+        let mut pressure_flow = flow;
+        if matches!(system, VentilationSystem::A) {
+            pressure_flow.mechanical_supply = pressure_flow.infiltration;
+            pressure_flow.mechanical_exhaust = pressure_flow.infiltration;
+        }
+        calculate_ventilation_with_pressure_model(
+            zone,
+            &system,
+            &pressure_flow,
+            wtw.as_ref(),
+            &pressure_context,
+            &indoor_temperature,
+            &climate,
+        )
+        .map_err(TojuliError::Ventilation)?
+    } else {
+        // H ≥ 15 m (multi-luchtstroomzone, V2) of onbekend bouwjaar (geen
+        // forfaitaire C_lea): terugval op de systeem-bewuste
+        // `q_V;tot`-heuristiek.
+        calculate_ventilation(
+            zone,
+            &system,
+            &flow,
+            wtw.as_ref(),
+            &indoor_temperature,
+            &climate,
+        )
+        .map_err(TojuliError::Ventilation)?
+    };
 
     // H_V (W/K) voor de demand-calc — voedt uitsluitend de tijdconstante τ
     // (`time_constant_hours`); het ventilatie-warmteverlies Q_ht komt al uit
-    // `ventilation.monthly_q_v` (engine-output, inclusief WTW-recovery).
+    // `ventilation.monthly_q_v` (engine-output, inclusief WTW-recovery én —
+    // binnen C2-scope — de norm-exacte massabalans).
     //
     // Afleiding consistent met de ventilation-engine:
     //   1. q_V;tot via `system_total_airflow` — systeem-bewust, dezelfde bron
-    //      van waarheid als `calculate_ventilation` zelf gebruikt.
+    //      van waarheid als `calculate_ventilation` zelf gebruikt. Voor de
+    //      tijdconstante τ volstaat deze representatieve, druk-onafhankelijke
+    //      `q_V;tot`: τ is een tweede-orde-grootheid (vormt alleen de
+    //      maand-demping), terwijl het eerste-orde-warmteverlies Q_V al uit de
+    //      massabalans-engine komt. De per-maand variërende massabalans-`q_V`
+    //      tot één τ terugbrengen zou een aparte aanname vereisen — de
+    //      heuristiek is hier de transparantere keuze.
     //   2. Norm-exacte volumetrische warmtecapaciteit ρ_a·c_a (≈1212,23
     //      J/(m³·K), NTA 8800 formule 11.106) gedeeld door 3600 → W/(m³/h·K).
     //   3. WTW-reductie: een gebalanceerd systeem met WTW levert de
@@ -891,6 +1105,126 @@ mod tests {
         assert!(r_wtw.tau_hours > 0.0);
     }
 
+    // --- C2.3 — wiring van het §11.2.1 drukmodel in de tojuli-pipeline ----
+
+    #[test]
+    fn derive_building_height_prefers_num_storeys() {
+        // num_storeys is de betrouwbaarste bron: storeys × 3,0 m bruto.
+        let mut p = sample_project();
+        p.shared.num_storeys = Some(2);
+        let h = derive_building_height_m(&p.shared, &p.geometry);
+        assert!((h - 6.0).abs() < 1e-9, "2 verdiepingen → 6,0 m, gemeten {h}");
+    }
+
+    #[test]
+    fn derive_building_height_falls_back_to_space_sum() {
+        // Zonder num_storeys: som van space-hoogtes (binnenwerks + 0,3 m).
+        let mut p = sample_project();
+        p.shared.num_storeys = None;
+        // sample_project heeft één space met height_m = 2,7 → 2,7 + 0,3 = 3,0.
+        let h = derive_building_height_m(&p.shared, &p.geometry);
+        assert!((h - 3.0).abs() < 1e-9, "één space van 2,7 m → 3,0 m, gemeten {h}");
+    }
+
+    #[test]
+    fn derive_building_leakage_type_maps_residential_subtypes() {
+        // Vrijstaand → grondgebonden vrijstaand hellend dak.
+        let mut p = sample_project();
+        p.shared.building_type = BuildingTypeShared::Woning {
+            subtype: ResidentialType::Detached,
+        };
+        assert_eq!(
+            derive_building_leakage_type(&p.shared),
+            BuildingLeakageType::GroundBoundDetachedPitchedRoof
+        );
+        // Tussenwoning → grondgebonden tussenligging.
+        p.shared.building_type = BuildingTypeShared::Woning {
+            subtype: ResidentialType::Terraced,
+        };
+        assert_eq!(
+            derive_building_leakage_type(&p.shared),
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof
+        );
+        // Gestapelde woning → meerlaags, gebouw als geheel.
+        p.shared.building_type = BuildingTypeShared::Woning {
+            subtype: ResidentialType::Stacked,
+        };
+        assert_eq!(
+            derive_building_leakage_type(&p.shared),
+            BuildingLeakageType::MultiStoreyWholeBuilding
+        );
+    }
+
+    /// Met een bekend bouwjaar én C2-scope-hoogte loopt de tojuli-keten via het
+    /// norm-exacte §11.2.1.6 drukmodel — niet via de heuristiek. De berekening
+    /// moet convergeren en een plausibel resultaat geven.
+    #[test]
+    fn pressure_model_runs_for_known_build_year_in_c2_scope() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::MechBalanced);
+        p.shared.construction_year = Some(2015); // bekend bouwjaar → C_lea forfait
+        p.shared.num_storeys = Some(2); // 6,0 m → binnen C2-scope
+        p.shared.mechanical_supply_m3_per_h = Some(150.0);
+        p.shared.mechanical_exhaust_m3_per_h = Some(150.0);
+
+        let i = sample_inputs();
+        // Convergeert (geen PressureSolverDidNotConverge) → het drukmodel is
+        // daadwerkelijk gebruikt en heeft een sluitende massabalans gevonden.
+        let r = compute_tojuli_full(&p, &i)
+            .expect("drukmodel moet convergeren binnen C2-scope met bekend bouwjaar");
+        assert!(r.ventilation_h_v_w_per_k > 0.0);
+        assert!(r.tau_hours > 0.0);
+        assert!(r.annual_q_c_use_mj >= 0.0);
+    }
+
+    /// Onbekend bouwjaar → geen forfaitaire `C_lea` → het drukmodel zou niet
+    /// convergeren. De keten moet dan netjes terugvallen op de heuristiek
+    /// i.p.v. te paniekeren met een `PressureSolverDidNotConverge`.
+    #[test]
+    fn unknown_build_year_falls_back_to_heuristic_without_panic() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::MechBalanced);
+        p.shared.construction_year = None; // geen bouwjaar → geen C_lea
+        p.shared.num_storeys = Some(2);
+        p.shared.mechanical_supply_m3_per_h = Some(150.0);
+        p.shared.mechanical_exhaust_m3_per_h = Some(150.0);
+
+        let i = sample_inputs();
+        // Mag NIET met PressureSolverDidNotConverge falen — terugval heuristiek.
+        let r = compute_tojuli_full(&p, &i)
+            .expect("onbekend bouwjaar moet terugvallen op heuristiek, niet paniekeren");
+        // Heuristiek-H_V voor System D (geen WTW): q_V;tot = supply = 150 m³/h.
+        let expected_h_v = 150.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6,
+            "verwachte heuristiek-H_V {expected_h_v}, gemeten {}",
+            r.ventilation_h_v_w_per_k
+        );
+    }
+
+    /// Een gebouw ≥ 15 m (multi-luchtstroomzone, V2-scope) valt terug op de
+    /// heuristiek — geen 1-zone-massabalans improviseren.
+    #[test]
+    fn building_above_15m_falls_back_to_heuristic() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::MechExhaust);
+        p.shared.construction_year = Some(2015); // bekend bouwjaar
+        p.shared.num_storeys = Some(6); // 6 × 3,0 = 18 m ≥ 15 m → buiten C2-scope
+        p.shared.mechanical_exhaust_m3_per_h = Some(100.0);
+        p.shared.mechanical_supply_m3_per_h = None;
+        p.shared.infiltration_m3_per_h = None;
+
+        let i = sample_inputs();
+        let r = compute_tojuli_full(&p, &i).expect("hoogbouw moet via heuristiek lopen");
+        // Systeem C-heuristiek: q_V;tot = max(exhaust 100, infil 0) = 100 m³/h.
+        let expected_h_v = 100.0 * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0;
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 1e-6,
+            "verwachte heuristiek-H_V {expected_h_v}, gemeten {}",
+            r.ventilation_h_v_w_per_k
+        );
+    }
+
     #[test]
     fn ventilation_system_b_supply_only() {
         let mut p = sample_project();
@@ -980,6 +1314,46 @@ mod tests {
             "systeem A zonder infiltratie moet H_V > 0 hebben, niet stil 0"
         );
         assert!(r.annual_q_c_use_mj >= 0.0);
+    }
+
+    /// QC-bevinding C2.3-3: systeem A met een expliciet ingevoerd
+    /// nul-infiltratiedebiet (`infiltration_m3_per_h = Some(0.0)`). Een
+    /// expliciete `Some(0.0)` schakelt de §11.2.2-forfait-terugval uit (die
+    /// vuurt alleen op `None`), zodat `flow.infiltration` daadwerkelijk `0`
+    /// blijft. De systeem-A-propagatie zet dan `mechanical_supply =
+    /// mechanical_exhaust = 0` — precies het caller-contract-scenario uit
+    /// bevinding 1 & 2: een volledig dichte schil zonder ventilatie-ontwerp.
+    ///
+    /// Kern: de keten moet netjes doorlopen — drukmodel met enkel
+    /// lek-conductantie `C_lea`, óf heuristiek-terugval — zonder paniek. Er is
+    /// bewust géén `debug_assert!` op `mechanical_supply > 0`, dus een
+    /// nul-debiet mag de pipeline niet laten crashen.
+    #[test]
+    fn system_a_with_zero_infiltration_runs_without_panic() {
+        // Valide 120 m²-geometrie (anders weigert de demand-keten met
+        // InvalidFloorArea) — de test draait om de ventilatie-propagatie,
+        // niet om een lege geometrie.
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::Natural);
+        p.shared.heat_recovery = None;
+        // Expliciete Some(0.0): zet de §11.2.2-forfait-terugval uit (vuurt enkel
+        // op None) → flow.infiltration blijft echt 0 → propagatie zet
+        // mechanical_supply = mechanical_exhaust = 0.
+        p.shared.infiltration_m3_per_h = Some(0.0);
+        p.shared.mechanical_supply_m3_per_h = None;
+        p.shared.mechanical_exhaust_m3_per_h = None;
+        p.shared.construction_year = Some(2015); // bekend bouwjaar → drukmodel-pad
+        p.shared.num_storeys = Some(1); // 3,0 m → binnen C2-scope
+
+        let i = sample_inputs();
+        // Mag NIET paniekeren — drukmodel met enkel lek-conductantie of
+        // heuristiek-terugval moet de massabalans sluiten.
+        let r = compute_tojuli_full(&p, &i)
+            .expect("systeem A met nul-infiltratie moet doorlopen zonder paniek");
+        assert!(r.ventilation_h_v_w_per_k.is_finite());
+        assert!(r.ventilation_h_v_w_per_k >= 0.0);
+        assert!(r.annual_q_c_use_mj >= 0.0);
+        assert!(r.tau_hours > 0.0);
     }
 
     #[test]
