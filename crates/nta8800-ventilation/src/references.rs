@@ -21,6 +21,27 @@ pub const NTA_8800_2025_PARAG11_2: &str = "nta_8800_2025_parag11_2";
 /// §11.2.1 Luchtstroommodel — stappenplan + massabalans.
 pub const NTA_8800_2025_PARAG11_2_1: &str = "nta_8800_2025_parag11_2_1";
 
+/// §11.2.1.3 Stromingsexponent (n) — tabel 11.2.
+pub const NTA_8800_2025_PARAG11_2_1_3: &str = "nta_8800_2025_parag11_2_1_3";
+
+/// §11.2.1.4 Externe druk bij luchtvolumestroom (`p_e;path;i,mi`) — tabel 11.3.
+pub const NTA_8800_2025_PARAG11_2_1_4: &str = "nta_8800_2025_parag11_2_1_4";
+
+/// §11.2.1.5 Bepalen massastroomdebieten — formules (11.2)/(11.3).
+pub const NTA_8800_2025_PARAG11_2_1_5: &str = "nta_8800_2025_parag11_2_1_5";
+
+/// §11.2.1.6 Drukverschil over de openingen `p_z;ref` (massabalans-oplosroutine).
+pub const NTA_8800_2025_PARAG11_2_1_6: &str = "nta_8800_2025_parag11_2_1_6";
+
+/// §11.2.5 Aandeel van de infiltratie — formules (11.84)-(11.86).
+pub const NTA_8800_2025_PARAG11_2_5: &str = "nta_8800_2025_parag11_2_5";
+
+/// §11.2.5.1 Bouwjaarcorrectiefactor `f_j` — tabel 11.13.
+pub const NTA_8800_2025_PARAG11_2_5_1: &str = "nta_8800_2025_parag11_2_5_1";
+
+/// §11.2.5.2 Rekenwaarde luchtdoorlatendheid + gebouwtype-correctie — tabel 11.14.
+pub const NTA_8800_2025_PARAG11_2_5_2: &str = "nta_8800_2025_parag11_2_5_2";
+
 /// §11.3 Temperatuur van de luchtstromen.
 pub const NTA_8800_2025_PARAG11_3: &str = "nta_8800_2025_parag11_3";
 
@@ -33,6 +54,20 @@ pub const NTA_8800_2025_PARAG11_4_3_3: &str = "nta_8800_2025_parag11_4_3_3";
 // ---------------------------------------------------------------------------
 // Formules — hoofdstuk 11
 // ---------------------------------------------------------------------------
+
+/// Formule (11.1) — externe druk bij luchtvolumestroom `p_e;path;i,zi,mi`.
+///
+/// `p_e = ρ_a;ref · (273/(273+ϑ_e;avg;mi)/T_e;ref) · (0,5·C_p;i·u_site;mi² − H_path;i·g)`.
+pub const NTA_8800_2025_FORMULE11_1: &str = "nta_8800_2025_formule11_1";
+
+/// Formule (11.84) — luchtdoorlatendheidscoëfficiënt `C_lea = q_v1;lea;ref / Δp^n`.
+pub const NTA_8800_2025_FORMULE11_84: &str = "nta_8800_2025_formule11_84";
+
+/// Formule (11.85) — `q_v1;lea;ref = q_v10;lea;ref · (1/10)^n_lea · A_g · 3,6`.
+pub const NTA_8800_2025_FORMULE11_85: &str = "nta_8800_2025_formule11_85";
+
+/// Formule (11.86) — forfaitair `q_v10;lea;ref = f_type · f_y · q_v10;spec;reken`.
+pub const NTA_8800_2025_FORMULE11_86: &str = "nta_8800_2025_formule11_86";
 
 /// Formule (11.106) — verwarmingsvermogen elektrische vorstbeveiliging.
 ///
@@ -61,6 +96,18 @@ pub const NTA_8800_2025_FORMULE11_142: &str = "nta_8800_2025_formule11_142";
 // ---------------------------------------------------------------------------
 // Tabellen — hoofdstuk 11
 // ---------------------------------------------------------------------------
+
+/// Tabel 11.2 — Stromingsexponent `n` per stroomtype (lek, ventilatie, spui, comb).
+pub const NTA_8800_2025_TABEL11_2: &str = "nta_8800_2025_tabel11_2";
+
+/// Tabel 11.3 — Dimensieloze winddrukcoëfficiënten `C_p` per hoogteklasse.
+pub const NTA_8800_2025_TABEL11_3: &str = "nta_8800_2025_tabel11_3";
+
+/// Tabel 11.13 — Bouwjaarcorrectiefactor `f_j` voor de luchtdoorlatendheid.
+pub const NTA_8800_2025_TABEL11_13: &str = "nta_8800_2025_tabel11_13";
+
+/// Tabel 11.14 — Rekenwaarde specifieke luchtdoorlatendheid + gebouwtype-factor `f_type`.
+pub const NTA_8800_2025_TABEL11_14: &str = "nta_8800_2025_tabel11_14";
 
 /// Tabel 11.18 — Rendement van WTW-installaties (forfaitair η_hr).
 pub const NTA_8800_2025_TABEL11_18: &str = "nta_8800_2025_tabel11_18";
@@ -92,9 +139,20 @@ mod tests {
         NTA_8800_2025_PARAG11_1,
         NTA_8800_2025_PARAG11_2,
         NTA_8800_2025_PARAG11_2_1,
+        NTA_8800_2025_PARAG11_2_1_3,
+        NTA_8800_2025_PARAG11_2_1_4,
+        NTA_8800_2025_PARAG11_2_1_5,
+        NTA_8800_2025_PARAG11_2_1_6,
+        NTA_8800_2025_PARAG11_2_5,
+        NTA_8800_2025_PARAG11_2_5_1,
+        NTA_8800_2025_PARAG11_2_5_2,
         NTA_8800_2025_PARAG11_3,
         NTA_8800_2025_PARAG11_3_2_2,
         NTA_8800_2025_PARAG11_4_3_3,
+        NTA_8800_2025_FORMULE11_1,
+        NTA_8800_2025_FORMULE11_84,
+        NTA_8800_2025_FORMULE11_85,
+        NTA_8800_2025_FORMULE11_86,
         NTA_8800_2025_FORMULE11_106,
         NTA_8800_2025_FORMULE11_106A,
         NTA_8800_2025_FORMULE11_107,
@@ -102,6 +160,10 @@ mod tests {
         NTA_8800_2025_FORMULE11_140,
         NTA_8800_2025_FORMULE11_141,
         NTA_8800_2025_FORMULE11_142,
+        NTA_8800_2025_TABEL11_2,
+        NTA_8800_2025_TABEL11_3,
+        NTA_8800_2025_TABEL11_13,
+        NTA_8800_2025_TABEL11_14,
         NTA_8800_2025_TABEL11_18,
         NTA_8800_2025_TABEL11_23,
         NTA_8800_2025_BIJLAGE_S,

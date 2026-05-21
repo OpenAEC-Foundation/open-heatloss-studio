@@ -82,11 +82,21 @@ pub mod errors;
 pub mod model;
 pub mod references;
 pub mod result;
+pub mod tables;
 
 pub use calc::{
     calculate_ventilation, system_total_airflow, AIR_DENSITY_KG_PER_M3,
     AIR_SPECIFIC_HEAT_J_PER_KG_K, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
 };
 pub use errors::VentilationError;
-pub use model::{AirFlow, VentilationSystem, WtwSpecification};
+pub use model::{
+    AirFlow, BuildingLeakageType, BuildingPressureContext, VentilationSystem, WtwSpecification,
+    C2_MAX_BUILDING_HEIGHT_M,
+};
 pub use result::VentilationResult;
+pub use tables::{
+    build_year_correction_factor, building_type_correction_factor,
+    specific_air_permeability_calc, HeightClass, WindPressureCoefficients,
+    FLOW_EXPONENT_COMBUSTION, FLOW_EXPONENT_LEAKAGE, FLOW_EXPONENT_PURGE,
+    FLOW_EXPONENT_VENTILATION,
+};
