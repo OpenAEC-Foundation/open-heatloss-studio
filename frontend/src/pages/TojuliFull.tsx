@@ -21,7 +21,28 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { useProjectStore } from "../store/projectStore";
 import { buildV2Payload } from "../lib/projectV2Migration";
 import { tojuliCalculate } from "../lib/backend";
+import { VENTILATION_SYSTEM_LABELS } from "../lib/constants";
+import type { VentilationSystemType } from "../types";
 import type { ProjectV2 } from "../types/projectV2";
+
+// ---------------------------------------------------------------------------
+// Ventilatie — m³/h-debieten (NTA 8800 §11.2). Zichtbaarheid van de
+// mechanische toe-/afvoer-velden volgt het ISSO 51 systeemtype A–E, dat op de
+// Warmteverlies-tab wordt gekozen (`project.ventilation.system_type`) en hier
+// alleen read-only wordt getoond. Tabel spiegelt `SYSTEM_CAPABILITIES` in
+// `components/projectSetup/VentilationPanel.tsx`.
+// ---------------------------------------------------------------------------
+
+const SYSTEM_FLOW_CAPABILITIES: Record<
+  VentilationSystemType,
+  { hasSupply: boolean; hasExhaust: boolean }
+> = {
+  system_a: { hasSupply: false, hasExhaust: false },
+  system_b: { hasSupply: true, hasExhaust: false },
+  system_c: { hasSupply: false, hasExhaust: true },
+  system_d: { hasSupply: true, hasExhaust: true },
+  system_e: { hasSupply: true, hasExhaust: true },
+};
 
 // ---------------------------------------------------------------------------
 // Type-mirrors van Rust structs (openaec-project-shared::tojuli)
@@ -118,13 +139,96 @@ function NumberField({ label, unit, value, step, onChange, hint }: NumberFieldPr
   );
 }
 
+interface FlowFieldProps {
+  label: string;
+  unit: string;
+  /** Lege string = niet ingevuld → backend rekent zelf. */
+  value: number | string;
+  step?: number | string;
+  placeholder?: string;
+  onChange: (raw: string) => void;
+  hint?: string;
+}
+
+/**
+ * Optioneel debiet-veld dat de leeg/placeholder-semantiek behoudt: anders dan
+ * `NumberField` mag de waarde leeg blijven (geen forced `0`), zodat de backend
+ * op de NTA 8800-default kan terugvallen. Styling spiegelt `NumberField`.
+ */
+function FlowField({
+  label,
+  unit,
+  value,
+  step,
+  placeholder,
+  onChange,
+  hint,
+}: FlowFieldProps) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="font-medium text-on-surface">
+        {label}{" "}
+        <span className="text-on-surface-muted font-normal">[{unit}]</span>
+      </span>
+      <input
+        type="number"
+        step={step ?? "any"}
+        min={0}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-3 py-1.5 text-on-surface focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary"
+      />
+      {hint && <span className="text-xs text-on-surface-muted">{hint}</span>}
+    </label>
+  );
+}
+
 export function TojuliFull() {
   const { t } = useTranslation();
-  const { project, sharedExtra } = useProjectStore();
+  const { project, sharedExtra, updateSharedExtra } = useProjectStore();
   const [inputs, setInputs] = useState<TojuliFullInputs>(DEFAULT_INPUTS);
   const [result, setResult] = useState<TojuliResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Ventilatie — ISSO 51 systeemtype (Warmteverlies-tab) bepaalt welke
+  // mechanische debiet-velden zinvol zijn. Bij ontbrekend systeem valt de
+  // backend forfaitair terug op systeem C (engineering-aanname, niet uit
+  // NTA 8800 — zie QC-review b546610 bevinding 3).
+  const ventilationSystem: VentilationSystemType | undefined =
+    project.ventilation?.system_type;
+  const ventilationSystemLabel = ventilationSystem
+    ? VENTILATION_SYSTEM_LABELS[ventilationSystem] ?? ventilationSystem
+    : "Niet opgegeven";
+  const { hasSupply, hasExhaust } = ventilationSystem
+    ? SYSTEM_FLOW_CAPABILITIES[ventilationSystem]
+    : { hasSupply: true, hasExhaust: true };
+
+  // m³/h-debieten lezen/schrijven via de sharedExtra-sidecar. Leeg = backend
+  // rekent zelf (NTA 8800-default). Sidecar-keys ongewijzigd t.o.v. b546610.
+  const infiltrationFlow = sharedExtra.infiltration_m3_per_h ?? "";
+  const supplyFlow = sharedExtra.mechanical_supply_m3_per_h ?? "";
+  const exhaustFlow = sharedExtra.mechanical_exhaust_m3_per_h ?? "";
+
+  const writeFlowExtra = useCallback(
+    (
+      key:
+        | "infiltration_m3_per_h"
+        | "mechanical_supply_m3_per_h"
+        | "mechanical_exhaust_m3_per_h",
+      raw: string,
+    ) => {
+      if (raw === "") {
+        updateSharedExtra({ [key]: null });
+        return;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return;
+      updateSharedExtra({ [key]: n });
+    },
+    [updateSharedExtra],
+  );
 
   // Bouw huidige V1 Project + sharedExtra naar ProjectV2 voor de backend call.
   // V1-rooms worden door buildV2Payload naar geometry.spaces[] gemapt
@@ -229,6 +333,10 @@ export function TojuliFull() {
                 )
               }`}
             />
+            <ContextRow
+              label="Ventilatiesysteem"
+              value={ventilationSystemLabel}
+            />
           </div>
           <p className="mt-3 text-xs text-on-surface-muted">
             {t(
@@ -236,6 +344,14 @@ export function TojuliFull() {
               "Vul shared/geometrie in via tab Algemeen + Modeller. Wijzigingen worden hier direct meegenomen.",
             )}
           </p>
+          {!ventilationSystem && (
+            <p className="mt-1 text-xs text-on-surface-muted">
+              {t(
+                "tojuliFull.ventilationFallbackHint",
+                "Geen ventilatiesysteem opgegeven — de TO-juli-engine neemt forfaitair systeem C aan (engineering-aanname, niet uit NTA 8800). Kies het systeem op de Warmteverlies-tab.",
+              )}
+            </p>
+          )}
         </Card>
 
         <Card title={t("tojuliFull.systemTitle", "Koelopwekker")}>
@@ -331,6 +447,61 @@ export function TojuliFull() {
               }
             />
           </div>
+        </Card>
+
+        <Card title={t("tojuliFull.ventilationTitle", "Ventilatie (NTA 8800)")}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <FlowField
+              label={t("tojuliFull.fields.infiltration", "Basisinfiltratie")}
+              unit="m³/h"
+              step={1}
+              placeholder="Auto (NTA 8800)"
+              value={infiltrationFlow}
+              onChange={(raw) => writeFlowExtra("infiltration_m3_per_h", raw)}
+              hint={t(
+                "tojuliFull.fields.infiltrationHint",
+                "Leeg laten = backend rekent zelf (NTA 8800-default).",
+              )}
+            />
+            {hasSupply && (
+              <FlowField
+                label={t("tojuliFull.fields.mechSupply", "Mechanische toevoer")}
+                unit="m³/h"
+                step={1}
+                placeholder="Auto (NTA 8800)"
+                value={supplyFlow}
+                onChange={(raw) =>
+                  writeFlowExtra("mechanical_supply_m3_per_h", raw)
+                }
+                hint={t(
+                  "tojuliFull.fields.flowHint",
+                  "Leeg laten = NTA 8800-default.",
+                )}
+              />
+            )}
+            {hasExhaust && (
+              <FlowField
+                label={t("tojuliFull.fields.mechExhaust", "Mechanische afvoer")}
+                unit="m³/h"
+                step={1}
+                placeholder="Auto (NTA 8800)"
+                value={exhaustFlow}
+                onChange={(raw) =>
+                  writeFlowExtra("mechanical_exhaust_m3_per_h", raw)
+                }
+                hint={t(
+                  "tojuliFull.fields.flowHint",
+                  "Leeg laten = NTA 8800-default.",
+                )}
+              />
+            )}
+          </div>
+          <p className="mt-3 text-xs text-on-surface-muted">
+            {t(
+              "tojuliFull.ventilationHint",
+              "NTA 8800 §11.2 luchtdebieten — voeden de TO-juli-engine. De zichtbare mechanische velden volgen het ISSO 51-systeemtype (Warmteverlies-tab). Leeg = backend-default.",
+            )}
+          </p>
         </Card>
 
         <Card title={t("tojuliFull.advancedTitle", "Geavanceerd")}>
