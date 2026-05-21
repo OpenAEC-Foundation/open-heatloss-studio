@@ -6,6 +6,7 @@
 pub mod fan_energy;
 pub mod infiltration;
 pub mod monthly_heat_loss;
+pub mod pressure_solver;
 pub mod wtw_recovery;
 
 use nta8800_model::time::{Month, MonthlyProfile};

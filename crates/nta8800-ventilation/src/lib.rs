@@ -88,6 +88,11 @@ pub use calc::{
     calculate_ventilation, system_total_airflow, AIR_DENSITY_KG_PER_M3,
     AIR_SPECIFIC_HEAT_J_PER_KG_K, AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
 };
+pub use calc::pressure_solver::{
+    accuracy_threshold, air_density, build_openings, external_pressure, pressure_difference,
+    solve_zone_airflow, Opening, ZoneAirflowSolution, GRAVITY_M_PER_S2, RHO_A_REF_KG_PER_M3,
+    T_REF_K,
+};
 pub use errors::VentilationError;
 pub use model::{
     AirFlow, BuildingLeakageType, BuildingPressureContext, VentilationSystem, WtwSpecification,
