@@ -60,6 +60,7 @@
     "results": "Resultaten",
     "library": "Bibliotheek",
     "rcValue": "Rc-waarde",
+    "uwValue": "U-waarde kozijn",
     "materials": "Materialen",
     "projects": "Projecten",
     "warmteverliesInstellingen": "Instellingen",
@@ -132,5 +133,32 @@
   "warmteverliesInstellingen": {
     "title": "Warmteverlies-instellingen",
     "subtitle": "ISSO 51:2023 parameters"
+  },
+  "uw": {
+    "title": "U-waarde kozijn",
+    "subtitle": "Samengestelde raam-U-waarde U_w volgens NEN-EN-ISO 10077-1",
+    "groupGeometry": "Afmetingen & ruit-indeling",
+    "groupMaterials": "U-waarden (glas & profiel)",
+    "groupSpacer": "Beglazingsrand (Ψ_g)",
+    "manualPsiG": "Handmatige Ψ_g",
+    "normRef": "U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f) — NEN-EN-ISO 10077-1.",
+    "invalidInput": "Controleer de invoer.",
+    "fields": {
+      "width": "Breedte [mm]",
+      "height": "Hoogte [mm]",
+      "frameWidth": "Profielbreedte [mm]",
+      "paneColumns": "Ruit-kolommen",
+      "paneRows": "Ruit-rijen",
+      "uG": "U_g — glas [W/(m²·K)]",
+      "uF": "U_f — profiel [W/(m²·K)]",
+      "spacer": "Randafstandhouder",
+      "psiG": "Ψ_g [W/(m·K)]"
+    },
+    "hints": {
+      "uG": "Handmatige invoer — glasleverancier",
+      "uF": "Handmatige invoer — profielfabrikant",
+      "psiGTable": "Tabelwaarde uit het gekozen spacer-type",
+      "psiGManual": "Handmatige override op de spacer-tabelwaarde"
+    }
   }
 }
