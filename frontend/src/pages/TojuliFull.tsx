@@ -71,7 +71,6 @@ interface TojuliFullInputs {
   distribution: CoolingDistribution;
   emission: CoolingEmission;
   shading_factor: number;
-  air_change_rate_per_h: number;
   heating_setpoint_c: number;
   cooling_setpoint_c: number;
 }
@@ -102,7 +101,6 @@ const DEFAULT_INPUTS: TojuliFullInputs = {
   distribution: { efficiency: 0.95 },
   emission: { efficiency: 0.95, regulation_factor: 0.95 },
   shading_factor: 1.0,
-  air_change_rate_per_h: 0,
   heating_setpoint_c: 20,
   cooling_setpoint_c: 24,
 };
@@ -505,7 +503,7 @@ export function TojuliFull() {
         </Card>
 
         <Card title={t("tojuliFull.advancedTitle", "Geavanceerd")}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <NumberField
               label={t("tojuliFull.fields.shading", "Schaduwfactor F_sh")}
               unit="0..1"
@@ -513,14 +511,6 @@ export function TojuliFull() {
               value={inputs.shading_factor}
               onChange={(v) => setField("shading_factor", v)}
               hint="1.0 = geen schaduw"
-            />
-            <NumberField
-              label={t("tojuliFull.fields.ach", "Ventilatievoud n_air")}
-              unit="1/h"
-              step={0.1}
-              value={inputs.air_change_rate_per_h}
-              onChange={(v) => setField("air_change_rate_per_h", v)}
-              hint="0 = auto (woning 0.5, utiliteit 1.0)"
             />
             <NumberField
               label={t("tojuliFull.fields.heating_sp", "Verwarmings-setpoint")}
