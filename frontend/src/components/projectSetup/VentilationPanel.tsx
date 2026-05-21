@@ -1,80 +1,73 @@
 /**
- * VentilationPanel — V2 ventilatie-instellingen op project-niveau.
+ * VentilationPanel — ventilatie-instellingen op project-niveau.
  *
  * Schrijft naar:
- *  - V1 `project.ventilation.system_type` (via inverse mapping van V2 kind)
+ *  - V1 `project.ventilation.system_type` (ISSO 51 systeem A–E, direct)
  *  - V1 `project.ventilation.has_heat_recovery` + `heat_recovery_efficiency`
  *  - V2 sidecar `sharedExtra.{infiltration,mechanical_supply,mechanical_exhaust}_m3_per_h`
  *
- * V1 blijft single-source-of-truth voor de ISSO 51 backend; de V2-only
- * m³/h velden landen via `buildV2Payload` in de SharedProject ventilation
- * surface (NTA 8800 / TO-juli) — en blijven `undefined` als de gebruiker
- * leeg laat, zodat de Rust engine terugvalt op `default_ach` lookup.
+ * V1 blijft single-source-of-truth voor de ISSO 51 backend; de gebruiker
+ * kiest hier rechtstreeks het ISSO 51 ventilatiesysteem (A t/m E). De
+ * V1→V2 mapping voor de NTA 8800 / TO-juli backend gebeurt in
+ * `projectV2Migration.ts` (`mapV1SystemTypeToV2`) bij `buildV2Payload`.
+ *
+ * De V2-only m³/h velden (infiltratie + mechanisch toe/afvoer) landen via
+ * `buildV2Payload` in de SharedProject ventilation surface en blijven
+ * `undefined` als de gebruiker leeg laat, zodat de Rust engine terugvalt
+ * op `default_ach` lookup.
  *
  * Lessons learned:
  *  - 10-04 (water θ): norm-afwijkende aannames structureel tonen → SFP
  *    forfaitair-voetnoot is altijd zichtbaar onder de invoer.
  *  - 17-05 (light theme): gebruik `--oaec-*` tokens, geen hardcoded kleuren.
+ *  - 21-05 (regressie b546610): systeemkeuze terug naar ISSO 51 A–E;
+ *    V2-kind-select downgrade systeem E stil naar D.
  */
 import { useCallback } from "react";
 
+import { VENTILATION_SYSTEM_LABELS } from "../../lib/constants";
+import { useProjectStore } from "../../store/projectStore";
+import type { VentilationConfig, VentilationSystemType } from "../../types";
+import type { HeatRecovery } from "../../types/projectV2";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
-import { useProjectStore } from "../../store/projectStore";
-import type { VentilationConfig, VentilationSystemType } from "../../types";
-import type {
-  HeatRecovery,
-  VentilationSystemKind,
-} from "../../types/projectV2";
 
 // ---------------------------------------------------------------------------
-// V1 ↔ V2 ventilatiesysteem mapping
+// ISSO 51 ventilatiesysteem — debiet-/WTW-velden per systeemtype
 // ---------------------------------------------------------------------------
 
 /**
- * V2 → V1 inverse mapping. V1 systemen A–E komen uit ISSO 51; voor V2
- * (NTA 8800 / TO-juli) gebruiken we de 4-tal categorisering.
- *   mech_balanced → system_d (gebalanceerd mechanisch — closest fit)
- *   mech_supply   → system_b (mechanische toevoer, natuurlijke afvoer)
- *   mech_exhaust  → system_c (mechanische afvoer, natuurlijke toevoer)
- *   natural       → system_a (natuurlijke toe- en afvoer)
+ * Per ISSO 51 systeemtype: welke mechanische debiet-velden + WTW-veld zichtbaar
+ * zijn. Consistent met de oude `WarmteverliesInstellingen.tsx` vóór b546610:
+ * `supportsWtw = system_d || system_e`.
+ *
+ *   A — natuurlijke toe- en afvoer            → geen mech velden, geen WTW
+ *   B — mechanische toevoer, natuurlijke afvoer → toevoer
+ *   C — natuurlijke toevoer, mechanische afvoer → afvoer
+ *   D — gebalanceerd mechanisch (centraal)     → toevoer + afvoer + WTW
+ *   E — combinatie (decentraal gebalanceerd)   → toevoer + afvoer + WTW
  */
-function v2ToV1SystemType(v2: VentilationSystemKind): VentilationSystemType {
-  switch (v2) {
-    case "mech_balanced":
-      return "system_d";
-    case "mech_supply":
-      return "system_b";
-    case "mech_exhaust":
-      return "system_c";
-    case "natural":
-      return "system_a";
-  }
-}
+const SYSTEM_CAPABILITIES: Record<
+  VentilationSystemType,
+  { hasSupply: boolean; hasExhaust: boolean; hasWtw: boolean }
+> = {
+  system_a: { hasSupply: false, hasExhaust: false, hasWtw: false },
+  system_b: { hasSupply: true, hasExhaust: false, hasWtw: false },
+  system_c: { hasSupply: false, hasExhaust: true, hasWtw: false },
+  system_d: { hasSupply: true, hasExhaust: true, hasWtw: true },
+  system_e: { hasSupply: true, hasExhaust: true, hasWtw: true },
+};
 
-/** V1 → V2 mapping voor uitlezen. Spiegelt `mapV1SystemTypeToV2` in projectV2Migration.ts. */
-function v1ToV2SystemType(v1: VentilationSystemType): VentilationSystemKind {
-  switch (v1) {
-    case "system_a":
-      return "natural";
-    case "system_b":
-      return "mech_supply";
-    case "system_c":
-      return "mech_exhaust";
-    case "system_d":
-      return "mech_balanced";
-    case "system_e":
-      return "mech_balanced"; // decentraal gebalanceerd — closest V2 match
-  }
-}
-
-const V2_SYSTEM_OPTIONS: Array<{ value: VentilationSystemKind; label: string }> = [
-  { value: "mech_balanced", label: "Mechanisch gebalanceerd (toe + afvoer)" },
-  { value: "mech_supply", label: "Mechanische toevoer (natuurlijke afvoer)" },
-  { value: "mech_exhaust", label: "Mechanische afvoer (natuurlijke toevoer)" },
-  { value: "natural", label: "Natuurlijke ventilatie" },
-];
+const VENTILATION_SYSTEM_OPTIONS: Array<{
+  value: VentilationSystemType;
+  label: string;
+}> = (
+  ["system_a", "system_b", "system_c", "system_d", "system_e"] as const
+).map((value) => ({
+  value,
+  label: VENTILATION_SYSTEM_LABELS[value] ?? value,
+}));
 
 // ---------------------------------------------------------------------------
 // Component
@@ -85,13 +78,8 @@ export function VentilationPanel() {
     useProjectStore();
 
   const v1Vent = project.ventilation;
-  const currentSystem: VentilationSystemKind = v1ToV2SystemType(v1Vent.system_type);
-
-  const hasSupply =
-    currentSystem === "mech_balanced" || currentSystem === "mech_supply";
-  const hasExhaust =
-    currentSystem === "mech_balanced" || currentSystem === "mech_exhaust";
-  const hasHeatRecoveryUi = currentSystem === "mech_balanced";
+  const currentSystem: VentilationSystemType = v1Vent.system_type;
+  const { hasSupply, hasExhaust, hasWtw } = SYSTEM_CAPABILITIES[currentSystem];
 
   const updateVentilation = useCallback(
     (partial: Partial<VentilationConfig>) => {
@@ -101,12 +89,11 @@ export function VentilationPanel() {
   );
 
   const handleSystemChange = useCallback(
-    (next: VentilationSystemKind) => {
-      const v1Next = v2ToV1SystemType(next);
-      // WTW alleen behouden bij mech_balanced (V1 systeem D/E). Anders wissen.
-      const keepWtw = next === "mech_balanced";
+    (next: VentilationSystemType) => {
+      // WTW alleen behouden bij gebalanceerde systemen (D/E). Anders wissen.
+      const keepWtw = SYSTEM_CAPABILITIES[next].hasWtw;
       updateVentilation({
-        system_type: v1Next,
+        system_type: next,
         ...(keepWtw
           ? {}
           : {
@@ -164,13 +151,16 @@ export function VentilationPanel() {
     updateSharedExtra({ [key]: n });
   };
 
-  // Toon hint over hoe V2-velden zich verhouden tot V1 ISSO 51 ventilatie.
+  // Toon hint over hoe het WTW-veld zich verhoudt tot V1 ISSO 51 ventilatie.
   const heatRecoveryHint: HeatRecovery | null =
-    hasHeatRecoveryUi && v1Vent.has_heat_recovery && v1Vent.heat_recovery_efficiency != null
+    hasWtw &&
+    v1Vent.has_heat_recovery &&
+    v1Vent.heat_recovery_efficiency != null
       ? {
           efficiency: v1Vent.heat_recovery_efficiency,
           frost_protection:
-            v1Vent.frost_protection != null && v1Vent.frost_protection !== "unknown",
+            v1Vent.frost_protection != null &&
+            v1Vent.frost_protection !== "unknown",
           ...(v1Vent.supply_temperature != null
             ? { supply_temperature: v1Vent.supply_temperature }
             : {}),
@@ -178,63 +168,94 @@ export function VentilationPanel() {
       : null;
 
   return (
-    <Card title="Ventilatie (TO-juli / NTA 8800)">
+    <Card title="Ventilatie (ISSO 51 / TO-juli)">
       <div className="grid grid-cols-3 gap-4">
         <Select
-          id="ventilation_system_v2"
+          id="ventilation_system_type"
           label="Ventilatiesysteem"
           value={currentSystem}
-          options={V2_SYSTEM_OPTIONS}
+          options={VENTILATION_SYSTEM_OPTIONS}
           onChange={(e) =>
-            handleSystemChange(e.target.value as VentilationSystemKind)
+            handleSystemChange(e.target.value as VentilationSystemType)
           }
         />
-        <Input
-          id="infiltration_m3_per_h"
-          label="Basisinfiltratie"
-          type="number"
-          unit="m³/h"
-          step={1}
-          min={0}
-          placeholder="Auto (NTA 8800)"
-          value={infiltrationValue}
-          onChange={(e) =>
-            writeNumericExtra("infiltration_m3_per_h", e.target.value)
-          }
-        />
-        {hasSupply && (
-          <Input
-            id="mechanical_supply_m3_per_h"
-            label="Mechanische toevoer"
-            type="number"
-            unit="m³/h"
-            step={1}
-            min={0}
-            placeholder="Auto (NTA 8800)"
-            value={supplyValue}
-            onChange={(e) =>
-              writeNumericExtra("mechanical_supply_m3_per_h", e.target.value)
-            }
-          />
-        )}
-        {hasExhaust && (
-          <Input
-            id="mechanical_exhaust_m3_per_h"
-            label="Mechanische afvoer"
-            type="number"
-            unit="m³/h"
-            step={1}
-            min={0}
-            placeholder="Auto (NTA 8800)"
-            value={exhaustValue}
-            onChange={(e) =>
-              writeNumericExtra("mechanical_exhaust_m3_per_h", e.target.value)
-            }
-          />
-        )}
       </div>
 
-      {hasHeatRecoveryUi && (
+      <div className="mt-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+        <p className="mb-2 text-xs font-medium text-on-surface-secondary">
+          Debieten (optioneel — NTA 8800 / TO-juli)
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <Input
+              id="infiltration_m3_per_h"
+              label="Basisinfiltratie"
+              type="number"
+              unit="m³/h"
+              step={1}
+              min={0}
+              placeholder="Auto (NTA 8800)"
+              value={infiltrationValue}
+              onChange={(e) =>
+                writeNumericExtra("infiltration_m3_per_h", e.target.value)
+              }
+            />
+            <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+              TO-juli/NTA 8800 debiet-override. Niet de ISSO 51 luchtdichtheid
+              `qv10` (Gebouw-tabblad) — leeg laten = backend rekent zelf
+              (`default_ach`).
+            </p>
+          </div>
+          {hasSupply && (
+            <div>
+              <Input
+                id="mechanical_supply_m3_per_h"
+                label="Mechanische toevoer"
+                type="number"
+                unit="m³/h"
+                step={1}
+                min={0}
+                placeholder="Auto (NTA 8800)"
+                value={supplyValue}
+                onChange={(e) =>
+                  writeNumericExtra(
+                    "mechanical_supply_m3_per_h",
+                    e.target.value,
+                  )
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Optionele debiet-override; leeg laten = `default_ach`.
+              </p>
+            </div>
+          )}
+          {hasExhaust && (
+            <div>
+              <Input
+                id="mechanical_exhaust_m3_per_h"
+                label="Mechanische afvoer"
+                type="number"
+                unit="m³/h"
+                step={1}
+                min={0}
+                placeholder="Auto (NTA 8800)"
+                value={exhaustValue}
+                onChange={(e) =>
+                  writeNumericExtra(
+                    "mechanical_exhaust_m3_per_h",
+                    e.target.value,
+                  )
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Optionele debiet-override; leeg laten = `default_ach`.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {hasWtw && (
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
           <div>
             <Input
@@ -265,7 +286,9 @@ export function VentilationPanel() {
                 </span>
                 {heatRecoveryHint.supply_temperature != null && (
                   <>
-                    <span className="ml-2 text-on-surface-muted">θ_toevoer: </span>
+                    <span className="ml-2 text-on-surface-muted">
+                      θ_toevoer:{" "}
+                    </span>
                     <span className="font-semibold tabular-nums">
                       {heatRecoveryHint.supply_temperature}°C
                     </span>
