@@ -42,6 +42,9 @@ node_modules/
 frontend/dist/
 frontend/tsconfig.tsbuildinfo
 
+# Tauri generated (regenereren bij cargo build)
+src-tauri/gen/schemas/
+
 # Built installers (lokaal in PR 2; CI artifacts staan op GitHub)
 dist/installer/
 
