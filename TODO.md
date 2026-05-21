@@ -126,6 +126,9 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] Conflict detectie (optimistic locking)
 - [x] Auto-save + dark/light theme
 - [ ] Materialen: inline bewerken, lambda nat, zoekwoorden
+- [x] U_w kozijn-calculator Fase 1: `uw_breakdown`-datamodel + `Spacer`-enum (`7727e79`)
+- [ ] U_w kozijn-calculator Fase 2: rekenlogica + per-kozijn modal — zie `docs/uw-calculator-fase2-spec.md`
+- [ ] U_w kozijn-calculator Fase 3: `uw_breakdown`-onderbouwing in PDF-rapport
 
 ## Modeller features
 - [x] 2D/3D modeller met pan/zoom, grid, polygonen, wanden, ramen, deuren
