@@ -1,0 +1,174 @@
+{
+  "_meta": {
+    "description": "Profielsysteem-catalogus voor de U_w-kozijncalculator. Statische referentiedata, frontend-bundled (geen backend-call). Levert een representatieve U_f (profiel-U-waarde) per systeem.",
+    "how_to_add_a_profile": [
+      "Voeg een object toe aan de array 'profiles'.",
+      "Velden: id (uniek), manufacturer, system, material ('aluminium' | 'kunststof' | 'hout' | 'staal'), u_f (representatieve W/(m2.K)), note (optioneel).",
+      "u_f is een representatieve waarde voor het systeem op standaard-detailniveau (een U_f per kozijn).",
+      "id mag niet botsen met de gereserveerde waarde 'manual' (= optie Handmatig in de UI)."
+    ],
+    "disclaimer": "Publieke richtwaarde — verifieer bij de fabrikant/leverancier. De u_f-waarden hieronder zijn publiek bekende, plausibele richtwaarden bedoeld als startpunt en geen gecertificeerde of norm-claim. Profiel-U-waarden hangen sterk af van de exacte profielserie, isolatorgeometrie en detaillering; vraag de fabrikant om de geldende waarde voor het toegepaste systeem."
+  },
+  "profiles": [
+    {
+      "id": "reynaers-masterline-8",
+      "manufacturer": "Reynaers",
+      "system": "MasterLine 8 (HI+)",
+      "material": "aluminium",
+      "u_f": 1.4,
+      "note": "Thermisch onderbroken aluminium raamsysteem; HI+ variant."
+    },
+    {
+      "id": "reynaers-slimline-38",
+      "manufacturer": "Reynaers",
+      "system": "SlimLine 38 (slank profiel)",
+      "material": "aluminium",
+      "u_f": 2.4,
+      "note": "Slank stalen-look aluminium profiel; hogere U_f door geringe inbouwdiepte."
+    },
+    {
+      "id": "reynaers-concept-system-77",
+      "manufacturer": "Reynaers",
+      "system": "ConceptSystem 77",
+      "material": "aluminium",
+      "u_f": 1.8,
+      "note": "Aluminium raam-/deursysteem met 77 mm inbouwdiepte."
+    },
+    {
+      "id": "schueco-aws-90-si",
+      "manufacturer": "Schüco",
+      "system": "AWS 90.SI+ (hoog isolerend)",
+      "material": "aluminium",
+      "u_f": 1.3,
+      "note": "Aluminium raamsysteem 90 mm inbouwdiepte, hoog isolerende variant."
+    },
+    {
+      "id": "schueco-aws-75-si",
+      "manufacturer": "Schüco",
+      "system": "AWS 75.SI+",
+      "material": "aluminium",
+      "u_f": 1.7,
+      "note": "Aluminium raamsysteem 75 mm inbouwdiepte."
+    },
+    {
+      "id": "alcoa-kawneer-rt-72",
+      "manufacturer": "Alcoa / Kawneer",
+      "system": "RT 72 (raamsysteem)",
+      "material": "aluminium",
+      "u_f": 1.8,
+      "note": "Thermisch onderbroken aluminium raamsysteem, 72 mm."
+    },
+    {
+      "id": "alcoa-kawneer-rt-82-hi",
+      "manufacturer": "Alcoa / Kawneer",
+      "system": "RT 82 HI (hoog isolerend)",
+      "material": "aluminium",
+      "u_f": 1.5,
+      "note": "Aluminium raamsysteem 82 mm, hoog isolerende isolatorzone."
+    },
+    {
+      "id": "aliplast-imagine",
+      "manufacturer": "Aliplast",
+      "system": "Imagine (raamsysteem)",
+      "material": "aluminium",
+      "u_f": 1.6,
+      "note": "Thermisch onderbroken aluminium raam-/deursysteem."
+    },
+    {
+      "id": "aliplast-ultraglide",
+      "manufacturer": "Aliplast",
+      "system": "Ultraglide (schuifsysteem)",
+      "material": "aluminium",
+      "u_f": 2.0,
+      "note": "Aluminium hef-/schuifsysteem; hogere U_f door grote profielmassa."
+    },
+    {
+      "id": "kommerling-88-plus",
+      "manufacturer": "Kömmerling",
+      "system": "Kömmerling 88plus (kunststof)",
+      "material": "kunststof",
+      "u_f": 1.0,
+      "note": "Kunststof kozijnprofiel 88 mm inbouwdiepte, meerkamer."
+    },
+    {
+      "id": "kommerling-76-ad",
+      "manufacturer": "Kömmerling",
+      "system": "Kömmerling 76 AD",
+      "material": "kunststof",
+      "u_f": 1.3,
+      "note": "Kunststof kozijnprofiel 76 mm, aanslagdichting."
+    },
+    {
+      "id": "veka-softline-82",
+      "manufacturer": "Veka",
+      "system": "Softline 82 (MD)",
+      "material": "kunststof",
+      "u_f": 1.0,
+      "note": "Kunststof kozijnprofiel 82 mm, middendichting, zeskamer."
+    },
+    {
+      "id": "veka-softline-70",
+      "manufacturer": "Veka",
+      "system": "Softline 70 (AD)",
+      "material": "kunststof",
+      "u_f": 1.3,
+      "note": "Kunststof kozijnprofiel 70 mm, aanslagdichting."
+    },
+    {
+      "id": "deceuninck-zendow-neo",
+      "manufacturer": "Deceuninck",
+      "system": "Zendow#neo (kunststof)",
+      "material": "kunststof",
+      "u_f": 1.1,
+      "note": "Kunststof kozijnprofiel met afgeronde sponning, meerkamer."
+    },
+    {
+      "id": "deceuninck-elegant-83",
+      "manufacturer": "Deceuninck",
+      "system": "Elegant 83",
+      "material": "kunststof",
+      "u_f": 1.0,
+      "note": "Kunststof kozijnprofiel 83 mm inbouwdiepte."
+    },
+    {
+      "id": "hout-naaldhout-67",
+      "manufacturer": "Generiek (hout)",
+      "system": "Naaldhout kozijn 67 mm",
+      "material": "hout",
+      "u_f": 1.8,
+      "note": "Standaard houten kozijn (naaldhout, ρ ca. 500 kg/m3), profieldikte ca. 67 mm."
+    },
+    {
+      "id": "hout-naaldhout-90",
+      "manufacturer": "Generiek (hout)",
+      "system": "Naaldhout kozijn 90 mm",
+      "material": "hout",
+      "u_f": 1.5,
+      "note": "Dik houten kozijn (naaldhout), grotere profieldikte verlaagt U_f."
+    },
+    {
+      "id": "hout-hardhout-67",
+      "manufacturer": "Generiek (hout)",
+      "system": "Hardhout kozijn 67 mm",
+      "material": "hout",
+      "u_f": 2.0,
+      "note": "Hardhouten kozijn (ρ ca. 700 kg/m3); hogere dichtheid geeft iets hogere U_f."
+    },
+    {
+      "id": "staal-thermisch-onderbroken",
+      "manufacturer": "Generiek (staal)",
+      "system": "Stalen profiel — thermisch onderbroken",
+      "material": "staal",
+      "u_f": 2.4,
+      "note": "Thermisch onderbroken stalen kozijnprofiel (stalen-look serie)."
+    },
+    {
+      "id": "staal-niet-onderbroken",
+      "manufacturer": "Generiek (staal)",
+      "system": "Stalen profiel — niet thermisch onderbroken",
+      "material": "staal",
+      "u_f": 5.9,
+      "note": "Klassiek stalen kozijn zonder thermische onderbreking; sterk warmtelekkend."
+    }
+  ]
+}

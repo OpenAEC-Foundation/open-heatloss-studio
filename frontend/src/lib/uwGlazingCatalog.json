@@ -1,0 +1,70 @@
+{
+  "_meta": {
+    "description": "Glasopbouw-catalogus voor de U_w-kozijncalculator. Statische referentiedata, frontend-bundled (geen backend-call). Levert een representatieve U_g (centrum-glas-U-waarde) per opbouw.",
+    "how_to_add_a_glazing": [
+      "Voeg een object toe aan de array 'glazings'.",
+      "Velden: id (uniek), name, panes (aantal glasbladen), u_g (representatieve W/(m2.K)), note (optioneel).",
+      "u_g is de centrum-glas-U-waarde; de beglazingsrand Ψ_g wordt apart in de calculator gekozen.",
+      "id mag niet botsen met de gereserveerde waarde 'manual' (= optie Handmatig in de UI)."
+    ],
+    "disclaimer": "Publieke richtwaarde — verifieer bij de fabrikant/leverancier. De u_g-waarden hieronder zijn publiek bekende, plausibele richtwaarden bedoeld als startpunt en geen gecertificeerde of norm-claim. De werkelijke U_g hangt af van de spouwbreedte, vulgas (lucht/argon/krypton), coating-emissiviteit en het aantal coatings; vraag de glasleverancier om de geldende waarde voor de toegepaste opbouw."
+  },
+  "glazings": [
+    {
+      "id": "enkel-glas",
+      "name": "Enkel glas",
+      "panes": 1,
+      "u_g": 5.8,
+      "note": "Eén glasblad, geen spouw. Alleen in bestaande bouw / monumenten."
+    },
+    {
+      "id": "dubbel-glas-blank",
+      "name": "Dubbel glas (blank, niet-coated)",
+      "panes": 2,
+      "u_g": 2.9,
+      "note": "Klassiek isolatieglas zonder coating, luchtgevulde spouw."
+    },
+    {
+      "id": "hr-glas",
+      "name": "HR-glas",
+      "panes": 2,
+      "u_g": 2.0,
+      "note": "Dubbel glas met één hoogrendement-coating, luchtspouw."
+    },
+    {
+      "id": "hr-plus-glas",
+      "name": "HR+-glas",
+      "panes": 2,
+      "u_g": 1.6,
+      "note": "Dubbel glas met verbeterde coating, luchtspouw."
+    },
+    {
+      "id": "hr-plusplus-glas",
+      "name": "HR++-glas",
+      "panes": 2,
+      "u_g": 1.1,
+      "note": "Dubbel glas, low-e coating + argonvulling. Gangbare standaard NL nieuwbouw."
+    },
+    {
+      "id": "hr-plusplusplus-glas",
+      "name": "HR+++-glas (triple)",
+      "panes": 3,
+      "u_g": 0.7,
+      "note": "Drievoudig glas met twee low-e coatings + argon/krypton-vulling."
+    },
+    {
+      "id": "triple-hr-krypton",
+      "name": "Triple HR+++ (krypton)",
+      "panes": 3,
+      "u_g": 0.5,
+      "note": "Drievoudig glas met krypton-vulling en smalle spouwen; hoogste prestatie."
+    },
+    {
+      "id": "vacuumglas",
+      "name": "Vacuümglas",
+      "panes": 2,
+      "u_g": 0.7,
+      "note": "Dun vacuümglas; geschikt voor renovatie van bestaande sponningen."
+    }
+  ]
+}

@@ -1,10 +1,22 @@
 /**
- * Ψ_g-spacertabel — TS-mirror van `nta8800-tables::glazing_edge::SpacerKind`.
+ * Ψ_g-spacertabel — engineering-richtwaarden voor de samengestelde
+ * raam-U-waarde (U_w).
  *
  * De lineaire warmtedoorgangscoëfficiënt van de beglazingsrand (Ψ_g, de
  * "glazing edge"-bijdrage) hangt af van het type randafstandhouder tussen de
- * glasbladen. Vier representatieve waarden conform NEN-EN-ISO 10077-1; een
- * Rust-bridge voor deze vier getallen zou disproportioneel zijn.
+ * glasbladen.
+ *
+ * Deze tabel is **geen** mirror (meer) van de NTA 8800 bijlage L Rust-tabel
+ * `nta8800-tables::glazing_edge`. Die Rust-tabel hoort bij een eigen
+ * norm-context (NTA 8800 / TO-juli) en is voor de U_w-berekening hier te hoog.
+ *
+ * Belangrijke simplificatie: deze tabel geeft één Ψ_g-waarde per spacer-type.
+ * In werkelijkheid hangt Ψ_g óók af van het glastype (dubbel/triple) en het
+ * kozijnmateriaal (hout/kunststof/metaal) — EN-ISO 10077-1 Annex E geeft
+ * daarvoor een tabellenkader. De waarden hieronder zijn bewuste
+ * engineering-richtwaarden, geijkt op het gangbare geval: HR++ dubbelglas in
+ * een courant kozijn. Voor afwijkende combinaties gebruikt de gebruiker de
+ * handmatige Ψ_g-override in de calculator.
  *
  * Pure data + lookup — geen React, geen store.
  */
@@ -12,15 +24,19 @@
 import type { Spacer } from "../types/project";
 
 /**
- * Ψ_g-waarde per randafstandhouder-type in W/(m·K).
+ * Ψ_g-waarde per randafstandhouder-type in W/(m·K) — engineering-richtwaarden
+ * voor HR++ dubbelglas, geïnspireerd op het EN-ISO 10077-1 Annex E-kader.
  *
- * - `aluminium` — conventionele aluminium afstandhouder (hoogste warmtelek).
- * - `stainless` — RVS afstandhouder.
+ * - `aluminium` — conventionele metalen afstandhouder.
+ * - `stainless` — RVS afstandhouder; in deze richttabel dezelfde 0,06 als
+ *   aluminium, omdat het verschil tussen beide metalen afstandhouders binnen
+ *   de onzekerheidsmarge van deze simplificatie valt. Voor een fijnmaziger
+ *   onderscheid: de handmatige Ψ_g-override.
  * - `warm_edge_polymer` — kunststof "warm edge" afstandhouder.
  * - `warm_edge_foam` — schuim "warm edge" afstandhouder (laagste warmtelek).
  */
 export const SPACER_PSI_G: Record<Spacer, number> = {
-  aluminium: 0.08,
+  aluminium: 0.06,
   stainless: 0.06,
   warm_edge_polymer: 0.04,
   warm_edge_foam: 0.02,
