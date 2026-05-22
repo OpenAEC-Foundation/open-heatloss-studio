@@ -262,13 +262,55 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
   });
 }
 
+/**
+ * Detect whether a response indicates an expired/missing Authentik session.
+ *
+ * An `authFetch` call always targets a same-origin API endpoint, so the only
+ * realistic reason it gets redirected or returns the Authentik login HTML is
+ * the forward_auth proxy bouncing the (cookie-authenticated) request to its
+ * login page. We treat three signals as "session expired":
+ *
+ *  1. `res.redirected` — `fetch` transparently followed a 30x to the Authentik
+ *     login screen; the request never reached the API.
+ *  2. `res.status` 401 / 403 — backend (or proxy) explicitly rejected us.
+ *  3. `res.ok` but the body is HTML — the Authentik login page came back with
+ *     a 200, which would otherwise crash `res.json()` with a cryptic
+ *     SyntaxError. We match HTML *positively* (not "non-JSON") so that a
+ *     legitimate 204 No Content / empty-body 2xx response is not flagged.
+ */
+function isSessionExpired(res: Response): boolean {
+  if (res.redirected) return true;
+  if (res.status === 401 || res.status === 403) return true;
+  if (res.ok) {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("html")) return true;
+  }
+  return false;
+}
+
 /** Parse JSON response or throw with error detail. */
 async function parseResponse<T>(res: Response): Promise<T> {
+  if (isSessionExpired(res)) {
+    throw new SessionExpiredError("Je sessie is verlopen — log opnieuw in.");
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+/**
+ * Thrown when an authenticated API call hits an expired Authentik session.
+ *
+ * The UI catches this to show a "log in again" message instead of a cryptic
+ * JSON parse error (the Authentik login page is HTML, not JSON).
+ */
+export class SessionExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SessionExpiredError";
+  }
 }
 
 // ---------------------------------------------------------------------------

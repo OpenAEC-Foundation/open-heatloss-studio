@@ -49,6 +49,15 @@
   "reportGenerated": "Report generated",
   "reportFailed": "Report generation failed",
   "projectExported": "Project exported",
+  "saveStatus": {
+    "saved": "Project saved",
+    "reconnected": "Connection restored — saving...",
+    "sessionExpired": "Your session has expired — log in again to save to the server.",
+    "loginAgain": "Log in again",
+    "offline": "No connection — will be saved as soon as you are back online",
+    "conflict": "Project was changed elsewhere — reload the project.",
+    "failed": "Save failed: {{detail}}"
+  },
   "sidebar": {
     "calculation": "Calculation",
     "tools": "Tools",
