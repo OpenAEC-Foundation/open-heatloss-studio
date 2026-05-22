@@ -155,6 +155,7 @@
     "manualPsiG": "Manual Ψ_g",
     "normRef": "U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f) — NEN-EN-ISO 10077-1.",
     "invalidInput": "Check the input values.",
+    "invalidEditParams": "The construction element to edit no longer exists — returning to constructions.",
     "fields": {
       "width": "Width [mm]",
       "height": "Height [mm]",
@@ -180,6 +181,7 @@
       "glazingPlaceholder": "Select a glazing build-up or \"Manual\"",
       "profileSource": "Source: {{manufacturer}} — {{system}}",
       "glazingSource": "Source: {{name}}",
+      "sourceLabel": "Source: {{source}}",
       "disclaimer": "Public reference value — verify with the manufacturer/supplier."
     }
   }

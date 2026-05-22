@@ -1068,10 +1068,24 @@
           "format": "double",
           "type": "number"
         },
+        "u_f_source": {
+          "description": "Herkomst van U_f — vrije-tekst label van het gekozen profielsysteem (bv. `\"Reynaers — MasterLine 8\"`). `None` bij handmatige invoer. Vrije tekst, géén catalogus-id — robuust tegen catalogus-wijzigingen.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "u_g": {
           "description": "Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier.",
           "format": "double",
           "type": "number"
+        },
+        "u_g_source": {
+          "description": "Herkomst van U_g — vrije-tekst label van de gekozen glasopbouw (bv. `\"Triple glas — U_g 0.60\"`). `None` bij handmatige invoer. Vrije tekst, géén catalogus-id — robuust tegen catalogus-wijzigingen.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "u_w": {
           "description": "Resultaat: samengestelde raam-U-waarde U_w in W/(m²·K).",

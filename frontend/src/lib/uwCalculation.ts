@@ -269,12 +269,33 @@ export function calculateUw(input: UwInput): UwResult {
 // ---------- UwBreakdown-brug ----------
 
 /**
+ * Herkomst-labels van U_g en U_f — vrije tekst van de gekozen catalogus-entry.
+ * Pure metadata: geen reken-input, alleen voor weergave in rapport en UI.
+ * Een veld is `undefined` zolang de bijbehorende waarde handmatig is ingevoerd.
+ */
+export interface UwSources {
+  /** Vrije-tekst label van de gekozen glasopbouw, of `undefined` bij handmatig. */
+  u_g_source?: string;
+  /** Vrije-tekst label van het gekozen profielsysteem, of `undefined` bij handmatig. */
+  u_f_source?: string;
+}
+
+/**
  * Stel een persistent `UwBreakdown`-record samen uit invoer + resultaat.
  * De afgeleide velden worden gecachet op het record (herberekenbaar via
  * `calculateUw`). Bedoeld voor Fase 3 (opslaan op het kozijn-element).
+ *
+ * `sources` is optionele herkomst-metadata (catalogus-labels van U_g/U_f);
+ * lege of afwezige labels worden niet weggeschreven. Een lege string telt
+ * via de truthy-filter als "afwezig" — alleen niet-lege labels belanden op
+ * het `UwBreakdown`-record, zodat een leeg label geen kale veld-key oplevert.
  */
-export function toUwBreakdown(input: UwInput, result: UwResult): UwBreakdown {
-  return {
+export function toUwBreakdown(
+  input: UwInput,
+  result: UwResult,
+  sources?: UwSources,
+): UwBreakdown {
+  const breakdown: UwBreakdown = {
     width_mm: input.width_mm,
     height_mm: input.height_mm,
     frame_width_mm: input.frame_width_mm,
@@ -290,6 +311,9 @@ export function toUwBreakdown(input: UwInput, result: UwResult): UwBreakdown {
     l_g_m: result.geometry.l_g_m,
     u_w: result.u_w,
   };
+  if (sources?.u_g_source) breakdown.u_g_source = sources.u_g_source;
+  if (sources?.u_f_source) breakdown.u_f_source = sources.u_f_source;
+  return breakdown;
 }
 
 /** Lees een opgeslagen `UwBreakdown` terug in als `UwInput` (Fase 3). */
@@ -305,5 +329,13 @@ export function fromUwBreakdown(b: UwBreakdown): UwInput {
     spacer: b.spacer ?? null,
     psi_g: b.psi_g,
     psi_g_is_manual: b.psi_g_is_manual,
+  };
+}
+
+/** Lees de herkomst-labels (U_g/U_f) terug uit een opgeslagen `UwBreakdown`. */
+export function sourcesFromUwBreakdown(b: UwBreakdown): UwSources {
+  return {
+    u_g_source: b.u_g_source,
+    u_f_source: b.u_f_source,
   };
 }

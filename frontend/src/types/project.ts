@@ -143,8 +143,18 @@ export interface UwBreakdown {
   pane_rows: number;
   /** Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier. */
   u_g: number;
+  /**
+   * Herkomst van U_g — vrije-tekst label van de gekozen glasopbouw.
+   * Afwezig bij handmatige invoer. Vrije tekst, geen catalogus-id.
+   */
+  u_g_source?: string;
   /** Profiel-U-waarde U_f in W/(m²·K) — handmatige invoer van de profielfabrikant. */
   u_f: number;
+  /**
+   * Herkomst van U_f — vrije-tekst label van het gekozen profielsysteem.
+   * Afwezig bij handmatige invoer. Vrije tekst, geen catalogus-id.
+   */
+  u_f_source?: string;
   /**
    * Type randafstandhouder voor de Ψ_g-tabelwaarde.
    * `null`/afwezig = volledig handmatige Ψ_g-invoer.

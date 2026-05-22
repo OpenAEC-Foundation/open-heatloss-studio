@@ -942,28 +942,39 @@ function buildUwBreakdownSection(
       text: `<b>${label}</b>`,
     });
     content.push({ type: "spacer", height_mm: 1 });
+    const rows: string[][] = [
+      ["Raamafmeting (b × h)", `${b.width_mm} × ${b.height_mm} mm`],
+      ["Profielbreedte", `${b.frame_width_mm} mm`],
+      [
+        "Ruit-indeling (kolommen × rijen)",
+        `${b.pane_columns} × ${b.pane_rows}`,
+      ],
+      ["A_g (glasoppervlak)", `${b.a_g_m2.toFixed(4)} m²`],
+      ["A_f (profieloppervlak)", `${b.a_f_m2.toFixed(4)} m²`],
+      ["l_g (glasrand-omtrek)", `${b.l_g_m.toFixed(3)} m`],
+      [
+        "U_g (glas)",
+        b.u_g_source
+          ? `${fmt2(b.u_g)} W/m²·K (${b.u_g_source})`
+          : `${fmt2(b.u_g)} W/m²·K`,
+      ],
+      [
+        "U_f (profiel)",
+        b.u_f_source
+          ? `${fmt2(b.u_f)} W/m²·K (${b.u_f_source})`
+          : `${fmt2(b.u_f)} W/m²·K`,
+      ],
+      [
+        "Ψ_g (beglazingsrand)",
+        `${b.psi_g.toFixed(3)} W/m·K (${psiGSource})`,
+      ],
+      ["<b>U_w</b>", `<b>${b.u_w.toFixed(3)} W/m²·K</b>`],
+    ];
     content.push({
       type: "table",
       title: "U_w-opbouw",
       headers: ["Parameter", "Waarde"],
-      rows: [
-        ["Raamafmeting (b × h)", `${b.width_mm} × ${b.height_mm} mm`],
-        ["Profielbreedte", `${b.frame_width_mm} mm`],
-        [
-          "Ruit-indeling (kolommen × rijen)",
-          `${b.pane_columns} × ${b.pane_rows}`,
-        ],
-        ["A_g (glasoppervlak)", `${b.a_g_m2.toFixed(4)} m²`],
-        ["A_f (profieloppervlak)", `${b.a_f_m2.toFixed(4)} m²`],
-        ["l_g (glasrand-omtrek)", `${b.l_g_m.toFixed(3)} m`],
-        ["U_g (glas)", `${fmt2(b.u_g)} W/m²·K`],
-        ["U_f (profiel)", `${fmt2(b.u_f)} W/m²·K`],
-        [
-          "Ψ_g (beglazingsrand)",
-          `${b.psi_g.toFixed(3)} W/m·K (${psiGSource})`,
-        ],
-        ["<b>U_w</b>", `<b>${b.u_w.toFixed(3)} W/m²·K</b>`],
-      ],
+      rows,
     });
     content.push({ type: "spacer", height_mm: 5 });
   }
