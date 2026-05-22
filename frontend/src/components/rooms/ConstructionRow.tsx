@@ -1,4 +1,5 @@
 import { memo, useCallback, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   BOUNDARY_TYPE_LABELS,
@@ -70,6 +71,7 @@ export const ConstructionCells = memo(function ConstructionCells({
   ownerRoomId,
 }: ConstructionCellsProps) {
   const [layerEditorOpen, setLayerEditorOpen] = useState(false);
+  const navigate = useNavigate();
 
   const projectConstructions = useModellerStore(
     (s) => s.projectConstructions,
@@ -118,6 +120,12 @@ export const ConstructionCells = memo(function ConstructionCells({
     (v: string) => onUpdate({ u_value: Number(v) || 0 }),
     [onUpdate],
   );
+
+  // Navigeer naar de U_w-calculator in edit-modus voor dit kozijn-element.
+  const handleOpenUwCalculator = useCallback(() => {
+    if (!ownerRoomId) return;
+    navigate(`/uw?room=${ownerRoomId}&element=${construction.id}`);
+  }, [navigate, ownerRoomId, construction.id]);
 
   const handleApplyLayers = useCallback(
     (layers: ConstructionElementLayer[], uValue: number) => {
@@ -285,6 +293,19 @@ export const ConstructionCells = memo(function ConstructionCells({
                 title="Constructie-opbouw bewerken"
               >
                 {layerCount > 0 ? `${layerCount} lagen` : "Lagen"}
+              </button>
+            )}
+            {(isFrame || construction.uw_breakdown) && (
+              <button
+                onClick={handleOpenUwCalculator}
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${
+                  construction.uw_breakdown
+                    ? "bg-blue-600/15 text-blue-400 hover:bg-blue-600/25"
+                    : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
+                }`}
+                title="U_w-opbouw bewerken in de kozijn-calculator"
+              >
+                U_w-opbouw
               </button>
             )}
           </div>

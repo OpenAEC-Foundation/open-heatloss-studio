@@ -3,7 +3,13 @@
  *
  * Output conform report.schema.json (OpenAEC Reports API).
  */
-import type { Project, ProjectResult, Room, RoomResult } from "../types";
+import type {
+  ConstructionElement,
+  Project,
+  ProjectResult,
+  Room,
+  RoomResult,
+} from "../types";
 import type { ProjectConstruction } from "../components/modeller/types";
 import {
   BOUNDARY_TYPE_LABELS,
@@ -18,6 +24,7 @@ import {
 } from "./constants";
 import { calculateRc, type LayerInput } from "./rcCalculation";
 import { getMaterialById } from "./materialsDatabase";
+import { SPACER_LABELS_NL } from "./spacerTable";
 import {
   buildConstructionLossSvg,
   buildStackedBarSvg,
@@ -107,6 +114,7 @@ export async function buildReportData(
   const tojuliSection = toggles.tojuli
     ? await buildTojuliSection(project)
     : null;
+  const uwSection = buildUwBreakdownSection(project);
 
   return {
     template: "standaard_rapport",
@@ -216,6 +224,7 @@ export async function buildReportData(
       ...(toggles.diagrammen && diagrammenSection ? [diagrammenSection] : []),
       ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(result)] : []),
       ...(toggles.constructies && constructiesSection ? [constructiesSection] : []),
+      ...(toggles.constructies && uwSection ? [uwSection] : []),
       // "Vertrekken" is één parent-sectie (level 1) met overzicht-tabel als
       // eerste content, gevolgd door per-vertrek sub-chapters (level 2). In
       // de TOC krijgen de rooms zo automatisch een geneste positie.
@@ -872,6 +881,95 @@ async function buildConstructiesSection(
 
   return {
     title: "Constructie-opbouw & Rc-waarden",
+    level: 1,
+    content,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// U_w-opbouw — samengestelde raam-U-waarde per kozijn-element
+// ---------------------------------------------------------------------------
+
+/** Build the "U_w-opbouw kozijnen" section.
+ *
+ * Loopt over alle constructie-elementen in alle vertrekken en voegt voor
+ * elk element met een `uw_breakdown` een opbouw-tabel toe (raamafmetingen,
+ * ruit-indeling, geometrie, U_g/U_f/Ψ_g en de resulterende U_w volgens
+ * NEN-EN-ISO 10077-1).
+ *
+ * Returns null wanneer geen enkel element een `uw_breakdown` heeft.
+ */
+function buildUwBreakdownSection(
+  project: Project,
+): Record<string, unknown> | null {
+  // Verzamel (vertreknaam, element) paren met een uw_breakdown.
+  const entries: { roomName: string; element: ConstructionElement }[] = [];
+  for (const room of project.rooms) {
+    for (const el of room.constructions ?? []) {
+      if (el.uw_breakdown) {
+        entries.push({ roomName: room.name, element: el });
+      }
+    }
+  }
+  if (entries.length === 0) return null;
+
+  const content: Record<string, unknown>[] = [
+    {
+      type: "paragraph",
+      text:
+        "Onderbouwing van de samengestelde raam-U-waarde U_w voor de " +
+        "kozijn-elementen volgens NEN-EN-ISO 10077-1: " +
+        "<b>U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f)</b>.",
+    },
+    { type: "spacer", height_mm: 4 },
+  ];
+
+  for (const { roomName, element } of entries) {
+    const b = element.uw_breakdown;
+    if (!b) continue;
+
+    const psiGSource =
+      b.psi_g_is_manual || !b.spacer
+        ? "handmatige invoer"
+        : `tabelwaarde — ${SPACER_LABELS_NL[b.spacer]}`;
+
+    const label = element.description
+      ? `${element.description} — ${roomName}`
+      : roomName;
+
+    content.push({
+      type: "paragraph",
+      text: `<b>${label}</b>`,
+    });
+    content.push({ type: "spacer", height_mm: 1 });
+    content.push({
+      type: "table",
+      title: "U_w-opbouw",
+      headers: ["Parameter", "Waarde"],
+      rows: [
+        ["Raamafmeting (b × h)", `${b.width_mm} × ${b.height_mm} mm`],
+        ["Profielbreedte", `${b.frame_width_mm} mm`],
+        [
+          "Ruit-indeling (kolommen × rijen)",
+          `${b.pane_columns} × ${b.pane_rows}`,
+        ],
+        ["A_g (glasoppervlak)", `${b.a_g_m2.toFixed(4)} m²`],
+        ["A_f (profieloppervlak)", `${b.a_f_m2.toFixed(4)} m²`],
+        ["l_g (glasrand-omtrek)", `${b.l_g_m.toFixed(3)} m`],
+        ["U_g (glas)", `${fmt2(b.u_g)} W/m²·K`],
+        ["U_f (profiel)", `${fmt2(b.u_f)} W/m²·K`],
+        [
+          "Ψ_g (beglazingsrand)",
+          `${b.psi_g.toFixed(3)} W/m·K (${psiGSource})`,
+        ],
+        ["<b>U_w</b>", `<b>${b.u_w.toFixed(3)} W/m²·K</b>`],
+      ],
+    });
+    content.push({ type: "spacer", height_mm: 5 });
+  }
+
+  return {
+    title: "U_w-opbouw kozijnen",
     level: 1,
     content,
   };

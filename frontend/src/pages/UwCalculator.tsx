@@ -1,15 +1,23 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "../components/layout/PageHeader";
+import { Button } from "../components/ui/Button";
+import { generateReportDirect } from "../lib/reportClient";
 import {
   calculateUw,
   computeGeometry,
+  fromUwBreakdown,
   resolvePsiG,
+  toUwBreakdown,
   validateUwInput,
   type UwInput,
 } from "../lib/uwCalculation";
+import { buildUwReportData } from "../lib/uwReportBuilder";
 import { SPACER_LABELS_NL, SPACER_ORDER, spacerPsiG } from "../lib/spacerTable";
+import { useProjectStore } from "../store/projectStore";
+import { useToastStore } from "../store/toastStore";
 import type { Spacer } from "../types/project";
 
 // ---------- Constanten ----------
@@ -32,6 +40,17 @@ const DEFAULT_INPUT: UwInput = {
 
 export function UwCalculator() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Edit-modus: kozijn-element bewerken vanuit de constructies-pagina.
+  const editRoomId = searchParams.get("room");
+  const editConstructionId = searchParams.get("element");
+  const isEditMode = !!editRoomId && !!editConstructionId;
+
+  const projectRooms = useProjectStore((s) => s.project.rooms);
+  const updateConstruction = useProjectStore((s) => s.updateConstruction);
+  const addToast = useToastStore((s) => s.addToast);
 
   // Geometrie + materiaal
   const [widthMm, setWidthMm] = useState<number>(DEFAULT_INPUT.width_mm);
@@ -95,6 +114,66 @@ export function UwCalculator() {
   const errorFor = (field: string): string | undefined =>
     errors.find((e) => e.field === field)?.message;
 
+  // Opslaan-feedback + rapport-status
+  const [saved, setSaved] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // ---------- Opslaan op het kozijn-element ----------
+
+  const handleSave = useCallback(() => {
+    if (!isEditMode || !result) return;
+    const breakdown = toUwBreakdown(input, result);
+    updateConstruction(editRoomId!, editConstructionId!, {
+      uw_breakdown: breakdown,
+      u_value: result.u_w,
+    });
+    setSaved(true);
+    setTimeout(() => {
+      setSaved(false);
+      navigate("/constructies");
+    }, 1000);
+  }, [
+    isEditMode,
+    result,
+    input,
+    updateConstruction,
+    editRoomId,
+    editConstructionId,
+    navigate,
+  ]);
+
+  // ---------- Zelfstandig U_w-rapport ----------
+
+  const handleGenerateReport = useCallback(async () => {
+    if (!result) return;
+    setIsGenerating(true);
+    const reportName = t("uw.reportName");
+    try {
+      const reportData = await buildUwReportData({
+        name: reportName,
+        input,
+        result,
+      });
+      const blob = await generateReportDirect(reportData);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${reportName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      addToast(t("uw.reportSuccess"), "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("uw.reportError");
+      addToast(`${t("uw.reportFailed")}: ${message}`, "error", 5000);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [result, input, addToast, t]);
+
   // Spacer-keuze vult Ψ_g (en kantelt terug naar tabel-modus).
   const handleSpacerChange = (next: Spacer) => {
     setSpacer(next);
@@ -107,6 +186,39 @@ export function UwCalculator() {
     if (manual) setPsiGManual(spacerPsiG(spacer) ?? psiGManual);
   };
 
+  // ---------- Edit-modus: bestaande uw_breakdown inladen ----------
+
+  // Bewaakt dat de edit-load eenmalig draait. Re-runt bij projectRooms-
+  // updates tot het element gevonden is (Zustand persist hydrateert
+  // asynchroon); daarna ref-guard zodat verdere store-updates de lopende
+  // edits van de gebruiker niet overschrijven.
+  const hasInitializedEditRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!isEditMode || hasInitializedEditRef.current) return;
+    const room = projectRooms.find((r) => r.id === editRoomId);
+    const element = room?.constructions.find(
+      (c) => c.id === editConstructionId,
+    );
+    if (!element) return;
+    // Markeer als geïnitialiseerd: ook zonder bestaande uw_breakdown is dit
+    // een geldige edit-load (kozijn dat nog geen U_w-opbouw heeft → defaults).
+    hasInitializedEditRef.current = true;
+    const b = element.uw_breakdown;
+    if (!b) return;
+    const loaded = fromUwBreakdown(b);
+    setWidthMm(loaded.width_mm);
+    setHeightMm(loaded.height_mm);
+    setFrameWidthMm(loaded.frame_width_mm);
+    setPaneColumns(loaded.pane_columns);
+    setPaneRows(loaded.pane_rows);
+    setUG(loaded.u_g);
+    setUF(loaded.u_f);
+    setPsiGIsManual(loaded.psi_g_is_manual);
+    if (loaded.spacer) setSpacer(loaded.spacer);
+    setPsiGManual(loaded.psi_g);
+  }, [isEditMode, editRoomId, editConstructionId, projectRooms]);
+
   const inputClass =
     "w-full rounded border border-[var(--oaec-border)] px-2.5 py-1.5 text-sm tabular-nums focus:border-primary focus:outline-none";
 
@@ -114,8 +226,26 @@ export function UwCalculator() {
     <div className="flex h-full flex-col">
       <PageHeader
         title={t("uw.title")}
-        subtitle={t("uw.subtitle")}
-        breadcrumbs={[{ label: t("uw.title") }]}
+        subtitle={isEditMode ? t("uw.editSubtitle") : t("uw.subtitle")}
+        breadcrumbs={
+          isEditMode
+            ? [
+                { label: t("uw.breadcrumbConstructions"), to: "/constructies" },
+                { label: t("uw.editTitle") },
+              ]
+            : [{ label: t("uw.title") }]
+        }
+        actions={
+          isEditMode ? (
+            <button
+              type="button"
+              onClick={() => navigate("/constructies")}
+              className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
+            >
+              {t("uw.backToConstructions")}
+            </button>
+          ) : undefined
+        }
       />
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -350,6 +480,28 @@ export function UwCalculator() {
                 {errors[0]?.message ?? t("uw.invalidInput")}
               </div>
             )}
+
+            {/* Acties — rapport + (in edit-modus) opslaan */}
+            <div className="mt-3 flex items-center justify-end gap-2 border-t border-[var(--oaec-border)] pt-3">
+              {saved && (
+                <span className="text-xs text-green-400">
+                  {t("uw.savedFeedback")}
+                </span>
+              )}
+              <Button
+                variant="secondary"
+                onClick={handleGenerateReport}
+                disabled={isGenerating || !result}
+                size="md"
+              >
+                {isGenerating ? t("uw.generating") : t("uw.report")}
+              </Button>
+              {isEditMode && (
+                <Button onClick={handleSave} disabled={!result} size="md">
+                  {t("uw.save")}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
