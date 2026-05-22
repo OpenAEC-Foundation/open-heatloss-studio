@@ -10,9 +10,11 @@ import {
   computeGeometry,
   fromUwBreakdown,
   resolvePsiG,
+  sourcesFromUwBreakdown,
   toUwBreakdown,
   validateUwInput,
   type UwInput,
+  type UwSources,
 } from "../lib/uwCalculation";
 import { buildUwReportData } from "../lib/uwReportBuilder";
 import {
@@ -78,13 +80,20 @@ export function UwCalculator() {
   const [uG, setUG] = useState<number>(DEFAULT_INPUT.u_g);
   const [uF, setUF] = useState<number>(DEFAULT_INPUT.u_f);
 
-  // Catalogus-keuze is puur UI-lokaal — alleen de gekozen U_f/U_g-getallen
-  // worden bewaard, de herkomst-id niet (zou een schema-wijziging vereisen).
-  // `MANUAL_UW_ID` = vrije invoer behouden.
+  // Catalogus-keuze is puur UI-lokaal — naast het gekozen U_f/U_g-getal
+  // wordt een vrije-tekst herkomst-label bewaard (`u_f_source`/`u_g_source`
+  // op `UwBreakdown`) zodat het rapport merk/systeem toont i.p.v. een kaal
+  // getal. `MANUAL_UW_ID` = vrije invoer, geen herkomst-label.
   const [selectedProfileId, setSelectedProfileId] =
     useState<string>(MANUAL_UW_ID);
   const [selectedGlazingId, setSelectedGlazingId] =
     useState<string>(MANUAL_UW_ID);
+
+  // Herkomst-labels — vrije tekst, gevuld bij een catalogus-keuze en bewaard
+  // op het kozijn-element. Bij een opgeslagen kozijn herladen we het label
+  // (de selector-rematch laten we los: het label is leidend voor weergave).
+  const [uGSource, setUGSource] = useState<string | undefined>(undefined);
+  const [uFSource, setUFSource] = useState<string | undefined>(undefined);
 
   // Ψ_g — spacer-keuze + handmatige override
   const [spacer, setSpacer] = useState<Spacer>("aluminium");
@@ -135,21 +144,46 @@ export function UwCalculator() {
   const errorFor = (field: string): string | undefined =>
     errors.find((e) => e.field === field)?.message;
 
+  // Herkomst-metadata — meegegeven aan opslag en rapport.
+  const sources = useMemo<UwSources>(
+    () => ({ u_g_source: uGSource, u_f_source: uFSource }),
+    [uGSource, uFSource],
+  );
+
   // Opslaan-feedback + rapport-status
   const [saved, setSaved] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // ---------- Opslaan op het kozijn-element ----------
 
+  // Timeout-id van de "opgeslagen → terug naar constructies"-navigatie.
+  // Bewaard in een ref zodat de unmount-cleanup hem kan opruimen en er geen
+  // setState/navigate op een ge-unmounte component plaatsvindt.
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSave = useCallback(() => {
     if (!isEditMode || !result) return;
-    const breakdown = toUwBreakdown(input, result);
+    const breakdown = toUwBreakdown(input, result, sources);
     updateConstruction(editRoomId!, editConstructionId!, {
       uw_breakdown: breakdown,
       u_value: result.u_w,
     });
     setSaved(true);
-    setTimeout(() => {
+    // Wis een eventueel nog lopende timer van een vorige save, anders
+    // navigeert die oude timer óók (double-save race).
+    if (saveTimeoutRef.current !== null) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
       setSaved(false);
       navigate("/constructies");
     }, 1000);
@@ -157,6 +191,7 @@ export function UwCalculator() {
     isEditMode,
     result,
     input,
+    sources,
     updateConstruction,
     editRoomId,
     editConstructionId,
@@ -174,6 +209,7 @@ export function UwCalculator() {
         name: reportName,
         input,
         result,
+        sources,
       });
       const blob = await generateReportDirect(reportData);
 
@@ -193,7 +229,7 @@ export function UwCalculator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [result, input, addToast, t]);
+  }, [result, input, sources, addToast, t]);
 
   // Spacer-keuze vult Ψ_g (en kantelt terug naar tabel-modus).
   const handleSpacerChange = (next: Spacer) => {
@@ -207,32 +243,46 @@ export function UwCalculator() {
     if (manual) setPsiGManual(spacerPsiG(spacer) ?? psiGManual);
   };
 
-  // Profielcatalogus-keuze vult U_f. "Handmatig" laat het getalveld vrij.
+  // Profielcatalogus-keuze vult U_f + herkomst-label. "Handmatig" wist beide.
   const handleProfileChange = (id: string) => {
     setSelectedProfileId(id);
-    if (id === MANUAL_UW_ID) return;
+    if (id === MANUAL_UW_ID) {
+      setUFSource(undefined);
+      return;
+    }
     const profile = findUwProfile(id);
-    if (profile) setUF(profile.u_f);
+    if (profile) {
+      setUF(profile.u_f);
+      setUFSource(`${profile.manufacturer} — ${profile.system}`);
+    }
   };
 
   // Handmatige aanpassing van U_f → catalogus-herkomst klopt niet meer.
   const handleUFChange = (value: number) => {
     setUF(value);
     setSelectedProfileId(MANUAL_UW_ID);
+    setUFSource(undefined);
   };
 
-  // Glascatalogus-keuze vult U_g. "Handmatig" laat het getalveld vrij.
+  // Glascatalogus-keuze vult U_g + herkomst-label. "Handmatig" wist beide.
   const handleGlazingChange = (id: string) => {
     setSelectedGlazingId(id);
-    if (id === MANUAL_UW_ID) return;
+    if (id === MANUAL_UW_ID) {
+      setUGSource(undefined);
+      return;
+    }
     const glazing = findUwGlazing(id);
-    if (glazing) setUG(glazing.u_g);
+    if (glazing) {
+      setUG(glazing.u_g);
+      setUGSource(glazing.name);
+    }
   };
 
   // Handmatige aanpassing van U_g → catalogus-herkomst klopt niet meer.
   const handleUGChange = (value: number) => {
     setUG(value);
     setSelectedGlazingId(MANUAL_UW_ID);
+    setUGSource(undefined);
   };
 
   const selectedProfile =
@@ -251,6 +301,8 @@ export function UwCalculator() {
   // asynchroon); daarna ref-guard zodat verdere store-updates de lopende
   // edits van de gebruiker niet overschrijven.
   const hasInitializedEditRef = useRef<boolean>(false);
+  // Bewaakt dat de "ongeldige edit-params"-melding maar één keer afgaat.
+  const hasReportedInvalidRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!isEditMode || hasInitializedEditRef.current) return;
@@ -258,7 +310,20 @@ export function UwCalculator() {
     const element = room?.constructions.find(
       (c) => c.id === editConstructionId,
     );
-    if (!element) return;
+    if (!element) {
+      // Geen match. De store kan nog hydrateren (persist is asynchroon) →
+      // pas een fout melden zodra de hydratie afgerond is, anders re-runt
+      // het effect zodra `projectRooms` gevuld raakt en vindt het alsnog.
+      if (
+        !hasReportedInvalidRef.current &&
+        useProjectStore.persist.hasHydrated()
+      ) {
+        hasReportedInvalidRef.current = true;
+        addToast(t("uw.invalidEditParams"), "error", 5000);
+        navigate("/constructies");
+      }
+      return;
+    }
     // Markeer als geïnitialiseerd: ook zonder bestaande uw_breakdown is dit
     // een geldige edit-load (kozijn dat nog geen U_w-opbouw heeft → defaults).
     hasInitializedEditRef.current = true;
@@ -275,7 +340,12 @@ export function UwCalculator() {
     setPsiGIsManual(loaded.psi_g_is_manual);
     if (loaded.spacer) setSpacer(loaded.spacer);
     setPsiGManual(loaded.psi_g);
-  }, [isEditMode, editRoomId, editConstructionId, projectRooms]);
+    // Herkomst-labels terugladen — leidend voor de weergave; de selector
+    // blijft op "Handmatig" staan (rematch is bewust niet nodig).
+    const loadedSources = sourcesFromUwBreakdown(b);
+    setUGSource(loadedSources.u_g_source);
+    setUFSource(loadedSources.u_f_source);
+  }, [isEditMode, editRoomId, editConstructionId, projectRooms, addToast, t, navigate]);
 
   const inputClass =
     "w-full rounded border border-[var(--oaec-border)] px-2.5 py-1.5 text-sm tabular-nums focus:border-primary focus:outline-none";
@@ -429,7 +499,9 @@ export function UwCalculator() {
                       ? t("uw.catalog.glazingSource", {
                           name: selectedGlazing.name,
                         })
-                      : t("uw.hints.uG")}
+                      : uGSource
+                        ? t("uw.catalog.sourceLabel", { source: uGSource })
+                        : t("uw.hints.uG")}
                   </span>
                 </label>
               </div>
@@ -468,7 +540,9 @@ export function UwCalculator() {
                           manufacturer: selectedProfile.manufacturer,
                           system: selectedProfile.system,
                         })
-                      : t("uw.hints.uF")}
+                      : uFSource
+                        ? t("uw.catalog.sourceLabel", { source: uFSource })
+                        : t("uw.hints.uF")}
                   </span>
                 </label>
               </div>

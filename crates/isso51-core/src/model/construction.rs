@@ -149,8 +149,20 @@ pub struct UwBreakdown {
     /// Glas-U-waarde U_g in W/(m²·K) — handmatige invoer van de glasleverancier.
     pub u_g: f64,
 
+    /// Herkomst van U_g — vrije-tekst label van de gekozen glasopbouw
+    /// (bv. `"Triple glas — U_g 0.60"`). `None` bij handmatige invoer.
+    /// Vrije tekst, géén catalogus-id — robuust tegen catalogus-wijzigingen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub u_g_source: Option<String>,
+
     /// Profiel-U-waarde U_f in W/(m²·K) — handmatige invoer van de profielfabrikant.
     pub u_f: f64,
+
+    /// Herkomst van U_f — vrije-tekst label van het gekozen profielsysteem
+    /// (bv. `"Reynaers — MasterLine 8"`). `None` bij handmatige invoer.
+    /// Vrije tekst, géén catalogus-id — robuust tegen catalogus-wijzigingen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub u_f_source: Option<String>,
 
     /// Type randafstandhouder voor de Ψ_g-tabelwaarde.
     /// `None` = volledig handmatige Ψ_g-invoer.
@@ -316,7 +328,9 @@ mod tests {
             pane_columns: 1,
             pane_rows: 1,
             u_g: 1.1,
+            u_g_source: Some("HR++ glas — U_g 1.10".to_string()),
             u_f: 1.3,
+            u_f_source: Some("Reynaers — MasterLine 8".to_string()),
             spacer: Some(Spacer::WarmEdgePolymer),
             psi_g: 0.04,
             psi_g_is_manual: false,
@@ -362,7 +376,9 @@ mod tests {
             pane_columns: 2,
             pane_rows: 1,
             u_g: 1.0,
+            u_g_source: None,
             u_f: 1.5,
+            u_f_source: None,
             spacer: None,
             psi_g: 0.05,
             psi_g_is_manual: true,

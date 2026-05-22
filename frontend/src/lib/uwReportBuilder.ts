@@ -10,7 +10,7 @@
  */
 
 import { SPACER_LABELS_NL } from "./spacerTable";
-import type { UwInput, UwResult } from "./uwCalculation";
+import type { UwInput, UwResult, UwSources } from "./uwCalculation";
 
 /** ISO date string for today. */
 function todayIso(): string {
@@ -22,6 +22,8 @@ export interface UwReportInput {
   name: string;
   input: UwInput;
   result: UwResult;
+  /** Optionele herkomst-labels van U_g/U_f (catalogus-keuze). */
+  sources?: UwSources;
 }
 
 /** Build BM Reports JSON from U_w-calculator state. */
@@ -145,7 +147,7 @@ function buildGeometrySection(arg: UwReportInput): Record<string, unknown> {
 
 /** Sectie 3: Materialen + Ψ_g-bron. */
 function buildMaterialsSection(arg: UwReportInput): Record<string, unknown> {
-  const { input, result } = arg;
+  const { input, result, sources } = arg;
 
   const spacerLabel =
     !input.psi_g_is_manual && input.spacer
@@ -157,6 +159,19 @@ function buildMaterialsSection(arg: UwReportInput): Record<string, unknown> {
       ? `Tabelwaarde — randafstandhouder: ${spacerLabel}`
       : "Handmatige invoer";
 
+  const rows: string[][] = [
+    ["U_g (glas)", `${input.u_g.toFixed(3)} W/(m²·K)`],
+  ];
+  if (sources?.u_g_source) {
+    rows.push(["U_g-herkomst", sources.u_g_source]);
+  }
+  rows.push(["U_f (profiel)", `${input.u_f.toFixed(3)} W/(m²·K)`]);
+  if (sources?.u_f_source) {
+    rows.push(["U_f-herkomst", sources.u_f_source]);
+  }
+  rows.push(["Ψ_g (beglazingsrand)", `${result.psi_g.toFixed(3)} W/(m·K)`]);
+  rows.push(["Ψ_g-bron", psiGSource]);
+
   return {
     title: "Materialen & beglazingsrand",
     level: 1,
@@ -165,12 +180,7 @@ function buildMaterialsSection(arg: UwReportInput): Record<string, unknown> {
         type: "table",
         title: "U-waarden en Ψ_g",
         headers: ["Parameter", "Waarde"],
-        rows: [
-          ["U_g (glas)", `${input.u_g.toFixed(3)} W/(m²·K)`],
-          ["U_f (profiel)", `${input.u_f.toFixed(3)} W/(m²·K)`],
-          ["Ψ_g (beglazingsrand)", `${result.psi_g.toFixed(3)} W/(m·K)`],
-          ["Ψ_g-bron", psiGSource],
-        ],
+        rows,
       },
       {
         type: "paragraph",

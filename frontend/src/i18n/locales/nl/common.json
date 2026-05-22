@@ -155,6 +155,7 @@
     "manualPsiG": "Handmatige Ψ_g",
     "normRef": "U_w = (ΣA_g·U_g + ΣA_f·U_f + Σl_g·Ψ_g) / (ΣA_g + ΣA_f) — NEN-EN-ISO 10077-1.",
     "invalidInput": "Controleer de invoer.",
+    "invalidEditParams": "Het te bewerken kozijn-element bestaat niet (meer) — terug naar constructies.",
     "fields": {
       "width": "Breedte [mm]",
       "height": "Hoogte [mm]",
@@ -180,6 +181,7 @@
       "glazingPlaceholder": "Kies een glasopbouw of \"Handmatig\"",
       "profileSource": "Bron: {{manufacturer}} — {{system}}",
       "glazingSource": "Bron: {{name}}",
+      "sourceLabel": "Bron: {{source}}",
       "disclaimer": "Publieke richtwaarde — verifieer bij de fabrikant/leverancier."
     }
   }
