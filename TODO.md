@@ -139,6 +139,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] U_w kozijn-calculator Fase 3: opslaan op kozijn-element + opbouw in project-rapport + zelfstandig U_w-rapport
 - [x] U_w kozijn-calculator: fabrikant-catalogus (profiel/glas) + Ψ_g-correctie naar EN-ISO 10077-1 Annex E-richtwaarde
 - [x] U_w kozijn-calculator: afronding — setTimeout-cleanup, edit-param-feedback, catalogus-herkomst persistent in rapport
+- [x] #21 rekenexpressies (=1,5*2,6) in numerieke tabelcellen
 
 ## Modeller features
 - [x] 2D/3D modeller met pan/zoom, grid, polygonen, wanden, ramen, deuren
