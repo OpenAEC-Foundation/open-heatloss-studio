@@ -158,6 +158,11 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] BAG-data import (postcode + huisnummer)
 - [ ] Quick-calc wizard (5-10 min berekening)
 - [ ] ISSO 53 (utiliteitsgebouwen)
+  - [x] Batch 1: skelet + model-setup (`crates/isso53-core/`)
+  - [x] Batch 2a: opzoektabellen (11 tabel-modules in `tables/`)
+  - [ ] Batch 2b: calc-kern (theta_i, q_h,nd)
+  - [ ] Batch 2c: geavanceerde modules (drukverschil, warmtebruggen)
+  - [ ] Batch 2d: test fixtures + verificatie
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)

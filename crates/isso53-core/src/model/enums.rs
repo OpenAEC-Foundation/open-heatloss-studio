@@ -145,12 +145,12 @@ pub enum VentilationSystemType {
 #[serde(rename_all = "camelCase")]
 pub enum GebouwTypePositie {
     EnkellaagsTussen,
-    EnkellagsKop,
-    EnkellagsVrijstaand,
-    MeerlagsGeheel,
-    MeerlagsTop,
+    EnkellaagsKop,
+    EnkellaagsVrijstaand,
+    MeerlaagsGeheel,
+    MeerlaagsTop,
     MeerlaagsTussen,
-    MeerlagsOnder,
+    MeerlaagsOnder,
 }
 
 /// Infiltratie-input methode.
@@ -161,4 +161,78 @@ pub enum InfiltrationInput {
     KnownQv10,
     /// q_v10,kar onbekend — gebruik formule 4.31.
     UnknownQv10,
+}
+
+/// Gebouwtype voor de winddrukverdelingsfactor f_type (ISSO 53 tabel 4.6).
+///
+/// Let op: dit is een **andere** indeling dan [`BuildingShape`] (tabel 4.9) en
+/// [`GebouwTypePositie`] (tabel 4.8). Tabel 4.6 keyt op de geveltype-/
+/// huidgevelconfiguratie van het gebouw.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum GebouwTypeWinddruk {
+    /// Eénlaags gebouw met kap.
+    EenlaagsMetKap,
+    /// Eénlaags gebouw met plat dak.
+    EenlaagsMetPlatDak,
+    /// Meerlaags gebouw, standaard geveltype.
+    MeerlaagsStandaard,
+    /// Meerlaags gebouw, volgevel binnengalerij aan één zijde.
+    MeerlaagsVolgevelBinnengalerij,
+    /// Meerlaags gebouw, dubbele huidgevel met onderbroken tussenruimte.
+    MeerlaagsDubbeleHuidOnderbroken,
+    /// Meerlaags gebouw, dubbele huidgevel met doorlopende tussenruimte.
+    MeerlaagsDubbeleHuidDoorlopend,
+}
+
+/// Type onverwarmde aangrenzende ruimte voor de correctiefactor f_k
+/// (ISSO 53 tabel 4.2).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum OnverwarmdeRuimte {
+    /// Vertrek/groep met 1 externe scheidingsconstructie/buitenwand.
+    VertrekEenExtern,
+    /// Vertrek/groep met 2 externe scheidingsconstructies zonder buitendeur.
+    VertrekTweeExternZonderDeur,
+    /// Vertrek/groep met 2 externe scheidingsconstructies met buitendeur.
+    VertrekTweeExternMetDeur,
+    /// Vertrek/groep met 3 of meer externe scheidingsconstructies.
+    VertrekDrieOfMeerExtern,
+    /// Kelder zonder ramen/deuren in externe scheidingsconstructie.
+    KelderZonderRamenDeuren,
+    /// Kelder met ramen/deuren in externe scheidingsconstructie.
+    KelderMetRamenDeuren,
+    /// Ruimte onder dak met hoog infiltratievoud (pannendak zonder folielaag).
+    RuimteOnderDakHoogInfiltratie,
+    /// Ruimte onder overig niet-geïsoleerd dak.
+    RuimteOnderDakNietGeisoleerd,
+    /// Ruimte onder geïsoleerd dak.
+    RuimteOnderDakGeisoleerd,
+    /// Interne gemeenschappelijke verkeersruimte zonder buitenwanden,
+    /// ventilatievoud < 0,5.
+    VerkeersruimteInternLaagVentilatie,
+    /// Gemeenschappelijke verkeersruimte, vrij geventileerd (A/V > 0,005).
+    VerkeersruimteVrijGeventileerd,
+    /// Gemeenschappelijke verkeersruimte, overige gevallen.
+    VerkeersruimteOverig,
+    /// Vloer boven zwak geventileerde kruipruimte
+    /// (openingen ≤ 1000 mm²/m²).
+    VloerBovenKruipruimteZwak,
+    /// Vloer boven matig geventileerde kruipruimte
+    /// (1000 < openingen ≤ 1500 mm²/m²).
+    VloerBovenKruipruimteMatig,
+    /// Vloer boven sterk geventileerde kruipruimte
+    /// (openingen > 1500 mm²/m²).
+    VloerBovenKruipruimteSterk,
+}
+
+/// Bouwfase voor de minimale ventilatie-eisen volgens het Bouwbesluit
+/// (ISSO 53 tabel 4.10).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum VentilatieBouwfase {
+    /// Nieuwbouw — strengere eisen (dm³/s per persoon).
+    Nieuwbouw,
+    /// Bestaande bouw — soepelere eisen (dm³/s per persoon).
+    Bestaand,
 }
