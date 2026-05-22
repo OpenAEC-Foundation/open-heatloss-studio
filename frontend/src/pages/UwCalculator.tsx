@@ -15,6 +15,13 @@ import {
   type UwInput,
 } from "../lib/uwCalculation";
 import { buildUwReportData } from "../lib/uwReportBuilder";
+import {
+  MANUAL_UW_ID,
+  findUwGlazing,
+  findUwProfile,
+  getUwGlazings,
+  getUwProfiles,
+} from "../lib/uwCatalog";
 import { SPACER_LABELS_NL, SPACER_ORDER, spacerPsiG } from "../lib/spacerTable";
 import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
@@ -32,9 +39,15 @@ const DEFAULT_INPUT: UwInput = {
   u_g: 1.1,
   u_f: 1.4,
   spacer: "aluminium",
-  psi_g: 0.08,
+  psi_g: 0.06,
   psi_g_is_manual: false,
 };
+
+/** Profielsystemen, op fabrikant + systeem gesorteerd — catalogus is statisch. */
+const UW_PROFILES = getUwProfiles();
+
+/** Glasopbouwen, op U_g aflopend gesorteerd — catalogus is statisch. */
+const UW_GLAZINGS = getUwGlazings();
 
 // ---------- Component ----------
 
@@ -65,11 +78,19 @@ export function UwCalculator() {
   const [uG, setUG] = useState<number>(DEFAULT_INPUT.u_g);
   const [uF, setUF] = useState<number>(DEFAULT_INPUT.u_f);
 
+  // Catalogus-keuze is puur UI-lokaal — alleen de gekozen U_f/U_g-getallen
+  // worden bewaard, de herkomst-id niet (zou een schema-wijziging vereisen).
+  // `MANUAL_UW_ID` = vrije invoer behouden.
+  const [selectedProfileId, setSelectedProfileId] =
+    useState<string>(MANUAL_UW_ID);
+  const [selectedGlazingId, setSelectedGlazingId] =
+    useState<string>(MANUAL_UW_ID);
+
   // Ψ_g — spacer-keuze + handmatige override
   const [spacer, setSpacer] = useState<Spacer>("aluminium");
   const [psiGIsManual, setPsiGIsManual] = useState<boolean>(false);
   const [psiGManual, setPsiGManual] = useState<number>(
-    spacerPsiG("aluminium") ?? 0.08,
+    spacerPsiG("aluminium") ?? 0.06,
   );
 
   // Effectieve invoer
@@ -185,6 +206,43 @@ export function UwCalculator() {
     setPsiGIsManual(manual);
     if (manual) setPsiGManual(spacerPsiG(spacer) ?? psiGManual);
   };
+
+  // Profielcatalogus-keuze vult U_f. "Handmatig" laat het getalveld vrij.
+  const handleProfileChange = (id: string) => {
+    setSelectedProfileId(id);
+    if (id === MANUAL_UW_ID) return;
+    const profile = findUwProfile(id);
+    if (profile) setUF(profile.u_f);
+  };
+
+  // Handmatige aanpassing van U_f → catalogus-herkomst klopt niet meer.
+  const handleUFChange = (value: number) => {
+    setUF(value);
+    setSelectedProfileId(MANUAL_UW_ID);
+  };
+
+  // Glascatalogus-keuze vult U_g. "Handmatig" laat het getalveld vrij.
+  const handleGlazingChange = (id: string) => {
+    setSelectedGlazingId(id);
+    if (id === MANUAL_UW_ID) return;
+    const glazing = findUwGlazing(id);
+    if (glazing) setUG(glazing.u_g);
+  };
+
+  // Handmatige aanpassing van U_g → catalogus-herkomst klopt niet meer.
+  const handleUGChange = (value: number) => {
+    setUG(value);
+    setSelectedGlazingId(MANUAL_UW_ID);
+  };
+
+  const selectedProfile =
+    selectedProfileId === MANUAL_UW_ID
+      ? undefined
+      : findUwProfile(selectedProfileId);
+  const selectedGlazing =
+    selectedGlazingId === MANUAL_UW_ID
+      ? undefined
+      : findUwGlazing(selectedGlazingId);
 
   // ---------- Edit-modus: bestaande uw_breakdown inladen ----------
 
@@ -337,34 +395,86 @@ export function UwCalculator() {
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-3 px-4 py-3">
-              <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
-                <span>{t("uw.fields.uG")}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={uG || ""}
-                  onChange={(e) => setUG(Number(e.target.value) || 0)}
-                  className={inputClass}
-                />
-                <span className="text-2xs text-scaffold-gray">
-                  {t("uw.hints.uG")}
-                </span>
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
-                <span>{t("uw.fields.uF")}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={uF || ""}
-                  onChange={(e) => setUF(Number(e.target.value) || 0)}
-                  className={inputClass}
-                />
-                <span className="text-2xs text-scaffold-gray">
-                  {t("uw.hints.uF")}
-                </span>
-              </label>
+              {/* U_g — glas: catalogus-selector + getalveld */}
+              <div className="flex flex-col gap-2">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                  <span>{t("uw.fields.glazingCatalog")}</span>
+                  <select
+                    value={selectedGlazingId}
+                    onChange={(e) => handleGlazingChange(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value={MANUAL_UW_ID}>
+                      {t("uw.catalog.manual")}
+                    </option>
+                    {UW_GLAZINGS.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} — U_g={g.u_g.toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                  <span>{t("uw.fields.uG")}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={uG || ""}
+                    onChange={(e) => handleUGChange(Number(e.target.value) || 0)}
+                    className={inputClass}
+                  />
+                  <span className="text-2xs text-scaffold-gray">
+                    {selectedGlazing
+                      ? t("uw.catalog.glazingSource", {
+                          name: selectedGlazing.name,
+                        })
+                      : t("uw.hints.uG")}
+                  </span>
+                </label>
+              </div>
+              {/* U_f — profiel: catalogus-selector + getalveld */}
+              <div className="flex flex-col gap-2">
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                  <span>{t("uw.fields.profileCatalog")}</span>
+                  <select
+                    value={selectedProfileId}
+                    onChange={(e) => handleProfileChange(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value={MANUAL_UW_ID}>
+                      {t("uw.catalog.manual")}
+                    </option>
+                    {UW_PROFILES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.manufacturer} — {p.system} (U_f={p.u_f.toFixed(2)})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                  <span>{t("uw.fields.uF")}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={uF || ""}
+                    onChange={(e) => handleUFChange(Number(e.target.value) || 0)}
+                    className={inputClass}
+                  />
+                  <span className="text-2xs text-scaffold-gray">
+                    {selectedProfile
+                      ? t("uw.catalog.profileSource", {
+                          manufacturer: selectedProfile.manufacturer,
+                          system: selectedProfile.system,
+                        })
+                      : t("uw.hints.uF")}
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div className="border-t border-[var(--oaec-border)] px-4 py-2 text-2xs text-scaffold-gray">
+              {t("uw.catalog.disclaimer")}
             </div>
           </div>
 

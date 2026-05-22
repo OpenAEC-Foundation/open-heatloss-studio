@@ -164,13 +164,23 @@
       "uG": "U_g — glas [W/(m²·K)]",
       "uF": "U_f — profiel [W/(m²·K)]",
       "spacer": "Randafstandhouder",
-      "psiG": "Ψ_g [W/(m·K)]"
+      "psiG": "Ψ_g [W/(m·K)]",
+      "profileCatalog": "Profielsysteem",
+      "glazingCatalog": "Glasopbouw"
     },
     "hints": {
       "uG": "Handmatige invoer — glasleverancier",
       "uF": "Handmatige invoer — profielfabrikant",
       "psiGTable": "Tabelwaarde uit het gekozen spacer-type",
       "psiGManual": "Handmatige override op de spacer-tabelwaarde"
+    },
+    "catalog": {
+      "manual": "Handmatig",
+      "profilePlaceholder": "Kies een profielsysteem of \"Handmatig\"",
+      "glazingPlaceholder": "Kies een glasopbouw of \"Handmatig\"",
+      "profileSource": "Bron: {{manufacturer}} — {{system}}",
+      "glazingSource": "Bron: {{name}}",
+      "disclaimer": "Publieke richtwaarde — verifieer bij de fabrikant/leverancier."
     }
   }
 }

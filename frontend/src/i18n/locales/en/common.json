@@ -164,13 +164,23 @@
       "uG": "U_g — glazing [W/(m²·K)]",
       "uF": "U_f — frame [W/(m²·K)]",
       "spacer": "Edge spacer",
-      "psiG": "Ψ_g [W/(m·K)]"
+      "psiG": "Ψ_g [W/(m·K)]",
+      "profileCatalog": "Frame system",
+      "glazingCatalog": "Glazing build-up"
     },
     "hints": {
       "uG": "Manual input — glazing supplier",
       "uF": "Manual input — frame manufacturer",
       "psiGTable": "Table value from the selected spacer type",
       "psiGManual": "Manual override of the spacer table value"
+    },
+    "catalog": {
+      "manual": "Manual",
+      "profilePlaceholder": "Select a frame system or \"Manual\"",
+      "glazingPlaceholder": "Select a glazing build-up or \"Manual\"",
+      "profileSource": "Source: {{manufacturer}} — {{system}}",
+      "glazingSource": "Source: {{name}}",
+      "disclaimer": "Public reference value — verify with the manufacturer/supplier."
     }
   }
 }
