@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { evaluateNumericInput } from "../../lib/expressionInput";
 
 interface EditableCellProps {
   value: string | number;
@@ -44,10 +45,31 @@ export function EditableCell({
 
   const commit = useCallback(() => {
     setEditing(false);
+
+    if (type === "number") {
+      // Numerieke modus: de draft mag een rekenexpressie zijn (`=1,5*2,6`).
+      const trimmed = draft.trim();
+      if (trimmed === "") {
+        // Leeg veld → behoud het bestaande gedrag (caller maakt er 0 van).
+        if (draft !== String(value)) onChange(draft);
+        return;
+      }
+      const result = evaluateNumericInput(draft);
+      if (result === null) {
+        // Ongeldige, niet-lege expressie → niets wegschrijven, terugvallen
+        // op de oude waarde (zoals cancel()).
+        setDraft(String(value));
+        return;
+      }
+      const resultStr = String(result);
+      if (resultStr !== String(value)) onChange(resultStr);
+      return;
+    }
+
     if (draft !== String(value)) {
       onChange(draft);
     }
-  }, [draft, value, onChange]);
+  }, [draft, value, onChange, type]);
 
   const cancel = useCallback(() => {
     setEditing(false);
@@ -58,7 +80,12 @@ export function EditableCell({
     return (
       <input
         ref={inputRef}
-        type={type}
+        // Numerieke modus gebruikt een tekst-input zodat operator-tekens
+        // (* / + - en haakjes) ingetypt kunnen worden voor rekenexpressies;
+        // een <input type="number"> zou die tekens weigeren. inputMode houdt
+        // op mobiel het numerieke toetsenbord voorrang.
+        type="text"
+        inputMode={type === "number" ? "decimal" : "text"}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -66,7 +93,6 @@ export function EditableCell({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") cancel();
         }}
-        step={type === "number" ? "any" : undefined}
         className={`w-full rounded border border-primary bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-sm text-on-surface
           outline-none focus:ring-1 focus:ring-primary ${className}`}
       />
