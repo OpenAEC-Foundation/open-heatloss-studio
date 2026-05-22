@@ -6,16 +6,18 @@
  * Retries automatically when the browser comes back online after a network error.
  */
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "./useAuth";
 import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
-import { updateProject, ConflictError } from "../lib/backend";
+import { updateProject, ConflictError, SessionExpiredError } from "../lib/backend";
 
 const AUTO_SAVE_DELAY_MS = 5_000;
 const SUCCESS_TOAST_DURATION_MS = 2_000;
 
 export function useAutoSave(): void {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRetryRef = useRef(false);
@@ -46,17 +48,26 @@ export function useAutoSave(): void {
         return {};
       });
       pendingRetryRef.current = false;
-      addToast("Project opgeslagen", "success", SUCCESS_TOAST_DURATION_MS);
+      addToast(t("saveStatus.saved"), "success", SUCCESS_TOAST_DURATION_MS);
     } catch (err) {
-      if (err instanceof ConflictError) {
+      if (err instanceof SessionExpiredError) {
+        // Authentik session expired — saving to the server is impossible
+        // until the user logs in again. A reload triggers the login flow.
+        pendingRetryRef.current = false;
+        addToast(t("saveStatus.sessionExpired"), "error", 8000, {
+          label: t("saveStatus.loginAgain"),
+          onClick: () => window.location.reload(),
+        });
+      } else if (err instanceof ConflictError) {
         pendingRetryRef.current = false;
         useProjectStore.setState({ hasConflict: true });
       } else if (!navigator.onLine) {
         // Network error — mark for retry when online.
         pendingRetryRef.current = true;
-        addToast("Geen verbinding — wordt opgeslagen zodra je weer online bent", "info");
+        addToast(t("saveStatus.offline"), "info");
       } else {
-        addToast("Auto-save mislukt", "error");
+        const detail = err instanceof Error ? err.message : String(err);
+        addToast(t("saveStatus.failed", { detail }), "error");
       }
     }
   };
@@ -65,13 +76,13 @@ export function useAutoSave(): void {
   useEffect(() => {
     const handleOnline = () => {
       if (pendingRetryRef.current) {
-        addToast("Verbinding hersteld — opslaan...", "info", 2000);
+        addToast(t("saveStatus.reconnected"), "info", 2000);
         saveRef.current?.();
       }
     };
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
-  }, [addToast]);
+  }, [addToast, t]);
 
   // Debounced auto-save.
   useEffect(() => {

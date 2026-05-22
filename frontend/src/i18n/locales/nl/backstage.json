@@ -39,6 +39,9 @@
   "closed": "Project gesloten",
   "importError": "Fout bij importeren",
   "saveError": "Fout bij opslaan",
+  "sessionExpired": "Je sessie is verlopen — log opnieuw in om op de server op te slaan.",
+  "loginAgain": "Opnieuw inloggen",
+  "conflictError": "Project is elders gewijzigd — herlaad het project.",
   "aboutPanel": {
     "title": "Over",
     "appName": "Open Heatloss Studio",

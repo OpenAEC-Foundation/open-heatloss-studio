@@ -20,6 +20,17 @@ export function ToastContainer() {
           className={`animate-toast-in flex items-center gap-2 rounded-md px-4 py-2.5 text-sm shadow-lg ${TYPE_STYLES[toast.type]}`}
         >
           <span>{toast.message}</span>
+          {toast.action && (
+            <button
+              onClick={() => {
+                toast.action?.onClick();
+                removeToast(toast.id);
+              }}
+              className="ml-2 whitespace-nowrap rounded border border-[var(--oaec-border)] px-2 py-0.5 text-xs font-medium opacity-90 transition-opacity hover:opacity-100"
+            >
+              {toast.action.label}
+            </button>
+          )}
           <button
             onClick={() => removeToast(toast.id)}
             className="ml-2 opacity-70 transition-opacity hover:opacity-100"

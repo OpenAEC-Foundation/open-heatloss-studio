@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-import { isTauri, createProject, updateProject } from "../../lib/backend";
+import {
+  isTauri,
+  createProject,
+  updateProject,
+  ConflictError,
+  SessionExpiredError,
+} from "../../lib/backend";
 import {
   openProjectFile,
   exportIfcEnergy,
@@ -140,6 +146,26 @@ export default function Backstage({
       fn?.();
     },
     [onClose],
+  );
+
+  // Map a server-save failure to a meaningful toast. A bare "save error"
+  // string hides the real cause (most often an expired Authentik session,
+  // which otherwise surfaces as a cryptic JSON parse error).
+  const reportSaveError = useCallback(
+    (err: unknown) => {
+      if (err instanceof SessionExpiredError) {
+        addToast(t("sessionExpired"), "error", 8000, {
+          label: t("loginAgain"),
+          onClick: () => window.location.reload(),
+        });
+      } else if (err instanceof ConflictError) {
+        addToast(t("conflictError"), "error", 6000);
+      } else {
+        const detail = err instanceof Error ? err.message : String(err);
+        addToast(`${t("saveError")}: ${detail}`, "error");
+      }
+    },
+    [addToast, t],
   );
 
   useEffect(() => {
@@ -359,10 +385,7 @@ export default function Backstage({
         onClose();
         addToast(t("savedToServer"), "success");
       } catch (err) {
-        addToast(
-          `${t("saveError")}: ${err instanceof Error ? err.message : String(err)}`,
-          "error",
-        );
+        reportSaveError(err);
       }
     } else if (isWeb) {
       // Server save — new project, prompt for name
@@ -377,10 +400,7 @@ export default function Backstage({
         onClose();
         addToast(t("savedToServer"), "success");
       } catch (err) {
-        addToast(
-          `${t("saveError")}: ${err instanceof Error ? err.message : String(err)}`,
-          "error",
-        );
+        reportSaveError(err);
       }
     } else {
       // Not logged in — schrijf als .ifcenergy. Bestand → Opslaan moet
@@ -429,6 +449,7 @@ export default function Backstage({
     setServerUpdatedAt,
     onClose,
     addToast,
+    reportSaveError,
     t,
   ]);
 
@@ -444,12 +465,9 @@ export default function Backstage({
       onClose();
       addToast(t("savedToServer"), "success");
     } catch (err) {
-      addToast(
-        `${t("saveError")}: ${err instanceof Error ? err.message : String(err)}`,
-        "error",
-      );
+      reportSaveError(err);
     }
-  }, [project, setActiveProjectId, onClose, addToast, t]);
+  }, [project, setActiveProjectId, onClose, addToast, reportSaveError, t]);
 
   const handleSaveAsLocal = useCallback(async () => {
     // "Opslaan als" → altijd save-as dialog, ook als currentLocalPath bekend.

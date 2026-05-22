@@ -39,6 +39,9 @@
   "closed": "Project closed",
   "importError": "Import error",
   "saveError": "Save error",
+  "sessionExpired": "Your session has expired — log in again to save to the server.",
+  "loginAgain": "Log in again",
+  "conflictError": "Project was changed elsewhere — reload the project.",
   "aboutPanel": {
     "title": "About",
     "appName": "Open Heatloss Studio",
