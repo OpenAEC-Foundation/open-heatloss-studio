@@ -252,6 +252,8 @@ mod tests {
             thermal_mass: ThermalMass::Gemiddeld,
             wind_pressure_type: crate::model::enums::GebouwTypeWinddruk::MeerlaagsStandaard,
             building_height: None,
+            building_length: None,
+            building_width: None,
         }
     }
 }

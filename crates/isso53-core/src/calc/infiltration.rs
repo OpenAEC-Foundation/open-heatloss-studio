@@ -95,38 +95,42 @@ fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f6
 
             Ok(q_is_known(*qv10_kar_class, height_class))
         }
-        InfiltrationMethod::Unknown { .. } => {
-            Err(crate::error::Isso53Error::NotSupported(
-                "Onbekende q_v10,kar (formule 4.31) — vereist lezen PDF p.45-47 \
-                 voor formules 4.32 (f_wind), 4.34 (f_jaar) en tabel 4.8 (f_typ). \
-                 Uitgesteld naar batch 2b-vervolg of 2c.".to_string()
-            ))
+        InfiltrationMethod::Unknown { construction_year, .. } => {
+            // Formule 4.31: q_is = f_wind · f_type · f_inf · (0,23 · q_i,spec)
+            // Formule 4.33: q_i,spec = f_typ · f_jaar · q_i,spec,reken (tabel 4.9)
+            use crate::tables::{building_type, ventilation_system, infiltration::q_i_spec_reken};
+
+            let l = building.building_length.unwrap_or(0.0);
+            let w = building.building_width.unwrap_or(0.0);
+            let h = building.building_height.unwrap_or(3.0);
+
+            let f_wind = calculate_f_wind(l, w, h);
+            let f_type = building_type::f_type(building.wind_pressure_type);
+            let f_inf = ventilation_system::f_inf(building.ventilation_system);
+            let f_typ = building_type::f_typ(building.building_position);
+            let f_jaar = calculate_f_jaar(*construction_year);
+            let q_i_spec_basis = q_i_spec_reken(building.building_shape);
+            let q_i_spec = f_typ * f_jaar * q_i_spec_basis;
+            Ok(f_wind * f_type * f_inf * 0.23 * q_i_spec)
         }
     }
 }
 
-/// Calculate wind factor f_wind from formule 4.32.
-/// ISSO 53 formule 4.32: complex function of building dimensions L, B, H.
-/// Placeholder implementation — niet norm-conform, vervangen vóór release.
-#[allow(dead_code)]
+/// Correctiefactor f_wind volgens ISSO 53 formule 4.32 (PDF p.46):
+/// `f_wind = max[1; (0,01 · (24 + 0,555 · √(L² + B²) + 4,5 · H))^0,65]`.
+/// L, B, H in meter.
 fn calculate_f_wind(length: f64, width: f64, height: f64) -> f64 {
-    // Simplified wind factor based on building aspect ratio
-    let aspect_ratio = (length * width).sqrt() / height;
-
-    // Basic wind exposure factor
-    if aspect_ratio < 0.5 {
-        1.2 // Tall/slender building - more wind exposure
-    } else if aspect_ratio > 2.0 {
-        0.8 // Low/wide building - less wind exposure
-    } else {
-        1.0 // Average exposure
+    if length <= 0.0 || width <= 0.0 || height <= 0.0 {
+        // Onvoldoende gebouwdimensies: conservatieve fallback f_wind = 1.
+        return 1.0;
     }
+    let diagonal = (length * length + width * width).sqrt();
+    let inner = 0.01 * (24.0 + 0.555 * diagonal + 4.5 * height);
+    inner.powf(0.65).max(1.0)
 }
 
-/// Calculate year factor f_jaar from formule 4.34.
-/// ISSO 53 formule 4.34: f_jaar = 0.4 + 0.033 × exp(0.05 × (2060 - J))
-/// where J is construction year.
-#[allow(dead_code)]
+/// Invloedfactor f_jaar volgens ISSO 53 formule 4.34 (PDF p.47):
+/// `f_jaar = 0,4 + 0,033 · exp(0,05 · (2060 − J))`. J = bouwjaar.
 fn calculate_f_jaar(construction_year: u32) -> f64 {
     let j = construction_year as f64;
     0.4 + 0.033 * (0.05 * (2060.0 - j)).exp()
@@ -170,8 +174,13 @@ mod tests {
 
     #[test]
     fn test_infiltration_method_unknown() {
+        // Unknown-pad (formule 4.31) levert nu een geldige berekening op.
         let room = create_test_room();
-        let building = create_test_building();
+        let mut building = create_test_building();
+        building.building_length = Some(20.0);
+        building.building_width = Some(15.0);
+        building.building_height = Some(3.0);
+
         let method = InfiltrationMethod::Unknown {
             construction_year: 2020,
             building_length: 20.0,
@@ -179,8 +188,36 @@ mod tests {
             building_height: 3.0,
         };
 
-        let result = calculate_h_i(&room, &building, &method);
-        assert!(result.is_err()); // Should be NotSupported now
+        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        assert!(h_i > 0.0, "Unknown-pad moet positieve H_i geven, kreeg {}", h_i);
+    }
+
+    #[test]
+    fn test_f_wind_formule_4_32() {
+        // DR Engineering voorbeeld: L=30, B=20, H=13 → Vabi rapporteert f_wind=1,0
+        // √(900+400)=36,06; 24+0,555·36,06+4,5·13=102,5; 0,01·102,5=1,025
+        // 1,025^0,65 ≈ 1,016 → max(1; 1,016) = 1,016
+        let f = calculate_f_wind(30.0, 20.0, 13.0);
+        assert!((f - 1.016).abs() < 0.01, "Expected ~1.016, got {}", f);
+
+        // Klein gebouw (L=10, B=10, H=3) → inner < 1, dus max clamp → 1.0
+        let f_small = calculate_f_wind(10.0, 10.0, 3.0);
+        assert!((f_small - 1.0).abs() < 0.001, "Klein gebouw moet 1.0 geven, kreeg {}", f_small);
+
+        // Groot gebouw (L=100, B=100, H=50) → f_wind > 1
+        let f_large = calculate_f_wind(100.0, 100.0, 50.0);
+        assert!(f_large > 1.5, "Groot gebouw moet f_wind > 1.5 geven, kreeg {}", f_large);
+
+        // Geen dimensies → fallback 1.0
+        assert_eq!(calculate_f_wind(0.0, 0.0, 0.0), 1.0);
+    }
+
+    #[test]
+    fn test_f_jaar_extreme_years() {
+        let f_2024 = calculate_f_jaar(2024);  // jong → laag
+        let f_1960 = calculate_f_jaar(1960);  // oud → hoog
+        assert!(f_2024 < 1.0, "Modern gebouw f_jaar < 1, kreeg {}", f_2024);
+        assert!(f_1960 > 1.0, "Oud gebouw f_jaar > 1, kreeg {}", f_1960);
     }
 
     #[test]
@@ -267,6 +304,8 @@ mod tests {
             thermal_mass: ThermalMass::Gemiddeld,
             wind_pressure_type: GebouwTypeWinddruk::EenlaagsMetPlatDak,
             building_height: None,
+            building_length: None,
+            building_width: None,
         }
     }
 }
