@@ -62,23 +62,55 @@ Zonder norm-getallen is het rekenresultaat van isso53-core niet onafhankelijk ge
 ### Tolerantie: 15%
 Utiliteitsbouw heeft veel Vabi-specifieke toeslagen (P-tabellen, gebouw-niveau correcties, WTW-efficiëntie details) die onze implementatie mogelijk niet 1-op-1 reproduceert.
 
-### Test resultaat (2026-05-23)
+### Test resultaat (2026-05-23 na §4.6 embedded heating fix)
 
 | Component | ISSO53-Core | Vabi | Afwijking | Status |
 |-----------|-------------|------|-----------|--------|
-| **phiT (transmissie)** | 4385 W | 2919 W | +50.2% | ❌ Groot verschil |
-| **phiV (ventilatie)** | 3076 W | 3080 W | -0.1% | ✅ Uitstekend |
+| **phiT (transmissie)** | 2918 W | 2919 W | -0.03% | ✅ **OPGELOST** |
+| **phiV (ventilatie)** | 3076 W | \* | \* | ❌ **OPEN GAP 1** |
+| **phiI (infiltratie)** | 3372 W | \* | \* | ❌ **OPEN GAP 2** |
+| **phiV+phiI combined** | 6448 W | 3080 W | +109% | ❌ Dubbele telling |
 | **phiHu (opwarming)** | 2163 W | 2163 W | 0.0% | ✅ Perfect |
-| **totalHeatLoss** | 12996 W | 8161 W | +59.3% | ❌ Groot verschil |
+| **totalHeatLoss** | 11529 W | 8161 W | +41% | ❌ Door gaps 1+2 |
 
-### Root-cause analyse transmissieverschil
-**Mogelijke oorzaken phiT +50% verschil:**
-1. **ΔU_TB berekening:** Onze forfaitaire waarde 0,05 vs Vabi's specifieke knooppunt-analyse
-2. **Constructie-oppervlakken:** Vabi bundelt anders, mogelijk andere netto-oppervlakken
-3. **Ground loss formule:** Vabi gebruikt mogelijk andere B' of Ψ_gw parameters
-4. **Adjacent room temperaturen:** Vabi's 18°C/7°C vs onze modelleringssimplificaties
+\* *Vabi rapporteert gecombineerde waarde 3080 W voor ventilatie+infiltratie*
 
-**Ventilatie en opwarming kloppen perfect** — algoritmes zijn correct geïmplementeerd.
+### **OPGELOST: ISSO 53 §4.6 embedded heating clause**
+
+**Root-cause:** De vloer in Vabi TR02 heeft vloerverwarming (PDF p.18 "Soort verwarming: Vloerverwarming"). ISSO 53 §4.6 stelt expliciet: *"f_ig,k = 0 voor het, door de verwarming van het beschouwde vertrek, verwarmde deel van wand/vloer/plafond bij wand-/vloerverwarming c.q. betonkernactivering"*.
+
+**Fix:** `ground.rs::calculate_h_t_ground()` nu met:
+```rust
+let f_ig = if element.has_embedded_heating {
+    0.0  // ISSO 53 §4.6: verwarmd deel van vloer/wand
+} else {
+    ground_params.f_ig
+};
+```
+
+**Impact:** phiT daalde 4385→2918 W (-1467 W = exacte ground-bijdrage), nu <0.1% verschil met Vabi.
+
+### **OPEN GAP 1: WTW Φ_V f_v toepassing**
+
+**Probleem:** Φ_V = 3076 W ondanks `hasHeatRecovery: true, heatRecoveryEfficiency: 0.85`. Bij WTW-efficiëntie van 85% en aanvoertemperatuur ~21°C zou f_v ≈ 0 moeten zijn → Φ_V ≈ 0 W.
+
+**Onderzoek:** `calc/ventilatie.rs::calculate_f_v` — waarom wordt θ_t/η_wtw niet toegepast om f_v naar 0 te reduceren? Mogelijke oorzaken:
+- θ_supply berekening klopt niet (te laag, dus Δθ blijft groot)
+- η_wtw wordt niet gebruikt in f_v-formule
+- WTW-velden worden niet doorgegeven aan ventilatie-berekening
+
+**Verwacht effect:** Φ_V zou ~0 W moeten zijn, niet 3076 W.
+
+### **OPEN GAP 2: Infiltratie systeem-D f_inf correctie**
+
+**Probleem:** Φ_I = 3372 W bij systeem D (mechanische toevoer + afvoer). Vabi past `f_inf` (tabel 4.7) toe om infiltratie te reduceren bij mechanische systemen (overdruk-effect).
+
+**Onderzoek:** `calc/infiltration.rs::calculate_h_i` — onze Known-pad past z-factor (vertrek-niveau) toe maar niet `f_inf` (systeem-niveau). Controleer of:
+- Formule 4.27 stilzwijgend ook `f_inf` impliceert voor Known-pad
+- `tables::ventilation_system::f_inf` alleen bij Unknown-pad geldt
+- Systeem D zou f_inf = 0.5 moeten toepassen (50% reductie van infiltratie)
+
+**Verwacht effect:** Φ_I zou ~1686 W moeten zijn (3372 × 0.5), niet 3372 W.
 
 ### Conclusie
-De fixture toont aan dat onze ISSO 53 kern-algoritmes (ventilatie, opwarming) excellent werken. Transmissie-afwijking is waarschijnlijk een gevolg van Vabi's specifieke constructie-detaillering vs onze vereenvoudigde bundeling, niet van fundamentele rekenfouten.
+De §4.6 embedded heating fix lost het transmissie-gap perfect op. Ventilatie- en infiltratie-algoritmes bevatten aparte bugs die het totale warmteverlies met ~40% overschatten. Deze gaps zijn gedocumenteerd voor vervolgwerkpakket.

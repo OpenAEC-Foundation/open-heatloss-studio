@@ -4,7 +4,7 @@
   "room": {
     "roomId": "0.14",
     "phiT": 2919.0,
-    "phiV": 3080.0,
+    "phiV_plus_phiI": 3080.0,
     "phiHu": 2163.0,
     "totalHeatLoss": 8161.0
   },
