@@ -3,7 +3,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{Building, DesignConditions, Room, VentilationConfig};
+use super::{Building, DesignConditions, HeatingUpConfig, Room, VentilationConfig};
+use crate::calc::infiltration::InfiltrationMethod;
+use crate::tables::infiltration::Qv10Class;
 
 /// Complete project data for ISSO 53 heat loss calculation.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -20,6 +22,14 @@ pub struct Project {
 
     /// Ventilation system configuration.
     pub ventilation: VentilationConfig,
+
+    /// Heating-up supplement configuration.
+    #[serde(default)]
+    pub heating_up: HeatingUpConfig,
+
+    /// Infiltration calculation method.
+    #[serde(default = "default_infiltration_method")]
+    pub infiltration_method: InfiltrationMethod,
 
     /// List of rooms to calculate.
     pub rooms: Vec<Room>,
@@ -55,4 +65,11 @@ pub struct ProjectInfo {
     /// Additional notes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+}
+
+/// Default infiltration method for projects.
+fn default_infiltration_method() -> InfiltrationMethod {
+    InfiltrationMethod::Known {
+        qv10_kar_class: Qv10Class::From040To060,
+    }
 }
