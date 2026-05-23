@@ -8,6 +8,8 @@ import { useToastStore } from "../../store/toastStore";
 import { useReportStore } from "../../store/reportStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import { buildReportData } from "../../lib/reportBuilder";
+import { buildIsso53Report } from "../../lib/isso53ReportBuilder";
+import type { Isso53ProjectResult } from "../../types/isso53Result";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
 
@@ -20,6 +22,9 @@ import i18next from "../../i18n/config";
 export default function RapportTab() {
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
+  const norm = useProjectStore((s) => s.norm);
+  const isso53Building = useProjectStore((s) => s.isso53Building);
+  const isso53Rooms = useProjectStore((s) => s.isso53Rooms);
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const sections = useReportStore((s) => s.sections);
@@ -36,12 +41,27 @@ export default function RapportTab() {
     }
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(
-        project,
-        result,
-        projectConstructions,
-        sections,
-      );
+      // Norm-routing: ISSO 53 gebruikt een eigen builder met norm-specifieke
+      // secties. Backend (`src-tauri/src/reports/`) is norm-onafhankelijk en
+      // accepteert beide JSON-shapes.
+      // NB: `result53` shape leeft (nog) niet in de store — tot de
+      // `calculate_v2`-bridge in de frontend zit, casten we het bestaande
+      // `result` naar `Isso53ProjectResult`. In de praktijk komt voor
+      // `norm === "isso53"` straks een echt 53-resultaat uit de pipeline.
+      const reportData =
+        norm === "isso53"
+          ? buildIsso53Report(
+              project,
+              result as unknown as Isso53ProjectResult,
+              isso53Building,
+              isso53Rooms,
+            )
+          : await buildReportData(
+              project,
+              result,
+              projectConstructions,
+              sections,
+            );
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       setPdfBlobUrl(url);
@@ -52,7 +72,17 @@ export default function RapportTab() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, projectConstructions, sections, addToast, setPdfBlobUrl]);
+  }, [
+    project,
+    result,
+    norm,
+    isso53Building,
+    isso53Rooms,
+    projectConstructions,
+    sections,
+    addToast,
+    setPdfBlobUrl,
+  ]);
 
   const handleDownload = useCallback(() => {
     const url = useReportStore.getState().pdfBlobUrl;

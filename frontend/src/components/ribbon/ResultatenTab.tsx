@@ -9,6 +9,8 @@ import { useToastStore } from "../../store/toastStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import { exportIfcEnergy } from "../../lib/importExport";
 import { buildReportData } from "../../lib/reportBuilder";
+import { buildIsso53Report } from "../../lib/isso53ReportBuilder";
+import type { Isso53ProjectResult } from "../../types/isso53Result";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
 
@@ -16,6 +18,9 @@ export default function ResultatenTab() {
   const { t } = useTranslation("ribbon");
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
+  const norm = useProjectStore((s) => s.norm);
+  const isso53Building = useProjectStore((s) => s.isso53Building);
+  const isso53Rooms = useProjectStore((s) => s.isso53Rooms);
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,7 +29,16 @@ export default function ResultatenTab() {
     if (!result) return;
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(project, result, projectConstructions);
+      // Norm-routing — zie RapportTab.handleGenerate voor toelichting.
+      const reportData =
+        norm === "isso53"
+          ? buildIsso53Report(
+              project,
+              result as unknown as Isso53ProjectResult,
+              isso53Building,
+              isso53Rooms,
+            )
+          : await buildReportData(project, result, projectConstructions);
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -39,7 +53,15 @@ export default function ResultatenTab() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, projectConstructions, addToast]);
+  }, [
+    project,
+    result,
+    norm,
+    isso53Building,
+    isso53Rooms,
+    projectConstructions,
+    addToast,
+  ]);
 
   const handleExport = useCallback(() => {
     exportIfcEnergy(project, result);

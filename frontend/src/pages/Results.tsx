@@ -14,6 +14,8 @@ import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
 import { exportProject } from "../lib/importExport";
 import { buildReportData } from "../lib/reportBuilder";
+import { buildIsso53Report } from "../lib/isso53ReportBuilder";
+import type { Isso53ProjectResult } from "../types/isso53Result";
 import { generateReportDirect } from "../lib/reportClient";
 
 /** Format a number as W (watts) with locale formatting. */
@@ -31,6 +33,8 @@ export function Results() {
   const navigate = useNavigate();
   const { project, result } = useProjectStore();
   const norm = useProjectStore((s) => s.norm);
+  const isso53Building = useProjectStore((s) => s.isso53Building);
+  const isso53Rooms = useProjectStore((s) => s.isso53Rooms);
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
   const [zoomedChart, setZoomedChart] = useState<"bar" | "donut" | "construction" | null>(null);
@@ -43,7 +47,17 @@ export function Results() {
     if (!result) return;
     setIsGenerating(true);
     try {
-      const reportData = await buildReportData(project, result);
+      // Norm-routing — ISSO 53 gebruikt een eigen builder; backend is
+      // norm-onafhankelijk en accepteert beide JSON-shapes.
+      const reportData =
+        norm === "isso53"
+          ? buildIsso53Report(
+              project,
+              result as unknown as Isso53ProjectResult,
+              isso53Building,
+              isso53Rooms,
+            )
+          : await buildReportData(project, result);
       const blob = await generateReportDirect(reportData);
 
       const url = URL.createObjectURL(blob);
@@ -62,7 +76,7 @@ export function Results() {
     } finally {
       setIsGenerating(false);
     }
-  }, [project, result, addToast]);
+  }, [project, result, norm, isso53Building, isso53Rooms, addToast]);
 
   if (!result) {
     return (
