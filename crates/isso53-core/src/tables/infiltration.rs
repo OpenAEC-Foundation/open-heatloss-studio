@@ -15,7 +15,7 @@ use crate::model::enums::BuildingShape;
 ///
 /// q_v10,kar wordt uitgedrukt in dm³/(s·m² gebruiksoppervlak); dit is de
 /// EPC-waarde van het gebouw.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum Qv10Class {
     /// q_v10,kar < 0,20.
     LessThan020,

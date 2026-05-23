@@ -30,7 +30,7 @@ pub mod validate;
 
 use error::Result;
 use model::Project;
-use result::ProjectResult;
+use result::{BuildingSummary, ProjectResult};
 
 /// Calculate heat losses for an entire project from JSON input.
 ///
@@ -47,9 +47,9 @@ use result::ProjectResult;
 /// # Errors
 /// Returns `Isso53Error` if the input is invalid or calculation fails.
 pub fn calculate_from_json(input_json: &str) -> Result<String> {
-    let _project: Project = serde_json::from_str(input_json)?;
-    // TODO: implement in batch 2
-    unimplemented!("batch 2")
+    let project: Project = serde_json::from_str(input_json)?;
+    let result = calculate(&project)?;
+    Ok(serde_json::to_string_pretty(&result)?)
 }
 
 /// Calculate heat losses for an entire project.
@@ -63,8 +63,55 @@ pub fn calculate_from_json(input_json: &str) -> Result<String> {
 /// Complete ProjectResult with per-room and building-level results.
 pub fn calculate(project: &Project) -> Result<ProjectResult> {
     validate::validate_project(project)?;
-    // TODO: implement in batch 2
-    unimplemented!("batch 2")
+
+    let mut room_results = Vec::with_capacity(project.rooms.len());
+    for room in &project.rooms {
+        room_results.push(calc::room_load::calculate_room(
+            room, &project.rooms, &project.building, &project.climate,
+            &project.ventilation, &project.infiltration_method, &project.heating_up,
+        )?);
+    }
+
+    let z = 0.5;  // Default for tabel 5.1 - TODO: lookup from tables::source_fraction
+    let phi_source_individual = calc::source_capacity::calculate_individual(&room_results, z, project.climate.theta_e)?;
+    let phi_source_collective = calc::source_capacity::calculate_collective(&room_results, z, project.climate.theta_e)?;
+    let phi_shell = calc::shell::calculate_shell(project)?;
+
+    // Calculate building-level summaries
+    let mut total_transmission_loss = 0.0;
+    let mut total_ventilation_loss = 0.0;
+    let mut total_infiltration_loss = 0.0;
+    let mut total_heating_up = 0.0;
+    let mut total_system_losses = 0.0;
+    let mut total_internal_gains = 0.0;
+    let mut total_building_heat_loss = 0.0;
+
+    for room_result in &room_results {
+        total_transmission_loss += room_result.phi_t;
+        total_ventilation_loss += room_result.phi_v;
+        total_infiltration_loss += room_result.phi_i;
+        total_heating_up += room_result.phi_hu;
+        total_system_losses += room_result.phi_system;
+        total_internal_gains += room_result.phi_gain;
+        total_building_heat_loss += room_result.total_heat_loss;
+    }
+
+    Ok(ProjectResult {
+        rooms: room_results,
+        summary: BuildingSummary {
+            total_transmission_loss,
+            total_ventilation_loss,
+            total_infiltration_loss,
+            total_heating_up,
+            total_system_losses,
+            total_internal_gains,
+            total_building_heat_loss,
+            connection_capacity_individual: phi_source_individual,
+            connection_capacity_collective: phi_source_collective,
+            shell_heat_loss: phi_shell,
+            infiltration_reduction_factor_z: z,
+        },
+    })
 }
 
 /// Base URL for published schemas.
@@ -153,6 +200,14 @@ mod tests {
                 supply_temperature: None,
                 has_preheating: false,
                 preheating_temperature: None,
+            },
+            heating_up: HeatingUpConfig {
+                setback_active: false,
+                p_w_per_m2: 0.0,
+                warmup_minutes: 60.0,
+            },
+            infiltration_method: crate::calc::infiltration::InfiltrationMethod::Known {
+                qv10_kar_class: crate::tables::infiltration::Qv10Class::From040To060,
             },
             rooms: vec![Room {
                 id: "tall_room".to_string(),

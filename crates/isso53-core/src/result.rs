@@ -102,6 +102,9 @@ pub struct BuildingSummary {
     /// Connection capacity collective method Φ_source in W (formule 5.9).
     pub connection_capacity_collective: f64,
 
+    /// Shell method heat loss Φ_HL,shell in W (hoofdstuk 3).
+    pub shell_heat_loss: f64,
+
     /// Infiltration reduction factor z applied at building level (tabel 5.1).
     pub infiltration_reduction_factor_z: f64,
 }

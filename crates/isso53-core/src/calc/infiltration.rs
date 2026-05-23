@@ -11,7 +11,8 @@ use crate::tables::infiltration::{q_is_known, BuildingHeightClass, Qv10Class};
 use crate::tables::temperature::design_indoor_temperature;
 
 /// Infiltration calculation method.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum InfiltrationMethod {
     /// q_v10,kar is known - use tabel 4.5 lookup.
     Known { qv10_kar_class: Qv10Class },
