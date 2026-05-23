@@ -1,0 +1,224 @@
+{
+  "info": {
+    "name": "Vabi TR02 Houtfabriek - Bedrijfsruimte4 (0.14)",
+    "projectNumber": "TR02",
+    "address": "Houtfabriek",
+    "client": "Vabi Verificatie",
+    "date": "2026-05-23",
+    "engineer": null,
+    "notes": "Vabi Elements 3.11.2.23 verificatie - 16 personen industriefunctie verblijfsgebied"
+  },
+  "building": {
+    "buildingShape": "meerlaags",
+    "constructionYear": 2024,
+    "buildingPosition": "meerlaagsTussen",
+    "ventilationSystem": "systemD",
+    "thermalMass": "licht",
+    "windPressureType": "meerlaagsStandaard"
+  },
+  "climate": {
+    "thetaE": -9.0,
+    "thetaMe": 9.0
+  },
+  "ventilation": {
+    "systemType": "systemD",
+    "hasHeatRecovery": true,
+    "heatRecoveryEfficiency": 0.85,
+    "frostProtection": null,
+    "supplyTemperature": null,
+    "hasPreheating": false,
+    "preheatingTemperature": null
+  },
+  "rooms": [{
+    "id": "0.14",
+    "name": "Bedrijfsruimte4 - 16p",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsgebied",
+    "floorArea": 216.28,
+    "height": 3.0,
+    "customTemperature": 20.0,
+    "constructions": [
+      {
+        "id": "hsb-wand-exterior",
+        "description": "HSB-wand Rc=4.7 (bundel 3 stuks exterior)",
+        "area": 62.69,
+        "uValue": 0.21,
+        "boundaryType": "exterior",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "overhead-deur",
+        "description": "Overhead-deur exterior",
+        "area": 11.79,
+        "uValue": 0.85,
+        "boundaryType": "exterior",
+        "materialType": "nonMasonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "ramen-hr-pp",
+        "description": "Ramen HR++ glas (bundel 5 stuks exterior)",
+        "area": 50.43,
+        "uValue": 1.16,
+        "boundaryType": "exterior",
+        "materialType": "nonMasonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "raam-dubbelglas",
+        "description": "Raam Dubbelglas naar buurkamer",
+        "area": 4.98,
+        "uValue": 3.12,
+        "boundaryType": "adjacentRoom",
+        "materialType": "nonMasonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": "buurkamer-18C",
+        "adjacentTemperature": 18.0,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "vloer-op-grond",
+        "description": "Vloer op grond",
+        "area": 218.0,
+        "uValue": 0.16,
+        "boundaryType": "ground",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "floor",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": {
+          "uEquivalent": 0.16,
+          "groundWaterFactor": 1.0,
+          "fIg": 1.0
+        },
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "bundel-binnenwanden",
+        "description": "Bundel binnenwanden naar Tochtportaal/Berging",
+        "area": 30.0,
+        "uValue": 0.40,
+        "boundaryType": "adjacentRoom",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": "tochtportaal-7C",
+        "adjacentTemperature": 7.0,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      }
+    ],
+    "bezetting": {
+      "personen": 16,
+      "persorenPerM2Default": null
+    },
+    "infiltrationReductionZ": 0.7
+  }, {
+    "id": "buurkamer-18C",
+    "name": "Buurkamer (stub voor adjacent-coupling)",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsruimte",
+    "floorArea": 1.0,
+    "height": 3.0,
+    "customTemperature": 18.0,
+    "constructions": [{
+      "id": "dummy-wall",
+      "description": "Dummy wall (minimal for validation)",
+      "area": 1.0,
+      "uValue": 0.20,
+      "boundaryType": "exterior",
+      "materialType": "masonry",
+      "temperatureFactor": null,
+      "adjacentRoomId": null,
+      "adjacentTemperature": null,
+      "verticalPosition": "wall",
+      "useForfaitaireThermalBridge": true,
+      "customDeltaUTb": null,
+      "groundParams": null,
+      "hasEmbeddedHeating": false,
+      "unheatedSpace": null
+    }],
+    "bezetting": {
+      "personen": 0,
+      "persorenPerM2Default": null
+    },
+    "infiltrationReductionZ": 1.0
+  }, {
+    "id": "tochtportaal-7C",
+    "name": "Tochtportaal/Berging (stub voor adjacent-coupling)",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsruimte",
+    "floorArea": 1.0,
+    "height": 3.0,
+    "customTemperature": 7.0,
+    "constructions": [{
+      "id": "dummy-wall",
+      "description": "Dummy wall (minimal for validation)",
+      "area": 1.0,
+      "uValue": 0.20,
+      "boundaryType": "exterior",
+      "materialType": "masonry",
+      "temperatureFactor": null,
+      "adjacentRoomId": null,
+      "adjacentTemperature": null,
+      "verticalPosition": "wall",
+      "useForfaitaireThermalBridge": true,
+      "customDeltaUTb": null,
+      "groundParams": null,
+      "hasEmbeddedHeating": false,
+      "unheatedSpace": null
+    }],
+    "bezetting": {
+      "personen": 0,
+      "persorenPerM2Default": null
+    },
+    "infiltrationReductionZ": 1.0
+  }],
+  "infiltrationMethod": {
+    "known": {
+      "qv10_kar_class": "From040To060"
+    }
+  },
+  "heatingUp": {
+    "setbackActive": true,
+    "pWPerM2": 10.0,
+    "warmupMinutes": 120.0
+  }
+}
