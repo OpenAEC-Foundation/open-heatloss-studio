@@ -1,0 +1,26 @@
+{
+  "tolerance_pct": 999.0,
+  "summary": {
+    "totalBuildingHeatLoss": 0.0,
+    "shellHeatLoss": 0.0,
+    "totalTransmissionLoss": 0.0,
+    "totalVentilationLoss": 0.0,
+    "totalInfiltrationLoss": 0.0
+  },
+  "rooms": [
+    {
+      "roomId": "R001",
+      "phiT": 0.0,
+      "phiV": 0.0,
+      "phiI": 0.0,
+      "totalHeatLoss": 0.0
+    },
+    {
+      "roomId": "R002",
+      "phiT": 0.0,
+      "phiV": 0.0,
+      "phiI": 0.0,
+      "totalHeatLoss": 0.0
+    }
+  ]
+}
