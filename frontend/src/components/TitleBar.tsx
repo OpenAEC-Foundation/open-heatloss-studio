@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { isTauri } from "../lib/backend";
 import { useAuth } from "../hooks/useAuth";
+import { useProjectStore } from "../store/projectStore";
 import "./TitleBar.css";
 
 interface TitleBarProps {
@@ -14,8 +15,12 @@ interface TitleBarProps {
 
 function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
   const { t } = useTranslation();
+  const { t: tBackstage } = useTranslation("backstage");
   const [isMaximized, setIsMaximized] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  // Fase 2 ISSO 53: norm-badge — leest direct uit projectStore. Bestaande
+  // projecten zonder norm-veld krijgen via silent migration `"isso51"`.
+  const norm = useProjectStore((s) => s.norm);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const appWindowRef = useRef<any>(null);
 
@@ -149,6 +154,18 @@ function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
               <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
             </svg>
           </button>
+        </div>
+
+        {/*
+          Fase 2 ISSO 53: norm-badge naast de quick-access. Klik is in fase 2
+          nog niet functioneel — fase 4 hangt hier de wissel-modal aan.
+        */}
+        <div
+          className="titlebar-norm-badge"
+          data-norm={norm}
+          title={tBackstage("normChoice.badgeTooltip")}
+        >
+          {norm === "isso51" ? "ISSO 51" : "ISSO 53"}
         </div>
       </div>
 

@@ -31,6 +31,17 @@
   "importedVabi": "Vabi project geïmporteerd",
   "projectName": "Projectnaam",
   "projectNamePrompt": "Voer een projectnaam in:",
+  "normChoice": {
+    "title": "Nieuw project",
+    "question": "Welk type berekening?",
+    "wonen": "Wonen (ISSO 51)",
+    "wonenSub": "Warmteverliesberekening voor woningen",
+    "utiliteit": "Utiliteit ≤ 4m (ISSO 53)",
+    "utiliteitSub": "Warmteverliesberekening voor utiliteitsgebouwen ≤ 4m",
+    "cancel": "Annuleren",
+    "continue": "Doorgaan",
+    "badgeTooltip": "Norm-keuze (wisselen volgt in fase 4)"
+  },
   "saved": "Opgeslagen",
   "savedToServer": "Project opgeslagen op server",
   "savedLocally": "Project lokaal opgeslagen",

@@ -19,7 +19,9 @@ import { useRecentFilesStore, type RecentFile } from "../../store/recentFilesSto
 import { useDocumentsStore } from "../../store/documentsStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import ExtensionManagerPanel from "./ExtensionManagerPanel";
+import NormChoiceModal from "./NormChoiceModal";
 import RecentFilesPanel from "./RecentFilesPanel";
+import type { ActiveNorm } from "../../types/projectV2";
 import "./Backstage.css";
 
 const ICONS = {
@@ -124,6 +126,11 @@ export default function Backstage({
   const [openExpanded, setOpenExpanded] = useState(true);
   const [saveAsExpanded, setSaveAsExpanded] = useState(true);
   const [importExpanded, setImportExpanded] = useState(true);
+  /**
+   * Fase 2 ISSO 53: norm-keuze modal vóór een nieuw project aangemaakt
+   * wordt. `null` = modal dicht, anders = open en wachtend op user-keuze.
+   */
+  const [showNormChoice, setShowNormChoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useToastStore((s) => s.addToast);
@@ -135,6 +142,7 @@ export default function Backstage({
   const setProject = useProjectStore((s) => s.setProject);
   const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
   const setServerUpdatedAt = useProjectStore((s) => s.setServerUpdatedAt);
+  const setNorm = useProjectStore((s) => s.setNorm);
   const reset = useProjectStore((s) => s.reset);
 
   const resetToExample = useModellerStore((s) => s.resetToExample);
@@ -188,22 +196,37 @@ export default function Backstage({
   // --- File actions ---
 
   const handleNew = useCallback(() => {
-    try {
-      // Tabbed views: open een nieuwe tab i.p.v. de huidige te overschrijven.
-      // De documents-store snapshot eerst de huidige tab, reset projectStore
-      // naar leeg, en zet de nieuwe tab actief.
-      useDocumentsStore.getState().newTab();
-      resetToExample();
-      onClose();
-      onNavigate?.("/project");
-      addToast(t("newProject"), "info");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      addToast(`Nieuw mislukt: ${msg}`, "error");
-      // eslint-disable-next-line no-console
-      console.error("[backstage] handleNew failed:", err);
-    }
-  }, [resetToExample, onClose, onNavigate, addToast, t]);
+    // Fase 2 ISSO 53: norm-keuze gaat vooraf aan de feitelijke
+    // project-aanmaak. Backstage blijft open totdat de user of bevestigt
+    // of annuleert; de eigenlijke `newTab()` flow verhuist naar
+    // `handleNormConfirm`.
+    setShowNormChoice(true);
+  }, []);
+
+  const handleNormConfirm = useCallback(
+    (norm: ActiveNorm) => {
+      setShowNormChoice(false);
+      try {
+        // Tabbed views: open een nieuwe tab i.p.v. de huidige te overschrijven.
+        // De documents-store snapshot eerst de huidige tab, reset projectStore
+        // naar leeg, en zet de nieuwe tab actief.
+        useDocumentsStore.getState().newTab();
+        resetToExample();
+        // newTab() roept reset() aan, die norm naar default "isso51" zet.
+        // Daarna zetten we de door de user gekozen norm.
+        setNorm(norm);
+        onClose();
+        onNavigate?.("/project");
+        addToast(t("newProject"), "info");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast(`Nieuw mislukt: ${msg}`, "error");
+        // eslint-disable-next-line no-console
+        console.error("[backstage] handleNormConfirm failed:", err);
+      }
+    },
+    [resetToExample, setNorm, onClose, onNavigate, addToast, t],
+  );
 
   // Vabi import handler — momenteel disabled in de UI omdat de Vabi-keten
   // nog in ontwikkeling is. Verwijderd uit de file; herinschakelen vereist
@@ -750,6 +773,14 @@ export default function Backstage({
         style={{ display: "none" }}
       />
       </div>
+
+      {/* Fase 2 ISSO 53: norm-keuze modal — getoond bij Bestand → Nieuw. */}
+      <NormChoiceModal
+        open={showNormChoice}
+        onClose={() => setShowNormChoice(false)}
+        onConfirm={handleNormConfirm}
+        defaultNorm="isso51"
+      />
     </>
   );
 }
