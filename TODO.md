@@ -163,6 +163,12 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
   - [x] Batch 2b: calc-kern (theta_i, q_h,nd)
   - [x] Batch 2c: orkestratie + CLI werkend
   - [x] Batch 2d: test fixtures + verificatie — infrastructuur klaar, norm-verificatie pending
+  - [ ] **ISSO 53 UI-spoor** — dual-calc support in bestaande web-app
+    - [x] Fase 1: backend dual-pipeline (KLAAR — commit 86e8ab6)
+    - [ ] Fase 2: norm-keuze UI + topbar-badge
+    - [ ] Fase 3: conditional rendering bestaande screens
+    - [ ] Fase 4: wissel-flow met waarschuwing
+    - [ ] Fase 5: isso53-report-builder
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
