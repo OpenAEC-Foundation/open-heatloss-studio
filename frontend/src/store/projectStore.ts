@@ -10,8 +10,11 @@ import type {
   Room,
 } from "../types";
 import {
+  DEFAULT_ISSO53_BUILDING,
   DEFAULT_SHARED_EXTRA,
   type ActiveNorm,
+  type Isso53BuildingState,
+  type Isso53RoomState,
   type SharedExtra,
 } from "../types/projectV2";
 
@@ -76,6 +79,18 @@ interface ProjectStore {
    * met bestaande projecten zonder norm-veld (silent migration).
    */
   norm: ActiveNorm;
+  /**
+   * ISSO 53 building-niveau sidecar-velden (BuildingShape,
+   * BuildingPosition, WindPressureType, ThermalMass, VentilationSystem,
+   * ConstructionYear). Alleen actief wanneer `norm === "isso53"`.
+   * Fase 3: lokale UI-state; backend-routing volgt in fase 4/5.
+   */
+  isso53Building: Isso53BuildingState;
+  /**
+   * Per-ruimte ISSO 53 sidecar (gebruiksFunctie + ruimteType), gekeyed
+   * op `room.id`. Alleen actief wanneer `norm === "isso53"`.
+   */
+  isso53Rooms: Record<string, Isso53RoomState>;
   /** Calculation result (null if not yet calculated). */
   result: ProjectResult | null;
   /** Error message from last calculation attempt. */
@@ -110,6 +125,14 @@ interface ProjectStore {
    * bij nieuw-project en (in fase 4) door de wissel-flow.
    */
   setNorm: (norm: ActiveNorm) => void;
+
+  /** Partial merge op `isso53Building` (fase 3 sidecar). */
+  updateIsso53Building: (partial: Partial<Isso53BuildingState>) => void;
+  /** Set of update een per-ruimte ISSO 53 sidecar (partial merge). */
+  updateIsso53Room: (
+    roomId: string,
+    partial: Partial<Isso53RoomState>,
+  ) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -188,6 +211,8 @@ export const useProjectStore = create<ProjectStore>()(
       project: DEFAULT_PROJECT,
       sharedExtra: { ...DEFAULT_SHARED_EXTRA },
       norm: "isso51",
+      isso53Building: { ...DEFAULT_ISSO53_BUILDING },
+      isso53Rooms: {},
       result: null,
       error: null,
       isCalculating: false,
@@ -208,6 +233,28 @@ export const useProjectStore = create<ProjectStore>()(
       setSharedExtra: (extra) => set({ sharedExtra: extra }),
 
       setNorm: (norm) => set({ norm, isDirty: true }),
+
+      updateIsso53Building: (partial) =>
+        set((state) => ({
+          isso53Building: { ...state.isso53Building, ...partial },
+          isDirty: true,
+        })),
+
+      updateIsso53Room: (roomId, partial) =>
+        set((state) => {
+          const current = state.isso53Rooms[roomId];
+          const base: Isso53RoomState = current ?? {
+            gebruiksFunctie: "kantoor",
+            ruimteType: "verblijfsruimte",
+          };
+          return {
+            isso53Rooms: {
+              ...state.isso53Rooms,
+              [roomId]: { ...base, ...partial },
+            },
+            isDirty: true,
+          };
+        }),
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -250,6 +297,8 @@ export const useProjectStore = create<ProjectStore>()(
           // Silent migration: geladen V1-projecten zonder norm-veld zijn
           // ISSO 51. Fase 4 (wissel-flow) introduceert UI om dit te wijzigen.
           norm: "isso51",
+          isso53Building: { ...DEFAULT_ISSO53_BUILDING },
+          isso53Rooms: {},
           isDirty: true,
           result: null,
           error: null,
@@ -266,6 +315,8 @@ export const useProjectStore = create<ProjectStore>()(
           project,
           // Silent migration: server-projecten zonder norm-veld → ISSO 51.
           norm: "isso51",
+          isso53Building: { ...DEFAULT_ISSO53_BUILDING },
+          isso53Rooms: {},
           activeProjectId: id,
           result,
           isDirty: false,
@@ -297,6 +348,8 @@ export const useProjectStore = create<ProjectStore>()(
           // Reset valt terug op de default norm — NormChoiceModal in
           // Backstage zet hierna de gekozen norm via `setNorm`.
           norm: "isso51",
+          isso53Building: { ...DEFAULT_ISSO53_BUILDING },
+          isso53Rooms: {},
           result: null,
           error: null,
           isCalculating: false,
@@ -341,16 +394,20 @@ export const useProjectStore = create<ProjectStore>()(
 
       removeRoom: (roomId) => {
         const snap = takeProjectSnapshot(get());
-        set((state) => ({
-          project: {
-            ...state.project,
-            rooms: state.project.rooms.filter((r) => r.id !== roomId),
-          },
-          isDirty: true,
-          error: null,
-          _past: [...state._past, snap].slice(-MAX_HISTORY),
-          _future: [],
-        }));
+        set((state) => {
+          const { [roomId]: _removed, ...remainingIsso53 } = state.isso53Rooms;
+          return {
+            project: {
+              ...state.project,
+              rooms: state.project.rooms.filter((r) => r.id !== roomId),
+            },
+            isso53Rooms: remainingIsso53,
+            isDirty: true,
+            error: null,
+            _past: [...state._past, snap].slice(-MAX_HISTORY),
+            _future: [],
+          };
+        });
       },
 
       addConstruction: (roomId, construction) => {
@@ -484,18 +541,31 @@ export const useProjectStore = create<ProjectStore>()(
         project: state.project,
         sharedExtra: state.sharedExtra,
         norm: state.norm,
+        isso53Building: state.isso53Building,
+        isso53Rooms: state.isso53Rooms,
         result: state.result,
       }),
       merge: (persisted, current) => ({
         ...current,
         ...(persisted as Pick<
           ProjectStore,
-          "project" | "sharedExtra" | "norm" | "result"
+          | "project"
+          | "sharedExtra"
+          | "norm"
+          | "isso53Building"
+          | "isso53Rooms"
+          | "result"
         >),
         sharedExtra:
           (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
         // Silent migration voor gepersisteerde projecten van vóór fase 2.
         norm: (persisted as Partial<ProjectStore>)?.norm ?? "isso51",
+        // Silent migration voor projecten van vóór fase 3 (geen ISSO 53 sidecar).
+        isso53Building:
+          (persisted as Partial<ProjectStore>)?.isso53Building ??
+          current.isso53Building,
+        isso53Rooms:
+          (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
         isDirty: false,
         isCalculating: false,
         error: null,

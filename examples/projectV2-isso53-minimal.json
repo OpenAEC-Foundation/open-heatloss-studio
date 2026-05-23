@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "shared": {
+    "name": "Demo kantoor ISSO 53 (ProjectV2)",
+    "project_number": "DEMO-53",
+    "address": "Demolaan 1, Utrecht",
+    "postcode": "3500AA",
+    "location": "Utrecht",
+    "client": "Demo BV",
+    "date": "2026-05-23",
+    "engineer": "Open Heatloss Studio",
+    "notes": "ProjectV2-wrapper rond een ISSO 53 utiliteitsbouw-input. De `calcs.isso53.legacy` blob is identiek aan crates/isso53-core/examples/minimal.json — view-mapper to_isso53_project() doet momenteel een directe deserialize. SharedGeometry blijft leeg in deze transitionele fase (komt in werkpakket fase 3/4).",
+    "building_type": {
+      "kind": "utiliteit",
+      "subtype": "office"
+    },
+    "construction_year": 2020,
+    "gross_floor_area_m2": 25.0,
+    "num_storeys": 1
+  },
+  "geometry": {
+    "spaces": []
+  },
+  "calcs": {
+    "isso53": {
+      "info": {
+        "name": "Demo kantoor ISSO 53",
+        "projectNumber": "DEMO-53",
+        "address": "Demolaan 1, Utrecht",
+        "client": "Demo BV",
+        "date": "2026-05-23",
+        "engineer": "Open Heatloss Studio",
+        "notes": null
+      },
+      "building": {
+        "buildingShape": "meerlaags",
+        "constructionYear": 2020,
+        "buildingPosition": "meerlaagsTussen",
+        "ventilationSystem": "systemD",
+        "thermalMass": "gemiddeld",
+        "windPressureType": "meerlaagsStandaard"
+      },
+      "climate": {
+        "thetaE": -10.0,
+        "thetaMe": 9.0
+      },
+      "ventilation": {
+        "systemType": "systemD",
+        "hasHeatRecovery": true,
+        "heatRecoveryEfficiency": 0.85,
+        "frostProtection": null,
+        "supplyTemperature": null,
+        "hasPreheating": false,
+        "preheatingTemperature": null
+      },
+      "rooms": [
+        {
+          "id": "K01",
+          "name": "Kantoor 1.01",
+          "gebruiksFunctie": "kantoor",
+          "ruimteType": "verblijfsruimte",
+          "floorArea": 25.0,
+          "height": 2.8,
+          "customTemperature": null,
+          "constructions": [
+            {
+              "id": "wall-n",
+              "description": "Buitenwand noord",
+              "area": 14.0,
+              "uValue": 0.21,
+              "boundaryType": "exterior",
+              "materialType": "masonry",
+              "temperatureFactor": null,
+              "adjacentRoomId": null,
+              "adjacentTemperature": null,
+              "verticalPosition": "wall",
+              "useForfaitaireThermalBridge": true,
+              "customDeltaUTb": null,
+              "groundParams": null,
+              "hasEmbeddedHeating": false,
+              "unheatedSpace": null
+            },
+            {
+              "id": "window-n",
+              "description": "Raam noord",
+              "area": 6.0,
+              "uValue": 1.1,
+              "boundaryType": "exterior",
+              "materialType": "nonMasonry",
+              "temperatureFactor": null,
+              "adjacentRoomId": null,
+              "adjacentTemperature": null,
+              "verticalPosition": "wall",
+              "useForfaitaireThermalBridge": true,
+              "customDeltaUTb": null,
+              "groundParams": null,
+              "hasEmbeddedHeating": false,
+              "unheatedSpace": null
+            },
+            {
+              "id": "floor",
+              "description": "Vloer op grond",
+              "area": 25.0,
+              "uValue": 0.22,
+              "boundaryType": "ground",
+              "materialType": "masonry",
+              "temperatureFactor": null,
+              "adjacentRoomId": null,
+              "adjacentTemperature": null,
+              "verticalPosition": "floor",
+              "useForfaitaireThermalBridge": true,
+              "customDeltaUTb": null,
+              "groundParams": {
+                "uEquivalent": 0.18,
+                "groundWaterFactor": 1.0,
+                "fIg": 1.0
+              },
+              "hasEmbeddedHeating": false,
+              "unheatedSpace": null
+            }
+          ],
+          "bezetting": {
+            "personen": 5,
+            "persorenPerM2Default": null
+          },
+          "infiltrationReductionZ": 1.0
+        }
+      ],
+      "infiltrationMethod": {
+        "known": {
+          "qv10_kar_class": "From040To060"
+        }
+      },
+      "heatingUp": {
+        "setbackActive": false,
+        "pWPerM2": 0.0,
+        "warmupMinutes": 60.0
+      }
+    }
+  }
+}

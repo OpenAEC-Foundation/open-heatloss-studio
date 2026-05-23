@@ -139,6 +139,104 @@
     "title": "Project",
     "subtitle": "Building and installation settings"
   },
+  "isso53": {
+    "building": {
+      "sectionTitle": "ISSO 53 — Building characteristics",
+      "shape": "Building shape",
+      "shapeHint": "ISSO 53 table 4.9 — infiltration shape factor",
+      "position": "Position in complex",
+      "positionHint": "ISSO 53 table 4.8 — infiltration position factor",
+      "windPressureType": "Wind pressure type",
+      "windPressureHint": "ISSO 53 table 4.6 — f_type",
+      "thermalMass": "Thermal mass",
+      "ventilationSystem": "Ventilation system",
+      "constructionYear": "Construction year",
+      "shapeOptions": {
+        "meerlaags": "Multi-storey",
+        "eenLaagMetKap": "Single storey with pitched roof",
+        "eenLaagMetPlatDak": "Single storey with flat roof",
+        "eenLaagMetHalfPlatDak": "Single storey with half-flat roof"
+      },
+      "positionOptions": {
+        "enkellaagsTussen": "Single storey — mid",
+        "enkellaagsKop": "Single storey — end",
+        "enkellaagsVrijstaand": "Single storey — detached",
+        "meerlaagsGeheel": "Multi-storey — whole",
+        "meerlaagsTop": "Multi-storey — top",
+        "meerlaagsTussen": "Multi-storey — mid",
+        "meerlaagsOnder": "Multi-storey — bottom"
+      },
+      "windPressureOptions": {
+        "eenlaagsMetKap": "Single storey, pitched roof",
+        "eenlaagsMetPlatDak": "Single storey, flat roof",
+        "meerlaagsStandaard": "Multi-storey — standard",
+        "meerlaagsVolgevelBinnengalerij": "Multi-storey — full facade interior gallery",
+        "meerlaagsDubbeleHuidOnderbroken": "Multi-storey — double skin (interrupted)",
+        "meerlaagsDubbeleHuidDoorlopend": "Multi-storey — double skin (continuous)"
+      },
+      "thermalMassOptions": {
+        "licht": "Light (c_eff = 15 Wh/m³K)",
+        "gemiddeld": "Medium (c_eff = 50 Wh/m³K)",
+        "zwaar": "Heavy (c_eff = 75 Wh/m³K)"
+      },
+      "ventilationSystemOptions": {
+        "systemA": "System A (natural)",
+        "systemB": "System B (mech. supply)",
+        "systemC": "System C (mech. exhaust)",
+        "systemD": "System D (balanced)",
+        "systemE": "System E (zone mix)"
+      }
+    },
+    "room": {
+      "gebruiksFunctie": "Use function",
+      "ruimteType": "Space type",
+      "gebruiksFunctieOptions": {
+        "kantoor": "Office",
+        "onderwijs": "Education",
+        "gezondheidszorg": "Healthcare",
+        "bijeenkomst": "Assembly",
+        "logies": "Lodging",
+        "sport": "Sport",
+        "winkel": "Retail",
+        "cel": "Cell",
+        "industrie": "Industrial"
+      },
+      "ruimteTypeOptions": {
+        "verblijfsruimte": "Habitable space",
+        "verblijfsgebied": "Habitable area",
+        "badruimte": "Bathroom",
+        "toiletruimte": "Toilet",
+        "verkeersruimte": "Circulation",
+        "technischeRuimte": "Technical room",
+        "bergruimte": "Storage",
+        "onbenoemdeRuimte": "Unnamed space",
+        "stallingsruimte": "Parking room",
+        "garage": "Garage",
+        "kantoorruimte": "Office space",
+        "receptie": "Reception",
+        "lesruimte": "Classroom",
+        "collegezaal": "Lecture hall",
+        "werkplaats": "Workshop",
+        "bureauruimte": "Desk space",
+        "patientenkamer": "Patient room",
+        "operatiekamer": "Operating room",
+        "onderzoekruimte": "Examination room",
+        "eetruimte": "Dining space",
+        "restaurant": "Restaurant",
+        "kantine": "Canteen",
+        "vergaderruimte": "Meeting room",
+        "hotelkamer": "Hotel room",
+        "sportzaal": "Gym",
+        "verkoopruimte": "Sales floor",
+        "supermarkt": "Supermarket",
+        "warenhuis": "Department store"
+      }
+    },
+    "results": {
+      "phiI": "Φ_i",
+      "phiIDescription": "Infiltration (separate)"
+    }
+  },
   "warmteverliesInstellingen": {
     "title": "Heat loss settings",
     "subtitle": "ISSO 51:2023 parameters"

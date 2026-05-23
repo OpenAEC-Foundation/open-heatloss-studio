@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 import { ConstructionLossChart } from "../components/charts/ConstructionLossChart";
@@ -26,8 +27,10 @@ function fmt2(value: number): string {
 }
 
 export function Results() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { project, result } = useProjectStore();
+  const norm = useProjectStore((s) => s.norm);
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
   const [zoomedChart, setZoomedChart] = useState<"bar" | "donut" | "construction" | null>(null);
@@ -244,9 +247,19 @@ export function Results() {
                   &Phi;_T
                   <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Transmissie</span>
                 </Th>
-                <Th className="text-right">
-                  &Phi;_i
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Infiltratie</span>
+                <Th
+                  className={
+                    norm === "isso53"
+                      ? "border-l-2 border-[var(--oaec-border)] bg-[var(--oaec-hover)] text-right font-bold"
+                      : "text-right"
+                  }
+                >
+                  {norm === "isso53" ? t("isso53.results.phiI") : "Φ_i"}
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {norm === "isso53"
+                      ? t("isso53.results.phiIDescription")
+                      : "Infiltratie"}
+                  </span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_v
@@ -280,7 +293,16 @@ export function Results() {
                   <Td className="font-medium">{room.room_name}</Td>
                   <Td numeric>{fmt2(room.theta_i)} &deg;C</Td>
                   <Td numeric>{fmtW(room.transmission.phi_t)}</Td>
-                  <Td numeric>{fmtW(room.infiltration.phi_i)}</Td>
+                  <Td
+                    numeric
+                    className={
+                      norm === "isso53"
+                        ? "border-l-2 border-[var(--oaec-border)] bg-[var(--oaec-hover)] font-semibold"
+                        : ""
+                    }
+                  >
+                    {fmtW(room.infiltration.phi_i)}
+                  </Td>
                   <Td numeric>{fmtW(room.ventilation.phi_v)}</Td>
                   <Td numeric>{fmtW(room.heating_up.phi_hu)}</Td>
                   <Td numeric>{fmtW(room.system_losses.phi_system_total)}</Td>
