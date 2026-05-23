@@ -169,6 +169,8 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
     - [x] Fase 3: conditional rendering bestaande screens (KLAAR — commit 28c429f)
     - [x] Fase 4: wissel-flow met waarschuwing (KLAAR — commit e697c97)
     - [x] Fase 5: isso53-report-builder (KLAAR — commit 7d8a307)
+  - [ ] ISSO 53 - vervolg
+    - [ ] Vabi-vergelijking: ground-formule §4.6 norm-interpretatie onderzoeken
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
