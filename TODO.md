@@ -162,7 +162,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
   - [x] Batch 2a: opzoektabellen (11 tabel-modules in `tables/`)
   - [x] Batch 2b: calc-kern (theta_i, q_h,nd)
   - [x] Batch 2c: orkestratie + CLI werkend
-  - [ ] Batch 2d: test fixtures + verificatie
+  - [x] Batch 2d: test fixtures + verificatie — infrastructuur klaar, norm-verificatie pending
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
