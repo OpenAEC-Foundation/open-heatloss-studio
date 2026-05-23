@@ -109,6 +109,12 @@ interface BackstageProps {
   open: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
+  /**
+   * Opent de `NormSwitchModal` (data-conversie + back-up flow voor ISSO 51 ↔ 53).
+   * Geplaatst onder "Voorkeuren" als bewust afgezonderde menu-actie, niet als
+   * toggle in de chrome — mixed-use (woon + utiliteit) is niet ondersteund.
+   */
+  onOpenNormSwitch?: () => void;
   onNavigate?: (path: string) => void;
 }
 
@@ -116,6 +122,7 @@ export default function Backstage({
   open,
   onClose,
   onOpenSettings,
+  onOpenNormSwitch,
   onNavigate,
 }: BackstageProps) {
   const { t } = useTranslation("backstage");
@@ -705,6 +712,15 @@ export default function Backstage({
             shortcut="Ctrl+,"
             onClick={() => actionAndClose(onOpenSettings)}
           />
+
+          {/* Norm wisselen (ISSO 51 ↔ 53) — verplaatst vanuit de TitleBar */}
+          {onOpenNormSwitch && (
+            <MenuItem
+              icon={ICONS.preferences}
+              label={t("normSwitchEntry")}
+              onClick={() => actionAndClose(onOpenNormSwitch)}
+            />
+          )}
 
           <Divider />
 

@@ -154,6 +154,9 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] PDF/DWG onderlegger
 - [ ] Schuine daken en dakkapellen
 
+## Architectuur / open ontwerpen
+- [ ] **Zone-model ADR** — `docs/2026-05-23-zone-model-adr.md` — ontwerp voor mixed-use support via norm-keuze per rekenzone (spike/draft)
+
 ## Roadmap — toekomst
 - [ ] BAG-data import (postcode + huisnummer)
 - [ ] Quick-calc wizard (5-10 min berekening)

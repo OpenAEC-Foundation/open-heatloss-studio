@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { isTauri } from "../lib/backend";
 import { useAuth } from "../hooks/useAuth";
-import { useProjectStore } from "../store/projectStore";
 import "./TitleBar.css";
 
 interface TitleBarProps {
@@ -11,22 +10,12 @@ interface TitleBarProps {
   onFeedbackClick?: () => void;
   /** Callback voor de Save quick-access knop (zelfde flow als Ctrl+S). */
   onSave?: () => void | Promise<void>;
-  /**
-   * Fase 4 ISSO 53: klik-handler op de norm-badge → opent
-   * `NormSwitchModal`. Wanneer afwezig is de badge alleen-visueel
-   * (geen klik-effect).
-   */
-  onNormBadgeClick?: () => void;
 }
 
-function TitleBar({ onSettingsClick, onFeedbackClick, onSave, onNormBadgeClick }: TitleBarProps) {
+function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
   const { t } = useTranslation();
-  const { t: tBackstage } = useTranslation("backstage");
   const [isMaximized, setIsMaximized] = useState(false);
   const [appVersion, setAppVersion] = useState("");
-  // Fase 2 ISSO 53: norm-badge — leest direct uit projectStore. Bestaande
-  // projecten zonder norm-veld krijgen via silent migration `"isso51"`.
-  const norm = useProjectStore((s) => s.norm);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const appWindowRef = useRef<any>(null);
 
@@ -161,22 +150,6 @@ function TitleBar({ onSettingsClick, onFeedbackClick, onSave, onNormBadgeClick }
             </svg>
           </button>
         </div>
-
-        {/*
-          Fase 4 ISSO 53: norm-badge naast quick-access. Klik opent de
-          NormSwitchModal (data-conversie + back-up flow).
-        */}
-        <button
-          type="button"
-          className="titlebar-norm-badge"
-          data-norm={norm}
-          title={tBackstage("normChoice.badgeTooltip")}
-          onClick={onNormBadgeClick}
-          tabIndex={-1}
-          aria-label={tBackstage("normChoice.badgeTooltip")}
-        >
-          {norm === "isso51" ? "ISSO 51" : "ISSO 53"}
-        </button>
       </div>
 
       <span className="titlebar-title" data-tauri-drag-region>

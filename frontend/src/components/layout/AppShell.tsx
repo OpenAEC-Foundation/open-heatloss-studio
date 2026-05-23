@@ -74,8 +74,9 @@ export function AppShell({ children }: AppShellProps) {
   const [backstageOpen, setBackstageOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   /**
-   * Fase 4 ISSO 53: open-state voor `NormSwitchModal`. Trigger zit op
-   * de norm-badge in `TitleBar`.
+   * Fase 4 ISSO 53: open-state voor `NormSwitchModal`. Trigger zit
+   * onder "Voorkeuren" in de Backstage — bewust niet meer in de chrome
+   * omdat mixed-use (woon + utiliteit) niet ondersteund wordt.
    */
   const [normSwitchOpen, setNormSwitchOpen] = useState(false);
   const [theme, setTheme] = useState("light");
@@ -320,7 +321,6 @@ export function AppShell({ children }: AppShellProps) {
         onSettingsClick={() => setSettingsOpen(true)}
         onFeedbackClick={() => setFeedbackOpen(true)}
         onSave={performSave}
-        onNormBadgeClick={() => setNormSwitchOpen(true)}
       />
       <Ribbon onFileTabClick={() => setBackstageOpen(true)} />
       <TabBar />
@@ -352,6 +352,7 @@ export function AppShell({ children }: AppShellProps) {
         open={backstageOpen}
         onClose={() => setBackstageOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenNormSwitch={() => setNormSwitchOpen(true)}
         onNavigate={navigate}
       />
       <NormSwitchModal
