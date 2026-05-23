@@ -124,7 +124,7 @@
           "groundWaterFactor": 1.0,
           "fIg": 1.0
         },
-        "hasEmbeddedHeating": false,
+        "hasEmbeddedHeating": true,
         "unheatedSpace": null
       },
       {

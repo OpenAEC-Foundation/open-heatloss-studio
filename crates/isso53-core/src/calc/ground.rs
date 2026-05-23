@@ -17,6 +17,10 @@ pub const GROUND_CORRECTION_FACTOR: f64 = 1.45;
 
 /// Calculate ground heat loss coefficient H_T,ig.
 /// ISSO 53 formule 4.21, PDF p.43: H_T,ig = 1.45 × Σ(A_k × U_equiv,k × f_gw × f_ig,k)
+///
+/// **§4.6 clause**: voor elementen met `has_embedded_heating = true` (bv.
+/// vloerverwarming) wordt `f_ig` overschreven naar 0.0 conform de norm-tekst
+/// "f_ig,k = 0 voor het verwarmde deel van wand/vloer/plafond".
 pub fn calculate_h_t_ground(elements: &[&ConstructionElement]) -> Result<f64> {
     let mut h_t_ig = 0.0;
 
@@ -45,11 +49,17 @@ pub fn calculate_h_t_ground(elements: &[&ConstructionElement]) -> Result<f64> {
                 ground_params.u_equivalent
             };
 
+            let f_ig = if element.has_embedded_heating {
+                0.0  // ISSO 53 §4.6: verwarmd deel van vloer/wand bij vloer-/wand-/CKM-verwarming
+            } else {
+                ground_params.f_ig
+            };
+
             h_t_ig += GROUND_CORRECTION_FACTOR
                 * element.area
                 * u_equiv
                 * ground_params.ground_water_factor
-                * ground_params.f_ig;
+                * f_ig;
         }
     }
 
@@ -171,5 +181,44 @@ mod tests {
         let u_equiv = result.unwrap();
         assert!(u_equiv >= 0.1, "Should be at least minimum value");
         assert!(u_equiv < 1.0, "Should be reasonable");
+    }
+
+    #[test]
+    fn embedded_heating_zeroes_f_ig() {
+        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition};
+        use crate::model::construction::GroundParameters;
+
+        let element = ConstructionElement {
+            id: "vloer-vv".into(),
+            description: "Vloer met vloerverwarming".into(),
+            area: 100.0,
+            u_value: 0.16,
+            boundary_type: BoundaryType::Ground,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: Some(GroundParameters {
+                u_equivalent: 0.16,
+                ground_water_factor: 1.0,
+                f_ig: 1.0,
+                perimeter: None,
+                depth: None,
+            }),
+            has_embedded_heating: true,  // ← key: vloerverwarming
+            unheated_space: None,
+        };
+
+        let result = calculate_h_t_ground(&[&element]).expect("calc");
+        assert_eq!(result, 0.0, "Embedded heating moet H_T,ig naar 0 brengen (§4.6)");
+
+        // Sanity: zonder embedded heating wel verlies
+        let mut e2 = element.clone();
+        e2.has_embedded_heating = false;
+        let result2 = calculate_h_t_ground(&[&e2]).expect("calc");
+        assert!(result2 > 20.0, "Zonder embedded heating wél H_T,ig > 0, got {result2}");
     }
 }
