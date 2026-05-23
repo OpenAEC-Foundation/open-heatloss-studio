@@ -1,0 +1,17 @@
+{
+  "source": "Vabi Elements 3.11.2.23, kern Warmteverlies 2.43.1, rapport TR02 Houtfabriek p.18-20",
+  "tolerance_pct": 15.0,
+  "room": {
+    "roomId": "0.14",
+    "phiT": 2919.0,
+    "phiV": 3080.0,
+    "phiHu": 2163.0,
+    "totalHeatLoss": 8161.0
+  },
+  "notes": [
+    "ISSO 53 Industriefunctie Verblijfsgebied (Vabi); onze fixture gebruikt gebruiksFunctie=kantoor als beste mapping (gap gedocumenteerd)",
+    "Φ_V in Vabi is alleen infiltratie omdat WTW de ventilatie reduceert naar 0",
+    "ΔU_TB = 0,05 nieuw gebouw — onze default is 0,10; override via customDeltaUTb per exterior element",
+    "30+ Vabi constructies vereenvoudigd naar ~10 fixture-elementen door bundeling van kleine interne wanden"
+  ]
+}
