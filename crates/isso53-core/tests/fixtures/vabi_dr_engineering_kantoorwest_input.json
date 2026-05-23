@@ -1,0 +1,241 @@
+{
+  "info": {
+    "name": "Vabi DR Engineering - Kantoor West 0.03",
+    "projectNumber": "VABI-DR-Voorbeeld",
+    "address": "Warmteverliesberekening Voorbeeld",
+    "client": "DR Engineering",
+    "date": "2026-05-23",
+    "engineer": null,
+    "notes": "Vabi Elements 3.12.0.127 - ISSO 53 Unknown-pad (forfaitair) cross-validatie"
+  },
+  "building": {
+    "buildingShape": "meerlaags",
+    "constructionYear": 2021,
+    "buildingPosition": "meerlaagsOnder",
+    "ventilationSystem": "systemD",
+    "thermalMass": "gemiddeld",
+    "windPressureType": "meerlaagsVolgevelBinnengalerij",
+    "buildingHeight": 13.0,
+    "buildingLength": 30.0,
+    "buildingWidth": 20.0
+  },
+  "climate": {
+    "thetaE": -6.0,
+    "thetaMe": 9.0
+  },
+  "ventilation": {
+    "systemType": "systemD",
+    "hasHeatRecovery": true,
+    "heatRecoveryEfficiency": 0.85,
+    "frostProtection": null,
+    "supplyTemperature": 21.5,
+    "hasPreheating": false,
+    "preheatingTemperature": null
+  },
+  "rooms": [{
+    "id": "0.03",
+    "name": "Kantoor West",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsgebied",
+    "floorArea": 119.49,
+    "height": 2.8,
+    "customTemperature": 21.5,
+    "constructions": [
+      {
+        "id": "wand-bui-zuid",
+        "description": "Buitenwand Rc=4.7 west (58,20 m²)",
+        "area": 58.20,
+        "uValue": 0.21,
+        "boundaryType": "exterior",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "wand-bui-noord",
+        "description": "Buitenwand Rc=4.7 oost (9,27 m²)",
+        "area": 9.27,
+        "uValue": 0.21,
+        "boundaryType": "exterior",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "ramen-buiten",
+        "description": "Ramen HR++ exterior 14×1,28 m² (totaal 17,92 m²)",
+        "area": 17.92,
+        "uValue": 1.60,
+        "boundaryType": "exterior",
+        "materialType": "nonMasonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": true,
+        "customDeltaUTb": 0.05,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "vloer-op-grond",
+        "description": "Vloer op grond beton Rc=5.0 (120,64 m²)",
+        "area": 120.64,
+        "uValue": 0.18,
+        "boundaryType": "ground",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": null,
+        "adjacentTemperature": null,
+        "verticalPosition": "floor",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": {
+          "uEquivalent": 0.18,
+          "groundWaterFactor": 1.0,
+          "fIg": 1.0
+        },
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "plafond-tussen",
+        "description": "Vloer tussen verdieping (U=2,91, gradient 4K naar boven)",
+        "area": 119.49,
+        "uValue": 2.91,
+        "boundaryType": "adjacentRoom",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": "verdieping-boven-17K",
+        "adjacentTemperature": 17.5,
+        "verticalPosition": "ceiling",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "wand-bin-gang-18C",
+        "description": "Binnenwand naar gang Cz=70 (48,79 m²)",
+        "area": 48.79,
+        "uValue": 0.60,
+        "boundaryType": "adjacentRoom",
+        "materialType": "masonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": "gang-18C",
+        "adjacentTemperature": 18.0,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      },
+      {
+        "id": "deur-bin-gang",
+        "description": "Binnendeur naar gang (2 m²)",
+        "area": 2.00,
+        "uValue": 2.00,
+        "boundaryType": "adjacentRoom",
+        "materialType": "nonMasonry",
+        "temperatureFactor": null,
+        "adjacentRoomId": "gang-18C",
+        "adjacentTemperature": 18.0,
+        "verticalPosition": "wall",
+        "useForfaitaireThermalBridge": false,
+        "customDeltaUTb": null,
+        "groundParams": null,
+        "hasEmbeddedHeating": false,
+        "unheatedSpace": null
+      }
+    ],
+    "bezetting": {
+      "personen": 17,
+      "persorenPerM2Default": null
+    },
+    "infiltrationReductionZ": 1.0
+  }, {
+    "id": "gang-18C",
+    "name": "Gang (stub voor adjacent)",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsruimte",
+    "floorArea": 1.0,
+    "height": 2.8,
+    "customTemperature": 18.0,
+    "constructions": [{
+      "id": "dummy",
+      "description": "Dummy",
+      "area": 1.0,
+      "uValue": 0.20,
+      "boundaryType": "exterior",
+      "materialType": "masonry",
+      "temperatureFactor": null,
+      "adjacentRoomId": null,
+      "adjacentTemperature": null,
+      "verticalPosition": "wall",
+      "useForfaitaireThermalBridge": true,
+      "customDeltaUTb": null,
+      "groundParams": null,
+      "hasEmbeddedHeating": false,
+      "unheatedSpace": null
+    }],
+    "bezetting": {"personen": 0, "persorenPerM2Default": null},
+    "infiltrationReductionZ": 1.0
+  }, {
+    "id": "verdieping-boven-17K",
+    "name": "Verdieping boven (stub voor adjacent)",
+    "gebruiksFunctie": "kantoor",
+    "ruimteType": "verblijfsgebied",
+    "floorArea": 1.0,
+    "height": 2.8,
+    "customTemperature": 17.5,
+    "constructions": [{
+      "id": "dummy",
+      "description": "Dummy",
+      "area": 1.0,
+      "uValue": 0.20,
+      "boundaryType": "exterior",
+      "materialType": "masonry",
+      "temperatureFactor": null,
+      "adjacentRoomId": null,
+      "adjacentTemperature": null,
+      "verticalPosition": "wall",
+      "useForfaitaireThermalBridge": true,
+      "customDeltaUTb": null,
+      "groundParams": null,
+      "hasEmbeddedHeating": false,
+      "unheatedSpace": null
+    }],
+    "bezetting": {"personen": 0, "persorenPerM2Default": null},
+    "infiltrationReductionZ": 1.0
+  }],
+  "infiltrationMethod": {
+    "unknown": {
+      "construction_year": 2021,
+      "building_length": 30.0,
+      "building_width": 20.0,
+      "building_height": 13.0
+    }
+  },
+  "heatingUp": {
+    "setbackActive": false,
+    "pWPerM2": 0.0,
+    "warmupMinutes": 0.0
+  }
+}

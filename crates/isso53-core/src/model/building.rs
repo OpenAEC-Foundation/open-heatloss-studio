@@ -33,9 +33,19 @@ pub struct Building {
 
     /// Hoogte van het gebouwcomplex in meter, gemeten vanaf maaiveld
     /// tot de bovenste verdiepingsvloer. Gebruikt voor q_is-lookup uit
-    /// tabel 4.5 (Known-pad infiltratie). Default 3,0 m bij None.
+    /// tabel 4.5 (Known-pad) én formule 4.32 (Unknown-pad). Default 3,0 m.
     #[serde(default)]
     pub building_height: Option<f64>,
+
+    /// Lengte van het gebouwcomplex in meter. Vereist voor Unknown-pad
+    /// (formule 4.32 f_wind). Bij None krijgt f_wind een placeholder-waarde
+    /// van 1,0 (zou de Unknown-pad alsnog laten draaien met geringe fout).
+    #[serde(default)]
+    pub building_length: Option<f64>,
+
+    /// Breedte van het gebouwcomplex in meter. Vereist voor Unknown-pad.
+    #[serde(default)]
+    pub building_width: Option<f64>,
 }
 
 fn default_wind_pressure_type() -> GebouwTypeWinddruk {

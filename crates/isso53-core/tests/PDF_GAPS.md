@@ -129,3 +129,57 @@ Vabi-rapport: "Vorstbeveiliging: Voorverwarming buitenlucht" + "Verwarmingsbatte
 ### Conclusie sessie 2 (vervolg)
 
 Alle drie norm-/implementatie-bugs opgelost: §4.6 ground (sessie 1), formule 4.38 WTW (sessie 2 ochtend), A_u/A_g omdraai + building_height (sessie 2 vervolg). De Vabi TR02 Bedrijfsruimte4 fixture matcht nu op alle vier componenten binnen 2%. `#[ignore]` verwijderd op `vabi_bedrijfsruimte4_phi_vi_combined_matches`.
+
+## Vabi DR Engineering voorbeeld - Kantoor West 0.03 (sessie 2026-05-23)
+
+**Bron:** Vabi Elements 3.12.0.127, "Voorbeeld Warmteverliesberekening Utiliteitsbouw"
+(27-2-2025), DR Engineering. Ruimte 0.03 Kantoor West.
+**Fixture:** `vabi_dr_engineering_kantoorwest_input.json`
+**Test:** `tests/vabi_dr_golden.rs`
+
+### Doel cross-validatie
+
+Bevestigen dat de 4 fixes uit Bedrijfsruimte4 generaliseren naar ander Vabi-project,
+plus eerste verificatie van de **Unknown-pad** (formule 4.31, geactiveerd in deze sessie).
+
+### Cross-validatie resultaat
+
+| Component | ISSO53-Core | Vabi | Δ | Status |
+|-----------|-------------|------|---|--------|
+| **Φ_V** | 0 W | 0 W | exact | ✅ luchtverwarming formule 4.38 generaliseert |
+| **Φ_T** | 3786 W | 3059 W | +24% | ⚠️ adjacent-room ΔT-keten verschilt |
+| **Φ_I** | 177 W | 681 W | -74% | ⚠️ Unknown-pad: norm vs Vabi-keten |
+| **Totaal** | 3963 W | 3741 W | +6% | ⚠️ compenserende fouten |
+
+### Twee nieuwe open sporen
+
+**Spoor 1 — Transmissie naar adjacent rooms met hoge U-waarde**
+
+Vabi rapporteert Φ_T,ie + Φ_T,ia + Φ_T,ig = 1237 + 1507 + 315 = 3059 W. Onze code geeft 3786 W
+(+24%). Het verschil zit in adjacent-room transmissie: "Vloer tus Plafond" U=2,91 area=119,49 m².
+Vabi rekent met "Temp. gradient 4K" → 119,49 × 2,91 × 4 = 1391 W. Onze code geeft een lagere
+waarde door de manier waarop ΔT (room.theta_i − adjacent.theta) wordt afgehandeld bij hoge
+tussenvloer-U-waarden. **Onderzoek nodig:** §4.4 formule 4.9/4.10 voor adjacent rooms.
+
+**Spoor 2 — Unknown-pad keten norm vs Vabi**
+
+ISSO 53 tabel 4.6 zegt voor "Volgevel binnengalerij aan één zijde": f_type = 0,48.
+Vabi (p.3 rapport): "Correctiefactor gebouwafhankelijke winddrukverdeling = 0,9".
+
+ISSO 53 tabel 4.7 zegt voor systeem D: f_inf = 1,15. Vabi (p.9): 1,10.
+
+ISSO 53 formule 4.34 voor 2021: f_jaar = 0,4 + 0,033·exp(0,05·(2060-2021)) = 0,632.
+Vabi (p.3): 0,7.
+
+**Onderzoek nodig:** Vabi gebruikt vermoedelijk NEN 8088-1 of een eigen aangepaste keten
+(zoals memory aangaf bij isso51-core: "NTA 8800 power-law + NEN 8088-1 f_inf + Vabi-fit").
+Mogelijke fix: `InfiltrationMethod::UnknownVabiCompat` variant met override-waarden,
+óf documenteren dat onze Known-pad volledig matcht en Unknown-pad bewust norm-strict blijft.
+
+### Wat WEL werkt (positieve cross-validatie)
+
+- **§4.6 embedded heating clause**: nvt voor dit gebouw (geen vloerverwarming)
+- **Formule 4.38 WTW omkering**: f_v=0 bij luchtverwarming (θ_t=21,5°C) → Φ_V=0 W exact ✅
+- **A_u/A_g + building_height**: A_u-extractie werkt (75 m² exterior excl. ceiling)
+- **Unknown-pad implementatie (formule 4.31)**: berekening loopt zonder error,
+  resultaten zijn norm-conform — alleen niet Vabi-compatible
