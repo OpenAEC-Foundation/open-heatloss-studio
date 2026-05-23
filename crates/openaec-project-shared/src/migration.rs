@@ -78,6 +78,7 @@ pub fn from_legacy_v1_value(v1_value: Value) -> ProjectV2 {
             legacy_v1: v1_value,
         }),
         tojuli: None,
+        isso53: None,
     };
 
     ProjectV2 {

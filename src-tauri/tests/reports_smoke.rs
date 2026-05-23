@@ -39,6 +39,9 @@ fn generates_valid_pdf_for_minimal_input() {
             ],
         }],
         backcover: Some(BackcoverConfig { enabled: true }),
+        footer: None,
+        header: None,
+        style: None,
     };
 
     let bytes = generator::generate_pdf(&data).expect("generate succeeds");
