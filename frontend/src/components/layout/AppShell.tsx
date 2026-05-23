@@ -19,6 +19,7 @@ import TabBar from "../TabBar";
 import Ribbon from "../ribbon/Ribbon";
 import StatusBar from "../StatusBar";
 import Backstage from "../backstage/Backstage";
+import NormSwitchModal from "../backstage/NormSwitchModal";
 import SettingsDialog, { applyTheme } from "../settings/SettingsDialog";
 import FeedbackDialog from "../feedback/FeedbackDialog";
 import { Sidebar } from "./Sidebar";
@@ -72,6 +73,11 @@ export function AppShell({ children }: AppShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [backstageOpen, setBackstageOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  /**
+   * Fase 4 ISSO 53: open-state voor `NormSwitchModal`. Trigger zit op
+   * de norm-badge in `TitleBar`.
+   */
+  const [normSwitchOpen, setNormSwitchOpen] = useState(false);
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
@@ -314,6 +320,7 @@ export function AppShell({ children }: AppShellProps) {
         onSettingsClick={() => setSettingsOpen(true)}
         onFeedbackClick={() => setFeedbackOpen(true)}
         onSave={performSave}
+        onNormBadgeClick={() => setNormSwitchOpen(true)}
       />
       <Ribbon onFileTabClick={() => setBackstageOpen(true)} />
       <TabBar />
@@ -346,6 +353,10 @@ export function AppShell({ children }: AppShellProps) {
         onClose={() => setBackstageOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
         onNavigate={navigate}
+      />
+      <NormSwitchModal
+        open={normSwitchOpen}
+        onClose={() => setNormSwitchOpen(false)}
       />
       <SettingsDialog
         open={settingsOpen}

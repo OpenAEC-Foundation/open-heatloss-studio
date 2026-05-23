@@ -1,0 +1,130 @@
+/* NormSwitchModal — fase 4 ISSO 53 wissel-flow met data-conversie waarschuwing. */
+
+.norm-switch-modal .modal-body {
+  /* Iets meer ruimte dan NormChoice — bevat tabel + tekstblokken. */
+  padding: 0;
+}
+
+.norm-switch-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.norm-switch-lede {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--theme-dialog-content-text);
+}
+
+/* Warning-blok — amber accent voor "let op" gedrag. */
+.norm-switch-warning {
+  background: rgba(234, 88, 12, 0.10); /* matched met badge isso53 oranje */
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-switch-warning-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.norm-switch-warning-title::before {
+  content: "⚠";
+  font-size: 14px;
+  line-height: 1;
+}
+
+.norm-switch-warning-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.45;
+}
+
+.norm-switch-backup-note {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.85;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-switch-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.norm-switch-preview-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.75;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-switch-preview-table {
+  border: 1px solid var(--theme-dialog-border);
+  border-radius: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--theme-dialog-content-bg);
+}
+
+.norm-switch-preview-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 18px 1.4fr;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--theme-dialog-border);
+  align-items: center;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-switch-preview-row:last-child {
+  border-bottom: none;
+}
+
+.norm-switch-preview-head {
+  background: var(--theme-ribbon-btn-hover);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.norm-switch-preview-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.norm-switch-empty {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-choice-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
