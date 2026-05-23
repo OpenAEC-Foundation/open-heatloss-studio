@@ -31,6 +31,17 @@
   "importedVabi": "Vabi project imported",
   "projectName": "Project name",
   "projectNamePrompt": "Enter a project name:",
+  "normChoice": {
+    "title": "New project",
+    "question": "Which type of calculation?",
+    "wonen": "Residential (ISSO 51)",
+    "wonenSub": "Heat loss calculation for dwellings",
+    "utiliteit": "Utility ≤ 4m (ISSO 53)",
+    "utiliteitSub": "Heat loss calculation for utility buildings ≤ 4m",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "badgeTooltip": "Standard selection (switching follows in phase 4)"
+  },
   "saved": "Saved",
   "savedToServer": "Project saved to server",
   "savedLocally": "Project saved locally",

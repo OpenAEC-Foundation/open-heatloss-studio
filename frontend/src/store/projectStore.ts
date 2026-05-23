@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import {
   DEFAULT_SHARED_EXTRA,
+  type ActiveNorm,
   type SharedExtra,
 } from "../types/projectV2";
 
@@ -67,6 +68,14 @@ interface ProjectStore {
    * live is. Zie `lib/projectV2Migration.ts` voor de mapping.
    */
   sharedExtra: SharedExtra;
+  /**
+   * Actieve norm voor dit project. Bepaalt welke ISSO-rekenkern wordt
+   * aangeroepen (`calcs.isso51` of `calcs.isso53`) en welke UI-elementen
+   * worden getoond. Wordt vastgelegd bij project-aanmaak (fase 2);
+   * wissel-flow volgt in fase 4. Default `"isso51"` voor backward-compat
+   * met bestaande projecten zonder norm-veld (silent migration).
+   */
+  norm: ActiveNorm;
   /** Calculation result (null if not yet calculated). */
   result: ProjectResult | null;
   /** Error message from last calculation attempt. */
@@ -96,6 +105,11 @@ interface ProjectStore {
   updateSharedExtra: (partial: Partial<SharedExtra>) => void;
   /** Vervang volledige sidecar (gebruikt bij load van V2 JSON). */
   setSharedExtra: (extra: SharedExtra) => void;
+  /**
+   * Zet de actieve norm. Wordt aangeroepen door de Backstage NormChoiceModal
+   * bij nieuw-project en (in fase 4) door de wissel-flow.
+   */
+  setNorm: (norm: ActiveNorm) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -173,6 +187,7 @@ export const useProjectStore = create<ProjectStore>()(
     (set, get) => ({
       project: DEFAULT_PROJECT,
       sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+      norm: "isso51",
       result: null,
       error: null,
       isCalculating: false,
@@ -191,6 +206,8 @@ export const useProjectStore = create<ProjectStore>()(
         })),
 
       setSharedExtra: (extra) => set({ sharedExtra: extra }),
+
+      setNorm: (norm) => set({ norm, isDirty: true }),
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -230,6 +247,9 @@ export const useProjectStore = create<ProjectStore>()(
         set({
           project,
           sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+          // Silent migration: geladen V1-projecten zonder norm-veld zijn
+          // ISSO 51. Fase 4 (wissel-flow) introduceert UI om dit te wijzigen.
+          norm: "isso51",
           isDirty: true,
           result: null,
           error: null,
@@ -244,6 +264,8 @@ export const useProjectStore = create<ProjectStore>()(
       loadServerProject: (id, project, result, updatedAt) =>
         set({
           project,
+          // Silent migration: server-projecten zonder norm-veld → ISSO 51.
+          norm: "isso51",
           activeProjectId: id,
           result,
           isDirty: false,
@@ -272,6 +294,9 @@ export const useProjectStore = create<ProjectStore>()(
         set({
           project: DEFAULT_PROJECT,
           sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+          // Reset valt terug op de default norm — NormChoiceModal in
+          // Backstage zet hierna de gekozen norm via `setNorm`.
+          norm: "isso51",
           result: null,
           error: null,
           isCalculating: false,
@@ -458,13 +483,19 @@ export const useProjectStore = create<ProjectStore>()(
       partialize: (state) => ({
         project: state.project,
         sharedExtra: state.sharedExtra,
+        norm: state.norm,
         result: state.result,
       }),
       merge: (persisted, current) => ({
         ...current,
-        ...(persisted as Pick<ProjectStore, "project" | "sharedExtra" | "result">),
+        ...(persisted as Pick<
+          ProjectStore,
+          "project" | "sharedExtra" | "norm" | "result"
+        >),
         sharedExtra:
           (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
+        // Silent migration voor gepersisteerde projecten van vóór fase 2.
+        norm: (persisted as Partial<ProjectStore>)?.norm ?? "isso51",
         isDirty: false,
         isCalculating: false,
         error: null,

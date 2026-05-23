@@ -1,0 +1,78 @@
+/* NormChoiceModal — radio-keuze tussen ISSO 51 en ISSO 53. */
+
+.norm-choice-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.norm-choice-question {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-choice-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--theme-dialog-border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--theme-dialog-content-bg);
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.norm-choice-option:hover {
+  background: var(--theme-ribbon-btn-hover);
+}
+
+.norm-choice-option input[type="radio"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.norm-choice-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.norm-choice-label strong {
+  font-size: 13px;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-choice-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  color: var(--theme-dialog-content-text);
+}
+
+.norm-choice-btn {
+  padding: 4px 14px;
+  font-size: 12px;
+  border: 1px solid var(--theme-dialog-border);
+  background: var(--theme-dialog-bg);
+  color: var(--theme-dialog-content-text);
+  cursor: pointer;
+  border-radius: 3px;
+  min-width: 80px;
+}
+
+.norm-choice-btn:hover {
+  background: var(--theme-ribbon-btn-hover);
+}
+
+.norm-choice-btn-primary {
+  background: var(--theme-accent);
+  color: #ffffff;
+  border-color: var(--theme-accent);
+}
+
+.norm-choice-btn-primary:hover {
+  filter: brightness(1.1);
+  background: var(--theme-accent);
+}

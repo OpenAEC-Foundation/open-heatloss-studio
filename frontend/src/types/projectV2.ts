@@ -174,14 +174,34 @@ export interface Iso51Inputs {
   legacy_v1: Project | Record<string, unknown>;
 }
 
+/**
+ * ISSO 53 utility-warmteverlies inputs. Parallel aan `Iso51Inputs` — bevat
+ * (transitional) een volledige ISSO 53 project-JSON onder `legacy`, identiek
+ * patroon als bij ISSO 51. Velden worden in latere fasen uitgesplitst.
+ *
+ * Rust spiegel: `openaec_project_shared::calcs::Iso53Inputs` met
+ * `#[serde(flatten)] pub legacy: serde_json::Value`.
+ */
+export interface Iso53Inputs {
+  legacy: Record<string, unknown>;
+}
+
 export interface TojuliInputs {
   quick_check?: Record<string, unknown> | null;
 }
 
 export interface Calcs {
   isso51?: Iso51Inputs | null;
+  isso53?: Iso53Inputs | null;
   tojuli?: TojuliInputs | null;
 }
+
+/**
+ * Actieve norm voor een ProjectV2. Spiegel van de Rust enum
+ * `ActiveNorm` (`#[serde(rename_all = "camelCase")]`). Bepaalt welke
+ * berekening primair is in UI, CLI, en PDF-generator.
+ */
+export type ActiveNorm = "isso51" | "isso53";
 
 // ---------------------------------------------------------------------------
 // ProjectV2 root

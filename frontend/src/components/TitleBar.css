@@ -124,6 +124,44 @@
   border-left: 1px solid var(--theme-accent);
 }
 
+/*
+ * Fase 2 ISSO 53: norm-badge naast quick-access.
+ * Kleur-codering:
+ *   - ISSO 51 (wonen)      → blauw  (#2563EB)
+ *   - ISSO 53 (utiliteit)  → oranje (#EA580C)
+ * Klik is in fase 2 nog niet functioneel; fase 4 maakt hier de wissel-flow.
+ */
+.titlebar-norm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background-color: #2563eb; /* ISSO 51 default */
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.titlebar-norm-badge[data-norm="isso51"] {
+  background-color: #2563eb;
+}
+
+.titlebar-norm-badge[data-norm="isso53"] {
+  background-color: #ea580c;
+}
+
+.titlebar-norm-badge:hover {
+  filter: brightness(1.1);
+}
+
 .titlebar-quick-btn {
   display: flex;
   align-items: center;
