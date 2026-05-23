@@ -1,6 +1,6 @@
 //! ISSO 51 Tauri v2 desktop application.
 
-mod commands;
+pub mod commands;
 pub mod reports;
 
 use tauri::Emitter;
@@ -37,6 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             commands::calculate,
+            commands::calculate_v2,
             commands::get_schema,
             commands::import_ifc,
             commands::import_vabi,

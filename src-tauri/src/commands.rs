@@ -8,7 +8,7 @@ use nta8800_cooling::{
 };
 use nta8800_tables::climate::de_bilt_climate_data;
 use openaec_project_shared::{
-    compute_tojuli_full, ProjectV2, TojuliFullInputs, TojuliResult,
+    compute_tojuli_full, view, ProjectV2, TojuliFullInputs, TojuliResult,
 };
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -20,6 +20,33 @@ use tauri_plugin_shell::ShellExt;
 #[tauri::command]
 pub fn calculate(project: Project) -> Result<ProjectResult, String> {
     isso51_core::calculate(&project).map_err(|e| e.to_string())
+}
+
+/// Run the heat loss calculation for ProjectV2 with dual-pipeline routing.
+///
+/// Routes to ISSO 51 or ISSO 53 based on `project.calcs.active_norm()`.
+#[tauri::command]
+pub fn calculate_v2(project: ProjectV2) -> Result<serde_json::Value, String> {
+    use openaec_project_shared::calcs::ActiveNorm;
+
+    match project.calcs.active_norm() {
+        ActiveNorm::Isso51 => {
+            let isso51_project = view::to_isso51_project(&project)
+                .map_err(|e| format!("Failed to convert to ISSO 51 project: {e}"))?;
+            let result = isso51_core::calculate(&isso51_project)
+                .map_err(|e| e.to_string())?;
+            serde_json::to_value(&result)
+                .map_err(|e| format!("Failed to serialize ISSO 51 result: {e}"))
+        }
+        ActiveNorm::Isso53 => {
+            let isso53_project = view::to_isso53_project(&project)
+                .map_err(|e| format!("Failed to convert to ISSO 53 project: {e}"))?;
+            let result = isso53_core::calculate(&isso53_project)
+                .map_err(|e| e.to_string())?;
+            serde_json::to_value(&result)
+                .map_err(|e| format!("Failed to serialize ISSO 53 result: {e}"))
+        }
+    }
 }
 
 /// Return a JSON schema by name.

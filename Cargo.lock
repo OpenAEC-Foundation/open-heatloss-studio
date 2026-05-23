@@ -2321,6 +2321,7 @@ dependencies = [
  "base64 0.22.1",
  "image",
  "isso51-core",
+ "isso53-core",
  "lopdf 0.39.0",
  "nta8800-cooling",
  "nta8800-model",
@@ -3546,6 +3547,7 @@ version = "0.1.1"
 dependencies = [
  "approx",
  "isso51-core",
+ "isso53-core",
  "nta8800-cooling",
  "nta8800-demand",
  "nta8800-model",

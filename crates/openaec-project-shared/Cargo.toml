@@ -11,6 +11,7 @@ serde_json = "1"
 schemars = "0.8"
 thiserror = "2"
 isso51-core = { path = "../isso51-core" }
+isso53-core = { path = "../isso53-core" }
 nta8800-model = { path = "../nta8800-model" }
 nta8800-cooling = { path = "../nta8800-cooling" }
 nta8800-demand = { path = "../nta8800-demand" }

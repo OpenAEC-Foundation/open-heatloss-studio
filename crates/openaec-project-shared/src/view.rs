@@ -14,8 +14,11 @@ pub enum ViewError {
     /// `calcs.isso51` is niet ingevuld op deze ProjectV2.
     #[error("project heeft geen isso51-sectie ingevuld")]
     MissingIsso51,
+    /// `calcs.isso53` is niet ingevuld op deze ProjectV2.
+    #[error("project heeft geen isso53-sectie ingevuld")]
+    MissingIsso53,
     /// JSON deserialisatie van de legacy blob faalde.
-    #[error("isso51 legacy_v1 JSON kon niet gedeserialiseerd worden: {0}")]
+    #[error("JSON deserialisatie faalde: {0}")]
     Deserialize(#[from] serde_json::Error),
 }
 
@@ -32,6 +35,23 @@ pub fn to_isso51_project(v2: &ProjectV2) -> Result<Project, ViewError> {
         .as_ref()
         .ok_or(ViewError::MissingIsso51)?;
     let project: Project = serde_json::from_value(isso51.legacy_v1.clone())?;
+    Ok(project)
+}
+
+/// Bouw een [`isso53_core::model::Project`] uit een [`ProjectV2`].
+///
+/// **Transitional implementatie:** leest `calcs.isso53.legacy` als JSON-blob
+/// terug, parallel aan het ISSO 51-pattern. Toekomstige versies zullen dit
+/// vervangen met een echte view-mapper die `shared` + `geometry` +
+/// `Iso53Inputs` combineert.
+pub fn to_isso53_project(v2: &ProjectV2) -> Result<isso53_core::model::Project, ViewError> {
+    let isso53 = v2
+        .calcs
+        .isso53
+        .as_ref()
+        .ok_or(ViewError::MissingIsso53)?;
+    let project: isso53_core::model::Project =
+        serde_json::from_value(isso53.legacy.clone())?;
     Ok(project)
 }
 
@@ -67,5 +87,74 @@ mod tests {
         let v2 = ProjectV2::new("Empty");
         let err = to_isso51_project(&v2).unwrap_err();
         assert!(matches!(err, ViewError::MissingIsso51));
+    }
+
+    #[test]
+    fn empty_v2_has_no_isso53() {
+        let v2 = ProjectV2::new("Empty");
+        let err = to_isso53_project(&v2).unwrap_err();
+        assert!(matches!(err, ViewError::MissingIsso53));
+    }
+
+    #[test]
+    fn isso53_legacy_round_trip() {
+        use crate::calcs::{Calcs, Iso53Inputs};
+
+        let isso53_json = serde_json::json!({
+            "info": {
+                "name": "Test ISSO 53",
+                "projectNumber": null,
+                "address": null,
+                "client": null,
+                "date": null,
+                "engineer": null,
+                "notes": null
+            },
+            "building": {
+                "buildingShape": "meerlaags",
+                "constructionYear": 2020,
+                "buildingPosition": "meerlaagsTussen",
+                "ventilationSystem": "systemD",
+                "thermalMass": "gemiddeld",
+                "windPressureType": "meerlaagsStandaard"
+            },
+            "climate": {
+                "thetaE": -10.0,
+                "thetaMe": 9.0
+            },
+            "ventilation": {
+                "systemType": "systemD",
+                "hasHeatRecovery": true,
+                "heatRecoveryEfficiency": 0.85,
+                "frostProtection": null,
+                "supplyTemperature": null,
+                "hasPreheating": false,
+                "preheatingTemperature": null
+            },
+            "rooms": [],
+            "infiltrationMethod": {
+                "known": {
+                    "qv10_kar_class": "From040To060"
+                }
+            },
+            "heatingUp": {
+                "setbackActive": false,
+                "pWPerM2": 0.0,
+                "warmupMinutes": 60.0
+            }
+        });
+
+        let mut v2 = ProjectV2::new("Test ISSO 53");
+        v2.calcs = Calcs {
+            isso51: None,
+            tojuli: None,
+            isso53: Some(Iso53Inputs {
+                legacy: isso53_json,
+            }),
+        };
+
+        let project = to_isso53_project(&v2).unwrap();
+        assert_eq!(project.info.name, "Test ISSO 53");
+        assert_eq!(project.climate.theta_e, -10.0);
     }
 }
