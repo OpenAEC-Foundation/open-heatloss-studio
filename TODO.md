@@ -165,7 +165,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
   - [x] Batch 2d: test fixtures + verificatie — infrastructuur klaar, norm-verificatie pending
   - [ ] **ISSO 53 UI-spoor** — dual-calc support in bestaande web-app
     - [x] Fase 1: backend dual-pipeline (KLAAR — commit 86e8ab6)
-    - [ ] Fase 2: norm-keuze UI + topbar-badge
+    - [x] Fase 2: norm-keuze UI + topbar-badge (KLAAR — commit 8ffa728)
     - [ ] Fase 3: conditional rendering bestaande screens
     - [ ] Fase 4: wissel-flow met waarschuwing
     - [ ] Fase 5: isso53-report-builder
