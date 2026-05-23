@@ -167,7 +167,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
     - [x] Fase 1: backend dual-pipeline (KLAAR — commit 86e8ab6)
     - [x] Fase 2: norm-keuze UI + topbar-badge (KLAAR — commit 8ffa728)
     - [x] Fase 3: conditional rendering bestaande screens
-    - [ ] Fase 4: wissel-flow met waarschuwing
+    - [x] Fase 4: wissel-flow met waarschuwing
     - [ ] Fase 5: isso53-report-builder
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
