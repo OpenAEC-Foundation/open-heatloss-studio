@@ -30,6 +30,12 @@ pub struct Building {
     /// Voor f_type factor bij onbekende q_v10,kar.
     #[serde(default = "default_wind_pressure_type")]
     pub wind_pressure_type: GebouwTypeWinddruk,
+
+    /// Hoogte van het gebouwcomplex in meter, gemeten vanaf maaiveld
+    /// tot de bovenste verdiepingsvloer. Gebruikt voor q_is-lookup uit
+    /// tabel 4.5 (Known-pad infiltratie). Default 3,0 m bij None.
+    #[serde(default)]
+    pub building_height: Option<f64>,
 }
 
 fn default_wind_pressure_type() -> GebouwTypeWinddruk {

@@ -6,6 +6,14 @@
 use isso53_core::calculate_from_json;
 
 fn close(label: &str, got: f64, want: f64, tol_pct: f64) {
+    // Speciale case: want=0 → eis absolute tolerantie 1 W (i.p.v. delen door 0).
+    if want.abs() < f64::EPSILON {
+        assert!(
+            got.abs() < 1.0,
+            "{label}: got {got:.2}, want 0 (>1 W absolute tolerantie)"
+        );
+        return;
+    }
     let diff = ((got - want) / want).abs() * 100.0;
     assert!(
         diff < tol_pct,
@@ -24,8 +32,13 @@ fn load_result() -> (serde_json::Value, serde_json::Value) {
     (result, expected)
 }
 
+/// Φ_V + Φ_I matcht Vabi binnen 10% na fixes:
+/// - §4.6 embedded heating (sessie 1)
+/// - Formule 4.38 WTW f_v omkering (sessie 2)
+/// - A_u/A_g omdraai in formule 4.28/4.29 (sessie 2 vervolg)
+/// - Building.building_height-veld voor q_is-lookup (sessie 2 vervolg)
+/// - Fixture: supplyTemperature=21°C (luchtverwarming) + buildingHeight=10,9 m
 #[test]
-#[ignore = "Φ_V + Φ_I = 3915 W vs Vabi 3080 W (+27%); WTW f_v fix actief (Φ_V 3076→543 W), infiltratie-gap blijft open — zie PDF_GAPS.md"]
 fn vabi_bedrijfsruimte4_phi_vi_combined_matches() {
     let (result, _) = load_result();
     let room = &result["rooms"][0];
@@ -81,15 +94,12 @@ fn vabi_bedrijfsruimte4_snapshot() {
     let total = room["totalHeatLoss"].as_f64().unwrap();
 
 
-    // Snapshot 2026-05-23 (sessie 2): phiT correct via §4.6 embedded heating fix.
-    // phiV gefixt via WTW f_v omkering (formule 4.38, calc/ventilation.rs):
-    // 3076 W → 543 W. Resterende phiV+phiI gap (+27% vs Vabi 3080 W) is
-    // infiltratie-zijde — root-cause niet in formule 4.27/4.28 maar mogelijk
-    // in fixture-aannames (z, q_v10,kar klasse) of formule-keuze (Vabi gebruikt
-    // mogelijk Unknown-pad 4.31 i.p.v. Known 4.28). Zie PDF_GAPS.md.
+    // Snapshot 2026-05-23 (sessie 2 vervolg): alle vier Vabi-componenten matchen
+    // binnen 2%. Drie norm-bugs opgelost (§4.6 ground, formule 4.38 WTW, A_u/A_g
+    // omdraai infiltratie) + Building.building_height-veld toegevoegd.
     close("phiT", phi_t, 2918.0, 2.0);
-    close("phiV", phi_v, 543.0, 2.0);
-    close("phiI", phi_i, 3372.0, 2.0);
+    close("phiV", phi_v, 0.0, 1.0);     // luchtverwarming θ_t=21°C → f_v=0
+    close("phiI", phi_i, 3134.0, 2.0);
     close("phiHu", phi_hu, 2163.0, 2.0);
-    close("totalHeatLoss", total, 8996.0, 2.0);
+    close("totalHeatLoss", total, 8215.0, 2.0);
 }
