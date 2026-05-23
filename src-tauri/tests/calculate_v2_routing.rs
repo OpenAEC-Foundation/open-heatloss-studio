@@ -185,3 +185,31 @@ fn calculate_v2_fails_on_empty_calcs() {
         "Error should mention missing ISSO 51 section: {error_msg}"
     );
 }
+
+/// Verifieert dat het meegeleverde ProjectV2-voorbeeld
+/// (`examples/projectV2-isso53-minimal.json`) door de hele pipeline gaat:
+/// deserialize → active_norm() → to_isso53_project() → calculate().
+#[test]
+fn calculate_v2_example_projectv2_isso53_minimal() {
+    let json = include_str!("../../examples/projectV2-isso53-minimal.json");
+    let v2: ProjectV2 = serde_json::from_str(json).expect("ProjectV2 deserialize");
+
+    assert_eq!(v2.calcs.active_norm(), ActiveNorm::Isso53);
+
+    let result = commands::calculate_v2(v2).expect("calculate_v2 should succeed");
+
+    let summary = result.get("summary").expect("summary present");
+    let total = summary
+        .get("totalBuildingHeatLoss")
+        .and_then(|v| v.as_f64())
+        .expect("totalBuildingHeatLoss numeric");
+
+    assert!(
+        total > 1000.0 && total < 4000.0,
+        "Expected ~2112 W heat loss for 25 m² kantoor, got {total}"
+    );
+
+    let rooms = result.get("rooms").and_then(|v| v.as_array()).expect("rooms array");
+    assert_eq!(rooms.len(), 1, "Should have 1 room");
+    assert_eq!(rooms[0].get("roomId").and_then(|v| v.as_str()), Some("K01"));
+}

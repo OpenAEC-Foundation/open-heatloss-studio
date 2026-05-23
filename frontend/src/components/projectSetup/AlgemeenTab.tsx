@@ -15,6 +15,7 @@ import { useToastStore } from "../../store/toastStore";
 import { useProjectStore } from "../../store/projectStore";
 import { BUILDING_TYPE_LABELS } from "../../lib/constants";
 import { buildingTypeV1ToV2 } from "../../lib/projectV2Migration";
+import { Isso53BuildingFields } from "./Isso53BuildingFields";
 import type {
   BuildingType,
   CoverImage,
@@ -65,6 +66,7 @@ function numVal(v: string): number {
 export function AlgemeenTab() {
   const { t } = useTranslation();
   const { project, updateProject, sharedExtra, updateSharedExtra } = useProjectStore();
+  const norm = useProjectStore((s) => s.norm);
   const addToast = useToastStore((s) => s.addToast);
 
   const info = project.info;
@@ -246,66 +248,107 @@ export function AlgemeenTab() {
         </div>
       </Card>
 
-      <Card title={t("projectSetup.sections.buildingType", "Gebouwtype")}>
-        <div className="grid grid-cols-2 gap-4">
-          <Select
-            id="bt_kind"
-            label={t("projectSetup.fields.building_kind", "Categorie")}
-            value={buildingType.kind}
-            options={[
-              { value: "woning", label: t("projectSetup.buildingKind.woning", "Woning") },
-              {
-                value: "utiliteit",
-                label: t("projectSetup.buildingKind.utiliteit", "Utiliteit"),
-              },
-            ]}
-            onChange={(e) => onKindChange(e.target.value as "woning" | "utiliteit")}
-          />
-          <Select
-            id="bt_subtype"
-            label={t("projectSetup.fields.building_subtype", "Subtype")}
-            value={buildingType.subtype}
-            options={toOptions(subtypeLabels)}
-            onChange={(e) => onSubtypeChange(e.target.value)}
-          />
-          <Input
-            id="construction_year"
-            label={t("projectSetup.fields.construction_year", "Bouwjaar")}
-            type="number"
-            value={sharedExtra.construction_year ?? ""}
-            onChange={(e) =>
-              updateSharedExtra({
-                construction_year: e.target.value === "" ? null : numVal(e.target.value),
-              })
-            }
-          />
-          <Input
-            id="total_floor_area_general"
-            label={t("projectSetup.fields.gross_floor_area", "Bruto gebruiksoppervlak A_g")}
-            type="number"
-            unit="m²"
-            value={building.total_floor_area}
-            onChange={(e) =>
-              updateProject({
-                building: { ...building, total_floor_area: numVal(e.target.value) },
-              })
-            }
-          />
-          <Input
-            id="num_storeys"
-            label={t("projectSetup.fields.num_storeys", "Aantal bouwlagen")}
-            type="number"
-            value={building.num_floors ?? sharedExtra.num_storeys ?? 1}
-            onChange={(e) => {
-              const v = Math.max(1, numVal(e.target.value));
-              updateProject({
-                building: { ...building, num_floors: v },
-              });
-              updateSharedExtra({ num_storeys: v });
-            }}
-          />
-        </div>
-      </Card>
+      {norm === "isso53" ? (
+        <>
+          <Isso53BuildingFields />
+          <Card title={t("projectSetup.sections.dimensions", "Afmetingen")}>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                id="total_floor_area_general"
+                label={t(
+                  "projectSetup.fields.gross_floor_area",
+                  "Bruto gebruiksoppervlak A_g",
+                )}
+                type="number"
+                unit="m²"
+                value={building.total_floor_area}
+                onChange={(e) =>
+                  updateProject({
+                    building: {
+                      ...building,
+                      total_floor_area: numVal(e.target.value),
+                    },
+                  })
+                }
+              />
+              <Input
+                id="num_storeys"
+                label={t("projectSetup.fields.num_storeys", "Aantal bouwlagen")}
+                type="number"
+                value={building.num_floors ?? sharedExtra.num_storeys ?? 1}
+                onChange={(e) => {
+                  const v = Math.max(1, numVal(e.target.value));
+                  updateProject({
+                    building: { ...building, num_floors: v },
+                  });
+                  updateSharedExtra({ num_storeys: v });
+                }}
+              />
+            </div>
+          </Card>
+        </>
+      ) : (
+        <Card title={t("projectSetup.sections.buildingType", "Gebouwtype")}>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              id="bt_kind"
+              label={t("projectSetup.fields.building_kind", "Categorie")}
+              value={buildingType.kind}
+              options={[
+                { value: "woning", label: t("projectSetup.buildingKind.woning", "Woning") },
+                {
+                  value: "utiliteit",
+                  label: t("projectSetup.buildingKind.utiliteit", "Utiliteit"),
+                },
+              ]}
+              onChange={(e) => onKindChange(e.target.value as "woning" | "utiliteit")}
+            />
+            <Select
+              id="bt_subtype"
+              label={t("projectSetup.fields.building_subtype", "Subtype")}
+              value={buildingType.subtype}
+              options={toOptions(subtypeLabels)}
+              onChange={(e) => onSubtypeChange(e.target.value)}
+            />
+            <Input
+              id="construction_year"
+              label={t("projectSetup.fields.construction_year", "Bouwjaar")}
+              type="number"
+              value={sharedExtra.construction_year ?? ""}
+              onChange={(e) =>
+                updateSharedExtra({
+                  construction_year: e.target.value === "" ? null : numVal(e.target.value),
+                })
+              }
+            />
+            <Input
+              id="total_floor_area_general"
+              label={t("projectSetup.fields.gross_floor_area", "Bruto gebruiksoppervlak A_g")}
+              type="number"
+              unit="m²"
+              value={building.total_floor_area}
+              onChange={(e) =>
+                updateProject({
+                  building: { ...building, total_floor_area: numVal(e.target.value) },
+                })
+              }
+            />
+            <Input
+              id="num_storeys"
+              label={t("projectSetup.fields.num_storeys", "Aantal bouwlagen")}
+              type="number"
+              value={building.num_floors ?? sharedExtra.num_storeys ?? 1}
+              onChange={(e) => {
+                const v = Math.max(1, numVal(e.target.value));
+                updateProject({
+                  building: { ...building, num_floors: v },
+                });
+                updateSharedExtra({ num_storeys: v });
+              }}
+            />
+          </div>
+        </Card>
+      )}
 
       <Card title={t("projectSetup.sections.coverImage", "Voorblad-afbeelding")}>
         <p className="text-[10px] text-on-surface-muted">

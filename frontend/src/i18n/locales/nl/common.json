@@ -139,6 +139,104 @@
     "title": "Project",
     "subtitle": "Gebouw- en installatie-instellingen"
   },
+  "isso53": {
+    "building": {
+      "sectionTitle": "ISSO 53 — Gebouwkenmerken",
+      "shape": "Gebouwvorm",
+      "shapeHint": "ISSO 53 tabel 4.9 — voor infiltratie-vormfactor",
+      "position": "Positie in complex",
+      "positionHint": "ISSO 53 tabel 4.8 — voor infiltratie-positiefactor",
+      "windPressureType": "Winddrukverdelingstype",
+      "windPressureHint": "ISSO 53 tabel 4.6 — voor f_type",
+      "thermalMass": "Thermische massa",
+      "ventilationSystem": "Ventilatiesysteem",
+      "constructionYear": "Bouwjaar",
+      "shapeOptions": {
+        "meerlaags": "Meerlaags",
+        "eenLaagMetKap": "Eénlaags met kap",
+        "eenLaagMetPlatDak": "Eénlaags met plat dak",
+        "eenLaagMetHalfPlatDak": "Eénlaags met half plat dak"
+      },
+      "positionOptions": {
+        "enkellaagsTussen": "Enkellaags — tussen",
+        "enkellaagsKop": "Enkellaags — kop",
+        "enkellaagsVrijstaand": "Enkellaags — vrijstaand",
+        "meerlaagsGeheel": "Meerlaags — gehele bouw",
+        "meerlaagsTop": "Meerlaags — top",
+        "meerlaagsTussen": "Meerlaags — tussen",
+        "meerlaagsOnder": "Meerlaags — onder"
+      },
+      "windPressureOptions": {
+        "eenlaagsMetKap": "Eénlaags met kap",
+        "eenlaagsMetPlatDak": "Eénlaags met plat dak",
+        "meerlaagsStandaard": "Meerlaags — standaard",
+        "meerlaagsVolgevelBinnengalerij": "Meerlaags — volgevel binnengalerij",
+        "meerlaagsDubbeleHuidOnderbroken": "Meerlaags — dubbele huid onderbroken",
+        "meerlaagsDubbeleHuidDoorlopend": "Meerlaags — dubbele huid doorlopend"
+      },
+      "thermalMassOptions": {
+        "licht": "Licht (c_eff = 15 Wh/m³K)",
+        "gemiddeld": "Gemiddeld (c_eff = 50 Wh/m³K)",
+        "zwaar": "Zwaar (c_eff = 75 Wh/m³K)"
+      },
+      "ventilationSystemOptions": {
+        "systemA": "Systeem A (natuurlijk)",
+        "systemB": "Systeem B (mech. toevoer)",
+        "systemC": "Systeem C (mech. afvoer)",
+        "systemD": "Systeem D (gebalanceerd)",
+        "systemE": "Systeem E (zone-mix)"
+      }
+    },
+    "room": {
+      "gebruiksFunctie": "Gebruiksfunctie",
+      "ruimteType": "Ruimtetype",
+      "gebruiksFunctieOptions": {
+        "kantoor": "Kantoor",
+        "onderwijs": "Onderwijs",
+        "gezondheidszorg": "Gezondheidszorg",
+        "bijeenkomst": "Bijeenkomst",
+        "logies": "Logies",
+        "sport": "Sport",
+        "winkel": "Winkel",
+        "cel": "Cel",
+        "industrie": "Industrie"
+      },
+      "ruimteTypeOptions": {
+        "verblijfsruimte": "Verblijfsruimte",
+        "verblijfsgebied": "Verblijfsgebied",
+        "badruimte": "Badruimte",
+        "toiletruimte": "Toiletruimte",
+        "verkeersruimte": "Verkeersruimte",
+        "technischeRuimte": "Technische ruimte",
+        "bergruimte": "Bergruimte",
+        "onbenoemdeRuimte": "Onbenoemde ruimte",
+        "stallingsruimte": "Stallingsruimte",
+        "garage": "Garage",
+        "kantoorruimte": "Kantoorruimte",
+        "receptie": "Receptie",
+        "lesruimte": "Lesruimte",
+        "collegezaal": "Collegezaal",
+        "werkplaats": "Werkplaats",
+        "bureauruimte": "Bureauruimte",
+        "patientenkamer": "Patiëntenkamer",
+        "operatiekamer": "Operatiekamer",
+        "onderzoekruimte": "Onderzoekruimte",
+        "eetruimte": "Eetruimte",
+        "restaurant": "Restaurant",
+        "kantine": "Kantine",
+        "vergaderruimte": "Vergaderruimte",
+        "hotelkamer": "Hotelkamer",
+        "sportzaal": "Sportzaal",
+        "verkoopruimte": "Verkoopruimte",
+        "supermarkt": "Supermarkt",
+        "warenhuis": "Warenhuis"
+      }
+    },
+    "results": {
+      "phiI": "Φ_i",
+      "phiIDescription": "Infiltratie (apart)"
+    }
+  },
   "warmteverliesInstellingen": {
     "title": "Warmteverlies-instellingen",
     "subtitle": "ISSO 51:2023 parameters"

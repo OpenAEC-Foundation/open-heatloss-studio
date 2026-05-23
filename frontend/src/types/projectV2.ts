@@ -204,6 +204,149 @@ export interface Calcs {
 export type ActiveNorm = "isso51" | "isso53";
 
 // ---------------------------------------------------------------------------
+// ISSO 53 UI sidecar-state (fase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * ISSO 53 BuildingShape (tabel 4.9) — gebruikt voor de
+ * infiltratie-vormfactor. Camel-case JSON keys (spiegel van Rust
+ * `isso53_core::model::enums::BuildingShape`).
+ */
+export type Isso53BuildingShape =
+  | "meerlaags"
+  | "eenLaagMetKap"
+  | "eenLaagMetPlatDak"
+  | "eenLaagMetHalfPlatDak";
+
+/**
+ * ISSO 53 GebouwTypePositie (tabel 4.8) — positie binnen het complex
+ * voor de infiltratiebepaling. Spiegel van Rust
+ * `isso53_core::model::enums::GebouwTypePositie`.
+ */
+export type Isso53BuildingPosition =
+  | "enkellaagsTussen"
+  | "enkellaagsKop"
+  | "enkellaagsVrijstaand"
+  | "meerlaagsGeheel"
+  | "meerlaagsTop"
+  | "meerlaagsTussen"
+  | "meerlaagsOnder";
+
+/**
+ * ISSO 53 GebouwTypeWinddruk (tabel 4.6) — winddrukverdelingsfactor
+ * f_type. Andere indeling dan BuildingShape (4.9) en GebouwTypePositie
+ * (4.8). Spiegel van Rust `GebouwTypeWinddruk`.
+ */
+export type Isso53WindPressureType =
+  | "eenlaagsMetKap"
+  | "eenlaagsMetPlatDak"
+  | "meerlaagsStandaard"
+  | "meerlaagsVolgevelBinnengalerij"
+  | "meerlaagsDubbeleHuidOnderbroken"
+  | "meerlaagsDubbeleHuidDoorlopend";
+
+/** ISSO 53 Thermische massa (tabel 2.4). */
+export type Isso53ThermalMass = "licht" | "gemiddeld" | "zwaar";
+
+/** ISSO 53 Ventilatiesysteemtype (tabel 4.7) — let op: andere namespace dan V1. */
+export type Isso53VentilationSystem =
+  | "systemA"
+  | "systemB"
+  | "systemC"
+  | "systemD"
+  | "systemE";
+
+/**
+ * ISSO 53 GebruiksFunctie (Bouwbesluit; ISSO 53 tabel 2.2). Spiegel
+ * van Rust `isso53_core::model::enums::GebruiksFunctie`.
+ */
+export type Isso53GebruiksFunctie =
+  | "kantoor"
+  | "onderwijs"
+  | "gezondheidszorg"
+  | "bijeenkomst"
+  | "logies"
+  | "sport"
+  | "winkel"
+  | "cel"
+  | "industrie";
+
+/**
+ * ISSO 53 RuimteType (tabel 2.2). Spiegel van Rust
+ * `isso53_core::model::enums::RuimteType`. De UI biedt het volledige
+ * vlakke menu aan — de norm wijst per combi (gebruiksFunctie,
+ * ruimteType) de getallen toe.
+ */
+export type Isso53RuimteType =
+  | "verblijfsruimte"
+  | "verblijfsgebied"
+  | "badruimte"
+  | "toiletruimte"
+  | "verkeersruimte"
+  | "technischeRuimte"
+  | "bergruimte"
+  | "onbenoemdeRuimte"
+  | "stallingsruimte"
+  | "garage"
+  | "kantoorruimte"
+  | "receptie"
+  | "lesruimte"
+  | "collegezaal"
+  | "werkplaats"
+  | "bureauruimte"
+  | "patientenkamer"
+  | "operatiekamer"
+  | "onderzoekruimte"
+  | "eetruimte"
+  | "restaurant"
+  | "kantine"
+  | "vergaderruimte"
+  | "hotelkamer"
+  | "sportzaal"
+  | "verkoopruimte"
+  | "supermarkt"
+  | "warenhuis";
+
+/**
+ * ISSO 53 building-niveau invoer die niet in V1 `Building` past.
+ * Wordt sidecar opgeslagen in `projectStore` en is alleen actief
+ * wanneer `norm === "isso53"`. Bij norm-wissel (fase 4) wordt deze
+ * sidecar geconverteerd of leeg gelaten.
+ */
+export interface Isso53BuildingState {
+  buildingShape: Isso53BuildingShape;
+  buildingPosition: Isso53BuildingPosition;
+  windPressureType: Isso53WindPressureType;
+  thermalMass: Isso53ThermalMass;
+  ventilationSystem: Isso53VentilationSystem;
+  constructionYear: number | null;
+}
+
+export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
+  buildingShape: "meerlaags",
+  buildingPosition: "meerlaagsTussen",
+  windPressureType: "meerlaagsStandaard",
+  thermalMass: "gemiddeld",
+  ventilationSystem: "systemD",
+  constructionYear: null,
+};
+
+/**
+ * Per-ruimte ISSO 53 sidecar-state (gebruiksFunctie + ruimteType).
+ * Key = `room.id` uit V1 `Project.rooms[]`. Wordt alleen gerenderd
+ * en gepersisteerd wanneer `norm === "isso53"`.
+ */
+export interface Isso53RoomState {
+  gebruiksFunctie: Isso53GebruiksFunctie;
+  ruimteType: Isso53RuimteType;
+}
+
+export const DEFAULT_ISSO53_ROOM: Isso53RoomState = {
+  gebruiksFunctie: "kantoor",
+  ruimteType: "verblijfsruimte",
+};
+
+// ---------------------------------------------------------------------------
 // ProjectV2 root
 // ---------------------------------------------------------------------------
 

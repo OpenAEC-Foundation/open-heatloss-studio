@@ -5,9 +5,11 @@ import {
   ROOM_FUNCTION_TEMPERATURES,
 } from "../../lib/constants";
 import { formatArea } from "../../lib/formatNumber";
+import { useProjectStore } from "../../store/projectStore";
 import type { Room, RoomFunction } from "../../types";
 import { EditableCell } from "./EditableCell";
 import { EditableSelect } from "./EditableSelect";
+import { Isso53RoomFunctionCell } from "./Isso53RoomFunctionCell";
 
 interface RoomHeaderRowProps {
   room: Room;
@@ -28,6 +30,7 @@ export function RoomHeaderCells({
   ventOpen,
   onToggleVent,
 }: RoomHeaderRowProps) {
+  const norm = useProjectStore((s) => s.norm);
   const thetaI =
     room.custom_temperature ?? ROOM_FUNCTION_TEMPERATURES[room.function] ?? 20;
 
@@ -91,11 +94,15 @@ export function RoomHeaderCells({
         </div>
       </td>
       <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1">
-        <EditableSelect
-          value={room.function}
-          onChange={handleFunctionChange}
-          options={ROOM_FUNCTION_LABELS}
-        />
+        {norm === "isso53" ? (
+          <Isso53RoomFunctionCell roomId={room.id} />
+        ) : (
+          <EditableSelect
+            value={room.function}
+            onChange={handleFunctionChange}
+            options={ROOM_FUNCTION_LABELS}
+          />
+        )}
       </td>
       <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">
         <EditableCell
