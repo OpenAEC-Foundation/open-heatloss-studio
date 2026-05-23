@@ -11,9 +11,15 @@ interface TitleBarProps {
   onFeedbackClick?: () => void;
   /** Callback voor de Save quick-access knop (zelfde flow als Ctrl+S). */
   onSave?: () => void | Promise<void>;
+  /**
+   * Fase 4 ISSO 53: klik-handler op de norm-badge → opent
+   * `NormSwitchModal`. Wanneer afwezig is de badge alleen-visueel
+   * (geen klik-effect).
+   */
+  onNormBadgeClick?: () => void;
 }
 
-function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
+function TitleBar({ onSettingsClick, onFeedbackClick, onSave, onNormBadgeClick }: TitleBarProps) {
   const { t } = useTranslation();
   const { t: tBackstage } = useTranslation("backstage");
   const [isMaximized, setIsMaximized] = useState(false);
@@ -157,16 +163,20 @@ function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
         </div>
 
         {/*
-          Fase 2 ISSO 53: norm-badge naast de quick-access. Klik is in fase 2
-          nog niet functioneel — fase 4 hangt hier de wissel-modal aan.
+          Fase 4 ISSO 53: norm-badge naast quick-access. Klik opent de
+          NormSwitchModal (data-conversie + back-up flow).
         */}
-        <div
+        <button
+          type="button"
           className="titlebar-norm-badge"
           data-norm={norm}
           title={tBackstage("normChoice.badgeTooltip")}
+          onClick={onNormBadgeClick}
+          tabIndex={-1}
+          aria-label={tBackstage("normChoice.badgeTooltip")}
         >
           {norm === "isso51" ? "ISSO 51" : "ISSO 53"}
-        </div>
+        </button>
       </div>
 
       <span className="titlebar-title" data-tauri-drag-region>
