@@ -63,6 +63,11 @@ pub struct ConstructionElement {
     /// Whether this element has embedded heating behind it.
     #[serde(default)]
     pub has_embedded_heating: bool,
+
+    /// Type of unheated space this element faces (for BoundaryType::Unheated).
+    /// Used to determine the correct f_k factor from ISSO 53 tabel 4.2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unheated_space: Option<super::enums::OnverwarmdeRuimte>,
 }
 
 /// Parameters for ground heat loss calculation.
@@ -71,6 +76,7 @@ pub struct ConstructionElement {
 #[serde(rename_all = "camelCase")]
 pub struct GroundParameters {
     /// Equivalent U-value U_equiv in W/(m²·K).
+    /// If ≤ 0.0, calculate_u_equivalent will be called to compute it.
     pub u_equivalent: f64,
 
     /// Ground water correction factor f_gw (dimensionless).
@@ -81,6 +87,16 @@ pub struct GroundParameters {
     /// Temperature correction factor f_ig (dimensionless).
     #[serde(default = "default_fig")]
     pub f_ig: f64,
+
+    /// Perimeter O in m for U_equiv calculation (formule 4.24).
+    /// Only needed if u_equivalent ≤ 0.0.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub perimeter: Option<f64>,
+
+    /// Depth z below ground level in m for U_equiv calculation (formule 4.24).
+    /// Only needed if u_equivalent ≤ 0.0. Range: [0, 5].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth: Option<f64>,
 }
 
 fn default_vertical_position() -> VerticalPosition {

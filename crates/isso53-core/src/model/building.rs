@@ -3,7 +3,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::enums::{BuildingShape, GebouwTypePositie, ThermalMass, VentilationSystemType};
+use super::enums::{BuildingShape, GebouwTypePositie, GebouwTypeWinddruk, ThermalMass, VentilationSystemType};
 
 /// Building-level configuration for heat loss calculation.
 /// ISSO 53 requires building-level properties for infiltration and thermal mass.
@@ -25,4 +25,13 @@ pub struct Building {
 
     /// Thermische massa van het gebouw (tabel 2.4).
     pub thermal_mass: ThermalMass,
+
+    /// Gebouwtype voor winddrukberekening (tabel 4.6).
+    /// Voor f_type factor bij onbekende q_v10,kar.
+    #[serde(default = "default_wind_pressure_type")]
+    pub wind_pressure_type: GebouwTypeWinddruk,
+}
+
+fn default_wind_pressure_type() -> GebouwTypeWinddruk {
+    GebouwTypeWinddruk::MeerlaagsStandaard
 }
