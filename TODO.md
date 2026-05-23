@@ -170,7 +170,13 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
     - [x] Fase 4: wissel-flow met waarschuwing (KLAAR — commit e697c97)
     - [x] Fase 5: isso53-report-builder (KLAAR — commit 7d8a307)
   - [ ] ISSO 53 - vervolg
-    - [ ] Vabi-vergelijking: ground-formule §4.6 norm-interpretatie onderzoeken
+    - [x] **§4.6 embedded heating clause geïmplementeerd** (commit 0f4293a)
+      - phiT: 4385→2918 W vs Vabi 2919 W (<0.1% afwijking) ✅
+      - f_ig = 0.0 voor elementen met has_embedded_heating = true
+    - [ ] **WTW ventilatie-algoritme fix** — phiV = 3076 W ondanks WTW 85%
+      - Onderzoek calc/ventilation.rs::calculate_f_v θ_t/η_wtw toepassing
+    - [ ] **Infiltratie systeem-D correctie** — phiI = 3372 W bij mech systemen
+      - Onderzoek calc/infiltration.rs f_inf toepassing in Known-pad
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
