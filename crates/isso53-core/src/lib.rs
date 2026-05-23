@@ -142,6 +142,7 @@ mod tests {
                 building_position: GebouwTypePositie::MeerlaagsTussen,
                 ventilation_system: VentilationSystemType::SystemB,
                 thermal_mass: ThermalMass::Gemiddeld,
+                wind_pressure_type: crate::model::enums::GebouwTypeWinddruk::MeerlaagsStandaard,
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

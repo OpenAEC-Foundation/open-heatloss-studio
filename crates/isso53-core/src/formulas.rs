@@ -2,6 +2,10 @@
 //!
 //! Used for norm references in calculation results.
 
+/// Density × specific heat capacity of air: ρ × c_p = 1200 J/(m³·K).
+/// ISSO 53 §4.2, formules 4.27, 4.37.
+pub const RHO_CP_AIR: f64 = 1200.0;
+
 /// ISSO 53 formule 3.1 — Φ_HL,build schilmethode.
 pub const ISSO_53_2016_FORMULE3_1: &str = "ISSO_53_2016_formule3_1";
 
