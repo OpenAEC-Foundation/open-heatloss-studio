@@ -25,7 +25,7 @@ fn load_result() -> (serde_json::Value, serde_json::Value) {
 }
 
 #[test]
-#[ignore = "Φ_V + Φ_I = 6448 W vs Vabi 3080 W (+109%); WTW + systeem-D-correctie niet geïmplementeerd — zie PDF_GAPS.md"]
+#[ignore = "Φ_V + Φ_I = 3915 W vs Vabi 3080 W (+27%); WTW f_v fix actief (Φ_V 3076→543 W), infiltratie-gap blijft open — zie PDF_GAPS.md"]
 fn vabi_bedrijfsruimte4_phi_vi_combined_matches() {
     let (result, _) = load_result();
     let room = &result["rooms"][0];
@@ -81,13 +81,15 @@ fn vabi_bedrijfsruimte4_snapshot() {
     let total = room["totalHeatLoss"].as_f64().unwrap();
 
 
-    // Snapshot 2026-05-23: phiT correct via §4.6 embedded heating fix.
-    // phiV + phiI gap (+109% vs Vabi) is bewust open — zie PDF_GAPS.md voor
-    // de twee root-causes: WTW f_v niet toegepast + systeem-D mech-toevoer
-    // reduceert infiltratie niet in Known-pad.
+    // Snapshot 2026-05-23 (sessie 2): phiT correct via §4.6 embedded heating fix.
+    // phiV gefixt via WTW f_v omkering (formule 4.38, calc/ventilation.rs):
+    // 3076 W → 543 W. Resterende phiV+phiI gap (+27% vs Vabi 3080 W) is
+    // infiltratie-zijde — root-cause niet in formule 4.27/4.28 maar mogelijk
+    // in fixture-aannames (z, q_v10,kar klasse) of formule-keuze (Vabi gebruikt
+    // mogelijk Unknown-pad 4.31 i.p.v. Known 4.28). Zie PDF_GAPS.md.
     close("phiT", phi_t, 2918.0, 2.0);
-    close("phiV", phi_v, 3076.0, 2.0);
+    close("phiV", phi_v, 543.0, 2.0);
     close("phiI", phi_i, 3372.0, 2.0);
     close("phiHu", phi_hu, 2163.0, 2.0);
-    close("totalHeatLoss", total, 11529.0, 2.0);
+    close("totalHeatLoss", total, 8996.0, 2.0);
 }

@@ -110,32 +110,25 @@ fn calculate_f_v(config: &VentilationConfig, theta_i: f64, theta_e: f64) -> Resu
     }
 
     if config.has_heat_recovery {
-        // WTW system - formule 4.38: f_v = (θ_t - θ_e - Δθ_v) / (θ_i - θ_e)
+        // WTW: formule 4.38 — f_v is het deel van Δθ dat nog opgewarmd moet
+        // worden ná WTW. Fysisch: f_v · (θ_i − θ_e) = (θ_i − θ_t).
         let theta_t = if let Some(supply_temp) = config.supply_temperature {
             supply_temp
         } else {
-            // Calculate based on heat recovery efficiency
             let efficiency = config.heat_recovery_efficiency.unwrap_or(0.75);
             theta_e + efficiency * (theta_i - theta_e)
         };
 
-        // Simplified: Δθ_v = 0 (no frost protection considered)
-        let delta_theta_v = 0.0;
-        let f_v = (theta_t - theta_e - delta_theta_v) / (theta_i - theta_e);
-
-        // Clamp to [0, 1]
+        let f_v = (theta_i - theta_t) / (theta_i - theta_e);
         Ok(f_v.clamp(0.0, 1.0))
     } else if config.has_preheating {
-        // Preheating system - check if luchtverwarming (θ_t > θ_i)
+        // Voorverwarming: formule 4.38 geldt ook (zelfde definitie θ_t = toevoertemp).
+        // Bij luchtverwarming (θ_t > θ_i) → f_v = 0 per norm.
         let theta_t = config.preheating_temperature.unwrap_or(theta_i);
-
         if theta_t > theta_i {
-            // Luchtverwarming: f_v = 0
             Ok(0.0)
         } else {
-            // Formule 4.38: f_v = (θ_t - θ_e - Δθ_v) / (θ_i - θ_e)
-            // Δθ_v = 0 (vereenvoudigd, geen kanaalverliezen)
-            let f_v = (theta_t - theta_e) / (theta_i - theta_e);
+            let f_v = (theta_i - theta_t) / (theta_i - theta_e);
             Ok(f_v.clamp(0.0, 1.0))
         }
     } else {
@@ -196,6 +189,8 @@ mod tests {
         assert!(ventilation.h_v >= 0.0);
         assert!(ventilation.f_v < 1.0); // Heat recovery reduces f_v
         assert!(ventilation.f_v >= 0.0);
+        // With 80% efficiency, f_v should be approximately 0.2 (1-η)
+        assert!((ventilation.f_v - 0.2).abs() < 0.02, "Expected f_v ≈ 0.2, got {}", ventilation.f_v);
     }
 
     #[test]
@@ -220,6 +215,27 @@ mod tests {
         let ventilation = result.unwrap();
         assert!((ventilation.h_v - 7.8).abs() < 0.1, "Expected ~7.8, got {}", ventilation.h_v);
         assert!((ventilation.f_v - 1.0).abs() < 0.001, "f_v should be 1.0 for natural ventilation");
+    }
+
+    #[test]
+    fn test_ventilation_vabi_wtw_scenario() {
+        // Vabi scenario: η=0.85, θ_i=20, θ_e=-10, expected f_v ≈ 0.15
+        let room = create_test_room();
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            has_heat_recovery: true,
+            heat_recovery_efficiency: Some(0.85),
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+        assert!(result.is_ok());
+
+        let ventilation = result.unwrap();
+        assert!((ventilation.f_v - 0.15).abs() < 0.02, "Expected f_v ≈ 0.15, got {}", ventilation.f_v);
     }
 
     fn create_test_room() -> Room {

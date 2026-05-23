@@ -62,16 +62,16 @@ Zonder norm-getallen is het rekenresultaat van isso53-core niet onafhankelijk ge
 ### Tolerantie: 15%
 Utiliteitsbouw heeft veel Vabi-specifieke toeslagen (P-tabellen, gebouw-niveau correcties, WTW-efficiëntie details) die onze implementatie mogelijk niet 1-op-1 reproduceert.
 
-### Test resultaat (2026-05-23 na §4.6 embedded heating fix)
+### Test resultaat (2026-05-23 sessie 2, na WTW f_v fix)
 
 | Component | ISSO53-Core | Vabi | Afwijking | Status |
 |-----------|-------------|------|-----------|--------|
-| **phiT (transmissie)** | 2918 W | 2919 W | -0.03% | ✅ **OPGELOST** |
-| **phiV (ventilatie)** | 3076 W | \* | \* | ❌ **OPEN GAP 1** |
-| **phiI (infiltratie)** | 3372 W | \* | \* | ❌ **OPEN GAP 2** |
-| **phiV+phiI combined** | 6448 W | 3080 W | +109% | ❌ Dubbele telling |
+| **phiT (transmissie)** | 2918 W | 2919 W | -0.03% | ✅ **OPGELOST** §4.6 |
+| **phiV (ventilatie)** | 543 W | \* | \* | ✅ **OPGELOST** formule 4.38 |
+| **phiI (infiltratie)** | 3372 W | \* | \* | ❌ **GAP 2 BLIJFT OPEN** |
+| **phiV+phiI combined** | 3915 W | 3080 W | +27% | ⚠️ Verbeterd van +109%, nog buiten 10% |
 | **phiHu (opwarming)** | 2163 W | 2163 W | 0.0% | ✅ Perfect |
-| **totalHeatLoss** | 11529 W | 8161 W | +41% | ❌ Door gaps 1+2 |
+| **totalHeatLoss** | 8996 W | 8161 W | +10% | ⚠️ Door resterende gap 2 |
 
 \* *Vabi rapporteert gecombineerde waarde 3080 W voor ventilatie+infiltratie*
 
@@ -90,27 +90,35 @@ let f_ig = if element.has_embedded_heating {
 
 **Impact:** phiT daalde 4385→2918 W (-1467 W = exacte ground-bijdrage), nu <0.1% verschil met Vabi.
 
-### **OPEN GAP 1: WTW Φ_V f_v toepassing**
+### **OPGELOST: WTW Φ_V f_v formule (formule 4.38) — sessie 2, 2026-05-23**
 
-**Probleem:** Φ_V = 3076 W ondanks `hasHeatRecovery: true, heatRecoveryEfficiency: 0.85`. Bij WTW-efficiëntie van 85% en aanvoertemperatuur ~21°C zou f_v ≈ 0 moeten zijn → Φ_V ≈ 0 W.
+**Root-cause:** In `calc/ventilation.rs::calculate_f_v` stond `f_v = (θ_t − θ_e) / (θ_i − θ_e)`. Bij η=0,85, θ_i=20, θ_e=−10: θ_t = 15,5°C → f_v = 0,85. Maar fysisch moet f_v = 1−η = 0,15 zijn (het deel van Δθ dat ná WTW nog opgewarmd moet worden).
 
-**Onderzoek:** `calc/ventilatie.rs::calculate_f_v` — waarom wordt θ_t/η_wtw niet toegepast om f_v naar 0 te reduceren? Mogelijke oorzaken:
-- θ_supply berekening klopt niet (te laag, dus Δθ blijft groot)
-- η_wtw wordt niet gebruikt in f_v-formule
-- WTW-velden worden niet doorgegeven aan ventilatie-berekening
+**Norm-onderbouwing (ISSO 53 §4.7.2, PDF p.48):** Formule 4.38 geldt voor WTW én voorverwarming. θ_t = toevoertemperatuur ventilatielucht. Fysische definitie: Φ_V = q_v·ρ·c_p·(θ_i − θ_t), dus f_v·(θ_i − θ_e) = (θ_i − θ_t) → `f_v = (θ_i − θ_t) / (θ_i − θ_e)`.
 
-**Verwacht effect:** Φ_V zou ~0 W moeten zijn, niet 3076 W.
+**Fix:**
+```rust
+let f_v = (theta_i - theta_t) / (theta_i - theta_e);
+```
+Toegepast op zowel `has_heat_recovery` als `has_preheating` branches (dezelfde formule 4.38 voor beide).
 
-### **OPEN GAP 2: Infiltratie systeem-D f_inf correctie**
+**Impact:** Φ_V daalde 3076 → 543 W (−2533 W = ~82% reductie, exact (1−0,85)·oorspronkelijke = 461 W in de juiste orde; 543 W door q_v-verschillen per ruimte).
 
-**Probleem:** Φ_I = 3372 W bij systeem D (mechanische toevoer + afvoer). Vabi past `f_inf` (tabel 4.7) toe om infiltratie te reduceren bij mechanische systemen (overdruk-effect).
+### **GAP 2 BLIJFT OPEN: Infiltratie Φ_I — root-cause NIET in formule 4.27/4.28**
 
-**Onderzoek:** `calc/infiltration.rs::calculate_h_i` — onze Known-pad past z-factor (vertrek-niveau) toe maar niet `f_inf` (systeem-niveau). Controleer of:
-- Formule 4.27 stilzwijgend ook `f_inf` impliceert voor Known-pad
-- `tables::ventilation_system::f_inf` alleen bij Unknown-pad geldt
-- Systeem D zou f_inf = 0.5 moeten toepassen (50% reductie van infiltratie)
+**Wat NIET de fix is (onderzocht sessie 2, 2026-05-23 via PDF p.44-47):**
 
-**Verwacht effect:** Φ_I zou ~1686 W moeten zijn (3372 × 0.5), niet 3372 W.
+f_inf (tabel 4.7, ventilation_system.rs) hoort **alleen** in het Unknown-pad (formule 4.31). Voor Known-pad (formule 4.28 + tabel 4.5) noemt de norm f_inf niet — q_is volgt direct uit q_v10,kar-klasse × gebouwhoogte. Een vroeg voorstel om f_inf in Known-pad toe te passen is verworpen: bij systeem D is f_inf = 1,15 (verhoging), wat de gap zou verergeren i.p.v. oplossen.
 
-### Conclusie
-De §4.6 embedded heating fix lost het transmissie-gap perfect op. Ventilatie- en infiltratie-algoritmes bevatten aparte bugs die het totale warmteverlies met ~40% overschatten. Deze gaps zijn gedocumenteerd voor vervolgwerkpakket.
+**Hypothesen voor de werkelijke 27%-overschatting (toekomstig onderzoek):**
+
+1. **z-factor in fixture klopt niet.** Tabel 4.4 zegt z = 1 voor één buitengevel; z = 0,5 voor twee tegenover elkaar liggende buitengevels. Bedrijfsruimte4 layout uit Vabi-rapport opnieuw narekenen.
+2. **q_v10,kar-klasse fixture te hoog.** Fixture gebruikt `From040To060` — Vabi gebruikt mogelijk een lagere klasse voor "nieuw goed vakmanschap".
+3. **Vabi gebruikt Unknown-pad (formule 4.31).** In dat geval is q_is = f_wind · f_type · f_inf · (0,23 · q_i,spec) met systeem D's f_inf = 1,15 — maar f_type voor "Gebouwen met meer lagen standaard" = 0,51 (tabel 4.6), wat het netto verlaagt.
+4. **Vabi past A_g (gebruiksopp.) toe i.p.v. A_u (uitwendige scheidingsoppervlak)** — formule 4.28 zegt A_u, ons fixture gebruikt floor_area. Mogelijk verschil bij hoge ruimtes.
+
+**Acceptatie open laten:** snapshot phiI = 3372 W vastgeklikt; `#[ignore]` op `phi_vi_combined_matches` blijft staan met motivatie "+27%, infiltratie-gap blijft open".
+
+### Conclusie sessie 2
+
+Twee van drie norm-bugs opgelost (§4.6 ground + formule 4.38 ventilation). De resterende infiltratie-gap (+27%) ligt niet in onze formule maar mogelijk in fixture-aannames of Vabi's keuze voor Unknown-pad. Vereist herinterpretatie van Vabi-rapport pagina's voor exacte input-replica, NIET een code-fix.
