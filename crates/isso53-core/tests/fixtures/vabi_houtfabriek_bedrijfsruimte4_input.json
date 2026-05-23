@@ -14,7 +14,8 @@
     "buildingPosition": "meerlaagsTussen",
     "ventilationSystem": "systemD",
     "thermalMass": "licht",
-    "windPressureType": "meerlaagsStandaard"
+    "windPressureType": "meerlaagsStandaard",
+    "buildingHeight": 10.9
   },
   "climate": {
     "thetaE": -9.0,
@@ -25,7 +26,7 @@
     "hasHeatRecovery": true,
     "heatRecoveryEfficiency": 0.85,
     "frostProtection": null,
-    "supplyTemperature": null,
+    "supplyTemperature": 21.0,
     "hasPreheating": false,
     "preheatingTemperature": null
   },

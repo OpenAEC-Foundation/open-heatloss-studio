@@ -62,16 +62,16 @@ Zonder norm-getallen is het rekenresultaat van isso53-core niet onafhankelijk ge
 ### Tolerantie: 15%
 Utiliteitsbouw heeft veel Vabi-specifieke toeslagen (P-tabellen, gebouw-niveau correcties, WTW-efficiëntie details) die onze implementatie mogelijk niet 1-op-1 reproduceert.
 
-### Test resultaat (2026-05-23 sessie 2, na WTW f_v fix)
+### Test resultaat (2026-05-23 sessie 2 vervolg, na alle 4 fixes + Vabi-rapport-extractie)
 
 | Component | ISSO53-Core | Vabi | Afwijking | Status |
 |-----------|-------------|------|-----------|--------|
 | **phiT (transmissie)** | 2918 W | 2919 W | -0.03% | ✅ **OPGELOST** §4.6 |
-| **phiV (ventilatie)** | 543 W | \* | \* | ✅ **OPGELOST** formule 4.38 |
-| **phiI (infiltratie)** | 3372 W | \* | \* | ❌ **GAP 2 BLIJFT OPEN** |
-| **phiV+phiI combined** | 3915 W | 3080 W | +27% | ⚠️ Verbeterd van +109%, nog buiten 10% |
+| **phiV (ventilatie)** | 0 W | 0 W | exact | ✅ luchtverwarming θ_t=21°C → f_v=0 |
+| **phiI (infiltratie)** | 3134 W | 3080 W | +1.8% | ✅ **OPGELOST** A_u/A_g + building_height |
+| **phiV+phiI combined** | 3134 W | 3080 W | +1.8% | ✅ binnen 10%-tolerantie |
 | **phiHu (opwarming)** | 2163 W | 2163 W | 0.0% | ✅ Perfect |
-| **totalHeatLoss** | 8996 W | 8161 W | +10% | ⚠️ Door resterende gap 2 |
+| **totalHeatLoss** | 8215 W | 8161 W | +0.7% | ✅ **VOLLEDIG IN OVEREENSTEMMING** |
 
 \* *Vabi rapporteert gecombineerde waarde 3080 W voor ventilatie+infiltratie*
 
@@ -104,21 +104,28 @@ Toegepast op zowel `has_heat_recovery` als `has_preheating` branches (dezelfde f
 
 **Impact:** Φ_V daalde 3076 → 543 W (−2533 W = ~82% reductie, exact (1−0,85)·oorspronkelijke = 461 W in de juiste orde; 543 W door q_v-verschillen per ruimte).
 
-### **GAP 2 BLIJFT OPEN: Infiltratie Φ_I — root-cause NIET in formule 4.27/4.28**
+### **OPGELOST: Infiltratie Φ_I — twee code-bugs + één model-extensie (sessie 2 vervolg, 2026-05-23)**
 
-**Wat NIET de fix is (onderzocht sessie 2, 2026-05-23 via PDF p.44-47):**
+Via Vabi-rapport p.18-20 extractie (PDF tools MCP) zijn de exacte input-parameters gevonden. Hypothese 4 (A_u/A_g) bevestigd, twee aanvullende bugs blootgelegd:
 
-f_inf (tabel 4.7, ventilation_system.rs) hoort **alleen** in het Unknown-pad (formule 4.31). Voor Known-pad (formule 4.28 + tabel 4.5) noemt de norm f_inf niet — q_is volgt direct uit q_v10,kar-klasse × gebouwhoogte. Een vroeg voorstel om f_inf in Known-pad toe te passen is verworpen: bij systeem D is f_inf = 1,15 (verhoging), wat de gap zou verergeren i.p.v. oplossen.
+**Bug 1 — A_u en A_g omgedraaid in `calc/infiltration.rs::calculate_h_i`:**
 
-**Hypothesen voor de werkelijke 27%-overschatting (toekomstig onderzoek):**
+Per ISSO 53:
+- Formule 4.28 (Known-pad): `q_i = q_is × A_u` waarbij **A_u = uitwendige scheidingsconstructie (gevel excl. plat dak)**
+- Formule 4.29 (Unknown-pad): `q_i = q_is × A_g` waarbij **A_g = gebruiksoppervlakte (vloer)**
 
-1. **z-factor in fixture klopt niet.** Tabel 4.4 zegt z = 1 voor één buitengevel; z = 0,5 voor twee tegenover elkaar liggende buitengevels. Bedrijfsruimte4 layout uit Vabi-rapport opnieuw narekenen.
-2. **q_v10,kar-klasse fixture te hoog.** Fixture gebruikt `From040To060` — Vabi gebruikt mogelijk een lagere klasse voor "nieuw goed vakmanschap".
-3. **Vabi gebruikt Unknown-pad (formule 4.31).** In dat geval is q_is = f_wind · f_type · f_inf · (0,23 · q_i,spec) met systeem D's f_inf = 1,15 — maar f_type voor "Gebouwen met meer lagen standaard" = 0,51 (tabel 4.6), wat het netto verlaagt.
-4. **Vabi past A_g (gebruiksopp.) toe i.p.v. A_u (uitwendige scheidingsoppervlak)** — formule 4.28 zegt A_u, ons fixture gebruikt floor_area. Mogelijk verschil bij hoge ruimtes.
+De code had het exact omgedraaid (Known → `room.floor_area`, Unknown → som exterior elements). Fix: Known-pad gebruikt nu A_u (som exterior elements met `VerticalPosition != Ceiling` per voetnoot tabel 4.5).
 
-**Acceptatie open laten:** snapshot phiI = 3372 W vastgeklikt; `#[ignore]` op `phi_vi_combined_matches` blijft staan met motivatie "+27%, infiltratie-gap blijft open".
+**Bug 2 — Hardcoded `building_height = 3.0` in `calculate_q_is`:**
 
-### Conclusie sessie 2
+Comment zei al "TODO: get actual building height from Building model". Veld toegevoegd aan `Building` (Option<f64>, default 3.0). Vabi-gebouwhoogte 10,9 m → klasse 6<h≤20 → q_is = 0,00103 (i.p.v. 0,00064 bij ≤3m).
 
-Twee van drie norm-bugs opgelost (§4.6 ground + formule 4.38 ventilation). De resterende infiltratie-gap (+27%) ligt niet in onze formule maar mogelijk in fixture-aannames of Vabi's keuze voor Unknown-pad. Vereist herinterpretatie van Vabi-rapport pagina's voor exacte input-replica, NIET een code-fix.
+**Fixture-aanvulling — Luchtverwarming (Vabi Φ_V = 0):**
+
+Vabi-rapport: "Vorstbeveiliging: Voorverwarming buitenlucht" + "Verwarmingsbatterij: Ja" + "Ventilatie 21,0°C → 0 W". Modellering via `supplyTemperature = 21.0` in `VentilationConfig`. Bij θ_t > θ_i clamp WTW-formule naar f_v = 0 → Φ_V = 0 W exact.
+
+**Eindresultaat:** Φ_V+Φ_I = 3134 W vs Vabi 3080 W = +1,8%. Totaal warmteverlies +0,7%.
+
+### Conclusie sessie 2 (vervolg)
+
+Alle drie norm-/implementatie-bugs opgelost: §4.6 ground (sessie 1), formule 4.38 WTW (sessie 2 ochtend), A_u/A_g omdraai + building_height (sessie 2 vervolg). De Vabi TR02 Bedrijfsruimte4 fixture matcht nu op alle vier componenten binnen 2%. `#[ignore]` verwijderd op `vabi_bedrijfsruimte4_phi_vi_combined_matches`.

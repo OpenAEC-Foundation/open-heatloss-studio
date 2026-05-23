@@ -190,6 +190,7 @@ mod tests {
                 ventilation_system: VentilationSystemType::SystemB,
                 thermal_mass: ThermalMass::Gemiddeld,
                 wind_pressure_type: crate::model::enums::GebouwTypeWinddruk::MeerlaagsStandaard,
+                building_height: None,
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

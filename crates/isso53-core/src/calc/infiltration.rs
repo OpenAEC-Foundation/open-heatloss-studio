@@ -38,17 +38,19 @@ pub fn calculate_h_i(
 
     let q_i = match method {
         InfiltrationMethod::Known { .. } => {
-            // Formule 4.28: q_i = q_is × A_u (gebruiksoppervlak)
-            q_is * room.floor_area
-        }
-        InfiltrationMethod::Unknown { .. } => {
-            // Formule 4.29: q_i = q_is × A_g (geveloppervlak)
-            let a_gevel: f64 = room.constructions
+            // Formule 4.28: q_i = q_is × A_u (uitwendige scheidingsconstructie = gevel excl. plat dak)
+            let a_u: f64 = room.constructions
                 .iter()
                 .filter(|element| element.boundary_type == BoundaryType::Exterior)
+                // Tabel 4.5 voetnoot/§2.2: A_u is gevel excl. plat dak.
+                .filter(|element| element.vertical_position != crate::model::VerticalPosition::Ceiling)
                 .map(|element| element.area)
                 .sum();
-            q_is * a_gevel
+            q_is * a_u
+        }
+        InfiltrationMethod::Unknown { .. } => {
+            // Formule 4.29: q_i = q_is × A_g (gebruiksoppervlakte = vloeroppervlak)
+            q_is * room.floor_area
         }
     };
 
@@ -84,12 +86,11 @@ pub fn calculate_phi_i(
 
 /// Calculate specific infiltration q_is in m³/(s·m² gevel).
 /// ISSO 53 §4.2: either tabel 4.5 lookup or formule 4.31.
-fn calculate_q_is(_building: &Building, method: &InfiltrationMethod) -> Result<f64> {
+fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f64> {
     match method {
         InfiltrationMethod::Known { qv10_kar_class } => {
-            // Use tabel 4.5 lookup based on building height
-            // Note: we need building height from somewhere - use a reasonable assumption
-            let building_height = 3.0; // TODO: get actual building height from Building model
+            // Tabel 4.5: q_is afhankelijk van q_v10,kar-klasse × gebouwhoogte-klasse.
+            let building_height = building.building_height.unwrap_or(3.0);
             let height_class = BuildingHeightClass::from_height(building_height);
 
             Ok(q_is_known(*qv10_kar_class, height_class))
@@ -184,11 +185,10 @@ mod tests {
 
     #[test]
     fn test_infiltration_known_smoke() {
-        // q_v10_kar=0.5 (klasse 0.40-0.60), height=3m, floor_area=50
-        // q_is = 0.00103 (from tabel 4.5), q_i = q_is × A_u = 0.00103 × 50 = 0.0515
-        // H_i = z=1 × 0.0515 × 1200 × 1 = 61.8 W/K
+        // q_v10_kar klasse 0.40-0.60, building_height=3m (default) → q_is=0.00064
+        // test_room heeft 1 exterior wall area=30, dus A_u=30
+        // H_i = z=1 × q_is × A_u × 1200 × f_v = 1 × 0.00064 × 30 × 1200 × 1 = 23.04 W/K
         let mut room = create_test_room();
-        room.floor_area = 50.0;
         room.infiltration_reduction_z = 1.0;
 
         let building = create_test_building();
@@ -199,7 +199,25 @@ mod tests {
         let result = calculate_h_i(&room, &building, &method);
         assert!(result.is_ok());
         let h_i = result.unwrap();
-        assert!((h_i - 38.4).abs() < 0.1, "Expected ~38.4, got {}", h_i);
+        assert!((h_i - 23.04).abs() < 0.1, "Expected ~23.04, got {}", h_i);
+    }
+
+    #[test]
+    fn test_infiltration_known_height_class() {
+        // building_height=10m → klasse 6<h≤20, q_is=0.00103 (i.p.v. 0.00064 bij ≤3m)
+        let mut room = create_test_room();
+        room.infiltration_reduction_z = 1.0;
+
+        let mut building = create_test_building();
+        building.building_height = Some(10.0);
+
+        let method = InfiltrationMethod::Known {
+            qv10_kar_class: Qv10Class::From040To060,
+        };
+
+        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        // 1 × 0.00103 × 30 × 1200 = 37.08 W/K
+        assert!((h_i - 37.08).abs() < 0.1, "Expected ~37.08, got {}", h_i);
     }
 
     fn create_test_room() -> Room {
@@ -248,6 +266,7 @@ mod tests {
             ventilation_system: VentilationSystemType::SystemB,
             thermal_mass: ThermalMass::Gemiddeld,
             wind_pressure_type: GebouwTypeWinddruk::EenlaagsMetPlatDak,
+            building_height: None,
         }
     }
 }
