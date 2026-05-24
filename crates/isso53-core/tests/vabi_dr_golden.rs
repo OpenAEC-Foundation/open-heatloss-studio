@@ -38,24 +38,21 @@ fn vabi_dr_kantoorwest_phi_v_zero() {
 }
 
 /// Snapshot van werkelijke waarden voor regressie-detectie.
-/// Φ_T = 3786 (Vabi 3059, +24% — adjacent-room hoge ΔT, apart spoor).
+/// Φ_T = 3282 (was 3786, daalde door auto-f_ig formule 4.22/4.23).
 /// Φ_I = 177 (Vabi 681, -74% — Unknown-pad keten ISSO vs Vabi).
 #[test]
 fn vabi_dr_kantoorwest_snapshot() {
     let room = load_room_0_03();
-    close("phiT", room["phiT"].as_f64().unwrap(), 3786.0, 3.0);
+    close("phiT", room["phiT"].as_f64().unwrap(), 3282.0, 3.0);
     close("phiV", room["phiV"].as_f64().unwrap(), 0.0, 1.0);
     close("phiI", room["phiI"].as_f64().unwrap(), 177.0, 3.0);
-    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 3963.0, 3.0);
+    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 3459.0, 3.0);
 }
 
-/// Cross-validatie Φ_T — buiten 10% door open transmissie-spoor.
+/// Cross-validatie Φ_T — nu binnen 10% tolerantie door §4.6 ground-fix.
 /// Vabi: Φ_T,ie=1237 + Φ_T,ia=1507 + Φ_T,ig=315 = 3059 W.
-/// Onze code: 3786 W — verschil komt vermoedelijk door tussenvloer U=2,91
-/// met ΔT-gradient afhandeling die anders is dan Vabi.
+/// Onze code: 3282 W (+7.3%) — auto-f_ig formule 4.22/4.23 implementatie.
 #[test]
-#[ignore = "Φ_T = 3786 W vs Vabi 3059 W (+24%); tussenvloer U=2,91 adjacent-room ΔT-afhandeling \
-            wijkt af van Vabi — apart transmissie-spoor in PDF_GAPS.md"]
 fn vabi_dr_kantoorwest_phi_t_matches() {
     let room = load_room_0_03();
     close("phiT", room["phiT"].as_f64().unwrap(), 3059.0, 10.0);

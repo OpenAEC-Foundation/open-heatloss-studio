@@ -3,7 +3,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::enums::{BuildingShape, GebouwTypePositie, GebouwTypeWinddruk, ThermalMass, VentilationSystemType};
+use super::enums::{BuildingShape, GebouwTypePositie, GebouwTypeWinddruk, HeatingSystem, ThermalMass, VentilationSystemType};
+use crate::tables::SourceZoneConfig;
 
 /// Building-level configuration for heat loss calculation.
 /// ISSO 53 requires building-level properties for infiltration and thermal mass.
@@ -46,6 +47,16 @@ pub struct Building {
     /// Breedte van het gebouwcomplex in meter. Vereist voor Unknown-pad.
     #[serde(default)]
     pub building_width: Option<f64>,
+
+    /// Verwarmingssysteem voor temperatuur-gelaagdheid Δθ_2 (tabel 2.3).
+    /// Gebruikt voor f_ig berekening formule 4.23 (vloer-op-grond).
+    #[serde(default)]
+    pub heating_system: HeatingSystem,
+
+    /// Configuratie van de warmteopwekkers op gebouwniveau (tabel 5.1).
+    /// Voor infiltratie-fractie z in hoofdstuk 5. Default: Other (z=0.5).
+    #[serde(default)]
+    pub source_zone_config: SourceZoneConfig,
 }
 
 fn default_wind_pressure_type() -> GebouwTypeWinddruk {

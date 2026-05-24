@@ -1,10 +1,11 @@
 //! Ground heat loss calculation for ISSO 53.
 
 use crate::error::Result;
-use crate::model::ConstructionElement;
+use crate::model::{ConstructionElement, DesignConditions, enums::HeatingSystem};
 use crate::tables::ground_params::{
     ground_params, GroundSurfaceKind, B_PRIME_MIN, B_PRIME_MAX, U_EQUIV_MIN, Z_DEPTH_MAX,
 };
+use crate::tables::delta_theta_2;
 
 /// Ground water factor correction for U_equiv calculation.
 /// ISSO 53 §4.6: 1.0 if groundwater ≥1m below floor, 1.15 otherwise.
@@ -21,7 +22,15 @@ pub const GROUND_CORRECTION_FACTOR: f64 = 1.45;
 /// **§4.6 clause**: voor elementen met `has_embedded_heating = true` (bv.
 /// vloerverwarming) wordt `f_ig` overschreven naar 0.0 conform de norm-tekst
 /// "f_ig,k = 0 voor het verwarmde deel van wand/vloer/plafond".
-pub fn calculate_h_t_ground(elements: &[&ConstructionElement]) -> Result<f64> {
+///
+/// **Auto-f_ig**: als `element.ground_params.f_ig.is_none()`, wordt f_ig berekend
+/// via formule 4.22 (Wall) of 4.23 (Floor) op basis van `vertical_position`.
+pub fn calculate_h_t_ground(
+    elements: &[&ConstructionElement],
+    theta_i: f64,
+    climate: &DesignConditions,
+    heating_system: HeatingSystem,
+) -> Result<f64> {
     let mut h_t_ig = 0.0;
 
     for element in elements {
@@ -51,8 +60,11 @@ pub fn calculate_h_t_ground(elements: &[&ConstructionElement]) -> Result<f64> {
 
             let f_ig = if element.has_embedded_heating {
                 0.0  // ISSO 53 §4.6: verwarmd deel van vloer/wand bij vloer-/wand-/CKM-verwarming
+            } else if let Some(f_ig_override) = ground_params.f_ig {
+                f_ig_override  // User-specified override
             } else {
-                ground_params.f_ig
+                // Auto-calculate via formule 4.22 (Wall) or 4.23 (Floor)
+                calculate_f_ig_auto(element, theta_i, climate.theta_me, climate.theta_e, heating_system)?
             };
 
             h_t_ig += GROUND_CORRECTION_FACTOR
@@ -149,6 +161,44 @@ pub fn calculate_u_equivalent(
     Ok(u_equiv.max(U_EQUIV_MIN))
 }
 
+/// Auto-calculate f_ig using ISSO 53 formule 4.22 (Wall) or 4.23 (Floor).
+///
+/// Formule 4.22 (wanden): f_ig,k = (θ_i − θ_me) / (θ_i − θ_e)
+/// Formule 4.23 (vloeren): f_ig,k = ((θ_i + Δθ_2) − θ_me) / (θ_i − θ_e)
+///
+/// waarbij Δθ_2 uit tabel 2.3 per verwarmingssysteem.
+fn calculate_f_ig_auto(
+    element: &ConstructionElement,
+    theta_i: f64,
+    theta_me: f64,
+    theta_e: f64,
+    heating_system: HeatingSystem,
+) -> Result<f64> {
+
+    if (theta_i - theta_e).abs() < 0.001 {
+        return Ok(0.0);  // Avoid division by zero
+    }
+
+    let f_ig = match element.vertical_position {
+        crate::model::enums::VerticalPosition::Wall => {
+            // Formule 4.22: f_ig,k = (θ_i − θ_me) / (θ_i − θ_e)
+            (theta_i - theta_me) / (theta_i - theta_e)
+        }
+        crate::model::enums::VerticalPosition::Floor => {
+            // Formule 4.23: f_ig,k = ((θ_i + Δθ_2) − θ_me) / (θ_i − θ_e)
+            let delta_theta_2 = delta_theta_2(heating_system);
+            let theta_i_effective = theta_i + delta_theta_2;
+            (theta_i_effective - theta_me) / (theta_i - theta_e)
+        }
+        crate::model::enums::VerticalPosition::Ceiling => {
+            // Behandel ceiling als wall (conservatief)
+            (theta_i - theta_me) / (theta_i - theta_e)
+        }
+    };
+
+    Ok(f_ig)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,8 +235,14 @@ mod tests {
 
     #[test]
     fn embedded_heating_zeroes_f_ig() {
-        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition};
+        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition, DesignConditions, enums::HeatingSystem};
         use crate::model::construction::GroundParameters;
+
+        let climate = DesignConditions {
+            theta_e: -10.0,
+            theta_me: 9.0,
+            theta_b_adjacent_building: 15.0,
+        };
 
         let element = ConstructionElement {
             id: "vloer-vv".into(),
@@ -204,7 +260,7 @@ mod tests {
             ground_params: Some(GroundParameters {
                 u_equivalent: 0.16,
                 ground_water_factor: 1.0,
-                f_ig: 1.0,
+                f_ig: Some(1.0),  // Explicit override
                 perimeter: None,
                 depth: None,
             }),
@@ -212,13 +268,64 @@ mod tests {
             unheated_space: None,
         };
 
-        let result = calculate_h_t_ground(&[&element]).expect("calc");
+        let result = calculate_h_t_ground(&[&element], 20.0, &climate, HeatingSystem::Vloerverwarming).expect("calc");
         assert_eq!(result, 0.0, "Embedded heating moet H_T,ig naar 0 brengen (§4.6)");
 
         // Sanity: zonder embedded heating wel verlies
         let mut e2 = element.clone();
         e2.has_embedded_heating = false;
-        let result2 = calculate_h_t_ground(&[&e2]).expect("calc");
+        let result2 = calculate_h_t_ground(&[&e2], 20.0, &climate, HeatingSystem::Vloerverwarming).expect("calc");
         assert!(result2 > 20.0, "Zonder embedded heating wél H_T,ig > 0, got {result2}");
+    }
+
+    #[test]
+    fn test_auto_f_ig_formules() {
+        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition, DesignConditions, enums::HeatingSystem};
+        use crate::model::construction::GroundParameters;
+
+        let climate = DesignConditions {
+            theta_e: -10.0,
+            theta_me: 9.0,
+            theta_b_adjacent_building: 15.0,
+        };
+
+        // Test formule 4.22 (Wall): f_ig = (20 - 9) / (20 - (-10)) = 11 / 30 = 0.367
+        let wall_element = ConstructionElement {
+            id: "wall-ground".into(),
+            description: "Kelderband".into(),
+            area: 10.0,
+            u_value: 0.5,
+            boundary_type: BoundaryType::Ground,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: Some(GroundParameters {
+                u_equivalent: 0.5,
+                ground_water_factor: 1.0,
+                f_ig: None,  // Auto-calculate
+                perimeter: None,
+                depth: None,
+            }),
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+
+        let f_ig_wall = calculate_f_ig_auto(&wall_element, 20.0, 9.0, -10.0, HeatingSystem::default()).unwrap();
+        assert!((f_ig_wall - 0.367).abs() < 0.01, "Wall f_ig expected ~0.367, got {}", f_ig_wall);
+
+        // Test formule 4.23 (Floor) with Radiator: f_ig = ((20 + (-1)) - 9) / (20 - (-10)) = 10 / 30 = 0.333
+        let mut floor_element = wall_element.clone();
+        floor_element.vertical_position = VerticalPosition::Floor;
+
+        let f_ig_floor = calculate_f_ig_auto(&floor_element, 20.0, 9.0, -10.0, HeatingSystem::RadiatorenConvHtEnLuchtverwarming).unwrap();
+        assert!((f_ig_floor - 0.333).abs() < 0.01, "Floor+Radiator f_ig expected ~0.333, got {}", f_ig_floor);
+
+        // Test formule 4.23 (Floor) with Vloerverwarming: f_ig = ((20 + 0) - 9) / (20 - (-10)) = 11 / 30 = 0.367
+        let f_ig_vv = calculate_f_ig_auto(&floor_element, 20.0, 9.0, -10.0, HeatingSystem::Vloerverwarming).unwrap();
+        assert!((f_ig_vv - 0.367).abs() < 0.01, "Floor+VV f_ig expected ~0.367, got {}", f_ig_vv);
     }
 }

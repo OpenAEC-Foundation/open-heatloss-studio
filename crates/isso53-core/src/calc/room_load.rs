@@ -26,7 +26,7 @@ pub fn calculate_room(
 
     // Calculate transmission heat loss (with adjacent room resolution)
     let transmission_result = calculate_transmission_with_adjacent_rooms(
-        room, all_rooms, climate, theta_i
+        room, all_rooms, building, climate, theta_i
     )?;
 
     // Calculate infiltration heat loss
@@ -80,11 +80,12 @@ pub fn calculate_room(
 fn calculate_transmission_with_adjacent_rooms(
     room: &Room,
     all_rooms: &[Room],
+    building: &Building,
     climate: &DesignConditions,
     theta_i: f64,
 ) -> Result<transmission::TransmissionResult> {
-    // Start with basic transmission calculation (note: transmission.rs doesn't take theta_i yet)
-    let mut result = transmission::calculate_transmission(room, all_rooms, climate)?;
+    // Start with basic transmission calculation
+    let mut result = transmission::calculate_transmission(room, all_rooms, building, climate)?;
 
     // Calculate H_T,ia for adjacent rooms (formule 4.9)
     let mut h_t_ia = 0.0;
@@ -216,8 +217,22 @@ mod tests {
         let all_rooms = vec![room1.clone(), room2];
         let climate = DesignConditions::default();
 
+        let building = crate::model::Building {
+            building_shape: crate::model::enums::BuildingShape::Meerlaags,
+            construction_year: 2020,
+            building_position: crate::model::enums::GebouwTypePositie::MeerlaagsGeheel,
+            ventilation_system: crate::model::enums::VentilationSystemType::SystemD,
+            thermal_mass: crate::model::enums::ThermalMass::Gemiddeld,
+            wind_pressure_type: crate::model::enums::GebouwTypeWinddruk::MeerlaagsStandaard,
+            building_height: Some(3.0),
+            building_length: Some(20.0),
+            building_width: Some(15.0),
+            heating_system: crate::model::enums::HeatingSystem::default(),
+            source_zone_config: crate::tables::SourceZoneConfig::default(),
+        };
+
         let result = calculate_transmission_with_adjacent_rooms(
-            &room1, &all_rooms, &climate, 20.0
+            &room1, &all_rooms, &building, &climate, 20.0
         );
 
         assert!(result.is_ok(), "Adjacent room resolution should work: {:?}", result);
@@ -254,6 +269,8 @@ mod tests {
             building_height: None,
             building_length: None,
             building_width: None,
+            heating_system: Default::default(),
+            source_zone_config: Default::default(),
         }
     }
 }

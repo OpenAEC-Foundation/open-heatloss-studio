@@ -236,3 +236,35 @@ pub enum VentilatieBouwfase {
     /// Bestaande bouw — soepelere eisen (dm³/s per persoon).
     Bestaand,
 }
+
+/// Verwarmingssysteem voor temperatuur-gelaagdheid Δθ_2 volgens ISSO 53 tabel 2.3.
+/// Gebruikt voor formule 4.23 vloer-f_ig berekening.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum HeatingSystem {
+    /// Lokale verwarming — Δθ_2 = −1 K
+    LokaleVerwarming,
+    /// Radiatoren/convectoren hoge temperatuur en luchtverwarming — Δθ_2 = −1 K
+    #[default]
+    RadiatorenConvHtEnLuchtverwarming,
+    /// Radiatoren/convectoren lage temperatuur — Δθ_2 = −1 K
+    RadiatorenConvLt,
+    /// Plafondverwarming — Δθ_2 = 0 K
+    Plafondverwarming,
+    /// Wandverwarming — Δθ_2 = −1 K
+    Wandverwarming,
+    /// Plintverwarming — Δθ_2 = −1 K
+    Plintverwarming,
+    /// Vloerverwarming + HT radiatoren — Δθ_2 = 0 K
+    VloerverwarmingPlusHtRadi,
+    /// Vloerverwarming + LT radiatoren — Δθ_2 = 0 K
+    VloerverwarmingPlusLtRadi,
+    /// Vloerverwarming — Δθ_2 = 0 K
+    Vloerverwarming,
+    /// Vloerverwarming + wandverwarming — Δθ_2 = 0 K
+    VloerverwarmingPlusWandverwarming,
+    /// Betonkernactivering — Δθ_2 = 0 K
+    Betonkernactivering,
+    /// Ventilatorgedreven convectorradiatoren — Δθ_2 = 0 K
+    VentilatorgedrevenConvRadi,
+}

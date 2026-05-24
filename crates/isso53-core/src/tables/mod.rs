@@ -24,6 +24,7 @@ pub mod infiltration;
 pub mod occupancy;
 pub mod source_fraction;
 pub mod temperature;
+pub mod temperature_stratification;
 pub mod thermal_bridge;
 pub mod thermal_mass;
 pub mod ventilation_requirements;
@@ -45,6 +46,7 @@ pub use source_fraction::{source_fraction_z, SourceZoneConfig};
 pub use temperature::{
     design_indoor_temperature, design_indoor_temperature_shell, TEMPERATURE_IS_EXTERIOR,
 };
+pub use temperature_stratification::delta_theta_2;
 pub use thermal_bridge::{delta_u_tb, ThermalBridgeSituation, DELTA_U_TB_DEFAULT};
 pub use thermal_mass::c_eff;
 pub use ventilation_requirements::{
