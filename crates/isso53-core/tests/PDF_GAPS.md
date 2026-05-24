@@ -161,6 +161,19 @@ Vabi rekent met "Temp. gradient 4K" → 119,49 × 2,91 × 4 = 1391 W. Onze code 
 waarde door de manier waarop ΔT (room.theta_i − adjacent.theta) wordt afgehandeld bij hoge
 tussenvloer-U-waarden. **Onderzoek nodig:** §4.4 formule 4.9/4.10 voor adjacent rooms.
 
+**Spoor 1 — Ground f_ig auto-berekening (OPGELOST, sessie 2026-05-24)**
+
+**Root-cause:** `calculate_h_t_ground()` haalde f_ig uit user-input (default 1.0), maar ISSO 53 §4.6 schrijft expliciet voor dat f_ig MOET berekend worden uit binnen/buiten/jaargemiddelde temperatuur via formules 4.22 (Wall) en 4.23 (Floor).
+
+**Fix geïmplementeerd:**
+- Formule 4.22 (wanden): f_ig,k = (θ_i − θ_me) / (θ_i − θ_e)  
+- Formule 4.23 (vloeren): f_ig,k = ((θ_i + Δθ_2) − θ_me) / (θ_i − θ_e)
+- Δθ_2 lookup via nieuwe `HeatingSystem` enum + tabel 2.3 implementatie
+- `GroundParameters.f_ig` wijzigt van `f64` naar `Option<f64>` (None=auto, Some=override)
+- Silent migration: bestaande JSON's blijven werken
+
+**Impact:** Φ_T daalde 3786→3282 W (-504 W = ground-correctie), nu binnen 10% tolerantie van Vabi 3059 W (+7.3%). Test `vabi_dr_kantoorwest_phi_t_matches` niet meer op `#[ignore]`.
+
 **Spoor 2 — Unknown-pad keten norm vs Vabi**
 
 ISSO 53 tabel 4.6 zegt voor "Volgevel binnengalerij aan één zijde": f_type = 0,48.

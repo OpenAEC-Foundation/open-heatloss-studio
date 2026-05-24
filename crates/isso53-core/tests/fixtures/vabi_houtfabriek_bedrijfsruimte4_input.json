@@ -15,7 +15,8 @@
     "ventilationSystem": "systemD",
     "thermalMass": "licht",
     "windPressureType": "meerlaagsStandaard",
-    "buildingHeight": 10.9
+    "buildingHeight": 10.9,
+    "heatingSystem": "vloerverwarming"
   },
   "climate": {
     "thetaE": -9.0,

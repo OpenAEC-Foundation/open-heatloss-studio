@@ -72,7 +72,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
         )?);
     }
 
-    let z = 0.5;  // Default for tabel 5.1 - TODO: lookup from tables::source_fraction
+    let z = crate::tables::source_fraction_z(project.building.source_zone_config);
     let phi_source_individual = calc::source_capacity::calculate_individual(&room_results, z, project.climate.theta_e)?;
     let phi_source_collective = calc::source_capacity::calculate_collective(&room_results, z, project.climate.theta_e)?;
     let phi_shell = calc::shell::calculate_shell(project)?;
@@ -193,6 +193,8 @@ mod tests {
                 building_height: None,
                 building_length: None,
                 building_width: None,
+                heating_system: Default::default(),
+                source_zone_config: Default::default(),
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

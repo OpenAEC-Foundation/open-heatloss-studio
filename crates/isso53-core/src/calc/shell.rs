@@ -78,7 +78,7 @@ pub fn calculate_shell(project: &Project) -> Result<f64> {
         }
 
         // Accumulate H_T,ig (ground) - delegate to ground calc
-        h_t_ground += calculate_h_t_ground(&ground_elements)?;
+        h_t_ground += calculate_h_t_ground(&ground_elements, theta_i_building, &project.climate, project.building.heating_system)?;
 
         // For ventilation: rough estimate based on room area
         // ASSUMPTION: 0.5 ACH default ventilation rate (TODO: read from VentilationConfig)
@@ -166,6 +166,8 @@ mod tests {
                 building_height: None,
                 building_length: None,
                 building_width: None,
+                heating_system: Default::default(),
+                source_zone_config: Default::default(),
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

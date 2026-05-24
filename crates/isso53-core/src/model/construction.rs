@@ -85,8 +85,9 @@ pub struct GroundParameters {
     pub ground_water_factor: f64,
 
     /// Temperature correction factor f_ig (dimensionless).
-    #[serde(default = "default_fig")]
-    pub f_ig: f64,
+    /// None = auto-calculate via formule 4.22/4.23 (default), Some(x) = user override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f_ig: Option<f64>,
 
     /// Perimeter O in m for U_equiv calculation (formule 4.24).
     /// Only needed if u_equivalent ≤ 0.0.
@@ -108,9 +109,5 @@ fn default_true() -> bool {
 }
 
 fn default_gw() -> f64 {
-    1.0
-}
-
-fn default_fig() -> f64 {
     1.0
 }

@@ -1,7 +1,7 @@
 //! Transmission heat loss calculation for ISSO 53.
 
 use crate::error::Result;
-use crate::model::{BoundaryType, ConstructionElement, DesignConditions, Room};
+use crate::model::{BoundaryType, ConstructionElement, DesignConditions, Room, Building};
 use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
 use crate::tables::adjacent_unheated::f_k;
 use crate::tables::temperature::design_indoor_temperature;
@@ -13,6 +13,7 @@ use super::ground::calculate_h_t_ground;
 pub fn calculate_transmission(
     room: &Room,
     _all_rooms: &[Room], // For adjacent room resolution in batch 2c
+    building: &Building,
     climate: &DesignConditions,
 ) -> Result<TransmissionResult> {
     let h_t_adjacent_rooms = 0.0; // TODO: batch 2c implementation
@@ -45,7 +46,7 @@ pub fn calculate_transmission(
     let h_t_exterior = calculate_h_t_exterior(&exterior_elements)?;
     let h_t_unheated = calculate_h_t_unheated(&unheated_elements)?;
     let h_t_adjacent_buildings = calculate_h_t_adjacent_buildings(&adjacent_building_elements, theta_i, climate.theta_e)?;
-    let h_t_ground = calculate_h_t_ground(&ground_elements)?;
+    let h_t_ground = calculate_h_t_ground(&ground_elements, theta_i, climate, building.heating_system)?;
 
     // Calculate total transmission heat loss: Φ_T,i = H_T,total × (θ_i - θ_e)
     let h_t_total = h_t_exterior + h_t_adjacent_rooms + h_t_unheated + h_t_adjacent_buildings + h_t_ground;

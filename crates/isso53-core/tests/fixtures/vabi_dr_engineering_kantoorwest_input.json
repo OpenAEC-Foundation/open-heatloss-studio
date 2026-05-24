@@ -17,7 +17,8 @@
     "windPressureType": "meerlaagsVolgevelBinnengalerij",
     "buildingHeight": 13.0,
     "buildingLength": 30.0,
-    "buildingWidth": 20.0
+    "buildingWidth": 20.0,
+    "heatingSystem": "radiatorenConvHtEnLuchtverwarming"
   },
   "climate": {
     "thetaE": -6.0,
@@ -108,7 +109,7 @@
         "groundParams": {
           "uEquivalent": 0.18,
           "groundWaterFactor": 1.0,
-          "fIg": 1.0
+          "fIg": null
         },
         "hasEmbeddedHeating": false,
         "unheatedSpace": null

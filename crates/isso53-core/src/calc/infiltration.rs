@@ -306,6 +306,8 @@ mod tests {
             building_height: None,
             building_length: None,
             building_width: None,
+            heating_system: Default::default(),
+            source_zone_config: Default::default(),
         }
     }
 }

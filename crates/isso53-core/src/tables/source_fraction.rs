@@ -9,13 +9,18 @@
 //! gesommeerde infiltratiewarmteverlies op gebouwniveau met de fractie z
 //! vermenigvuldigd (formule 5.2).
 
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+
 /// Configuratie van de warmteopwekkers op gebouwniveau.
 /// ISSO 53 tabel 5.1 (PDF p.56-57).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
 pub enum SourceZoneConfig {
     /// Systemen met volledig gescheiden warmteopwekkers per zone.
     SeparatePerZone,
     /// Overige gevallen.
+    #[default]
     Other,
 }
 
