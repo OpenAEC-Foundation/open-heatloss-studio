@@ -36,16 +36,17 @@ fn load_result() -> (serde_json::Value, serde_json::Value) {
 
 /// Φ_T matcht Vabi binnen tolerantie voor alle 3 rooms.
 ///
-/// **Status sessie 7 (na C1+C2 fix in calc-core):**
-/// - 1.10a: 1499W vs Vabi 1514W = -1,0% ✅
-/// - 2.10a: 1579W vs Vabi 1494W = +5,7% (net over ±5%)
-/// - 3.10a: 1855W vs Vabi 1691W = +9,7% (Vabi dak f=1,138 onverklaarde anomaly)
+/// **Status sessie 8 (na Optie C wrapper-schrap fix):**
+/// - 1.10a: 1418W vs Vabi 1514W = -6,3% ⚠️ (was -1,0% in s7 — toevallige compensatie door dubbeltelling)
+/// - 2.10a: 1498W vs Vabi 1494W = +0,3% ✅ (was +5,7% in s7 — opgelost als bijvangst Optie C)
+/// - 3.10a: 1776W vs Vabi 1691W = +5,0% (was +9,7% in s7 — grotendeels opgelost)
 ///
-/// User-principe (sessie 7): norm krijgt voorrang boven Vabi-snapshot. Dak-anomalie blijft
-/// dus structureel verschil. `#[ignore]` tot er een betere oplossing is (per-room tolerance,
-/// of dak-correctiefactor opnemen als opt-in compat-mode zoals UnknownVabiCompat).
+/// User-principe (sessie 7 memory): norm krijgt voorrang boven Vabi-snapshot. 1.10a's −6,3%
+/// gap is door spoor 4 diagnose (sessie 8) toegeschreven aan fixture-bundelings-artefact —
+/// niet een calc-core bug, niet een norm-vs-Vabi anomaly. Zie PDF_GAPS.md "Spoor 4 diagnose".
+/// 2.10a en 3.10a vallen netjes binnen norm-tolerantie.
 #[test]
-#[ignore = "norm-vs-Vabi gap voor dak (3.10a +9,7%); andere rooms binnen 6%. TODO sessie 8."]
+#[ignore = "1.10a -6,3% fixture-bundelings-artefact (zie PDF_GAPS.md spoor 4). 2.10a/3.10a binnen norm."]
 fn vabi_3floors_phi_t_matches() {
     let (result, expected) = load_result();
     let result_rooms = result["rooms"].as_array().unwrap();
@@ -174,17 +175,18 @@ fn vabi_3floors_snapshot() {
     close("phiHu 2.10a (10*53.76)", phi_hu_2, 537.6, 2.0);
     close("phiHu 3.10a (10*53.76)", phi_hu_3, 537.6, 2.0);
 
-    // Snapshot baseline na sessie 7 C1+C2 fix (adjacentRoom impl + customDeltaUTb voorrang).
+    // Snapshot baseline na sessie 8 Optie C fix (wrapper schrappen → single source of truth).
+    // Φ_T waardes dropped t.o.v. sessie 7 omdat dubbeltelling adjacent-room is weggewerkt.
     // Faalt als rekenkern wijzigt zonder dat we het verwachten.
-    close("phiT 1.10a snapshot", phi_t_1, 1499.0, 1.0);
+    close("phiT 1.10a snapshot", phi_t_1, 1418.0, 1.0);
     close("phiI 1.10a snapshot", phi_i_1, 1337.0, 1.0);
     close("phiV 1.10a snapshot", phi_v_1, 0.0, 1.0);
 
-    close("phiT 2.10a snapshot", phi_t_2, 1579.0, 1.0);
+    close("phiT 2.10a snapshot", phi_t_2, 1498.0, 1.0);
     close("phiI 2.10a snapshot", phi_i_2, 1338.0, 1.0);
     close("phiV 2.10a snapshot", phi_v_2, 0.0, 1.0);
 
-    close("phiT 3.10a snapshot", phi_t_3, 1855.0, 1.0);
+    close("phiT 3.10a snapshot", phi_t_3, 1776.0, 1.0);
     close("phiI 3.10a snapshot", phi_i_3, 1218.0, 1.0);
     close("phiV 3.10a snapshot", phi_v_3, 0.0, 1.0);
 }

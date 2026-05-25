@@ -38,32 +38,29 @@ fn vabi_dr_kantoorwest_phi_v_zero() {
 }
 
 /// Snapshot van werkelijke waarden voor regressie-detectie.
-/// Φ_T = 4672 (was 3282, steeg door adjacent room bug fix sessie 7).
+/// Φ_T = 3165 (was 4672 in s7; dubbeltelling adjacent-room weggewerkt in sessie 8 Optie C).
 /// Φ_I = ~693 (Vabi-compat via UnknownVabiCompat variant).
 #[test]
 fn vabi_dr_kantoorwest_snapshot() {
     let room = load_room_0_03();
-    close("phiT", room["phiT"].as_f64().unwrap(), 4672.0, 3.0);
+    close("phiT", room["phiT"].as_f64().unwrap(), 3165.0, 3.0);
     close("phiV", room["phiV"].as_f64().unwrap(), 0.0, 1.0);
-    close("phiI", room["phiI"].as_f64().unwrap(), 693.0, 5.0); // Updated for UnknownVabiCompat
-    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 5365.0, 5.0); // 4672 + 693
+    close("phiI", room["phiI"].as_f64().unwrap(), 693.0, 5.0); // UnknownVabiCompat
+    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 3858.0, 5.0); // 3165 + 693
 }
 
-/// Cross-validatie Φ_T — GEBLOKKEERD door fixture-defect, niet calc-core.
+/// Cross-validatie Φ_T — heractiveerd sessie 8 na Optie C wrapper-schrap.
 ///
 /// Vabi: Φ_T,ie=1237 + Φ_T,ia=1507 + Φ_T,ig=315 = 3059 W.
-/// Onze code: 4672 W (+52,7%) na sessie 7 C1+C2 fix.
+/// Onze code na fix: 3165 W (+3,5%). Binnen 10% tolerantie.
 ///
-/// **Root cause:** fixture `vabi_dr_engineering_kantoorwest_input.json` heeft een plafond-
-/// element met `uValue: 2.91` naar `adjacentRoom 17,5°C` (gang-boven). Fysiek onmogelijk
-/// voor een tussenvloer (verwacht ~0,48 W/m²K). Vóór sessie 7 telde dit element 0 W door
-/// `BoundaryType::AdjacentRoom => { /* TODO */ }` skip — fixture-bug was onzichtbaar.
-///
-/// **TODO sessie 8:** correcteer plafond U-waarde uit Vabi DR Engineering bron, re-validate.
-/// Snapshot test (`vabi_dr_kantoorwest_snapshot`) blijft groen voor regressie-detectie
-/// op huidige (bug-blootleggende) output.
+/// **Sessie 8 fix:** `room_load.rs` had een wrapper `calculate_transmission_with_adjacent_rooms`
+/// die de adjacent-room bijdrage een tweede keer optelde op `phi_t` bovenop wat transmission.rs
+/// al berekende via `calculate_h_t_adjacent_rooms` (toegevoegd door sessie 7 C1 fix). Door de
+/// wrapper te schrappen en lookup-pad te migreren naar transmission.rs (single source of truth)
+/// verdwijnt de dubbeltelling. Fixture U=2,91 voor plafond-tussenvloer (Rc=0,14) is correct —
+/// bevestigd in DR Engineering bron `tests/references/dr-engineering-samenvatting.md` r121.
 #[test]
-#[ignore = "fixture U=2.91 plafond is fysiek onmogelijk, exposed door C1 fix sessie 7"]
 fn vabi_dr_kantoorwest_phi_t_matches() {
     let room = load_room_0_03();
     close("phiT", room["phiT"].as_f64().unwrap(), 3059.0, 10.0);
