@@ -172,10 +172,17 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
     - [x] Fase 3: conditional rendering bestaande screens (KLAAR — commit 28c429f)
     - [x] Fase 4: wissel-flow met waarschuwing (KLAAR — commit e697c97)
     - [x] Fase 5: isso53-report-builder (KLAAR — commit 7d8a307)
-  - [ ] ISSO 53 - vervolg
+  - [x] **ISSO 53 - calc-core warmteverlies sporen** — AFGESLOTEN sessie 8 (2026-05-25)
     - [x] **§4.6 embedded heating clause geïmplementeerd** (commit 0f4293a)
       - phiT: 4385→2918 W vs Vabi 2919 W (<0.1% afwijking) ✅
       - f_ig = 0.0 voor elementen met has_embedded_heating = true
+    - [x] **Adjacent-room transmissie sporen 1/2/3** — OPGELOST via Optie C wrapper-schrap (sessie 8)
+      - Dubbeltelling adjacent-room-bijdrage weg (5-7% overschatting gefixed)
+      - Tests: 92 passed / 0 failed / 4 ignored
+    - [x] **Spoor 4 fixture-artefact** — GEDIAGNOSEERD en GEDOCUMENTEERD (PDF_GAPS.md)
+      - Plan-agent bewijs: gap zit in fixture-bundeling, niet calc-core algoritme
+      - Norm-conforme implementatie formule 4.18 bevestigd
+  - [ ] ISSO 53 - toekomstige sporen
     - [ ] **WTW ventilatie-algoritme fix** — phiV = 3076 W ondanks WTW 85%
       - Onderzoek calc/ventilation.rs::calculate_f_v θ_t/η_wtw toepassing
     - [ ] **Infiltratie systeem-D correctie** — phiI = 3372 W bij mech systemen
