@@ -23,6 +23,18 @@ pub enum InfiltrationMethod {
         building_width: f64,
         building_height: f64,
     },
+    /// Vabi-conforme infiltratie via NEN 8088-1 (f_type/f_inf) + NTA 8800 (f_jaar)
+    /// met power-law drukconversie (Δp/10)^0.67. Default Δp = 3.14 Pa (Vabi-fit).
+    /// Bron: docs/2026-05-12-nta8800-infiltratie-verificatie.md
+    #[serde(rename = "unknownVabiCompat")]
+    UnknownVabiCompat {
+        construction_year: u16,
+        building_length: f64,
+        building_width: f64,
+        building_height: f64,
+        #[serde(default)]
+        delta_p_pa: Option<f64>, // None = 3.14
+    },
 }
 
 /// Calculate the specific infiltration heat loss H_i for a room.
@@ -48,7 +60,7 @@ pub fn calculate_h_i(
                 .sum();
             q_is * a_u
         }
-        InfiltrationMethod::Unknown { .. } => {
+        InfiltrationMethod::Unknown { .. } | InfiltrationMethod::UnknownVabiCompat { .. } => {
             // Formule 4.29: q_i = q_is × A_g (gebruiksoppervlakte = vloeroppervlak)
             q_is * room.floor_area
         }
@@ -112,6 +124,33 @@ fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f6
             let q_i_spec_basis = q_i_spec_reken(building.building_shape);
             let q_i_spec = f_typ * f_jaar * q_i_spec_basis;
             Ok(f_wind * f_type * f_inf * 0.23 * q_i_spec)
+        }
+        InfiltrationMethod::UnknownVabiCompat { construction_year, delta_p_pa, .. } => {
+            // Vabi-compatibele infiltratie via NEN 8088-1 + NTA 8800 + power-law drukconversie
+            use crate::tables::{building_type, nen8088, infiltration::q_i_spec_reken};
+
+            let l = building.building_length.unwrap_or(0.0);
+            let w = building.building_width.unwrap_or(0.0);
+            let h = building.building_height.unwrap_or(3.0);
+
+            #[allow(clippy::approx_constant)]
+            let dp = delta_p_pa.unwrap_or(3.14); // Specific pressure value, not π
+            if dp <= 0.0 {
+                return Err(crate::error::Isso53Error::InvalidInput(
+                    format!("delta_p_pa must be positive, got {}", dp)
+                ));
+            }
+            let k = (dp / 10.0).powf(0.67); // ≈ 0.461 bij 3.14 Pa
+
+            let f_wind = calculate_f_wind(l, w, h);
+            let f_type = nen8088::f_type_nen8088(building.wind_pressure_type);
+            let f_inf = nen8088::f_inf_nen8088(building.ventilation_system);
+            let f_typ = building_type::f_typ(building.building_position);
+            let f_jaar = nen8088::f_jaar_nta8800(*construction_year);
+            let q_i_spec_basis = q_i_spec_reken(building.building_shape);
+            let q_i_spec = f_typ * f_jaar * q_i_spec_basis;
+
+            Ok(f_wind * f_type * f_inf * k * q_i_spec)
         }
     }
 }
@@ -293,6 +332,43 @@ mod tests {
             },
             infiltration_reduction_z: 1.0,
         }
+    }
+
+    #[test]
+    fn test_unknown_vabi_compat_negative_delta_p() {
+        let room = create_test_room();
+        let building = create_test_building();
+        let method = InfiltrationMethod::UnknownVabiCompat {
+            construction_year: 2020,
+            building_length: 20.0,
+            building_width: 15.0,
+            building_height: 3.0,
+            delta_p_pa: Some(-5.0), // Negative pressure should error
+        };
+
+        let result = calculate_h_i(&room, &building, &method);
+        assert!(result.is_err(), "Negative delta_p should return error");
+
+        let error = result.unwrap_err();
+        assert!(format!("{}", error).contains("delta_p_pa must be positive"));
+    }
+
+    #[test]
+    fn test_unknown_vabi_compat_positive_delta_p() {
+        let room = create_test_room();
+        let building = create_test_building();
+        let method = InfiltrationMethod::UnknownVabiCompat {
+            construction_year: 2020,
+            building_length: 20.0,
+            building_width: 15.0,
+            building_height: 3.0,
+            delta_p_pa: Some(5.0), // Positive pressure should work
+        };
+
+        let result = calculate_h_i(&room, &building, &method);
+        assert!(result.is_ok(), "Positive delta_p should work");
+        let h_i = result.unwrap();
+        assert!(h_i > 0.0, "H_i should be positive");
     }
 
     fn create_test_building() -> Building {
