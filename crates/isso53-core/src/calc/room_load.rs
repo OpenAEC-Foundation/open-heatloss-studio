@@ -189,7 +189,7 @@ mod tests {
             adjacent_room_id: Some("room2".to_string()),
             material_type: MaterialType::Masonry,
             temperature_factor: None,
-            adjacent_temperature: None,
+            adjacent_temperature: Some(18.0),
             vertical_position: VerticalPosition::Wall,
             use_forfaitaire_thermal_bridge: false,
             custom_delta_u_tb: None,

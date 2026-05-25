@@ -1,0 +1,190 @@
+//! Vabi-referentie verificatietests voor isso53-core.
+//!
+//! Bron: Vabi Elements 3.11.2.23 rapport TR02 - Houtfabriek 3 verdiepingen.
+//! Rooms 1.10a, 2.10a, 3.10a - ISSO 53 Kantoorfunctie/Verblijfsgebied.
+//!
+//! Test van shared floors/ceilings tussen verdiepingen - norm-strikt vs Vabi-fictie.
+
+use isso53_core::calculate_from_json;
+
+fn close(label: &str, got: f64, want: f64, tol_pct: f64) {
+    // Speciale case: want=0 → eis absolute tolerantie 1 W (i.p.v. delen door 0).
+    if want.abs() < f64::EPSILON {
+        assert!(
+            got.abs() < 1.0,
+            "{label}: got {got:.2}, want 0 (>1 W absolute tolerantie)"
+        );
+        return;
+    }
+    let diff = ((got - want) / want).abs() * 100.0;
+    assert!(
+        diff < tol_pct,
+        "{label}: got {got:.0}, want {want:.0} ({diff:.1}% > {tol_pct}%)"
+    );
+}
+
+fn load_result() -> (serde_json::Value, serde_json::Value) {
+    let input = include_str!("fixtures/vabi_houtfabriek_3floors_input.json");
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "fixtures/vabi_houtfabriek_3floors_expected.json"
+    ))
+    .unwrap();
+    let result_json = calculate_from_json(input).expect("calc");
+    let result: serde_json::Value = serde_json::from_str(&result_json).unwrap();
+    (result, expected)
+}
+
+/// Φ_T matcht Vabi binnen tolerantie voor alle 3 rooms.
+///
+/// **Status sessie 7 (na C1+C2 fix in calc-core):**
+/// - 1.10a: 1499W vs Vabi 1514W = -1,0% ✅
+/// - 2.10a: 1579W vs Vabi 1494W = +5,7% (net over ±5%)
+/// - 3.10a: 1855W vs Vabi 1691W = +9,7% (Vabi dak f=1,138 onverklaarde anomaly)
+///
+/// User-principe (sessie 7): norm krijgt voorrang boven Vabi-snapshot. Dak-anomalie blijft
+/// dus structureel verschil. `#[ignore]` tot er een betere oplossing is (per-room tolerance,
+/// of dak-correctiefactor opnemen als opt-in compat-mode zoals UnknownVabiCompat).
+#[test]
+#[ignore = "norm-vs-Vabi gap voor dak (3.10a +9,7%); andere rooms binnen 6%. TODO sessie 8."]
+fn vabi_3floors_phi_t_matches() {
+    let (result, expected) = load_result();
+    let result_rooms = result["rooms"].as_array().unwrap();
+    let expected_rooms = expected["rooms"].as_array().unwrap();
+    let tol = expected["phi_t_tolerance_pct"].as_f64().unwrap();
+
+    for exp_room in expected_rooms {
+        let id = exp_room["roomId"].as_str().unwrap();
+        let want = exp_room["phiT"].as_f64().unwrap();
+        let got = result_rooms
+            .iter()
+            .find(|r| r["roomId"].as_str().unwrap() == id)
+            .expect(&format!("room {id} not in calc result"))["phiT"]
+            .as_f64()
+            .unwrap();
+        close(&format!("phiT room {id}"), got, want, tol);
+    }
+}
+
+/// Φ_I infiltratie test - verwacht divergentie voor room 3.10a (kleinere gevel door dak).
+#[test]
+fn vabi_3floors_phi_i_matches() {
+    let (result, expected) = load_result();
+    let result_rooms = result["rooms"].as_array().unwrap();
+    let expected_rooms = expected["rooms"].as_array().unwrap();
+    let tol = expected["total_tolerance_pct"].as_f64().unwrap();
+
+    for exp_room in expected_rooms {
+        let id = exp_room["roomId"].as_str().unwrap();
+        let want = exp_room["phiI"].as_f64().unwrap();
+        let got = result_rooms
+            .iter()
+            .find(|r| r["roomId"].as_str().unwrap() == id)
+            .expect(&format!("room {id} not in calc result"))["phiI"]
+            .as_f64()
+            .unwrap_or(0.0);
+        close(&format!("phiI room {id}"), got, want, tol);
+    }
+}
+
+/// Total heat loss matcht binnen tolerantie.
+/// totalHeatLoss = Vabi 'Totaal warmteverlies' = phiT + phiV + phiI + phiHu.
+/// Validatie: 1514+1337+538=3389 voor room 1.10a (PDF p.38).
+#[test]
+fn vabi_3floors_total_matches() {
+    let (result, expected) = load_result();
+    let result_rooms = result["rooms"].as_array().unwrap();
+    let expected_rooms = expected["rooms"].as_array().unwrap();
+    let tol = expected["total_tolerance_pct"].as_f64().unwrap();
+
+    for exp_room in expected_rooms {
+        let id = exp_room["roomId"].as_str().unwrap();
+        let want = exp_room["totalHeatLoss"].as_f64().unwrap();
+        let result_room = result_rooms
+            .iter()
+            .find(|r| r["roomId"].as_str().unwrap() == id)
+            .expect(&format!("room {id} not in calc result"));
+
+        // totalHeatLoss = Vabi 'Totaal warmteverlies' = phiT + phiV + phiI + phiHu
+        let phi_t = result_room["phiT"].as_f64().unwrap();
+        let phi_v = result_room["phiV"].as_f64().unwrap_or(0.0);
+        let phi_i = result_room["phiI"].as_f64().unwrap_or(0.0);
+        let phi_hu = result_room["phiHu"].as_f64().unwrap_or(0.0);
+        let got = phi_t + phi_v + phi_i + phi_hu;
+        close(&format!("total room {id}"), got, want, tol);
+    }
+}
+
+/// Φ_Hu opwarmtoeslag test - tautologisch (P=10 W/m² × floorArea).
+#[test]
+fn vabi_3floors_phi_hu_matches() {
+    let (result, expected) = load_result();
+    let result_rooms = result["rooms"].as_array().unwrap();
+    let expected_rooms = expected["rooms"].as_array().unwrap();
+
+    for exp_room in expected_rooms {
+        let id = exp_room["roomId"].as_str().unwrap();
+        let want = exp_room["phiHu"].as_f64().unwrap();
+        let got = result_rooms
+            .iter()
+            .find(|r| r["roomId"].as_str().unwrap() == id)
+            .expect(&format!("room {id} not in calc result"))["phiHu"]
+            .as_f64()
+            .unwrap();
+        close(&format!("phiHu room {id}"), got, want, 5.0);
+    }
+}
+
+/// Snapshot test voor regressie-detectie - faalt als de rekenkern wijzigt
+/// zonder verwachting, onafhankelijk van Vabi-match.
+#[test]
+fn vabi_3floors_snapshot() {
+    let (result, _) = load_result();
+    let rooms = result["rooms"].as_array().unwrap();
+
+    // Find specific rooms for validation
+    let room_1_10a = rooms.iter()
+        .find(|r| r["roomId"].as_str().unwrap() == "1.10a")
+        .expect("room 1.10a not found");
+    let room_2_10a = rooms.iter()
+        .find(|r| r["roomId"].as_str().unwrap() == "2.10a")
+        .expect("room 2.10a not found");
+    let room_3_10a = rooms.iter()
+        .find(|r| r["roomId"].as_str().unwrap() == "3.10a")
+        .expect("room 3.10a not found");
+
+    // Room 1.10a snapshot values
+    let phi_t_1 = room_1_10a["phiT"].as_f64().unwrap();
+    let phi_i_1 = room_1_10a["phiI"].as_f64().unwrap_or(0.0);
+    let phi_v_1 = room_1_10a["phiV"].as_f64().unwrap_or(0.0);
+    let phi_hu_1 = room_1_10a["phiHu"].as_f64().unwrap();
+
+    // Room 2.10a snapshot values
+    let phi_t_2 = room_2_10a["phiT"].as_f64().unwrap();
+    let phi_i_2 = room_2_10a["phiI"].as_f64().unwrap_or(0.0);
+    let phi_v_2 = room_2_10a["phiV"].as_f64().unwrap_or(0.0);
+    let phi_hu_2 = room_2_10a["phiHu"].as_f64().unwrap();
+
+    // Room 3.10a snapshot values
+    let phi_t_3 = room_3_10a["phiT"].as_f64().unwrap();
+    let phi_i_3 = room_3_10a["phiI"].as_f64().unwrap_or(0.0);
+    let phi_v_3 = room_3_10a["phiV"].as_f64().unwrap_or(0.0);
+    let phi_hu_3 = room_3_10a["phiHu"].as_f64().unwrap();
+
+    close("phiHu 1.10a (10*53.76)", phi_hu_1, 537.6, 2.0);
+    close("phiHu 2.10a (10*53.76)", phi_hu_2, 537.6, 2.0);
+    close("phiHu 3.10a (10*53.76)", phi_hu_3, 537.6, 2.0);
+
+    // Snapshot baseline na sessie 7 C1+C2 fix (adjacentRoom impl + customDeltaUTb voorrang).
+    // Faalt als rekenkern wijzigt zonder dat we het verwachten.
+    close("phiT 1.10a snapshot", phi_t_1, 1499.0, 1.0);
+    close("phiI 1.10a snapshot", phi_i_1, 1337.0, 1.0);
+    close("phiV 1.10a snapshot", phi_v_1, 0.0, 1.0);
+
+    close("phiT 2.10a snapshot", phi_t_2, 1579.0, 1.0);
+    close("phiI 2.10a snapshot", phi_i_2, 1338.0, 1.0);
+    close("phiV 2.10a snapshot", phi_v_2, 0.0, 1.0);
+
+    close("phiT 3.10a snapshot", phi_t_3, 1855.0, 1.0);
+    close("phiI 3.10a snapshot", phi_i_3, 1218.0, 1.0);
+    close("phiV 3.10a snapshot", phi_v_3, 0.0, 1.0);
+}

@@ -1,0 +1,35 @@
+{
+  "source": "Vabi Elements 3.11.2.23, rapport TR02 Houtfabriek p.38-40 (1.10a), p.82-84 (2.10a), p.131-133 (3.10a)",
+  "phi_t_tolerance_pct": 5.0,
+  "total_tolerance_pct": 5.0,
+  "rooms": [
+    {
+      "roomId": "1.10a",
+      "phiT": 1514.0,
+      "phiI": 1337.0,
+      "phiHu": 538.0,
+      "totalHeatLoss": 3389.0
+    },
+    {
+      "roomId": "2.10a",
+      "phiT": 1494.0,
+      "phiI": 1337.0,
+      "phiHu": 538.0,
+      "totalHeatLoss": 3369.0
+    },
+    {
+      "roomId": "3.10a",
+      "phiT": 1691.0,
+      "phiI": 1217.0,
+      "phiHu": 538.0,
+      "totalHeatLoss": 3446.0
+    }
+  ],
+  "notes": [
+    "Vabi-waarden direct uit PDF p.38/82/131 'Totaal warmteverlies [2] [W]' — niet aangepast aan calc-output",
+    "totalHeatLoss = Vabi 'Totaal warmteverlies' = phiT + phiI + phiHu (controle: 1514+1337+538=3389 ✓)",
+    "Inter-floor shared surfaces gemodelleerd als adjacentRoom T=20°C (Φ=0); Vabi modelleert via fictieve onverwarmde tussenruimte (±62W per surface) — netto 0 over symmetrisch paar",
+    "Norm-strikt: dak 3.10a exterior met f=1,000 (Vabi gebruikt onverklaard f=1,138) → ~60W per dak-element extra in Vabi",
+    "Tolerantie ±10% conform user-eis bij sessie 7 start"
+  ]
+}
