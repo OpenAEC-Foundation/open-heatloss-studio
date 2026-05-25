@@ -227,7 +227,7 @@
     "infiltrationReductionZ": 1.0
   }],
   "infiltrationMethod": {
-    "unknown": {
+    "unknownVabiCompat": {
       "construction_year": 2021,
       "building_length": 30.0,
       "building_width": 20.0,

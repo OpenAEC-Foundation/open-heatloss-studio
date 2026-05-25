@@ -21,6 +21,7 @@ pub mod adjacent_unheated;
 pub mod building_type;
 pub mod ground_params;
 pub mod infiltration;
+pub mod nen8088;
 pub mod occupancy;
 pub mod source_fraction;
 pub mod temperature;
@@ -55,3 +56,4 @@ pub use ventilation_requirements::{
     VENTILATION_REQUIREMENTS_4_10,
 };
 pub use ventilation_system::f_inf;
+pub use nen8088::{f_type_nen8088, f_inf_nen8088, f_jaar_nta8800};

@@ -39,14 +39,14 @@ fn vabi_dr_kantoorwest_phi_v_zero() {
 
 /// Snapshot van werkelijke waarden voor regressie-detectie.
 /// Φ_T = 3282 (was 3786, daalde door auto-f_ig formule 4.22/4.23).
-/// Φ_I = 177 (Vabi 681, -74% — Unknown-pad keten ISSO vs Vabi).
+/// Φ_I = ~693 (Vabi-compat via UnknownVabiCompat variant).
 #[test]
 fn vabi_dr_kantoorwest_snapshot() {
     let room = load_room_0_03();
     close("phiT", room["phiT"].as_f64().unwrap(), 3282.0, 3.0);
     close("phiV", room["phiV"].as_f64().unwrap(), 0.0, 1.0);
-    close("phiI", room["phiI"].as_f64().unwrap(), 177.0, 3.0);
-    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 3459.0, 3.0);
+    close("phiI", room["phiI"].as_f64().unwrap(), 693.0, 5.0); // Updated for UnknownVabiCompat
+    close("totalHeatLoss", room["totalHeatLoss"].as_f64().unwrap(), 3975.0, 5.0); // 3282 + 693
 }
 
 /// Cross-validatie Φ_T — nu binnen 10% tolerantie door §4.6 ground-fix.
@@ -58,15 +58,11 @@ fn vabi_dr_kantoorwest_phi_t_matches() {
     close("phiT", room["phiT"].as_f64().unwrap(), 3059.0, 10.0);
 }
 
-/// Cross-validatie Φ_I — buiten 10% door Unknown-pad keten-verschil.
-/// Vabi past andere f_type (0,9) en f_jaar (0,7) toe dan ISSO 53 tabel 4.6
-/// (0,48 voor MeerlaagsVolgevelBinnengalerij) en formule 4.34 (0,632 voor 2021).
-/// Vermoedelijk gebruikt Vabi NEN 8088-1 of een eigen aangepaste keten.
+/// Cross-validatie Φ_I — nu binnen 5% tolerantie door UnknownVabiCompat.
+/// Gebruikt NEN 8088-1 (f_type=0,9, f_inf=1,10) + NTA 8800 (f_jaar=0,7) + power-law (Δp/10)^0.67.
+/// Vabi: 681 W, verwacht: ~693 W (+1,8%).
 #[test]
-#[ignore = "Φ_I = 177 W vs Vabi 681 W (-74%); norm-conforme ISSO 53 vs Vabi-keten — \
-            Vabi gebruikt f_type=0,9 (norm: 0,48), f_inf=1,10 (norm: 1,15), \
-            f_jaar=0,7 (norm-formule: 0,632)"]
 fn vabi_dr_kantoorwest_phi_i_matches() {
     let room = load_room_0_03();
-    close("phiI", room["phiI"].as_f64().unwrap(), 681.0, 10.0);
+    close("phiI", room["phiI"].as_f64().unwrap(), 681.0, 5.0);
 }

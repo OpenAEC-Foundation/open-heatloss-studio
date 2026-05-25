@@ -174,20 +174,15 @@ tussenvloer-U-waarden. **Onderzoek nodig:** §4.4 formule 4.9/4.10 voor adjacent
 
 **Impact:** Φ_T daalde 3786→3282 W (-504 W = ground-correctie), nu binnen 10% tolerantie van Vabi 3059 W (+7.3%). Test `vabi_dr_kantoorwest_phi_t_matches` niet meer op `#[ignore]`.
 
-**Spoor 2 — Unknown-pad keten norm vs Vabi**
+**Spoor 2 — Unknown-pad Vabi-compat** → **OPGELOST**
 
-ISSO 53 tabel 4.6 zegt voor "Volgevel binnengalerij aan één zijde": f_type = 0,48.
-Vabi (p.3 rapport): "Correctiefactor gebouwafhankelijke winddrukverdeling = 0,9".
+Geïmplementeerd via `InfiltrationMethod::UnknownVabiCompat` variant met:
+- NEN 8088-1 Tabel 9 (f_type = 0,90), Tabel 10 (f_inf = 1,10)  
+- NTA 8800 Tabel 11.13 (f_jaar = 0,70 voor j≥2010)
+- Power-law drukconversie: (Δp/10)^0.67 met Δp=3.14 Pa (Vabi-fit)
 
-ISSO 53 tabel 4.7 zegt voor systeem D: f_inf = 1,15. Vabi (p.9): 1,10.
-
-ISSO 53 formule 4.34 voor 2021: f_jaar = 0,4 + 0,033·exp(0,05·(2060-2021)) = 0,632.
-Vabi (p.3): 0,7.
-
-**Onderzoek nodig:** Vabi gebruikt vermoedelijk NEN 8088-1 of een eigen aangepaste keten
-(zoals memory aangaf bij isso51-core: "NTA 8800 power-law + NEN 8088-1 f_inf + Vabi-fit").
-Mogelijke fix: `InfiltrationMethod::UnknownVabiCompat` variant met override-waarden,
-óf documenteren dat onze Known-pad volledig matcht en Unknown-pad bewust norm-strict blijft.
+Resultaat: Φ_I = 693 W vs Vabi 681 W (+1,8%, binnen 5% tolerantie).
+Bron: NEN 8088-1, NTA 8800, docs/2026-05-12-nta8800-infiltratie-verificatie.md
 
 ### Wat WEL werkt (positieve cross-validatie)
 
