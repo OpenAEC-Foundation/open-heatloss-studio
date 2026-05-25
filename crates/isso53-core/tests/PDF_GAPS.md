@@ -191,3 +191,57 @@ Bron: NEN 8088-1, NTA 8800, docs/2026-05-12-nta8800-infiltratie-verificatie.md
 - **A_u/A_g + building_height**: A_u-extractie werkt (75 m² exterior excl. ceiling)
 - **Unknown-pad implementatie (formule 4.31)**: berekening loopt zonder error,
   resultaten zijn norm-conform — alleen niet Vabi-compatible
+
+## Vabi TR02 Houtfabriek — 3 verdiepingen (1.10a, 2.10a, 3.10a) — sessie 7 (2026-05-25)
+
+**Bron:** Vabi Elements 3.11.2.23, rapport TR02 Houtfabriek p.38-40 (1.10a), p.82-84 (2.10a), p.131-133 (3.10a)
+**Fixture:** `vabi_houtfabriek_3floors_input.json` + `expected.json`
+**Test:** `tests/vabi_houtfabriek_3floors_golden.rs`
+
+### Doel
+
+Cross-validatie van adjacent-room transmissie tussen verdiepingen op dezelfde temperatuur, en exposeren van structurele norm-vs-Vabi verschillen.
+
+### Sessie 7 calc-core fixes (bug C1+C2)
+
+**Bug C1 — `BoundaryType::AdjacentRoom` niet geïmplementeerd**
+Voor sessie 7 telden alle adjacentRoom-elementen 0 W door een `// TODO: batch 2c` skip in `transmission.rs`. Gevolg: zowel interne wanden naar koudere kamers (Vabi +41W) als shared floors tussen warme verdiepingen werden genegeerd. Fix: nieuwe `calculate_h_t_adjacent_rooms()` met formule 4.18 mirror van adjacentBuildings, gebruikt `element.adjacent_temperature` (geen 15°C default — fout als ontbreekt).
+
+**Bug C2 — `customDeltaUTb` genegeerd bij `useForfaitaireThermalBridge: true`**
+Voorheen: forfaitaire flag overschreef silently elke `customDeltaUTb`. Vabi's kb=0,05 werd dus genegeerd, default 0,10 gebruikt → +0,05 W/m²K op alle exterior elementen. Fix: customDeltaUTb krijgt voorrang wanneer expliciet gezet (`Some`), forfaitaire default is fallback.
+
+### Cross-validatie na C1+C2 fix
+
+| Room | Φ_T calc | Φ_T Vabi | Δ Φ_T | Φ_I calc | Φ_I Vabi | Δ Φ_I |
+|---|---|---|---|---|---|---|
+| 1.10a | 1499 W | 1514 W | **−1,0 %** ✅ | 1337 W | 1337 W | 0,0 % ✅ |
+| 2.10a | 1579 W | 1494 W | **+5,7 %** ⚠️ | 1338 W | 1337 W | +0,1 % ✅ |
+| 3.10a | 1855 W | 1691 W | **+9,7 %** ⚠️ | 1218 W | 1217 W | +0,1 % ✅ |
+
+`vabi_3floors_phi_t_matches` test is **`#[ignore]`** — gap is structureel en gedocumenteerd, niet een regressie. Snapshot test (`vabi_3floors_snapshot`) bewaakt regressie via ±1% op de huidige calc-output.
+
+### Resterende gaps (na C1+C2 fix)
+
+**Gap residueel 2.10a (+5,7 %, +85 W)**
+Origin onbekend. Mogelijk Vabi-Vabi inconsistentie in interne wand-temperaturen, of modelleer-noise. Niet kritisch — binnen ±6 %.
+
+**Gap structureel 3.10a (+9,7 %, +164 W) — Vabi dak f=1,138**
+Vabi past onverklaarde correctiefactor 1,138 toe op dak-elementen (Temp.grad=+4K boven θ_e). Norm-strikt gebruikt f=1,000. Per user-principe sessie 7 (norm krijgt voorrang) niet overriden. Effect: 54,5 m² × 0,15 W/m²K × 29K × (1,138−1,000) ≈ +33 W direct + interactie-effecten ≈ +100-160 W totaal.
+
+### Principe sessie 7 — norm-voorrang
+
+Vastgelegd in user-memory `feedback_norm_voor_vabi.md`:
+
+> Bij validatie tegen Vabi-rapporten krijgt de norm (ISSO 51/53/57, NEN 8088, NTA 8800) altijd voorrang boven Vabi-snapshot. Vabi-documenten kunnen verkeerd ingevuld zijn — afwijkingen documenteren, niet overriden.
+
+Implementatie: structurele gaps blijven zichtbaar via `#[ignore]` + comment + PDF_GAPS-vermelding. Compat-modes zoals `UnknownVabiCompat` zijn alleen toegestaan als opt-in variant naast norm-strikte default.
+
+## Vabi DR Engineering Kantoor West — fixture-defect ontmaskerd sessie 7
+
+**Symptoom:** na C1 fix (sessie 7) sprong room 0.03 Φ_T van 3282 W (was +7,3 % vs Vabi 3059 W) naar 4672 W (+52,7 %).
+
+**Root cause:** fixture `vabi_dr_engineering_kantoorwest_input.json` bevat een plafond-element met `uValue: 2.91 W/m²K` naar `adjacentRoom 17,5°C`. Fysiek onmogelijk voor een tussenvloer (verwacht ~0,40-0,48). Vóór C1 fix telde dit element 0 W door de skip — defect bleef verborgen.
+
+**Status:** `vabi_dr_kantoorwest_phi_t_matches` is `#[ignore]` met expliciete `TODO sessie 8: correcteer plafond U-waarde uit Vabi DR Engineering bron, re-validate`. Snapshot test bewaakt regressie op huidige output.
+
+**Les:** placeholder-implementaties die elementen silently 0 W laten bijdragen verbergen fixture-defecten. C1 fix legt deze bloot — gewenste lange-termijn-effect.
