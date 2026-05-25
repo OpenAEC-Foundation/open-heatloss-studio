@@ -210,7 +210,7 @@ Voor sessie 7 telden alle adjacentRoom-elementen 0 W door een `// TODO: batch 2c
 **Bug C2 — `customDeltaUTb` genegeerd bij `useForfaitaireThermalBridge: true`**
 Voorheen: forfaitaire flag overschreef silently elke `customDeltaUTb`. Vabi's kb=0,05 werd dus genegeerd, default 0,10 gebruikt → +0,05 W/m²K op alle exterior elementen. Fix: customDeltaUTb krijgt voorrang wanneer expliciet gezet (`Some`), forfaitaire default is fallback.
 
-### Cross-validatie na C1+C2 fix
+### Cross-validatie na C1+C2 fix (sessie 7)
 
 | Room | Φ_T calc | Φ_T Vabi | Δ Φ_T | Φ_I calc | Φ_I Vabi | Δ Φ_I |
 |---|---|---|---|---|---|---|
@@ -218,15 +218,63 @@ Voorheen: forfaitaire flag overschreef silently elke `customDeltaUTb`. Vabi's kb
 | 2.10a | 1579 W | 1494 W | **+5,7 %** ⚠️ | 1338 W | 1337 W | +0,1 % ✅ |
 | 3.10a | 1855 W | 1691 W | **+9,7 %** ⚠️ | 1218 W | 1217 W | +0,1 % ✅ |
 
-`vabi_3floors_phi_t_matches` test is **`#[ignore]`** — gap is structureel en gedocumenteerd, niet een regressie. Snapshot test (`vabi_3floors_snapshot`) bewaakt regressie via ±1% op de huidige calc-output.
+### Sessie 8 Optie C fix — wrapper-schrap onthult ware norm-vs-Vabi-gap
 
-### Resterende gaps (na C1+C2 fix)
+**Bug:** sessie 7 introduceerde `calculate_h_t_adjacent_rooms` in `transmission.rs` (formule 4.18), maar liet de bestaande `calculate_transmission_with_adjacent_rooms` wrapper in `room_load.rs` ongewijzigd. Beide paden telden de adjacent-room-bijdrage op `phi_t` op — dubbeltelling van ~5-7% voor fixtures met adjacent-room elementen.
 
-**Gap residueel 2.10a (+5,7 %, +85 W)**
-Origin onbekend. Mogelijk Vabi-Vabi inconsistentie in interne wand-temperaturen, of modelleer-noise. Niet kritisch — binnen ±6 %.
+**Fix (Optie C):** wrapper-functie volledig geschrapt; adjacent-room-lookup gemigreerd naar `transmission.rs::calculate_h_t_adjacent_rooms` (zoekt eerst via `adjacent_room_id → Room.custom_temperature`, valt terug op `element.adjacent_temperature`). Single source of truth.
 
-**Gap structureel 3.10a (+9,7 %, +164 W) — Vabi dak f=1,138**
-Vabi past onverklaarde correctiefactor 1,138 toe op dak-elementen (Temp.grad=+4K boven θ_e). Norm-strikt gebruikt f=1,000. Per user-principe sessie 7 (norm krijgt voorrang) niet overriden. Effect: 54,5 m² × 0,15 W/m²K × 29K × (1,138−1,000) ≈ +33 W direct + interactie-effecten ≈ +100-160 W totaal.
+| Room | Φ_T calc s8 | Φ_T Vabi | Δ Φ_T s8 | Δ s7 (was) |
+|---|---|---|---|---|
+| 1.10a | 1418 W | 1514 W | **−6,3 %** ⚠️ | −1,0 % (toevallige compensatie) |
+| 2.10a | 1498 W | 1494 W | **+0,3 %** ✅✅ | +5,7 % (opgelost!) |
+| 3.10a | 1776 W | 1691 W | **+5,0 %** ✅ | +9,7 % (grotendeels opgelost) |
+
+`vabi_3floors_phi_t_matches` blijft `#[ignore]` vanwege 1.10a's nieuwe −6,3% gap.
+
+### Onthulling — sessie 7 "goede matches" waren compensatiefouten
+
+Sessie 7's 1.10a (−1,0%) en Bedrijfsruimte4 (−0,03%) bleken na Optie C fix toevallige compensaties: de adjacent-room dubbeltelling compenseerde een structurele norm-vs-Vabi onderschatting van ~5-7%. Dit was niet zichtbaar tot de dubbeltelling werd weggehaald.
+
+Patroon over alle adjacent-room-fixtures: **calc-core onderschat Vabi met 5-7% structureel** (DR is uitzondering met +3,5% omdat de plafond-bijdrage 1391 W dominant en correct is). Vermoeden: Vabi past extra TB-bijdrage of correctiefactor toe op interne wanden die ISSO 53 §4.4 niet voorschrijft. **Spoor voor sessie 9:** element-niveau diagnose.
+
+### Sessie 8 norm-vs-Vabi gaps (post-fix snapshot)
+
+| Fixture | Δ% s8 | Test-status |
+|---|---|---|
+| DR Kantoor West | +3,5% | `phi_t_matches` heractiveerd ✅ |
+| 3floors 1.10a | −6,3% | `#[ignore]` — fixture-bundelings-artefact |
+| 3floors 2.10a | +0,3% | binnen tolerantie als matches separately liep |
+| 3floors 3.10a | +5,0% | net binnen norm-tolerantie |
+| Bedrijfsruimte4 | −6,2% | `#[ignore]` — fixture-bundelings-artefact |
+
+### Spoor 4 diagnose (sessie 8) — 5-7% gap is fixture-artefact, GEEN calc-core bug
+
+Plan-agent diagnose van Bedrijfsruimte4 (kleinste adjacent-room fixture) leverde sluitend bewijs:
+
+**Element-decompositie Bedrijfsruimte4** (Vabi 2919 W vs calc-core 2737 W = 182 W gap):
+
+| Categorie | Calc | Vabi | Δ |
+|---|---|---|---|
+| Exterior (HSB + deur + ramen HR++) | 2550 | 2545 | −5 ≈ 0 |
+| Adj-room ramen (dubbelglas 18°C) | 31 | 30 | −1 |
+| Ground (embedded heating → 0) | 0 | 0 | 0 |
+| **Bundel binnenwanden (30 m² · U=0,40 · 7°C)** | **156** | **344** | **+188** |
+
+**Gehele 182 W gap zit in één bundel-element.** Onze fixture vereenvoudigt 30+ Vabi-constructies (200+ m² interne wanden naar buren bij 5/10/18/20°C, sommige met lin. kb.) tot 30 m² · U=0,40 · ΔT(20−7)=156 W. Vabi-realiteit is 344 W over alle interne richtingen.
+
+**Hypotheses verworpen met bewijs uit TR02 PDF:**
+
+| H | Verdict | Bewijs |
+|---|---|---|
+| H1: Vabi telt TB op interne wanden | ❌ | Geen ΔU_TB-kolom op interne wand-rijen; alleen lin. kb. (lokaal, op enkele wanden) |
+| H2: Afwijkende f_ia,k formule | ❌ | Vabi corr.factoren = exact `(θ_i−θ_adj)/(θ_i−θ_e)`: 2/29=0,069 ✓; 10/29=0,345 ✓; 15/29=0,517 ✓ |
+| H3: Correctiefactor op interne | ❌ | Geen 1,xx-factor zichtbaar; alle corr.factoren zijn pure temperatuurquotiënten |
+| **H4: Fixture-bundeling onvolledig** | ✅ | Bundel representeert 30 m² → 7°C; werkelijkheid is 200+ m² → 5/10/18/20°C buren |
+
+**Conclusie:** calc-core implementatie van formule 4.18 (adjacent-room transmissie) is **norm-conform en correct**. De gap in 1.10a, 3.10a en Bedrijfsruimte4 is een fixture-vereenvoudigings-artefact. DR en 2.10a komen goed uit omdat hun fixtures meer 1-op-1 met Vabi corresponderen.
+
+**Norm-voorrang principe** blijft consistent toegepast. Geen `UnknownVabiCompat`-flag nodig voor adjacent-room handling. Voor toekomstige verificatie: bouw gedetailleerde 1-op-1 fixtures (sessie 9+ optie).
 
 ### Principe sessie 7 — norm-voorrang
 
@@ -236,12 +284,14 @@ Vastgelegd in user-memory `feedback_norm_voor_vabi.md`:
 
 Implementatie: structurele gaps blijven zichtbaar via `#[ignore]` + comment + PDF_GAPS-vermelding. Compat-modes zoals `UnknownVabiCompat` zijn alleen toegestaan als opt-in variant naast norm-strikte default.
 
-## Vabi DR Engineering Kantoor West — fixture-defect ontmaskerd sessie 7
+## Vabi DR Engineering Kantoor West — opgelost sessie 8
 
-**Symptoom:** na C1 fix (sessie 7) sprong room 0.03 Φ_T van 3282 W (was +7,3 % vs Vabi 3059 W) naar 4672 W (+52,7 %).
+**Sessie 7 hypothese:** plafond U=2,91 W/m²K fysiek onmogelijk → fixture-defect.
 
-**Root cause:** fixture `vabi_dr_engineering_kantoorwest_input.json` bevat een plafond-element met `uValue: 2.91 W/m²K` naar `adjacentRoom 17,5°C`. Fysiek onmogelijk voor een tussenvloer (verwacht ~0,40-0,48). Vóór C1 fix telde dit element 0 W door de skip — defect bleef verborgen.
+**Sessie 8 verificatie:** fixture-waarde is correct — `tests/references/dr-engineering-samenvatting.md` r121 bevestigt `Tussenvloer | 2,91 | Rc=0,14` als reële Vabi-constructie (ongeisoleerde betonnen tussenvloer). Geen fixture-correctie nodig.
 
-**Status:** `vabi_dr_kantoorwest_phi_t_matches` is `#[ignore]` met expliciete `TODO sessie 8: correcteer plafond U-waarde uit Vabi DR Engineering bron, re-validate`. Snapshot test bewaakt regressie op huidige output.
+**Echte root cause (sessie 8):** dubbeltelling in `room_load.rs::calculate_transmission_with_adjacent_rooms` wrapper. Plan-agent diagnose toonde dat de wrapper na sessie 7's C1 fix `phi_t += h_t_ia × (θ_i − θ_e)` deed bovenop wat `transmission::calculate_transmission` al had geteld via `calculate_h_t_adjacent_rooms`.
 
-**Les:** placeholder-implementaties die elementen silently 0 W laten bijdragen verbergen fixture-defecten. C1 fix legt deze bloot — gewenste lange-termijn-effect.
+**Fix (Optie C):** wrapper geschrapt, lookup-pad gemigreerd naar transmission.rs. Φ_T: 4672 → 3165 W = **+3,5 % vs Vabi 3059 W**. Test heractiveerd.
+
+**Les:** als een test "goed matcht" maar de calc-core architectuur twee paden heeft die hetzelfde berekenen, is de match mogelijk een compensatie. Single source of truth voorkomt dit. Voor placeholder-detectie geldt nog steeds: snapshot tests blijven naast `_matches` tests bestaan om regressie te detecteren onafhankelijk van Vabi-truth.

@@ -11,7 +11,7 @@ use super::ground::calculate_h_t_ground;
 /// ISSO 53 formules 4.2: Φ_T,i = (H_T,ie + H_T,ia + H_T,iae + H_T,iaBE + H_T,ig) × (θ_i - θ_e)
 pub fn calculate_transmission(
     room: &Room,
-    _all_rooms: &[Room], // For adjacent room resolution in batch 2c
+    all_rooms: &[Room], // For adjacent room resolution
     building: &Building,
     climate: &DesignConditions,
 ) -> Result<TransmissionResult> {
@@ -41,7 +41,7 @@ pub fn calculate_transmission(
     let h_t_exterior = calculate_h_t_exterior(&exterior_elements)?;
     let h_t_unheated = calculate_h_t_unheated(&unheated_elements)?;
     let h_t_adjacent_buildings = calculate_h_t_adjacent_buildings(&adjacent_building_elements, theta_i, climate.theta_e)?;
-    let h_t_adjacent_rooms = calculate_h_t_adjacent_rooms(&adjacent_room_elements, theta_i, climate.theta_e)?;
+    let h_t_adjacent_rooms = calculate_h_t_adjacent_rooms(&adjacent_room_elements, all_rooms, theta_i, climate.theta_e)?;
     let h_t_ground = calculate_h_t_ground(&ground_elements, theta_i, climate, building.heating_system)?;
 
     // Calculate total transmission heat loss: Φ_T,i = H_T,total × (θ_i - θ_e)
@@ -108,25 +108,50 @@ pub fn calculate_h_t_unheated(elements: &[&ConstructionElement]) -> Result<f64> 
 }
 
 /// Calculate H_T,ia to adjacent heated/cooled rooms (within same building).
-/// Mirror of calculate_h_t_adjacent_buildings, but uses element.adjacent_temperature
-/// (geen 15°C default — als geen adjacent_temperature gezet, error).
-///
-/// Formule: H_T,ia = Σ(A_k × U_k × f_ia,k)
+/// Calculate H_T,ia to adjacent rooms.
+/// ISSO 53 formule 4.18, PDF p.43: H_T,ia = Σ(A_k × U_k × f_ia,k)
 /// waarbij f_ia,k = (θ_i - θ_adjacent) / (θ_i - θ_e)
 ///
 /// Geen thermische brug correctie (interne elementen — ISSO 53 §4.4).
+///
+/// Temperature resolution:
+/// 1. If element.adjacent_room_id exists → lookup in all_rooms, use Room.custom_temperature
+/// 2. Fallback to element.adjacent_temperature
+/// 3. Error if both missing
 pub fn calculate_h_t_adjacent_rooms(
     elements: &[&ConstructionElement],
+    all_rooms: &[crate::model::Room],
     theta_i: f64,
     theta_e: f64,
 ) -> Result<f64> {
     let mut h_t_ia = 0.0;
     for element in elements {
-        let theta_adj = element.adjacent_temperature
-            .ok_or_else(|| crate::error::Isso53Error::InvalidInput(format!(
-                "element {} (boundary=AdjacentRoom): vereist adjacent_temperature",
+        let theta_adj = if let Some(adjacent_room_id) = &element.adjacent_room_id {
+            // Lookup adjacent room by ID
+            let adjacent_room = all_rooms
+                .iter()
+                .find(|r| &r.id == adjacent_room_id)
+                .ok_or_else(|| crate::error::Isso53Error::InvalidInput(format!(
+                    "Adjacent room '{}' not found for element '{}'",
+                    adjacent_room_id, element.id
+                )))?;
+
+            // Use room's custom temperature or calculate default based on usage
+            adjacent_room.custom_temperature
+                .unwrap_or_else(|| design_indoor_temperature(
+                    adjacent_room.gebruiks_functie,
+                    adjacent_room.ruimte_type
+                ))
+        } else if let Some(temp) = element.adjacent_temperature {
+            // Fallback to explicit temperature on element
+            temp
+        } else {
+            return Err(crate::error::Isso53Error::InvalidInput(format!(
+                "Element '{}' (boundary=AdjacentRoom): vereist adjacent_room_id of adjacent_temperature",
                 element.id
-            )))?;
+            )));
+        };
+
         let f_ia_k = if (theta_i - theta_e).abs() < 0.001 {
             0.0
         } else {
@@ -227,7 +252,7 @@ mod tests {
             boundary_type: BoundaryType::AdjacentRoom,
             material_type: MaterialType::Masonry,
             temperature_factor: None,
-            adjacent_room_id: Some("room2".to_string()),
+            adjacent_room_id: None,
             adjacent_temperature: Some(18.0),
             vertical_position: VerticalPosition::Wall,
             use_forfaitaire_thermal_bridge: false,
@@ -237,10 +262,13 @@ mod tests {
             unheated_space: None,
         };
 
+        // Empty rooms list - should fallback to adjacent_temperature
+        let rooms: Vec<Room> = vec![];
+
         let theta_i = 21.0;
         let theta_e = -10.0;
-        let result = calculate_h_t_adjacent_rooms(&[&element], theta_i, theta_e);
-        assert!(result.is_ok());
+        let result = calculate_h_t_adjacent_rooms(&[&element], &rooms, theta_i, theta_e);
+        assert!(result.is_ok(), "Error: {:?}", result);
         let h_t_ia = result.unwrap();
         let expected = 20.0 * 0.5 * (3.0 / 31.0); // ≈ 0.968
         assert!((h_t_ia - expected).abs() < 0.001, "Expected {:.3}, got {:.3}", expected, h_t_ia);
@@ -248,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_h_t_adjacent_rooms_missing_temperature() {
-        // Element zonder adjacent_temperature moet error geven
+        // Element zonder adjacent_temperature en room not found moet error geven
         let element = ConstructionElement {
             id: "wall_adj_bad".to_string(),
             description: "Adjacent room wall without temp".to_string(),
@@ -267,10 +295,13 @@ mod tests {
             unheated_space: None,
         };
 
-        let result = calculate_h_t_adjacent_rooms(&[&element], 21.0, -10.0);
+        // Empty rooms list - should error because room2 not found and no adjacent_temperature
+        let rooms: Vec<Room> = vec![];
+
+        let result = calculate_h_t_adjacent_rooms(&[&element], &rooms, 21.0, -10.0);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.to_string().contains("wall_adj_bad"));
-        assert!(err.to_string().contains("vereist adjacent_temperature"));
+        assert!(err.to_string().contains("room2"));
+        assert!(err.to_string().contains("not found"));
     }
 }

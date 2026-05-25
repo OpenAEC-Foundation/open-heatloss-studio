@@ -4,7 +4,7 @@
 //! per room into the total Φ_HL,i (formule 4.1).
 
 use crate::error::Result;
-use crate::model::{Building, DesignConditions, HeatingUpConfig, Room, VentilationConfig, BoundaryType};
+use crate::model::{Building, DesignConditions, HeatingUpConfig, Room, VentilationConfig};
 use crate::result::RoomResult;
 use crate::tables::temperature::design_indoor_temperature;
 use crate::calc::{transmission, infiltration, ventilation, heating_up};
@@ -25,8 +25,8 @@ pub fn calculate_room(
         .unwrap_or_else(|| design_indoor_temperature(room.gebruiks_functie, room.ruimte_type));
 
     // Calculate transmission heat loss (with adjacent room resolution)
-    let transmission_result = calculate_transmission_with_adjacent_rooms(
-        room, all_rooms, building, climate, theta_i
+    let transmission_result = transmission::calculate_transmission(
+        room, all_rooms, building, climate
     )?;
 
     // Calculate infiltration heat loss
@@ -73,71 +73,6 @@ pub fn calculate_room(
     })
 }
 
-/// Calculate transmission with adjacent room resolution (formule 4.9).
-///
-/// This extends the basic transmission calculation by resolving adjacent room
-/// references and calculating the H_T,ia component according to formule 4.9-4.12.
-fn calculate_transmission_with_adjacent_rooms(
-    room: &Room,
-    all_rooms: &[Room],
-    building: &Building,
-    climate: &DesignConditions,
-    theta_i: f64,
-) -> Result<transmission::TransmissionResult> {
-    // Start with basic transmission calculation
-    let mut result = transmission::calculate_transmission(room, all_rooms, building, climate)?;
-
-    // Calculate H_T,ia for adjacent rooms (formule 4.9)
-    let mut h_t_ia = 0.0;
-
-    for element in &room.constructions {
-        if element.boundary_type == BoundaryType::AdjacentRoom {
-            if let Some(adjacent_room_id) = &element.adjacent_room_id {
-                // Resolve the adjacent room
-                let adjacent_room = all_rooms
-                    .iter()
-                    .find(|r| &r.id == adjacent_room_id)
-                    .ok_or_else(|| {
-                        crate::error::Isso53Error::InvalidInput(format!(
-                            "Adjacent room '{}' not found for element '{}'",
-                            adjacent_room_id, element.id
-                        ))
-                    })?;
-
-                // Calculate θ_b (design temperature of adjacent room)
-                let theta_b = adjacent_room.custom_temperature
-                    .unwrap_or_else(|| design_indoor_temperature(
-                        adjacent_room.gebruiks_functie,
-                        adjacent_room.ruimte_type
-                    ));
-
-                // Calculate f_ia,k according to formule 4.10-4.12
-                let f_ia_k = if (theta_i - climate.theta_e).abs() < 0.001 {
-                    0.0 // Avoid division by zero
-                } else {
-                    (theta_i - theta_b) / (theta_i - climate.theta_e)
-                };
-
-                // Add to H_T,ia: A × U × f_ia,k
-                h_t_ia += element.area * element.u_value * f_ia_k;
-            } else {
-                return Err(crate::error::Isso53Error::InvalidInput(format!(
-                    "Element '{}' has boundary_type=AdjacentRoom but no adjacent_room_id",
-                    element.id
-                )));
-            }
-        }
-    }
-
-    // Update the result with calculated H_T,ia
-    result.h_t_adjacent_rooms = h_t_ia;
-
-    // Add adjacent room contribution to existing phi_t (avoid θ_i inconsistency)
-    let phi_t_adjacent = h_t_ia * (theta_i - climate.theta_e);
-    result.phi_t += phi_t_adjacent;
-
-    Ok(result)
-}
 
 #[cfg(test)]
 mod tests {
@@ -231,8 +166,8 @@ mod tests {
             source_zone_config: crate::tables::SourceZoneConfig::default(),
         };
 
-        let result = calculate_transmission_with_adjacent_rooms(
-            &room1, &all_rooms, &building, &climate, 20.0
+        let result = transmission::calculate_transmission(
+            &room1, &all_rooms, &building, &climate
         );
 
         assert!(result.is_ok(), "Adjacent room resolution should work: {:?}", result);
