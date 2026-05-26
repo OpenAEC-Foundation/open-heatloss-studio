@@ -23,6 +23,7 @@ import NormSwitchModal from "../backstage/NormSwitchModal";
 import SettingsDialog, { applyTheme } from "../settings/SettingsDialog";
 import FeedbackDialog from "../feedback/FeedbackDialog";
 import { Sidebar } from "./Sidebar";
+import { NormSwitchContext } from "./NormSwitchContext";
 import { ToastContainer } from "../ui/Toast";
 import { ConflictDialog } from "../ui/ConflictDialog";
 import { useAutoSave } from "../../hooks/useAutoSave";
@@ -74,9 +75,11 @@ export function AppShell({ children }: AppShellProps) {
   const [backstageOpen, setBackstageOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   /**
-   * Fase 4 ISSO 53: open-state voor `NormSwitchModal`. Trigger zit
-   * onder "Voorkeuren" in de Backstage — bewust niet meer in de chrome
-   * omdat mixed-use (woon + utiliteit) niet ondersteund wordt.
+   * Fase 4 ISSO 53: open-state voor `NormSwitchModal`. Trigger zit op de
+   * `WarmteverliesInstellingen`-pagina (`/warmteverlies/instellingen`) —
+   * reken-instellingen horen niet in de Backstage. De doorgifte aan die
+   * pagina loopt via `NormSwitchContext`. Mixed-use (woon + utiliteit)
+   * blijft niet ondersteund.
    */
   const [normSwitchOpen, setNormSwitchOpen] = useState(false);
   const [theme, setTheme] = useState("light");
@@ -342,7 +345,11 @@ export function AppShell({ children }: AppShellProps) {
               </button>
             </div>
           )}
-          {children}
+          <NormSwitchContext.Provider
+            value={{ openNormSwitch: () => setNormSwitchOpen(true) }}
+          >
+            {children}
+          </NormSwitchContext.Provider>
         </main>
       </div>
 
@@ -352,7 +359,6 @@ export function AppShell({ children }: AppShellProps) {
         open={backstageOpen}
         onClose={() => setBackstageOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenNormSwitch={() => setNormSwitchOpen(true)}
         onNavigate={navigate}
       />
       <NormSwitchModal
