@@ -141,7 +141,6 @@ export function Projects() {
       <PageHeader
         title="Projecten"
         subtitle="Opgeslagen projecten op de server"
-        breadcrumbs={[{ label: "Projecten" }]}
         actions={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={handleImportVabi}>

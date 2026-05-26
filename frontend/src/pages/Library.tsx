@@ -104,7 +104,6 @@ export function Library({ initialSection = "constructies" }: { initialSection?: 
       <PageHeader
         title="Bibliotheek"
         subtitle={section === "constructies" ? "Constructies" : "Materialen"}
-        breadcrumbs={[{ label: "Bibliotheek" }]}
       />
 
       <div className="p-4">
