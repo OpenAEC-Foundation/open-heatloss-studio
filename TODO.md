@@ -182,11 +182,13 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
     - [x] **Spoor 4 fixture-artefact** — GEDIAGNOSEERD en GEDOCUMENTEERD (PDF_GAPS.md)
       - Plan-agent bewijs: gap zit in fixture-bundeling, niet calc-core algoritme
       - Norm-conforme implementatie formule 4.18 bevestigd
-  - [ ] ISSO 53 - toekomstige sporen
-    - [ ] **WTW ventilatie-algoritme fix** — phiV = 3076 W ondanks WTW 85%
-      - Onderzoek calc/ventilation.rs::calculate_f_v θ_t/η_wtw toepassing
-    - [ ] **Infiltratie systeem-D correctie** — phiI = 3372 W bij mech systemen
-      - Onderzoek calc/infiltration.rs f_inf toepassing in Known-pad
+  - [x] **ISSO 53 - "toekomstige sporen" geverifieerd norm-conform** (2026-05-26)
+    - [x] **WTW ventilatie** — implementatie was al norm-conform (ISSO 53 §4.7.2 formule 4.38)
+      - Verificatie: f_v ≈ 0.15 bij η_wtw=85% → ~85% reductie van Φ_V (test `test_wtw_ventilation_efficiency_applied` in `calc/ventilation.rs`)
+      - "phiV = 3076 W" was absolute waarde bij groot debiet, niet bewijs van bug
+    - [x] **Infiltratie systeem-D** — ISSO 53 tabel 4.7 schrijft f_inf=1.15 voor SystemD vs 0.80 voor SystemA
+      - Hogere infiltratie bij balanced ventilation is fysisch correct (ventiel-drukverschillen)
+      - Regressie-test: `test_systemd_infiltration_norm_compliant` in `calc/infiltration.rs`
 - [ ] ISSO 57 (vloerverwarming)
 - [ ] Radiatorselectie + hydraulische balancering
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
