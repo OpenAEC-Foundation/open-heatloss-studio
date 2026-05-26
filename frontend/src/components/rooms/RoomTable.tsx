@@ -127,7 +127,6 @@ function RoomGroup({
   onRemoveConstruction,
 }: RoomGroupProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [ventOpen, setVentOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const addBtnRef = useRef<HTMLTableCellElement>(null);
   const ensureProjectConstruction = useModellerStore(
@@ -199,8 +198,6 @@ function RoomGroup({
           room={room}
           onUpdate={onUpdateRoom}
           onRemove={onRemoveRoom}
-          ventOpen={ventOpen}
-          onToggleVent={() => setVentOpen((v) => !v)}
         />
         {firstConstruction ? (
           <ConstructionCells
@@ -232,10 +229,8 @@ function RoomGroup({
         </tr>
       ))}
 
-      {/* Ventilation settings (uitklapbaar) */}
-      {ventOpen && (
-        <VentilationRow room={room} onUpdate={onUpdateRoom} />
-      )}
+      {/* Ventilation settings — persistant zichtbaar per vertrek */}
+      <VentilationRow room={room} onUpdate={onUpdateRoom} />
 
       {/* Add construction ghost row */}
       <tr
