@@ -16,3 +16,4 @@ nta8800-demand = { path = "../nta8800-demand" }
 
 [dev-dependencies]
 approx = "0.5"
+openaec-project-shared = { path = "../openaec-project-shared" }
