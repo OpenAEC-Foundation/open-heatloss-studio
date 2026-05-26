@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
@@ -15,6 +15,7 @@ import { useToastStore } from "../store/toastStore";
 import { exportProject } from "../lib/importExport";
 import { buildReportData } from "../lib/reportBuilder";
 import { buildIsso53Report } from "../lib/isso53ReportBuilder";
+import { bblMinimumVentilationRate } from "../lib/roomDefaults";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import { generateReportDirect } from "../lib/reportClient";
 
@@ -102,6 +103,30 @@ export function Results() {
   }
 
   const { summary, rooms } = result;
+
+  // Gebouwtotalen — onafhankelijk van norm (geldt voor zowel ISSO 51 als 53).
+  // q_v effectief = som van per-kamer q_v (of BBL-fallback als q_v leeg is).
+  // Schil-oppervlak = som van constructie-areas met boundary_type
+  // exterior/ground/water (= de daadwerkelijke gebouwschil).
+  const { totalQv, totalEnvelopeArea } = useMemo(() => {
+    let qvSum = 0;
+    let areaSum = 0;
+    for (const room of project.rooms) {
+      qvSum +=
+        room.ventilation_rate ??
+        bblMinimumVentilationRate(room.function, room.floor_area);
+      for (const ce of room.constructions) {
+        if (
+          ce.boundary_type === "exterior" ||
+          ce.boundary_type === "ground" ||
+          ce.boundary_type === "water"
+        ) {
+          areaSum += ce.area;
+        }
+      }
+    }
+    return { totalQv: qvSum, totalEnvelopeArea: areaSum };
+  }, [project.rooms]);
 
   return (
     <div>
@@ -197,6 +222,30 @@ export function Results() {
             <p className="mt-1 text-center text-[10px] text-on-surface-muted">
               Klik om te vergroten
             </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[var(--oaec-border-subtle)] pt-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                  Ventilatiedebiet (gebouw)
+                </div>
+                <div className="text-sm font-semibold tabular-nums text-on-surface">
+                  {totalQv.toFixed(1)} dm³/s
+                </div>
+                <div className="text-[10px] text-on-surface-muted tabular-nums">
+                  {(totalQv * 3.6).toFixed(0)} m³/h
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                  Oppervlak gebouwschil
+                </div>
+                <div className="text-sm font-semibold tabular-nums text-on-surface">
+                  {totalEnvelopeArea.toFixed(1)} m²
+                </div>
+                <div className="text-[10px] text-on-surface-muted">
+                  exterior + ground + water
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
 

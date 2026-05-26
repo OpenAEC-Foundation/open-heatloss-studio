@@ -24,6 +24,7 @@ import {
 } from "./constants";
 import { calculateRc, type LayerInput } from "./rcCalculation";
 import { getMaterialById } from "./materialsDatabase";
+import { bblMinimumVentilationRate } from "./roomDefaults";
 import { SPACER_LABELS_NL } from "./spacerTable";
 import {
   buildConstructionLossSvg,
@@ -222,7 +223,7 @@ export async function buildReportData(
       // samenvatting/overzicht ziet voordat de detail-secties (constructies +
       // per-vertrek) volgen.
       ...(toggles.diagrammen && diagrammenSection ? [diagrammenSection] : []),
-      ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(result)] : []),
+      ...(toggles.gebouwresultaten ? [buildGebouwresultatenSection(project, result)] : []),
       ...(toggles.constructies && constructiesSection ? [constructiesSection] : []),
       ...(toggles.constructies && uwSection ? [uwSection] : []),
       // "Vertrekken" is één parent-sectie (level 1) met overzicht-tabel als
@@ -543,8 +544,29 @@ async function buildDiagrammenSection(
 }
 
 /** Sectie 4: Gebouwresultaten. */
-function buildGebouwresultatenSection(result: ProjectResult): Record<string, unknown> {
+function buildGebouwresultatenSection(
+  project: Project,
+  result: ProjectResult,
+): Record<string, unknown> {
   const { summary } = result;
+
+  // Gebouw-geometrie totalen (zelfde berekening als Results.tsx Card).
+  let totalQv = 0;
+  let totalEnvelopeArea = 0;
+  for (const room of project.rooms) {
+    totalQv +=
+      room.ventilation_rate ??
+      bblMinimumVentilationRate(room.function, room.floor_area);
+    for (const ce of room.constructions) {
+      if (
+        ce.boundary_type === "exterior" ||
+        ce.boundary_type === "ground" ||
+        ce.boundary_type === "water"
+      ) {
+        totalEnvelopeArea += ce.area;
+      }
+    }
+  }
 
   return {
     title: "Gebouwresultaten",
@@ -561,6 +583,11 @@ function buildGebouwresultatenSection(result: ProjectResult): Record<string, unk
           ["Opwarmtoeslag", `${fmtW(summary.total_heating_up)} W`],
           ["Systeemverliezen", `${fmtW(summary.total_system_losses)} W`],
           ["Collectieve bijdrage", `${fmtW(summary.collective_contribution)} W`],
+          [
+            "Ventilatiedebiet (gebouw)",
+            `${totalQv.toFixed(1)} dm³/s (${(totalQv * 3.6).toFixed(0)} m³/h)`,
+          ],
+          ["Oppervlak gebouwschil", `${totalEnvelopeArea.toFixed(1)} m²`],
         ],
       },
       { type: "spacer", height_mm: 4 },
