@@ -31,6 +31,20 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
     [onUpdate],
   );
 
+  // m³/h is dezelfde grootheid in andere eenheid: 1 dm³/s = 3,6 m³/h
+  const handleQvM3hChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      if (val === "") {
+        onUpdate({ ventilation_rate: null });
+        return;
+      }
+      const m3h = Number(val) || 0;
+      onUpdate({ ventilation_rate: m3h / 3.6 });
+    },
+    [onUpdate],
+  );
+
   const handleExhaustChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       onUpdate({ has_mechanical_exhaust: e.target.checked });
@@ -63,10 +77,10 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
     <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-accent-soft)]">
       <td colSpan={11} className="px-3 py-2">
         <div className="flex items-center gap-6 text-xs">
-          {/* q_v */}
+          {/* q_v in dm³/s + m³/h naast elkaar — beide editable, syncen via 1 dm³/s = 3,6 m³/h */}
           <label className="flex items-center gap-1.5">
             <span className="font-medium text-on-surface-muted">
-              q<sub>v</sub> [dm³/s]
+              q<sub>v</sub>
             </span>
             <input
               type="number"
@@ -77,6 +91,22 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               className="w-16 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder={bblMinimum > 0 ? bblMinimum.toFixed(1) : "0"}
             />
+            <span className="text-[10px] text-on-surface-muted">dm³/s</span>
+            <span className="text-on-surface-muted">↔</span>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={
+                room.ventilation_rate != null
+                  ? (room.ventilation_rate * 3.6).toFixed(1)
+                  : ""
+              }
+              onChange={handleQvM3hChange}
+              className="w-16 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
+              placeholder={bblMinimum > 0 ? (bblMinimum * 3.6).toFixed(1) : "0"}
+            />
+            <span className="text-[10px] text-on-surface-muted">m³/h</span>
             {bblMinimum > 0 && room.ventilation_rate == null && (
               <span className="text-[10px] text-on-surface-muted">BBL min.</span>
             )}
