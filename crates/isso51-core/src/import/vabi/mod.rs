@@ -39,7 +39,10 @@ pub mod mapper;
 pub mod unzip;
 
 #[cfg(feature = "vabi-import")]
-pub use mapper::import_vabi_project;
+pub use mapper::{
+    calculate_room_height, import_vabi_project, map_building, map_climate,
+    map_constructions_per_room, map_project_info, map_ventilation, VabiImportError,
+};
 
 // Re-export for public API when feature is enabled
 #[cfg(feature = "vabi-import")]

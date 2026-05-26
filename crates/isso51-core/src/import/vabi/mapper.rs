@@ -11,6 +11,30 @@ use crate::model::construction::*;
 use rusqlite::Connection;
 use std::path::Path;
 
+/// Custom error type for Vabi import failures
+#[derive(Debug)]
+pub struct VabiImportError(pub String);
+
+impl std::fmt::Display for VabiImportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Vabi import error: {}", self.0)
+    }
+}
+
+impl std::error::Error for VabiImportError {}
+
+impl From<Isso51Error> for VabiImportError {
+    fn from(err: Isso51Error) -> Self {
+        VabiImportError(err.to_string())
+    }
+}
+
+impl From<rusqlite::Error> for VabiImportError {
+    fn from(err: rusqlite::Error) -> Self {
+        VabiImportError(format!("SQLite error: {}", err))
+    }
+}
+
 /// Import a complete project from a Vabi `.vp` file.
 ///
 /// This is the main public API for Vabi import. Opens the ZIP archive,
@@ -48,8 +72,9 @@ pub fn import_vabi_project(vp_path: &Path) -> Result<Project> {
     })
 }
 
+
 /// Map basic project information from Project and ProjectData tables.
-fn map_project_info(conn: &Connection) -> Result<ProjectInfo> {
+pub fn map_project_info(conn: &Connection) -> Result<ProjectInfo> {
     let mut stmt = conn
         .prepare(
             "SELECT
@@ -98,7 +123,7 @@ fn map_project_info(conn: &Connection) -> Result<ProjectInfo> {
 ///
 /// Phase 1 uses the Template path (IsOverridden=0 case). Phase 3 should handle
 /// `IsOverridden=1` + `CustomID` for project-specific overrides.
-fn map_building(conn: &Connection) -> Result<Building> {
+pub fn map_building(conn: &Connection) -> Result<Building> {
     let mut stmt = conn
         .prepare(
             "SELECT
@@ -210,7 +235,7 @@ fn map_building_type(building_shape: Option<&str>, with_hood: Option<&str>) -> B
 }
 
 /// Map climate conditions from ClimateHeatLossCalculation table.
-fn map_climate(conn: &Connection) -> Result<DesignConditions> {
+pub fn map_climate(conn: &Connection) -> Result<DesignConditions> {
     let mut stmt = conn
         .prepare(
             "SELECT DesignOutsideTemperatureWinter
@@ -239,7 +264,7 @@ fn map_climate(conn: &Connection) -> Result<DesignConditions> {
 }
 
 /// Map ventilation configuration from Ventilation and related tables.
-fn map_ventilation(conn: &Connection) -> Result<VentilationConfig> {
+pub fn map_ventilation(conn: &Connection) -> Result<VentilationConfig> {
     // Join Ventilation with its optional LocalHeatRecoverySystemX (WTW).
     // Take the first row — for residential projects there's typically one
     // building-level ventilation config. Per-room overrides are Fase 4 werk.
@@ -331,7 +356,7 @@ fn map_ventilation_system_type(supply_source: Option<&str>, circulation_method: 
 /// Links Room to BuildingParts via the cell-based geometry system:
 /// Room.CellID → MainFace → CellFace → BuildingPart
 /// Then extracts area, U-value, and boundary type for each BuildingPart.
-fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i64) -> Result<Vec<ConstructionElement>> {
+pub fn map_constructions_per_room(conn: &Connection, room_id: i64, _room_cell_id: i64) -> Result<Vec<ConstructionElement>> {
     let mut stmt = conn
         .prepare(
             "SELECT
@@ -588,6 +613,10 @@ fn map_boundary_type(vabi_type: Option<&str>) -> BoundaryType {
         Some("Ground") => BoundaryType::Ground,
         Some("AdjacentRoom") => BoundaryType::AdjacentRoom,
         Some("AdjacentBuilding") => BoundaryType::AdjacentBuilding,
+        // V2 Batch 1 extensions:
+        Some("CrawlSpace") => BoundaryType::Ground,
+        Some("OtherBuilding") => BoundaryType::AdjacentBuilding,
+        Some("InternalSpace") => BoundaryType::AdjacentRoom,
         _ => {
             // TODO: Log warning for unknown boundary type
             BoundaryType::Exterior // Safe fallback
@@ -599,7 +628,7 @@ fn map_boundary_type(vabi_type: Option<&str>) -> BoundaryType {
 ///
 /// Room.VolumeInfoID → VariantVolumeInfo → TypedVolumeData with Type='InternalDimensionsIncludingPlenum'
 /// height = volume / floor_area
-fn calculate_room_height(conn: &Connection, room_id: i64, floor_area: f64) -> Result<f64> {
+pub fn calculate_room_height(conn: &Connection, room_id: i64, floor_area: f64) -> Result<f64> {
     if floor_area <= 0.0 {
         return Ok(2.7); // Fallback height
     }

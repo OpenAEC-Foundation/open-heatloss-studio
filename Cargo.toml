@@ -20,6 +20,7 @@ members = [
     "crates/nta8800-transmission",
     "crates/nta8800-ventilation",
     "crates/openaec-project-shared",
+    "crates/vabi-importer",
     "src-tauri",
 ]
 # openaec-reports is een aparte workspace (Rust 2024 edition) die

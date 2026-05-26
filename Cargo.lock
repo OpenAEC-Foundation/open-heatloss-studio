@@ -6478,6 +6478,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "vabi-importer"
+version = "0.1.1"
+dependencies = [
+ "isso51-core",
+ "openaec-project-shared",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "zip",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
