@@ -37,6 +37,10 @@ export interface WtwUnit {
   model: string;
   /** Thermisch rendement warmteterugwinning η_hr, fractie 0..1. */
   eta_hr: number;
+  /** Nominale luchtdebiet-capaciteit in m³/h. Afgeleid uit modelnaam,
+   *  niet officieel BCRG-geverifieerd. Wordt in de UI gebruikt als
+   *  drempel om te kleine units uit te grijzen in de selector. */
+  q_nominal_m3h: number;
   /** Specifiek ventilatorvermogen f_SFP in W/(dm³/s). Optioneel —
    *  catalogus-data zonder UI-binding zolang er geen SFP-invoerveld is. */
   f_sfp?: number;

@@ -27,7 +27,7 @@
  *    de vrije invoer. Géén parallelle state — de selector-keuze is puur
  *    UI-lokaal (`selectedWtwId`), de berekening leest enkel V1.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { VENTILATION_SYSTEM_LABELS } from "../../lib/constants";
 import {
@@ -35,6 +35,7 @@ import {
   findWtwUnit,
   getWtwUnits,
 } from "../../lib/productCatalog";
+import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { VentilationConfig, VentilationSystemType } from "../../types";
 import type { HeatRecovery } from "../../types/projectV2";
@@ -84,17 +85,11 @@ const VENTILATION_SYSTEM_OPTIONS: Array<{
 // ---------------------------------------------------------------------------
 
 /**
- * Dropdown-opties voor de WTW-productselector: één "Handmatig invoeren"-optie
- * (sentinel) gevolgd door de BCRG-catalogus-units. De catalogus is statisch,
- * dus de lijst hoeft niet per render herberekend te worden.
+ * WTW-catalogus, statisch geladen. De dropdown-opties (incl. de "Handmatig
+ * invoeren"-sentinel én de disabled-vlag bij te kleine units) worden per
+ * render samengesteld op basis van de gebouw-q_v die uit de store komt.
  */
-const WTW_PRODUCT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: MANUAL_PRODUCT_ID, label: "Handmatig invoeren" },
-  ...getWtwUnits().map((u) => ({
-    value: u.id,
-    label: `${u.brand} ${u.model} — η_hr ${Math.round(u.eta_hr * 100)}%`,
-  })),
-];
+const WTW_UNITS = getWtwUnits();
 
 // ---------------------------------------------------------------------------
 // Component
@@ -110,6 +105,37 @@ export function VentilationPanel() {
   const v1Vent = project.ventilation;
   const currentSystem: VentilationSystemType = v1Vent.system_type;
   const { hasWtw } = SYSTEM_CAPABILITIES[currentSystem];
+
+  // Benodigd ventilatiedebiet op gebouwniveau — identiek aan de Gebouwtotaal-
+  // berekening op /results: per kamer de q_v (dm³/s) optellen, met BBL-
+  // minimum als fallback. Conversie naar m³/h: × 3.6.
+  const requiredM3h = useMemo(() => {
+    let qvSum = 0;
+    for (const room of project.rooms) {
+      qvSum +=
+        room.ventilation_rate ??
+        bblMinimumVentilationRate(room.function, room.floor_area);
+    }
+    return qvSum * 3.6;
+  }, [project.rooms]);
+
+  // Dropdown-opties met capaciteit zichtbaar in het label en disabled-vlag
+  // voor units onder de drempel. De huidige selectie blijft altijd selecteer-
+  // baar (geen stilzwijgend disabled) — als de user al een te kleine unit
+  // had gekozen, zien we dat verderop in een waarschuwingstekst.
+  const wtwProductOptions = useMemo(
+    () => [
+      { value: MANUAL_PRODUCT_ID, label: "Handmatig invoeren" },
+      ...WTW_UNITS.map((u) => ({
+        value: u.id,
+        label: `${u.brand} ${u.model} — ${u.q_nominal_m3h} m³/h — η_hr ${Math.round(
+          u.eta_hr * 100,
+        )}%`,
+        disabled: u.q_nominal_m3h < requiredM3h && u.id !== selectedWtwId,
+      })),
+    ],
+    [requiredM3h, selectedWtwId],
+  );
 
   const updateVentilation = useCallback(
     (partial: Partial<VentilationConfig>) => {
@@ -184,6 +210,10 @@ export function VentilationPanel() {
   const selectedWtwUnit =
     selectedWtwId === MANUAL_PRODUCT_ID ? undefined : findWtwUnit(selectedWtwId);
 
+  // Waarschuwing wanneer de gekozen unit onder de gebouw-drempel ligt.
+  const selectedUnitTooSmall =
+    selectedWtwUnit != null && selectedWtwUnit.q_nominal_m3h < requiredM3h;
+
   // Toon hint over hoe het WTW-veld zich verhoudt tot V1 ISSO 51 ventilatie.
   const heatRecoveryHint: HeatRecovery | null =
     hasWtw &&
@@ -216,18 +246,34 @@ export function VentilationPanel() {
 
       {hasWtw && (
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+          <div className="col-span-3 -mb-2 rounded-md bg-[var(--oaec-accent-soft)] px-3 py-1.5 text-xs">
+            <span className="text-on-surface-muted">
+              Min. benodigde capaciteit (gebouw q_v):{" "}
+            </span>
+            <span className="font-semibold tabular-nums text-on-surface">
+              {requiredM3h.toFixed(0)} m³/h
+            </span>
+          </div>
           <div>
             <Select
               id="wtw_product"
               label="WTW-unit (BCRG)"
               value={selectedWtwId}
-              options={WTW_PRODUCT_OPTIONS}
+              options={wtwProductOptions}
               onChange={(e) => handleWtwProductChange(e.target.value)}
             />
             <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
               Kies een BCRG-unit om η_hr automatisch in te vullen, of
-              "Handmatig invoeren" voor een eigen waarde.
+              "Handmatig invoeren" voor een eigen waarde. Units met een
+              nominale capaciteit onder de gebouw-q_v worden uitgegrijsd.
             </p>
+            {selectedUnitTooSmall && (
+              <p className="mt-1 text-[10px] leading-tight text-amber-600">
+                ⚠ Capaciteit te laag voor dit gebouw (
+                {selectedWtwUnit?.q_nominal_m3h} m³/h &lt;{" "}
+                {requiredM3h.toFixed(0)} m³/h).
+              </p>
+            )}
           </div>
           <div>
             <Input
