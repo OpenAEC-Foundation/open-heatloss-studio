@@ -598,6 +598,7 @@ interface ConstructionBar {
   color: string;
   value: number;
   area: number;
+  uAvg: number;
 }
 
 /** 3. Horizontale bars — verlies per constructietype. */
@@ -606,7 +607,10 @@ export function buildConstructionLossSvg(
   thetaE: number,
   thetaWater?: number,
 ): string | null {
-  const totals = new Map<string, { color: string; value: number; area: number }>();
+  const totals = new Map<
+    string,
+    { color: string; value: number; area: number; uTimesA: number }
+  >();
   const thetaW = thetaWater ?? DEFAULT_THETA_WATER;
   const roomLookup = buildRoomLookup(rooms);
 
@@ -635,25 +639,38 @@ export function buildConstructionLossSvg(
       if (existing) {
         existing.value += phiT;
         existing.area += ce.area;
+        existing.uTimesA += ce.u_value * ce.area;
       } else {
-        totals.set(label, { color, value: phiT, area: ce.area });
+        totals.set(label, {
+          color,
+          value: phiT,
+          area: ce.area,
+          uTimesA: ce.u_value * ce.area,
+        });
       }
     }
   }
 
   const bars: ConstructionBar[] = [];
   for (const [label, data] of totals) {
-    bars.push({ label, ...data });
+    const uAvg = data.area > 0 ? data.uTimesA / data.area : 0;
+    bars.push({
+      label,
+      color: data.color,
+      value: data.value,
+      area: data.area,
+      uAvg,
+    });
   }
   bars.sort((a, b) => b.value - a.value);
 
   if (bars.length === 0) return null;
 
-  // VALUE_WIDTH verbreed van 60 naar 120 om "1234 W · 78.5 m²" rechts naast de
-  // bar te tonen. Houdt PDF-layout consistent met de schermversie.
+  // VALUE_WIDTH verbreed naar 170 om "1234 W · 78.5 m² · U 0.35" rechts
+  // naast de bar te tonen. Houdt PDF-layout consistent met de schermversie.
   const LABEL_WIDTH = 140;
   const BAR_AREA_WIDTH = 340;
-  const VALUE_WIDTH = 120;
+  const VALUE_WIDTH = 170;
   const CHART_WIDTH = LABEL_WIDTH + BAR_AREA_WIDTH + VALUE_WIDTH;
   const BAR_HEIGHT = 18;
   const BAR_GAP = 5;
@@ -685,7 +702,8 @@ export function buildConstructionLossSvg(
         `width="${Math.max(barW, 2).toFixed(2)}" height="${BAR_HEIGHT}" ` +
         `fill="${bar.color}" rx="3"/>`,
     );
-    // Value — W in primaire kleur, m² in muted tint via <tspan>
+    // Value — W in primaire kleur, m² muted, U_gem nog zachter (opacity)
+    const uText = bar.area > 0 ? bar.uAvg.toFixed(2) : "—";
     parts.push(
       `<text x="${LABEL_WIDTH + BAR_AREA_WIDTH + 8}" y="${labelY.toFixed(2)}" ` +
         `dominant-baseline="middle" ` +
@@ -694,6 +712,8 @@ export function buildConstructionLossSvg(
         `${xmlEscape(`${Math.round(bar.value)} W`)}</tspan>` +
         `<tspan fill="${REPORT_COLORS.textMuted}" dx="6">` +
         `${xmlEscape(`· ${bar.area.toFixed(1)} m²`)}</tspan>` +
+        `<tspan fill="${REPORT_COLORS.textMuted}" dx="6" opacity="0.65">` +
+        `${xmlEscape(`· U ${uText}`)}</tspan>` +
         `</text>`,
     );
   });
