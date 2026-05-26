@@ -684,7 +684,7 @@ export function TojuliFull() {
               <p className="text-xs text-on-surface-muted">
                 {t(
                   "tojuliFull.normRef",
-                  "Berekend volgens NTA 8800:2025+C1:2026 hoofdstukken 7 en 10. V1 gebruikt synthetische H_T (Σ A·U) en H_V (ach × volume × 0,34); volledige nta8800-transmission / nta8800-ventilation integratie volgt in F7.2.",
+                  "Berekend volgens NTA 8800:2025+C1:2026 hoofdstukken 7 en 10 met volledige nta8800-transmission + nta8800-ventilation pipeline (drukmodel C2.3, §11.2.1 massabalans).",
                 )}
               </p>
             </div>
