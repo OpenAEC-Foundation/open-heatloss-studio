@@ -251,7 +251,7 @@ export function VentilationPanel() {
                   )}% (BCRG-verkl. nr. ${
                     selectedWtwUnit.bcrg_declaration_nr || "—"
                   })`
-                : "(handmatige invoer) — leeg laten voor geen WTW. Spiegelt naar V1 ISSO 51 `has_heat_recovery` + `heat_recovery_efficiency`."}
+                : "Het rendement (η) bepaalt de toevoertemperatuur: θ_t = θ_e + η × (θ_i − θ_e). Hoger η = warmere toevoerlucht = minder ventilatieverlies. Leeg = geen WTW; als alleen vorstbeveiliging is gekozen valt de calc terug op ISSO 51 Tabel 2.14."}
             </p>
           </div>
           {heatRecoveryHint && (

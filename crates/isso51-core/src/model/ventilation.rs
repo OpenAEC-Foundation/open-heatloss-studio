@@ -44,9 +44,15 @@ pub struct VentilationConfig {
 
 impl VentilationConfig {
     /// Returns the supply air temperature θ_t in °C.
-    /// ISSO 51 Table 2.14 (erratum) for systems with heat recovery.
-    /// For natural supply: returns the design outdoor temperature (passed as parameter).
-    pub fn effective_supply_temperature(&self, theta_e: f64) -> f64 {
+    ///
+    /// Prioriteit:
+    /// 1. Expliciet ingestelde `supply_temperature` — manual override
+    /// 2. Voorverwarming zonder WTW — `preheating_temperature`
+    /// 3. WTW met bekend rendement η — fysische formule
+    ///    `θ_t = θ_e + η × (θ_i − θ_e)`
+    /// 4. WTW zonder rendement — ISSO 51 Tabel 2.14 (erratum 2023) via `frost_protection`
+    /// 5. Natuurlijke toevoer — θ_t = θ_e
+    pub fn effective_supply_temperature(&self, theta_e: f64, theta_i: f64) -> f64 {
         // If explicitly set, use that
         if let Some(t) = self.supply_temperature {
             return t;
@@ -57,8 +63,13 @@ impl VentilationConfig {
             return self.preheating_temperature.unwrap_or(5.0);
         }
 
-        // If heat recovery is installed, use frost protection table
+        // If heat recovery is installed
         if self.has_heat_recovery {
+            // Fysische formule wanneer η bekend is: θ_t = θ_e + η × (θ_i − θ_e)
+            if let Some(eta) = self.heat_recovery_efficiency {
+                return theta_e + eta * (theta_i - theta_e);
+            }
+            // Fallback: ISSO 51 Tabel 2.14 (forfaitaire θ_t per frost-protection type)
             if let Some(fp) = &self.frost_protection {
                 return fp.supply_temperature();
             }
@@ -103,11 +114,12 @@ mod tests {
             has_preheating: false,
             preheating_temperature: None,
         };
-        assert_eq!(config.effective_supply_temperature(-10.0), -10.0);
+        assert_eq!(config.effective_supply_temperature(-10.0, 20.0), -10.0);
     }
 
     #[test]
-    fn test_wtw_supply_temperature() {
+    fn test_wtw_supply_temperature_with_efficiency() {
+        // WTW met bekend rendement → fysische formule θ_t = θ_e + η × (θ_i − θ_e)
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemD,
             has_heat_recovery: true,
@@ -117,7 +129,47 @@ mod tests {
             has_preheating: false,
             preheating_temperature: None,
         };
-        assert_eq!(config.effective_supply_temperature(-10.0), 10.0);
+        // -10 + 0.85 × (20 − (−10)) = -10 + 25.5 = 15.5
+        let theta_t = config.effective_supply_temperature(-10.0, 20.0);
+        assert!(
+            (theta_t - 15.5).abs() < 1e-6,
+            "θ_t bij η=0.85 moet 15.5 °C zijn, kreeg {theta_t}"
+        );
+    }
+
+    #[test]
+    fn test_wtw_supply_temperature_efficiency_varies() {
+        // Verschillende rendementen moeten verschillende θ_t geven (bug-regressie)
+        let mk = |eta: f64| VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            has_heat_recovery: true,
+            heat_recovery_efficiency: Some(eta),
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+        let t_50 = mk(0.5).effective_supply_temperature(-10.0, 20.0);
+        let t_85 = mk(0.85).effective_supply_temperature(-10.0, 20.0);
+        let t_95 = mk(0.95).effective_supply_temperature(-10.0, 20.0);
+        assert!((t_50 - 5.0).abs() < 1e-6, "η=0.50 → 5°C, kreeg {t_50}");
+        assert!((t_85 - 15.5).abs() < 1e-6, "η=0.85 → 15.5°C, kreeg {t_85}");
+        assert!((t_95 - 18.5).abs() < 1e-6, "η=0.95 → 18.5°C, kreeg {t_95}");
+    }
+
+    #[test]
+    fn test_wtw_fallback_to_frost_protection_table() {
+        // WTW zonder rendement → ISSO 51 Tabel 2.14
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            has_heat_recovery: true,
+            heat_recovery_efficiency: None,
+            frost_protection: Some(FrostProtectionType::CentralReducedSpeed),
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+        assert_eq!(config.effective_supply_temperature(-10.0, 20.0), 10.0);
     }
 
     #[test]
@@ -131,6 +183,6 @@ mod tests {
             has_preheating: false,
             preheating_temperature: None,
         };
-        assert_eq!(config.effective_supply_temperature(-10.0), 15.0);
+        assert_eq!(config.effective_supply_temperature(-10.0, 20.0), 15.0);
     }
 }
