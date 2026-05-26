@@ -1,7 +1,7 @@
 {
     "$schema":  "https://raw.githubusercontent.com/niceprogramming/tauri-v2-schemas/main/tauri.conf.json",
     "productName":  "Open Heatloss Studio",
-    "version":  "0.1.1",
+    "version":  "0.2.0",
     "identifier":  "nl.openaec.isso51",
     "build":  {
                   "frontendDist":  "../frontend/dist",
