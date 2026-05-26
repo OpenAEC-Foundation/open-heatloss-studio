@@ -212,6 +212,53 @@ mod tests {
     }
 
     #[test]
+    fn test_systemd_infiltration_norm_compliant() {
+        // Verify SystemD infiltration follows ISSO 53 tabel 4.7 correctly
+        // ISSO 53 (2016) tabel 4.7 specifies f_inf = 1.15 for SystemD vs 0.80 for SystemA
+        // This results in HIGHER infiltration for balanced ventilation, which is norm-compliant
+
+        let room = create_test_room();
+        let mut building = create_test_building();
+        building.ventilation_system = VentilationSystemType::SystemD;
+        building.building_length = Some(20.0);
+        building.building_width = Some(15.0);
+        building.building_height = Some(3.0);
+
+        let method = InfiltrationMethod::Unknown {
+            construction_year: 2020,
+            building_length: 20.0,
+            building_width: 15.0,
+            building_height: 3.0,
+        };
+
+        let h_i_systemd = calculate_h_i(&room, &building, &method).unwrap();
+
+        // Compare with SystemA
+        let mut building_natural = building.clone();
+        building_natural.ventilation_system = VentilationSystemType::SystemA;
+        let h_i_systema = calculate_h_i(&room, &building_natural, &method).unwrap();
+
+        // ISSO 53 norm verification: f_inf(SystemD) = 1.15, f_inf(SystemA) = 0.80
+        // Expected ratio: 1.15 / 0.80 = 1.4375
+        let expected_ratio = 1.15 / 0.80; // = 1.4375
+        let actual_ratio = h_i_systemd / h_i_systema;
+
+        assert!(
+            (actual_ratio - expected_ratio).abs() < 0.01,
+            "SystemD/SystemA infiltration ratio {} should match f_inf ratio {}",
+            actual_ratio, expected_ratio
+        );
+
+        // SystemD should have HIGHER infiltration according to ISSO 53 tabel 4.7
+        assert!(
+            h_i_systemd > h_i_systema,
+            "ISSO 53 tabel 4.7: SystemD f_inf=1.15 > SystemA f_inf=0.80, so SystemD infiltration should be higher"
+        );
+
+        // All assertions passed - SystemD infiltration is norm-compliant
+    }
+
+    #[test]
     fn test_infiltration_method_unknown() {
         // Unknown-pad (formule 4.31) levert nu een geldige berekening op.
         let room = create_test_room();

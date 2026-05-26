@@ -146,6 +146,62 @@ mod tests {
     };
 
     #[test]
+    fn test_wtw_ventilation_efficiency_applied() {
+        // ISSO 53 §4.7.2 formule 4.38: WTW reduces f_v based on supply temperature
+        // Verify that η=85% efficiency gives expected ~85% reduction in ventilation loss
+
+        // Create a larger room for clearer effect
+        let mut room = create_test_room();
+        room.floor_area = 100.0;
+        room.bezetting.personen = Some(10.0);
+
+        let config_no_wtw = VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let config_with_wtw = VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            has_heat_recovery: true,
+            heat_recovery_efficiency: Some(0.85),
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let no_wtw = calculate_ventilation(&room, &config_no_wtw, 20.0, -10.0).unwrap();
+        let with_wtw = calculate_ventilation(&room, &config_with_wtw, 20.0, -10.0).unwrap();
+
+        // With η=0.85, expected f_v ≈ 0.15 (1 - η)
+        assert!(
+            (with_wtw.f_v - 0.15).abs() < 0.02,
+            "f_v with 85% WTW should be ~0.15, got {}",
+            with_wtw.f_v
+        );
+
+        // WTW should provide ~85% reduction in ventilation loss
+        let reduction = 1.0 - with_wtw.phi_vent / no_wtw.phi_vent;
+        assert!(
+            reduction > 0.80,
+            "WTW reduction should be >80%, got {:.1}%",
+            reduction * 100.0
+        );
+
+        // f_v without WTW should be 1.0
+        assert!(
+            (no_wtw.f_v - 1.0).abs() < 0.001,
+            "f_v without WTW should be 1.0, got {}",
+            no_wtw.f_v
+        );
+    }
+
+    #[test]
     fn test_ventilation_calculation_basic() {
         let room = create_test_room();
         let config = VentilationConfig {
