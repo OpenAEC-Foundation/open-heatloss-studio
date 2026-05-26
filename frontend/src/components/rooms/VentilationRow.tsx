@@ -93,7 +93,7 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
             <span className="font-medium">Mech. afvoer</span>
           </label>
 
-          {/* Mech. toevoer */}
+          {/* Toevoer (mechanisch of natuurlijk) */}
           <label className="flex items-center gap-1.5 text-on-surface-muted">
             <input
               type="checkbox"
@@ -101,7 +101,7 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               onChange={handleSupplyChange}
               className="h-3.5 w-3.5 rounded border-[var(--oaec-border)] accent-primary"
             />
-            <span className="font-medium">Mech. toevoer</span>
+            <span className="font-medium">Toevoer</span>
           </label>
 
           {/* f_buitenlucht */}
