@@ -7,6 +7,7 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/layout/PageHeader";
+import { useNormSwitch } from "../components/layout/NormSwitchContext";
 import { VentilationPanel } from "../components/projectSetup/VentilationPanel";
 import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
@@ -46,6 +47,7 @@ export function WarmteverliesInstellingen() {
   const backend = useBackend();
   const {
     project,
+    norm,
     updateProject,
     isCalculating,
     setCalculating,
@@ -55,6 +57,7 @@ export function WarmteverliesInstellingen() {
     applyHeatingSystemToAllRooms,
     setAggregationMethod,
   } = useProjectStore();
+  const { openNormSwitch } = useNormSwitch();
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -122,6 +125,32 @@ export function WarmteverliesInstellingen() {
       />
 
       <div className="space-y-6 p-6">
+        {/* Actieve rekennorm — wissel-trigger (ISSO 51 ↔ 53).
+            Voorheen verstopt in Backstage onder Voorkeuren; verhuisd naar
+            de instellingen-pagina omdat reken-instellingen hier thuis-
+            horen. Zie sessie 2026-05-26. */}
+        <Card>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-on-surface-muted">
+                Actieve rekennorm
+              </div>
+              <div className="mt-0.5 text-lg font-semibold text-on-surface">
+                {norm === "isso53"
+                  ? "ISSO 53 — Utiliteit"
+                  : "ISSO 51 — Woningen"}
+              </div>
+              <p className="mt-1 text-[11px] leading-tight text-on-surface-muted">
+                Wisselen converteert je projectdata en maakt een backup.
+                Mixed-use (woning + utiliteit) wordt niet ondersteund.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={openNormSwitch}>
+              Norm wisselen…
+            </Button>
+          </div>
+        </Card>
+
         {/* Building */}
         <Card title="Gebouw">
           <div className="grid grid-cols-3 gap-4">
