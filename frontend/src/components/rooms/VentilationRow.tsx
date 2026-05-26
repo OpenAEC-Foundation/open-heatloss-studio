@@ -4,6 +4,7 @@ import { HEATING_SYSTEM_LABELS, ROOM_FUNCTION_TEMPERATURES } from "../../lib/con
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { HeatingSystem, Room } from "../../types";
+import { NumberInputBare } from "../ui/NumberInputBare";
 
 /** Effectieve binnentemperatuur θ_i van een kamer (custom override of forfait). */
 function roomInternalTemp(room: Room): number {
@@ -56,23 +57,21 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
   );
 
   const handleQvChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
+    (raw: string) => {
       // Empty field → null (auto-calculate from BBL)
-      onUpdate({ ventilation_rate: val === "" ? null : Number(val) || 0 });
+      onUpdate({ ventilation_rate: raw === "" ? null : Number(raw) || 0 });
     },
     [onUpdate],
   );
 
   // m³/h is dezelfde grootheid in andere eenheid: 1 dm³/s = 3,6 m³/h
   const handleQvM3hChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      if (val === "") {
+    (raw: string) => {
+      if (raw === "") {
         onUpdate({ ventilation_rate: null });
         return;
       }
-      const m3h = Number(val) || 0;
+      const m3h = Number(raw) || 0;
       onUpdate({ ventilation_rate: m3h / 3.6 });
     },
     [onUpdate],
@@ -93,8 +92,8 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
   );
 
   const handleFractionChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdate({ fraction_outside_air: Number(e.target.value) || 0 });
+    (raw: string) => {
+      onUpdate({ fraction_outside_air: Number(raw) || 0 });
     },
     [onUpdate],
   );
@@ -115,27 +114,21 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
             <span className="font-medium text-on-surface-muted">
               q<sub>v</sub>
             </span>
-            <input
-              type="number"
-              step="any"
-              min="0"
+            <NumberInputBare
               value={room.ventilation_rate ?? ""}
-              onChange={handleQvChange}
+              onCommit={handleQvChange}
               className="w-16 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder={bblMinimum > 0 ? bblMinimum.toFixed(1) : "0"}
             />
             <span className="text-[10px] text-on-surface-muted">dm³/s</span>
             <span className="text-on-surface-muted">↔</span>
-            <input
-              type="number"
-              step="any"
-              min="0"
+            <NumberInputBare
               value={
                 room.ventilation_rate != null
                   ? (room.ventilation_rate * 3.6).toFixed(1)
                   : ""
               }
-              onChange={handleQvM3hChange}
+              onCommit={handleQvM3hChange}
               className="w-16 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder={bblMinimum > 0 ? (bblMinimum * 3.6).toFixed(1) : "0"}
             />
@@ -172,13 +165,9 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
             <span className="font-medium text-on-surface-muted">
               f<sub>buitenlucht</sub>
             </span>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="1"
+            <NumberInputBare
               value={room.fraction_outside_air ?? ""}
-              onChange={handleFractionChange}
+              onCommit={handleFractionChange}
               className="w-14 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder="1.0"
             />
