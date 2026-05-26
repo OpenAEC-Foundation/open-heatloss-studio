@@ -355,14 +355,6 @@ export function UwCalculator() {
       <PageHeader
         title={t("uw.title")}
         subtitle={isEditMode ? t("uw.editSubtitle") : t("uw.subtitle")}
-        breadcrumbs={
-          isEditMode
-            ? [
-                { label: t("uw.breadcrumbConstructions"), to: "/constructies" },
-                { label: t("uw.editTitle") },
-              ]
-            : [{ label: t("uw.title") }]
-        }
         actions={
           isEditMode ? (
             <button

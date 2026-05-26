@@ -184,7 +184,6 @@ export function Tojuli() {
       <PageHeader
         title={t("tojuli.title")}
         subtitle={t("tojuli.subtitle")}
-        breadcrumbs={[{ label: t("tojuli.title") }]}
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleReset}>

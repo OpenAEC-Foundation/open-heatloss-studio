@@ -491,7 +491,6 @@ export function RcCalculator() {
       <PageHeader
         title={editId ? "Constructie bewerken" : "Rc-waarde"}
         subtitle={editId ? name : "Constructie-opbouw samenstellen en opslaan"}
-        breadcrumbs={editId ? [{ label: "Bibliotheek", to: "/library" }, { label: "Constructie bewerken" }] : [{ label: "Rc-waarde" }]}
         actions={
           editId ? (
             <button

@@ -111,10 +111,6 @@ export function WarmteverliesInstellingen() {
       <PageHeader
         title={title}
         subtitle={subtitle}
-        breadcrumbs={[
-          { label: "Warmteverlies", to: "/results" },
-          { label: title },
-        ]}
         actions={
           <Button
             onClick={handleCalculate}
