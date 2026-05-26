@@ -766,6 +766,7 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         });

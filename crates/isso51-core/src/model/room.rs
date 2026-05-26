@@ -72,6 +72,13 @@ pub struct Room {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supply_air_temperature: Option<f64>,
 
+    /// Source room ID where ventilation air originates from (overstroom).
+    /// `None` = gevelrooster/buitenlucht (default systeem-gedrag).
+    /// `Some(id)` = lucht komt uit een andere kamer; UI resolveert deze naar
+    /// `supply_air_temperature` op basis van bron-kamer's θ_i.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub air_source_room_id: Option<String>,
+
     /// Temperature of the internal air source θ_a in °C.
     /// For rooms receiving air from a hallway or other internal space.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -140,6 +147,7 @@ mod tests {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         };
@@ -162,6 +170,7 @@ mod tests {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         };
@@ -184,6 +193,7 @@ mod tests {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         };
@@ -206,6 +216,7 @@ mod tests {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         };
@@ -245,6 +256,7 @@ mod tests {
             has_mechanical_supply: false,
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: None,
             clamp_positive: true,
         };

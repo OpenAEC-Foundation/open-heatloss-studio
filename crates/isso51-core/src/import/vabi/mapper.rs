@@ -730,6 +730,7 @@ fn map_rooms(conn: &Connection) -> Result<Vec<Room>> {
             has_mechanical_supply: false,  // TODO: map from system configuration
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
+            air_source_room_id: None,
             internal_air_temperature: Some(theta_i),
             clamp_positive: true,
         };

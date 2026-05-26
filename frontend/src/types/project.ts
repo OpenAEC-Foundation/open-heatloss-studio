@@ -219,6 +219,11 @@ export interface Room {
   fraction_outside_air?: number;
   supply_air_temperature?: number | null;
   internal_air_temperature?: number | null;
+  /** Bron-kamer ID waar ventilatielucht vandaan komt (overstroom).
+   *  `null`/undefined = gevelrooster/buitenlucht (default).
+   *  String met room ID = overstroom uit die kamer. UI resolveert dit naar
+   *  `supply_air_temperature` op basis van bron-kamer's θ_i. */
+  air_source_room_id?: string | null;
   clamp_positive?: boolean;
 }
 

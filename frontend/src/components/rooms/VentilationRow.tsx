@@ -1,8 +1,14 @@
 import { useCallback, useMemo } from "react";
 
-import { HEATING_SYSTEM_LABELS } from "../../lib/constants";
+import { HEATING_SYSTEM_LABELS, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
+import { useProjectStore } from "../../store/projectStore";
 import type { HeatingSystem, Room } from "../../types";
+
+/** Effectieve binnentemperatuur θ_i van een kamer (custom override of forfait). */
+function roomInternalTemp(room: Room): number {
+  return room.custom_temperature ?? ROOM_FUNCTION_TEMPERATURES[room.function] ?? 20;
+}
 
 interface VentilationRowProps {
   room: Room;
@@ -20,6 +26,33 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
   const bblMinimum = useMemo(
     () => bblMinimumVentilationRate(room.function, room.floor_area),
     [room.function, room.floor_area],
+  );
+
+  // Bron-kamer dropdown: alle andere rooms in project (exclude self).
+  const allRooms = useProjectStore((s) => s.project.rooms);
+  const otherRooms = useMemo(
+    () => allRooms.filter((r) => r.id !== room.id),
+    [allRooms, room.id],
+  );
+
+  const handleAirSourceChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value;
+      if (val === "exterior") {
+        // Buitenlucht/gevelrooster → terug naar default systeem-gedrag
+        onUpdate({ air_source_room_id: null, supply_air_temperature: null });
+        return;
+      }
+      const source = allRooms.find((r) => r.id === val);
+      if (source) {
+        // Overstroom uit bron-kamer: θ_t = source kamer's θ_i
+        onUpdate({
+          air_source_room_id: source.id,
+          supply_air_temperature: roomInternalTemp(source),
+        });
+      }
+    },
+    [allRooms, onUpdate],
   );
 
   const handleQvChange = useCallback(
@@ -149,6 +182,26 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               className="w-14 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-right text-xs text-on-surface tabular-nums focus:border-primary focus:outline-none"
               placeholder="1.0"
             />
+          </label>
+
+          {/* Bron van toevoerlucht — gevel/buiten of overstroom uit andere kamer */}
+          <label
+            className="flex items-center gap-1.5"
+            title="Bron van de toevoerlucht. Buitenlucht via gevelrooster = systeem-default θ_t. Andere kamer = overstroom, θ_t = bron-kamer θ_i."
+          >
+            <span className="font-medium text-on-surface-muted">Lucht uit</span>
+            <select
+              value={room.air_source_room_id ?? "exterior"}
+              onChange={handleAirSourceChange}
+              className="min-w-28 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+            >
+              <option value="exterior">Buitenlucht (gevel)</option>
+              {otherRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name || r.id} ({roomInternalTemp(r).toFixed(0)}°C)
+                </option>
+              ))}
+            </select>
           </label>
 
           {/* Visuele scheiding tussen ventilatie- en verwarmingssectie */}

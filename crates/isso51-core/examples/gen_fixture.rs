@@ -167,6 +167,7 @@ fn create_room(
         has_mechanical_supply: false,
         fraction_outside_air: frac_outside,
         supply_air_temperature: None,
+        air_source_room_id: None,
         internal_air_temperature: internal_temp,
         clamp_positive: true,
     }
