@@ -204,6 +204,7 @@ fn space_to_room(
         has_mechanical_supply: room_data.has_mechanical_supply,
         fraction_outside_air: room_data.fraction_outside_air,
         supply_air_temperature: None,
+        air_source_room_id: None,
         internal_air_temperature: None,
         clamp_positive: true,
     })
