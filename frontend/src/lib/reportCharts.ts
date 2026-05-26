@@ -597,6 +597,7 @@ interface ConstructionBar {
   label: string;
   color: string;
   value: number;
+  area: number;
 }
 
 /** 3. Horizontale bars — verlies per constructietype. */
@@ -605,7 +606,7 @@ export function buildConstructionLossSvg(
   thetaE: number,
   thetaWater?: number,
 ): string | null {
-  const totals = new Map<string, { color: string; value: number }>();
+  const totals = new Map<string, { color: string; value: number; area: number }>();
   const thetaW = thetaWater ?? DEFAULT_THETA_WATER;
   const roomLookup = buildRoomLookup(rooms);
 
@@ -633,8 +634,9 @@ export function buildConstructionLossSvg(
       const existing = totals.get(label);
       if (existing) {
         existing.value += phiT;
+        existing.area += ce.area;
       } else {
-        totals.set(label, { color, value: phiT });
+        totals.set(label, { color, value: phiT, area: ce.area });
       }
     }
   }
@@ -647,9 +649,11 @@ export function buildConstructionLossSvg(
 
   if (bars.length === 0) return null;
 
+  // VALUE_WIDTH verbreed van 60 naar 120 om "1234 W · 78.5 m²" rechts naast de
+  // bar te tonen. Houdt PDF-layout consistent met de schermversie.
   const LABEL_WIDTH = 140;
   const BAR_AREA_WIDTH = 340;
-  const VALUE_WIDTH = 60;
+  const VALUE_WIDTH = 120;
   const CHART_WIDTH = LABEL_WIDTH + BAR_AREA_WIDTH + VALUE_WIDTH;
   const BAR_HEIGHT = 18;
   const BAR_GAP = 5;
@@ -681,12 +685,16 @@ export function buildConstructionLossSvg(
         `width="${Math.max(barW, 2).toFixed(2)}" height="${BAR_HEIGHT}" ` +
         `fill="${bar.color}" rx="3"/>`,
     );
-    // Value
+    // Value — W in primaire kleur, m² in muted tint via <tspan>
     parts.push(
       `<text x="${LABEL_WIDTH + BAR_AREA_WIDTH + 8}" y="${labelY.toFixed(2)}" ` +
-        `dominant-baseline="middle" fill="${REPORT_COLORS.text}" ` +
-        `font-size="10" font-weight="500" font-family="${FONT_FAMILY}">` +
-        `${xmlEscape(`${Math.round(bar.value)} W`)}</text>`,
+        `dominant-baseline="middle" ` +
+        `font-size="10" font-family="${FONT_FAMILY}">` +
+        `<tspan fill="${REPORT_COLORS.text}" font-weight="500">` +
+        `${xmlEscape(`${Math.round(bar.value)} W`)}</tspan>` +
+        `<tspan fill="${REPORT_COLORS.textMuted}" dx="6">` +
+        `${xmlEscape(`· ${bar.area.toFixed(1)} m²`)}</tspan>` +
+        `</text>`,
     );
   });
 

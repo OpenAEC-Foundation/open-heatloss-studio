@@ -100,6 +100,7 @@ interface BarData {
   label: string;
   color: string;
   value: number;
+  area: number;
 }
 
 export function ConstructionLossChart({
@@ -108,7 +109,7 @@ export function ConstructionLossChart({
   thetaWater,
 }: ConstructionLossChartProps) {
   const bars = useMemo(() => {
-    const totals = new Map<string, { color: string; value: number }>();
+    const totals = new Map<string, { color: string; value: number; area: number }>();
     const thetaW = thetaWater ?? DEFAULT_THETA_WATER;
     const roomLookup = buildRoomLookup(rooms);
 
@@ -136,8 +137,9 @@ export function ConstructionLossChart({
         const existing = totals.get(label);
         if (existing) {
           existing.value += phiT;
+          existing.area += ce.area;
         } else {
-          totals.set(label, { color, value: phiT });
+          totals.set(label, { color, value: phiT, area: ce.area });
         }
       }
     }
@@ -152,10 +154,11 @@ export function ConstructionLossChart({
 
   if (bars.length === 0) return null;
 
-  // Layout
+  // Layout — VALUE_WIDTH verbreed van 60 naar 120 om "1234 W · 78.5 m²" rechts
+  // naast de bar te tonen. m² in lichtere tint zodat W dominant blijft.
   const LABEL_WIDTH = 140;
   const BAR_AREA_WIDTH = 340;
-  const VALUE_WIDTH = 60;
+  const VALUE_WIDTH = 120;
   const CHART_WIDTH = LABEL_WIDTH + BAR_AREA_WIDTH + VALUE_WIDTH;
   const BAR_HEIGHT = 18;
   const BAR_GAP = 5;
@@ -198,19 +201,22 @@ export function ConstructionLossChart({
               rx={3}
             >
               <title>
-                {bar.label}: {Math.round(bar.value)} W
+                {bar.label}: {Math.round(bar.value)} W · {bar.area.toFixed(1)} m²
               </title>
             </rect>
-            {/* Value */}
+            {/* Value — W dominant, m² in lichtere tint ernaast */}
             <text
               x={LABEL_WIDTH + BAR_AREA_WIDTH + 8}
               y={y + BAR_HEIGHT / 2}
               dominantBaseline="middle"
-              className="fill-on-surface"
               fontSize="10"
-              fontWeight="500"
             >
-              {Math.round(bar.value)} W
+              <tspan className="fill-on-surface" fontWeight="500">
+                {Math.round(bar.value)} W
+              </tspan>
+              <tspan className="fill-on-surface-muted" dx="6">
+                · {bar.area.toFixed(1)} m²
+              </tspan>
             </text>
           </g>
         );
