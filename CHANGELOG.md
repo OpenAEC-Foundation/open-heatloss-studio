@@ -2,6 +2,44 @@
 
 Belangrijke wijzigingen in Open Heatloss Studio. Volgt [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) en [Semver](https://semver.org/lang/nl/).
 
+## [0.2.0] — 2026-05-26
+
+**Milestone: ISSO 51 feature-complete.** Deze release markeert de ISSO 51 warmteverliesberekening als voorlopig af. ISSO 53 (utiliteit) blijft in ontwikkeling.
+
+### ✨ Nieuw
+
+- **Constructie-chart toont oppervlakte** — m² per categorie naast W-waarde in scherm-chart én PDF-rapport (92f6a70)
+- **Gebouwtotaal-metrics** — totaal ventilatiedebiet (incl. BBL-fallback) en schil-oppervlak getoond onder de gebouw-donut op /results en in PDF-totalentabel (f02dbb0)
+- **WTW-suitability** — VentilationPanel grijst WTW-units uit waar nominale capaciteit < benodigd gebouw-q_v. Catalogus uitgebreid met `q_nominal_m3h` per unit (ef0d743)
+- **Bron-kamer voor overstroom-ventilatie** — dropdown om q_v vanuit naburige kamer te halen i.p.v. buitenlucht (f84d885)
+- **Ventilatie-debiet dual-unit** — q_v invoerbaar in dm³/s én m³/h, synchroon (b81cb04)
+- **qv10 dual-input** — totaal (dm³/s) én BENG-spec (dm³/(s·m²)), automatische conversie (e92cbff)
+- **Vabi importer (crate)** — nieuwe `vabi-importer` voor .vp → ProjectV2 conversie (4c1e6d0)
+
+### 🐛 Bug fixes
+
+- **Decimaal-jump in numerieke velden (nl-NL locale)** — type=number rejected '.' op Dutch keyboard, leverde "5.02" op bij typing "50.2". `Input` component nu intern type=text + inputMode=decimal met blur-commit, accepteert ',' én '.'. Dekt ~20 velden in Instellingen, Algemeen, Isso53Building, VentilationPanel, VentilationRow (1df06a2)
+- **WTW rendement η door in θ_toevoer** — fix in isso51-core, rendement werkte niet correct door in toevoertemperatuur (67e87e5)
+- **air_source_room_id** ontbrak in 3 Room-initializers in isso51-ifcx (ec92fe0)
+- **Input right-padding** schaalt nu mee met lange unit-labels zoals "dm³/(s·m²)" (0c69257)
+
+### 🧹 Refactor / UX
+
+- **Norm-switch verplaatst** van Backstage (Bestand-menu) naar bovenaan WarmteverliesInstellingen — natuurlijke plek voor reken-keuze. Data-conversie + backup-flow ongewijzigd (5b539fa)
+- **Breadcrumbs verwijderd** uit PageHeader en alle pagina's (Results, Instellingen, UwCalculator, Tojuli, RcCalculator) — title-bar was voldoende (a4f113d, a6e8092)
+
+### 🔬 ISSO 53 (parallel spoor, niet feature-complete)
+
+- Adjacent-room transmissie wrapper-schrap (Optie C) + s7 C1+C2 fix (654660c, 7eb4ff6)
+- UnknownVabiCompat infiltratie — Vabi-gap dicht (9149b41)
+- Ground f_ig auto-bereken (4.22/4.23) + z-factor wiring (ea6d3ea)
+- Infiltration Unknown-pad (formule 4.31) + 2e Vabi-fixture (601440a)
+- §4.6 embedded heating clause — Φ_T 50%→0% vs Vabi (0f4293a)
+- A_u/A_g omdraai + Building.building_height — Vabi-match <2% (3551554)
+- Ventilation formule 4.38 omkering (d03d98b)
+- Norm-conformiteit regressie-tests WTW + infiltratie SystemD (659b658)
+- NTA8800-cooling Vabi-cross-validatie scaffold (51dc6ae)
+
 ## [Unreleased] — 2026-05-21
 
 ### 🐛 Bug fixes
