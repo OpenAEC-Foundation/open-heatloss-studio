@@ -350,7 +350,6 @@ export function TojuliFull() {
           "tojuliFull.subtitle",
           "NTA 8800 §10 koeling met maandelijkse Q_C;use voor woning én utiliteit",
         )}
-        breadcrumbs={[{ label: t("tojuliFull.title", "TO-juli") }]}
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleReset}>

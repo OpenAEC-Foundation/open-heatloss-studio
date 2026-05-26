@@ -41,7 +41,6 @@ export function RoomEditor() {
       <PageHeader
         title="Vertrekken"
         subtitle={`${project.rooms.length} vertrek${project.rooms.length !== 1 ? "ken" : ""}`}
-        breadcrumbs={[{ label: "Vertrekken" }]}
         actions={
           <Button
             onClick={handleCalculate}

@@ -126,7 +126,6 @@ export function ProjectSetup() {
       <PageHeader
         title={t("projectSetup.title", "Project")}
         subtitle={t("projectSetup.subtitle", "Gebouw- en installatie-instellingen")}
-        breadcrumbs={[{ label: t("projectSetup.title", "Project") }]}
         actions={
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => fileInputRef.current?.click()}>
