@@ -1,0 +1,19 @@
+[package]
+name = "vabi-importer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Vabi Elements .vp import → ProjectV2 (multi-norm)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+rusqlite = { version = "0.31", features = ["bundled"] }
+zip = "0.6"
+tempfile = "3.8"
+openaec-project-shared = { path = "../openaec-project-shared" }
+isso51-core = { path = "../isso51-core", features = ["vabi-import"] }
+
+[features]
+default = []
