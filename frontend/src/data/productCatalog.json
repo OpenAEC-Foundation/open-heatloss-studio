@@ -3,12 +3,12 @@
     "description": "BCRG-productcatalogus voor WTW-units en koelunits. Statische referentiedata, frontend-bundled (geen backend-call).",
     "how_to_add_a_unit": [
       "Voeg een object toe aan de array 'wtw_units' of 'cooling_units'.",
-      "WTW-unit velden: id (uniek), brand, model, eta_hr (rendement 0..1), f_sfp (specifiek ventilatorvermogen W/(dm3/s), optioneel), bcrg_declaration_nr, year_indication.",
+      "WTW-unit velden: id (uniek), brand, model, eta_hr (rendement 0..1), q_nominal_m3h (nominale luchtdebiet-capaciteit in m3/h, integer), f_sfp (specifiek ventilatorvermogen W/(dm3/s), optioneel), bcrg_declaration_nr, year_indication.",
       "Koelunit velden: id (uniek), brand, model, type ('compression_cooling' | 'absorption_cooling' | 'free_cooling'), scop_cooling (compressie), cop (absorptie), factor (vrije koeling), bcrg_declaration_nr, year_indication.",
       "Geef per unit precies een van scop_cooling / cop / factor mee, passend bij 'type'.",
       "id mag niet botsen met de gereserveerde waarde 'manual' (= optie Handmatig invoeren in de UI)."
     ],
-    "verification_note": "De onderstaande seed-waarden zijn publiek bekende, plausibele richtwaarden bedoeld als startpunt. Verifieer en corrigeer rendement, SCOP/COP en de BCRG-verklaringnummers tegen het officiele register op https://www.bcrg.nl voordat ze in een norm-rapportage worden gebruikt. De seed is geen norm-claim.",
+    "verification_note": "De onderstaande seed-waarden zijn publiek bekende, plausibele richtwaarden bedoeld als startpunt. Verifieer en corrigeer rendement, SCOP/COP en de BCRG-verklaringnummers tegen het officiele register op https://www.bcrg.nl voordat ze in een norm-rapportage worden gebruikt. De seed is geen norm-claim. Specifiek 'q_nominal_m3h' is afgeleid van de modelnaam (bv. 'Q450' -> 450 m3/h) en is NIET geverifieerd tegen de officiele BCRG-/fabrikantsspecificaties; gebruik als grove drempel voor selector-filtering, niet als ontwerpwaarde.",
     "bcrg_declaration_nr_format": "Veld 'bcrg_declaration_nr' is een tekenreeks; gebruik leeg ('') wanneer nog niet geverifieerd."
   },
   "wtw_units": [
@@ -17,6 +17,7 @@
       "brand": "Itho Daalderop",
       "model": "HRU ECO 350",
       "eta_hr": 0.92,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.45,
       "bcrg_declaration_nr": "",
       "year_indication": "2018+"
@@ -26,6 +27,7 @@
       "brand": "Itho Daalderop",
       "model": "HRU 350",
       "eta_hr": 0.95,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.5,
       "bcrg_declaration_nr": "",
       "year_indication": "2015+"
@@ -35,6 +37,7 @@
       "brand": "Itho Daalderop",
       "model": "DemandFlow / WTW basis",
       "eta_hr": 0.9,
+      "q_nominal_m3h": 300,
       "f_sfp": 0.55,
       "bcrg_declaration_nr": "",
       "year_indication": "2014+"
@@ -44,6 +47,7 @@
       "brand": "Zehnder",
       "model": "ComfoAir Q350",
       "eta_hr": 0.92,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.4,
       "bcrg_declaration_nr": "",
       "year_indication": "2016+"
@@ -53,6 +57,7 @@
       "brand": "Zehnder",
       "model": "ComfoAir Q450",
       "eta_hr": 0.92,
+      "q_nominal_m3h": 450,
       "f_sfp": 0.42,
       "bcrg_declaration_nr": "",
       "year_indication": "2016+"
@@ -62,6 +67,7 @@
       "brand": "Zehnder",
       "model": "ComfoAir Q600",
       "eta_hr": 0.91,
+      "q_nominal_m3h": 600,
       "f_sfp": 0.45,
       "bcrg_declaration_nr": "",
       "year_indication": "2016+"
@@ -71,6 +77,7 @@
       "brand": "Brink",
       "model": "Renovent Excellent 300",
       "eta_hr": 0.95,
+      "q_nominal_m3h": 300,
       "f_sfp": 0.45,
       "bcrg_declaration_nr": "",
       "year_indication": "2013+"
@@ -80,6 +87,7 @@
       "brand": "Brink",
       "model": "Renovent Excellent 400",
       "eta_hr": 0.95,
+      "q_nominal_m3h": 400,
       "f_sfp": 0.47,
       "bcrg_declaration_nr": "",
       "year_indication": "2013+"
@@ -89,6 +97,7 @@
       "brand": "Brink",
       "model": "Renovent Sky 300",
       "eta_hr": 0.93,
+      "q_nominal_m3h": 300,
       "f_sfp": 0.5,
       "bcrg_declaration_nr": "",
       "year_indication": "2017+"
@@ -98,6 +107,7 @@
       "brand": "Brink",
       "model": "Flair 400",
       "eta_hr": 0.95,
+      "q_nominal_m3h": 400,
       "f_sfp": 0.42,
       "bcrg_declaration_nr": "",
       "year_indication": "2019+"
@@ -107,6 +117,7 @@
       "brand": "Vasco",
       "model": "D350 EP II",
       "eta_hr": 0.92,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.48,
       "bcrg_declaration_nr": "",
       "year_indication": "2016+"
@@ -116,6 +127,7 @@
       "brand": "Stork Air / Zehnder",
       "model": "ComfoFan WTW eco",
       "eta_hr": 0.88,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.6,
       "bcrg_declaration_nr": "",
       "year_indication": "2010+"
@@ -125,6 +137,7 @@
       "brand": "Orcon",
       "model": "HRC 350",
       "eta_hr": 0.92,
+      "q_nominal_m3h": 350,
       "f_sfp": 0.5,
       "bcrg_declaration_nr": "",
       "year_indication": "2015+"
@@ -134,6 +147,7 @@
       "brand": "Orcon",
       "model": "HRC 400 EcoMax",
       "eta_hr": 0.93,
+      "q_nominal_m3h": 400,
       "f_sfp": 0.5,
       "bcrg_declaration_nr": "",
       "year_indication": "2017+"
@@ -143,6 +157,7 @@
       "brand": "Ubbink",
       "model": "Ubiflux Vigor W325",
       "eta_hr": 0.93,
+      "q_nominal_m3h": 325,
       "f_sfp": 0.46,
       "bcrg_declaration_nr": "",
       "year_indication": "2018+"
@@ -152,6 +167,7 @@
       "brand": "J.E. StorkAir",
       "model": "WHR 930",
       "eta_hr": 0.95,
+      "q_nominal_m3h": 930,
       "f_sfp": 0.55,
       "bcrg_declaration_nr": "",
       "year_indication": "2008+"
