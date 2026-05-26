@@ -1,5 +1,41 @@
 # TODO
 
+## 🎯 v1.0 Release Criteria
+
+**Vastgelegd 2026-05-26.** v1.0 wordt uitgegeven wanneer onderstaande punten allemaal afgevinkt zijn. v0.2.0 (huidige tag) markeerde ISSO 51 feature-complete; v1.0 markeert het volledige platform (ISSO 51 + 53 + TO-juli) als productie-klaar.
+
+### Blokkades
+
+- [ ] **Alle test-fixtures aanwezig**
+  - [ ] TO-juli Vabi-cross-validatie fixtures (scaffold staat in `51dc6ae`, referentie-PDF in `tests/references/dr-engineering-koellast-woningbouw-2024.pdf`)
+  - [ ] Spoor 4 fixture-bundeling completeren (calc-algoritme norm-conform, fixtures missen volledige input — zie `docs/PDF_GAPS.md`)
+  - [ ] ISSO 53 batch 2d norm-verificatie afronden (infrastructuur klaar, verificatie pending)
+
+- [ ] **Alle tests groen**
+  - [ ] `cargo test` workspace — alle crates passend (isso51-core, isso53-core, nta8800-cooling, vabi-importer, ifcx)
+  - [ ] `cd frontend && npm run build` slaagt
+  - [ ] `cd frontend && npm test` slaagt (indien aanwezig)
+  - [ ] CI groen op de release-commit
+
+- [ ] **ISSO 53 productie-klaar**
+  - [ ] Vabi end-to-end verificatie op minimaal 2 reëele projecten binnen norm-tolerantie
+  - [ ] Alle ISSO 53-specifieke UI-flows getest (norm-switch, utiliteit-velden, rapport)
+  - [ ] Geen `TODO:` of `FIXME:` in `crates/isso53-core/` en isso53-gerelateerde frontend code
+
+- [ ] **TO-juli productie-klaar**
+  - [ ] Vabi-cross-validatie groen op referentie-project
+  - [ ] UI-flow `/tojuli` + `/tojuli-full` getest door user
+  - [ ] PDF-rapport TO-juli verifieerbaar tegen Vabi-uitvoer
+
+### Release-actie wanneer alles ✅
+1. Versie bump → `1.0.0` in `Cargo.toml` workspace + `frontend/package.json` + `src-tauri/tauri.conf.json`
+2. CHANGELOG sectie `[1.0.0]` met milestone-statement
+3. Tag `v1.0.0` (annotated)
+4. Tauri Windows-installer build via CI (`build-installer.yml`)
+5. GitHub Release met installer als artifact + release notes
+
+---
+
 ## Huidige focus: IFCX als universeel formaat + web-app IFC integratie
 
 Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementatieplan.
