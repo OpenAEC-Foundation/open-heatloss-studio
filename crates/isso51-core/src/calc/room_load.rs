@@ -146,7 +146,7 @@ pub fn calculate_room(
     let theta_t = if let Some(t) = room.supply_air_temperature {
         t
     } else {
-        vent_config.effective_supply_temperature(theta_e)
+        vent_config.effective_supply_temperature(theta_e, theta_i)
     };
 
     // Determine Δθ_v (ventilation temperature correction) based on Ū
