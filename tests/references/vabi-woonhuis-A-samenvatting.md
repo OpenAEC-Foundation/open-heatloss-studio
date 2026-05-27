@@ -1,6 +1,6 @@
-# Vabi Woonhuis fam. Janssen — ISSO 51/53/57 (2017)
+# Vabi Woonhuis A — ISSO 51/53/57 (2017)
 
-**Rekenkern:** Vabi 3.9.1.2 | **Datum:** 30-4-2023 | **Norm:** ISSO 51, 53, 57 (2017)
+**Rekenkern:** Vabi 3.9.1.2 | **Datum:** 2023-Q2 | **Norm:** ISSO 51, 53, 57 (2017)
 
 ## Projectparameters
 

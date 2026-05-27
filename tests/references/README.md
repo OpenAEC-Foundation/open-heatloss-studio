@@ -4,9 +4,9 @@ Verzameling van warmteverliesberekeningen als referentiedata voor het testen van
 
 ## Bestanden
 
-### 1. Vabi Woonhuis Janssen (ISSO 51:2017)
-- **PDF:** `vabi-woonhuis-janssen-isso51-2017.pdf`
-- **Samenvatting:** `vabi-woonhuis-janssen-samenvatting.md`
+### 1. Vabi Woonhuis A (ISSO 51:2017)
+- **PDF:** `vabi-woonhuis-A-isso51-2017.pdf` (lokaal, gitignored)
+- **Samenvatting:** `vabi-woonhuis-A-samenvatting.md`
 - **Norm:** ISSO 51, 53, 57 (2017)
 - **Rekenkern:** Vabi 3.9.1.2
 - **Type:** Vrijstaande woning, 16 vertrekken, vloerverwarming, systeem C

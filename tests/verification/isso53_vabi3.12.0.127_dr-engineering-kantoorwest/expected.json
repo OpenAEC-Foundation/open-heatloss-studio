@@ -1,0 +1,27 @@
+{
+  "source": "Vabi Elements 3.12.0.127, voorbeeld Utiliteitsbouw 27-2-2025, ruimte 0.03 Kantoor West",
+  "norm": "ISSO 53",
+  "phi_t_tolerance_pct": 10.0,
+  "phi_i_tolerance_pct": 5.0,
+  "rooms": [
+    {
+      "roomId": "0.03",
+      "roomName": "Kantoor West",
+      "phiT": 3059,
+      "phiV": 0,
+      "phiI": 681,
+      "totalHeatLoss": 3741,
+      "_calc_snapshot": {
+        "phiT": 3165,
+        "phiV": 0,
+        "phiI": 693,
+        "totalHeatLoss": 3858
+      },
+      "_notes": [
+        "Φ_V=0 door luchtverwarming (θ_t=21.5°C > θ_i=21.5°C → f_v=0, formule 4.38)",
+        "Φ_I gebruikt InfiltrationMethod::UnknownVabiCompat (NEN 8088-1 + NTA 8800)",
+        "Φ_T binnen +3.5% tolerantie sinds Optie C wrapper-schrap (sessie 8)"
+      ]
+    }
+  ]
+}

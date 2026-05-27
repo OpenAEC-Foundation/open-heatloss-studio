@@ -817,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_dr_engineering_woningbouw() {
-        let input = include_str!("../../../tests/fixtures/dr_engineering_woningbouw.json");
+        let input = include_str!("../../../tests/verification/isso51_vabi3.12.0.127_dr-engineering-woningbouw/input.json");
         let result = calculate_from_json(input);
 
         match result {

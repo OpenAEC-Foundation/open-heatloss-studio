@@ -22,23 +22,39 @@ use isso51_core::result::ProjectResult;
 // Paths
 // ---------------------------------------------------------------------------
 
-/// Workspace fixtures live at `<repo>/tests/fixtures/`. The crate sits at
-/// `<repo>/crates/isso51-core/`, so we walk two parents up from
-/// `CARGO_MANIFEST_DIR`.
-fn fixtures_dir() -> PathBuf {
+/// Workspace fixtures live at `<repo>/tests/fixtures/` (legacy regressie-only:
+/// portiekwoning, woonboot) en `<repo>/tests/verification/<subfolder>/` (Vabi
+/// cross-validatie). De crate sits at `<repo>/crates/isso51-core/`, so we walk
+/// two parents up from `CARGO_MANIFEST_DIR`.
+fn repo_root() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest
         .parent()
         .and_then(|p| p.parent())
         .expect("CARGO_MANIFEST_DIR must have two parents (repo root)")
-        .join("tests")
-        .join("fixtures")
+        .to_path_buf()
+}
+
+fn fixtures_dir() -> PathBuf {
+    repo_root().join("tests").join("fixtures")
+}
+
+fn verification_dir() -> PathBuf {
+    repo_root().join("tests").join("verification")
 }
 
 fn require_fixture(name: &str) -> PathBuf {
     let path = fixtures_dir().join(name);
     if !path.exists() {
         panic!("Fixture missing: {}", path.display());
+    }
+    path
+}
+
+fn require_verification(subfolder: &str, name: &str) -> PathBuf {
+    let path = verification_dir().join(subfolder).join(name);
+    if !path.exists() {
+        panic!("Verification fixture missing: {}", path.display());
     }
     path
 }
@@ -249,16 +265,34 @@ const ROOM_FIELDS: &[Field] = &[Field::PhiT, Field::PhiV, Field::PhiI, Field::Ph
 // The main driver — one #[test] per fixture, so failures are isolated.
 // ---------------------------------------------------------------------------
 
+/// Fixture-locatie: legacy `tests/fixtures/` (regressie-only) of de nieuwe
+/// `tests/verification/<subfolder>/` (Vabi cross-validatie).
+enum FixtureSource {
+    Legacy {
+        input_file: &'static str,
+        expected_file: &'static str,
+    },
+    Verification {
+        subfolder: &'static str,
+    },
+}
+
 struct FixtureSpec {
     name: &'static str,
-    input_file: &'static str,
-    expected_file: &'static str,
+    source: FixtureSource,
     extract: fn(&Value) -> HashMap<String, ExpectedRoom>,
 }
 
 fn run_fixture(spec: &FixtureSpec) {
-    let input_path = require_fixture(spec.input_file);
-    let expected_path = require_fixture(spec.expected_file);
+    let (input_path, expected_path) = match spec.source {
+        FixtureSource::Legacy { input_file, expected_file } => {
+            (require_fixture(input_file), require_fixture(expected_file))
+        }
+        FixtureSource::Verification { subfolder } => (
+            require_verification(subfolder, "input.json"),
+            require_verification(subfolder, "expected.json"),
+        ),
+    };
 
     let input_json = read_to_string(&input_path);
     let result_json = calculate_from_json(&input_json)
@@ -390,8 +424,10 @@ fn truncate(s: &str, max: usize) -> String {
 fn fixture_portiekwoning() {
     run_fixture(&FixtureSpec {
         name: "portiekwoning",
-        input_file: "portiekwoning.json",
-        expected_file: "portiekwoning_result.json",
+        source: FixtureSource::Legacy {
+            input_file: "portiekwoning.json",
+            expected_file: "portiekwoning_result.json",
+        },
         extract: extract_native_format,
     });
 }
@@ -401,8 +437,9 @@ fn fixture_portiekwoning() {
 fn fixture_vabi_vrijstaande_woning() {
     run_fixture(&FixtureSpec {
         name: "vabi_vrijstaande_woning",
-        input_file: "vabi_vrijstaande_woning.json",
-        expected_file: "vabi_vrijstaande_woning_expected.json",
+        source: FixtureSource::Verification {
+            subfolder: "isso51_vabi3.8.1.14_vrijstaande-woning",
+        },
         extract: extract_vabi_format,
     });
 }
@@ -411,8 +448,9 @@ fn fixture_vabi_vrijstaande_woning() {
 fn fixture_dr_engineering_woningbouw() {
     run_fixture(&FixtureSpec {
         name: "dr_engineering_woningbouw",
-        input_file: "dr_engineering_woningbouw.json",
-        expected_file: "dr_engineering_woningbouw_result.json",
+        source: FixtureSource::Verification {
+            subfolder: "isso51_vabi3.12.0.127_dr-engineering-woningbouw",
+        },
         extract: extract_dr_format,
     });
 }
@@ -428,8 +466,10 @@ fn fixture_woonboot() {
     // om de baseline bij te werken.
     run_fixture(&FixtureSpec {
         name: "woonboot",
-        input_file: "woonboot.json",
-        expected_file: "woonboot_result.json",
+        source: FixtureSource::Legacy {
+            input_file: "woonboot.json",
+            expected_file: "woonboot_result.json",
+        },
         extract: extract_native_format,
     });
 }

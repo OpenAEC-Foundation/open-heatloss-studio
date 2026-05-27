@@ -2272,7 +2272,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-api"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "axum",
  "bytes",
@@ -2302,7 +2302,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "rusqlite",
@@ -2316,7 +2316,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-desktop"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -2339,7 +2339,7 @@ dependencies = [
 
 [[package]]
 name = "isso51-ifcx"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "isso51-core",
@@ -2352,7 +2352,7 @@ dependencies = [
 
 [[package]]
 name = "isso53-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "schemars 0.8.22",
@@ -3007,7 +3007,7 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "nta8800-automation"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3019,7 +3019,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-cooling"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-demand",
@@ -3034,7 +3034,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-demand"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3049,7 +3049,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-dhw"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3062,7 +3062,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-ep"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3074,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-geometry"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-heating"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-demand",
@@ -3100,7 +3100,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-humidity"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-lighting"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3126,7 +3126,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-model"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "schemars 0.8.22",
@@ -3137,7 +3137,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-pv"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3150,7 +3150,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-tables"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3162,7 +3162,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-transmission"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-geometry",
@@ -3176,7 +3176,7 @@ dependencies = [
 
 [[package]]
 name = "nta8800-ventilation"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "nta8800-model",
@@ -3544,7 +3544,7 @@ dependencies = [
 
 [[package]]
 name = "openaec-project-shared"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "approx",
  "isso51-core",
@@ -6479,7 +6479,7 @@ dependencies = [
 
 [[package]]
 name = "vabi-importer"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "isso51-core",
  "openaec-project-shared",
