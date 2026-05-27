@@ -16,6 +16,7 @@ import { exportProject } from "../lib/importExport";
 import { buildReportData } from "../lib/reportBuilder";
 import { buildIsso53Report } from "../lib/isso53ReportBuilder";
 import { bblMinimumVentilationRate } from "../lib/roomDefaults";
+import { HDD_NL, computeAnnualHeatDemandKWh } from "../lib/annualEnergy";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import { generateReportDirect } from "../lib/reportClient";
 
@@ -126,6 +127,12 @@ export function Results() {
     }
     return { totalQv: qvSum, totalEnvelopeArea: areaSum };
   }, [project.rooms]);
+
+  // Jaarverbruik warmtebehoefte (graaddagen-schatting, geen norm-conform BENG/NTA 8800).
+  const { hExternal: hExternalAnnual, annualKWh: annualHeatDemandKWh } = useMemo(
+    () => computeAnnualHeatDemandKWh(rooms),
+    [rooms],
+  );
 
   return (
     <div>
@@ -244,6 +251,22 @@ export function Results() {
                 </div>
               </div>
             </div>
+            <div className="mt-3 border-t border-[var(--oaec-border-subtle)] pt-3">
+              <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                Jaarverbruik warmtebehoefte (graaddagen)*
+              </div>
+              <div className="text-sm font-semibold tabular-nums text-on-surface">
+                {Math.round(annualHeatDemandKWh).toLocaleString("nl-NL")} kWh/jaar
+              </div>
+              <div className="text-[10px] text-on-surface-muted tabular-nums">
+                H = {Math.round(hExternalAnnual)} W/K · HDD {HDD_NL} K·d
+              </div>
+            </div>
+            <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
+              *Schatting via graaddagen-methode (HDD {HDD_NL} K·d NL-gemiddelde). Niet
+              norm-conform BENG/NTA 8800 — werkelijk verbruik wijkt af door zoninstraling,
+              interne warmte en gebruikersgedrag.
+            </p>
           </Card>
         </div>
 
