@@ -9,6 +9,7 @@
   padding: 2px 4px 0 4px;
   user-select: none;
   overflow-x: auto;
+  overflow-y: hidden; /* expliciet — anders impliciet auto, geeft phantom vertical scrollbar door ::after accent-bar */
   scrollbar-width: thin;
   min-height: 30px;
   flex-shrink: 0;
