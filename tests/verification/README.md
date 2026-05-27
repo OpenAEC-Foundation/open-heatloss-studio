@@ -47,6 +47,8 @@ Voorbeeld: `isso53_vabi3.11.2.23_houtfabriek-bedrijfsruimte4`
 | `isso53_vabi3.11.2.23_houtfabriek-3floors` | ISSO 53 | Vabi 3.11.2.23 | ✅ compleet (3 rooms) | ✅ 2.10a +0.3%, 3.10a +5.0%, 1.10a `#[ignore]` | ✅ gemigreerd |
 | `isso53_vabi3.12.0.127_dr-engineering-kantoorwest` | ISSO 53 | Vabi 3.12.0.127 | ✅ compleet | ✅ Φ_T +3.5%, Φ_I +1.8% | ✅ gemigreerd |
 | `koellast_vabi3.12.0.127_dr-engineering-woningbouw` | Peak koellast (EN 12831 / NEN 5060 TO2) | Vabi 3.12.0.127 | ✅ peak W ingevuld (engine TBD) | — (engine ontbreekt nog) | ✅ gemigreerd uit tojuli folder |
+| `koellast_vabi3.11.2.23_woningB-koellastberekeningen` | Peak cooling (NEN 5060 TO2) | Vabi 3.11.2.23 | ✅ peak W ingevuld (engine TBD) | — | n.v.t. (nieuw) |
+| `koellast_vabi3.x_woningC-statistieken` | Peak cooling | Vabi (versie onbekend) | ✅ peak W ingevuld (3 ruimtes, A_g geschat) | — | n.v.t. (nieuw) |
 | `tojuli_vabi3.12.0.127_dr-engineering-woningbouw` | TO-juli (NTA 8800 cooling) | Vabi 3.12.0.127 | 🟡 placeholder (wacht op Vabi BENG-PDF aanvraag bij installateur) | — | — |
 | `tojuli_vabi3.12.0.127_dr-engineering-utiliteitsbouw` | TO-juli (NTA 8800 cooling) | Vabi 3.12.0.127 | ❌ nieuw, PDF aanwezig | — | — |
 

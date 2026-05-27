@@ -1,0 +1,36 @@
+{
+  "source": "Vabi Koellast (versie onbekend uit XLS), 'Statistieken Woning C' — Gebouw + Ruimte sheets",
+  "norm": "EN 12831 / NEN 5060 TO2 (peak cooling load)",
+  "engine_status": "NOG NIET GEÏMPLEMENTEERD in open-heatloss-studio — fixture is bedoeld voor UI-handcheck + toekomstige peak-cooling engine. Onze huidige nta8800-cooling crate doet alleen NTA 8800 H.10 annual TO-juli.",
+  "last_updated": "2026-05-27",
+  "building": {
+    "ag_cooled_m2_estimated": 85,
+    "volume_m3_estimated": 215,
+    "num_cooled_rooms": 3,
+    "t_setpoint_c": null,
+    "climate": "NEN 5060 TO2 (aanname, niet expliciet in XLS)"
+  },
+  "kpis": {
+    "peak_cooling_load_total_w": 5362,
+    "peak_sensible_w": 5260,
+    "peak_latent_w": 102,
+    "peak_w_per_m2": 63,
+    "peak_w_per_m3": 25,
+    "peak_month": "juli",
+    "peak_hour_slot": 20
+  },
+  "rooms": [
+    { "code": "0.07", "name": "Tuinkamer",   "sensible_w": 3501, "latent_w": 34, "peak_w": 3535, "w_per_m2": 121, "w_per_m3": 31, "area_m2_estimated": 29, "peak_month": "juli", "peak_hour_slot": 20 },
+    { "code": "1.04", "name": "Slaapkamer", "sensible_w":  781, "latent_w": 34, "peak_w":  815, "w_per_m2":  28, "w_per_m3": 17, "area_m2_estimated": 29, "peak_month": "juli", "peak_hour_slot": 20 },
+    { "code": "1.05", "name": "Slaapkamer", "sensible_w":  966, "latent_w": 48, "peak_w": 1014, "w_per_m2":  38, "w_per_m3": 19, "area_m2_estimated": 26, "peak_month": "juli", "peak_hour_slot": 10 }
+  ],
+  "_notes": {
+    "vabi_version_unknown": "XLS-export bevat geen rekenkern-versieveld. Folder-naam gebruikt 'vabi3.x' als placeholder.",
+    "area_estimation": "Vloeroppervlak per ruimte geschat uit peak_w / w_per_m2 (bv. Tuinkamer 3501 / 121 ≈ 28.9 m² → 29 m²). Gebouw Ag geschat uit gebouw-totaal voelbaar 5260 W / 63 W/m² ≈ 83.5 m² → 85 m² (afgerond). Volume idem uit 5260 / 25 ≈ 210 m³ → 215 m³.",
+    "no_t_setpoint_in_xls": "XLS-statistieken bevatten geen T_setpoint-veld; aanname 24°C analoog aan Woning B is niet bevestigd.",
+    "sum_room_sensible_vs_building": "Som per-ruimte voelbaar = 3501+781+966 = 5248 W; gebouwtotaal voelbaar = 5260 W. Verschil 12 W binnen afrondingsmarge, juli 20:00 is gelijktijdige piek voor 2 van 3 ruimtes."
+  },
+  "tolerances": {
+    "_note": "TBD wanneer peak-cooling engine geïmplementeerd is. Adviesrange: 10% per room, 5% gebouw-totaal. Vloeroppervlak-velden zijn schattingen — niet als test-truth gebruiken."
+  }
+}

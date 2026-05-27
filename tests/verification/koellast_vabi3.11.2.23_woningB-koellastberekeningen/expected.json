@@ -1,0 +1,38 @@
+{
+  "source": "Vabi Elements Koellast 3.11.2.23 (rekenkern Koellast 2.09), 'Vabi Koellastberekeningen.nl Woning B' 2024",
+  "norm": "EN 12831 / NEN 5060:2008 ref TO2 streng (peak cooling load)",
+  "engine_status": "NOG NIET GEÏMPLEMENTEERD in open-heatloss-studio — fixture is bedoeld voor UI-handcheck + toekomstige peak-cooling engine. Onze huidige nta8800-cooling crate doet alleen NTA 8800 H.10 annual TO-juli.",
+  "last_updated": "2026-05-27",
+  "building": {
+    "ag_cooled_m2": 182.6,
+    "volume_m3": 565.4,
+    "num_cooled_rooms": 6,
+    "t_setpoint_c": 24.0,
+    "shading_enabled": true,
+    "shading_switching_w_per_m2": 300,
+    "solar_transmission_enabled": false,
+    "climate": "NEN 5060:2008 ref TO2 streng"
+  },
+  "kpis": {
+    "peak_cooling_load_total_w": 8894,
+    "peak_sensible_w": 8633,
+    "peak_latent_w": 261,
+    "peak_month": "augustus",
+    "peak_hour_slot": 20
+  },
+  "rooms": [
+    { "code": "0.06", "name": "Keuken", "type": "VR", "t_int_c": 24.0, "sensible_w": 1914, "latent_w": 97,  "peak_w": 2010, "w_per_m2": 47, "peak_month": "september", "peak_hour_slot": 19 },
+    { "code": "0.08", "name": "Woonkamer",    "type": "VR", "t_int_c": 24.0, "sensible_w": 1781, "latent_w": 29,  "peak_w": 1810, "w_per_m2": 39, "peak_month": "juli",      "peak_hour_slot": 20 },
+    { "code": "0.09", "name": "Eetkamer",     "type": "VR", "t_int_c": 24.0, "sensible_w": 2072, "latent_w": 34,  "peak_w": 2106, "w_per_m2": 48, "peak_month": "augustus",  "peak_hour_slot": 19 },
+    { "code": "0.13", "name": "Slaapkamer 1", "type": "VR", "t_int_c": 24.0, "sensible_w": 1764, "latent_w": 34,  "peak_w": 1798, "w_per_m2": 99, "peak_month": "augustus",  "peak_hour_slot": 20 },
+    { "code": "1.02", "name": "Slaapkamer 2", "type": "VR", "t_int_c": 24.0, "sensible_w": 1329, "latent_w": 48,  "peak_w": 1377, "w_per_m2": 99, "peak_month": "september", "peak_hour_slot": 15 },
+    { "code": "1.05", "name": "Slaapkamer 3", "type": "VR", "t_int_c": 24.0, "sensible_w":  993, "latent_w": 34,  "peak_w": 1027, "w_per_m2": 61, "peak_month": "juli",      "peak_hour_slot": 19 }
+  ],
+  "_notes": {
+    "sum_room_sensible_vs_building_peak": "Som van per-ruimte voelbaar = 1914+1781+2072+1764+1329+993 = 9853 W; gebouw-piek voelbaar = 8633 W. Verschil ontstaat doordat per-ruimte peaks NIET gelijktijdig optreden — gebouwpiek is sommatie in één specifiek tijdvak (augustus 20:00).",
+    "shading_inputs": "Beschaduwing aan op alle 4 zonweringtypen, schakelniveau handmatig 300 W/m². Zondoorstraling = nee."
+  },
+  "tolerances": {
+    "_note": "TBD wanneer peak-cooling engine geïmplementeerd is. Adviesrange: 10% per room, 5% gebouw-totaal."
+  }
+}
