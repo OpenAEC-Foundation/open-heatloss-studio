@@ -1,0 +1,29 @@
+{
+  "source": "Vabi Elements Koellast 3.12.0.127, DR Engineering 'Voorbeeld koellast woningbouw' 27-2-2025",
+  "norm": "EN 12831 / NEN 5060 TO2 (peak cooling load)",
+  "engine_status": "NOG NIET GEÏMPLEMENTEERD in open-heatloss-studio — fixture is bedoeld voor UI-handcheck + toekomstige peak-cooling engine. Onze huidige nta8800-cooling crate doet alleen NTA 8800 H.10 annual TO-juli.",
+  "last_updated": "2026-05-27",
+  "building": {
+    "ag_cooled_m2": 191.7,
+    "num_cooled_rooms": 6,
+    "t_setpoint_c": 24.0,
+    "shading_enabled": true,
+    "climate": "NEN 5060 TO2 streng"
+  },
+  "kpis": {
+    "peak_cooling_load_total_w": 6420,
+    "peak_month": "augustus",
+    "peak_hour_slot": 14
+  },
+  "rooms": [
+    { "name": "Woonkamer", "peak_w": 2074, "peak_month": "augustus", "peak_hour_slot": 10 },
+    { "name": "Keuken", "peak_w": 1869, "peak_month": "september", "peak_hour_slot": 19 },
+    { "name": "Slaapkamer 1", "peak_w": 1118, "peak_month": "september", "peak_hour_slot": 14 },
+    { "name": "Slaapkamer 2", "peak_w": 590, "peak_month": "juli", "peak_hour_slot": 10 },
+    { "name": "Slaapkamer 3", "peak_w": 610, "peak_month": "juli", "peak_hour_slot": 8 },
+    { "name": "Speelzolder", "peak_w": 1122, "peak_month": "juli", "peak_hour_slot": 19 }
+  ],
+  "tolerances": {
+    "_note": "TBD wanneer peak-cooling engine geïmplementeerd is. Adviesrange: 10% per room, 5% gebouw-totaal."
+  }
+}
