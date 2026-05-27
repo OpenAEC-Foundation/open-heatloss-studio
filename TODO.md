@@ -98,6 +98,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] **Runtime validatie server-responses** — `validateProjectResult()` toegevoegd, blinde casts vervangen in Projects.tsx, ConflictDialog.tsx, importExport.ts
 - [x] **NTA 8800 drukmodel integratie (C2.3)** — gefixed, norm-exacte massabalans (§11.2.1) gewired in TO-juli rekenketen
 - [x] #20 foutmelding server-opslag verbeterd (sessie-verlopen-detectie) — root-cause nog open
+- [x] **Jaarverbruik schatting (graaddagen-methode)** — nieuwe Results-veld toont geschat netto jaarverbruik via H_extern × HDD_NL × 24/1000 met expliciete disclaimer (commit 8458a5a)
 
 ## Thermal-import — Revit-exporter audit follow-ups (2026-05-22)
 
