@@ -59,6 +59,8 @@ async function deriveDefaultSavePath(
   }
 }
 
+const FULL_VIEWPORT_ROUTES = new Set(["/rapport", "/modeller", "/ifc"]);
+
 interface AppShellProps {
   children: ReactNode;
 }
@@ -318,6 +320,10 @@ export function AppShell({ children }: AppShellProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const mainOverflow = FULL_VIEWPORT_ROUTES.has(location.pathname)
+    ? "overflow-hidden"
+    : "overflow-auto";
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar
@@ -330,7 +336,7 @@ export function AppShell({ children }: AppShellProps) {
 
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-auto bg-surface text-on-surface">
+        <main className={`flex-1 ${mainOverflow} bg-surface text-on-surface`}>
           {error && (
             <div className="flex items-center gap-2 bg-red-600/15 border-b border-red-600/30 px-4 py-2.5 text-sm text-red-400">
               <span className="flex-1">{error}</span>
