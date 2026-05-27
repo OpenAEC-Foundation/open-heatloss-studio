@@ -1,29 +1,43 @@
 # TODO
 
-## 🎯 Sprint v1.0 — test-fixture uitbreiding (mei-juni 2026)
+## 🎯 Sprint v1.0 — BENG/TO-juli/koellast strategie (mei-juni 2026)
 
-### Wacht op user-actie (installateur-aanvraag)
+### Beschikbaar lokaal (`tests/references/`, gitignored)
 
-- [ ] Vabi BENG/TO-juli PDF woningbouw → `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/`
-- [ ] Vabi BENG/TO-juli PDF utiliteit → nieuwe `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-utiliteitsbouw/`
-- [ ] Vabi Koellast PDF mét expliciete TO-juli vermelding (combi-rapport)
-- [ ] Uniec voorbeeldproject (XML/CSV-export van EP-online registratie)
+- [x] **RVO Rekentool Bijlage AA NTA 8800 2025.04** (`rekentool-bijlage-aa-nta8800-2025.04.xlsm`) — officiële golden master voor BENG-koelbehoefte
+- [x] **RVO BENG-voorbeeldconcepten woningbouw 2021** (`rvo-beng-voorbeeldconcepten-woningbouw-2021.pdf`) — DGMR-rapport met 93 doorgerekende cases incl. TO-juli per concept
+- [x] **DR Engineering Koellast woningbouw** (`dr-engineering-koellast-woningbouw-2024.pdf`) — Vabi 3.12.0.127, Ag 191.7 m², peak 6420 W
+- [x] **Koellastberekeningen.nl Woning B** (`vabi-koellastberekeningen-woning-B-2024.pdf`) — Vabi 3.11.2.23, Ag 182.6 m², peak 8894 W, 17 pp gedetailleerd
+- [x] **Vabi statistieken-export Woning C** (`vabi-koellast-statistieken-woning-C.xls`) — 3 ruimtes, 5260 W totaal voelbaar
+- [x] **DR Engineering Koellast utiliteitsbouw** (`dr-engineering-koellast-utiliteitsbouw-2024.pdf`)
+- [x] **Leever Utiliteit Horeca 2015** (`vabi-koellast-utiliteit-leever-2015.pdf` + `.xls`) — historisch NEN 5067:1985, structurele referentie
 
-### Publieke bronnen (uit web-research mei 2026)
+### Strategie — Bijlage AA Rekentool als golden master
 
-- [ ] **Bijlage AA NTA 8800** lezen (internetconsultatie 2025) — formules implementeren in `crates/nta8800-cooling/src/bijlage_aa.rs`
-- [ ] **Nieman BENG-publicaties** downloaden + reverse-engineer naar 3 fixtures:
-  - [ ] Tussenwoning BENG/TO-juli (Lente-akkoord 2020 brochure)
-  - [ ] Hoekwoning BENG/TO-juli
-  - [ ] Appartement BENG/TO-juli (Nieman/ZEN-themagroep onderzoek)
-- [ ] **RVO Rekentool koelbehoefte NTA 8800** aanvragen via Kenniscentrum
-- [ ] **hr-shahriari/Overheating** GitHub MIT-licentie bestuderen voor TO-juli code-referentie
-- [ ] **ISSO 54 testset** beoordelen (BRL 9501 attestering, ~€1500 BouwZo trial)
+Met de officiële RVO-rekentool kunnen we **onbeperkt fixtures genereren** zonder externe afhankelijkheden. Workflow:
+1. Bijlage AA module implementeren in `crates/nta8800-cooling/src/bijlage_aa.rs` (formules AA.1-AA.13 + Tabel AA.3 lookup)
+2. Per fixture-case: invoer in `rekentool-bijlage-aa-nta8800-2025.04.xlsm` → Rekentool output → `expected.json`
+3. Onze engine runt met identieke input → vergelijk
 
-### Peak koellast engine
+DGMR-aanvraag is hiermee **niet meer nodig**.
 
-- [ ] Aparte engine `peak-cooling` (EN 12831 / NEN 5060 TO2) ontwerpen — apart van `nta8800-cooling` (annual)
-- [ ] Fixture `koellast_vabi3.12.0.127_dr-engineering-woningbouw/` heeft expected.json klaar (6 rooms + gebouw 6420W); input.json TBD wanneer engine bestaat
+### Implementatie
+
+- [ ] **Bijlage AA module in nta8800-cooling** (Bijlage AA NTA 8800:2025 concept, ~500 LOC Rust)
+  - [ ] Formules AA.1 (P_int) t/m AA.13 (capaciteits-toets)
+  - [ ] Tabel AA.1 (θ_e per uur), AA.2 (f_iso per bouwjaar), AA.3 (I_sol 240 waarden)
+  - [ ] Per-room max-zoek over 9-18h × 8 oriëntaties × 5 hellingshoeken
+- [ ] **Peak-koellast engine** (separaat, EN 12831/NEN 5060 TO2) voor de Vabi Koellast cases
+  - Twee fixture-cases met expected.json klaar: DR Engineering (6420W) + Koellastberekeningen.nl Woning B (8894W)
+  - Statistieken-export Woning C als 3e fixture indien gewenst (kleinere case)
+- [ ] **3 BENG-fixtures uit RVO voorbeeldconcepten** (Tussenwoning M, Hoekwoning M, Vrijstaande M)
+  - Eindwaardes (BENG-1/2/3, TO-juli) staan in PDF
+  - Volledige invoer-reconstructie via Rekentool xlsm
+
+### Optioneel later
+
+- [ ] ISSO 54 testset (BRL 9501 attestering, ~€1500 BouwZo trial) — alleen relevant voor formele software-attestering
+- [ ] Uniec voorbeeldproject — Uniec is cloud-only SaaS, geen lokale bestanden mogelijk zonder DGMR-samenwerking
 
 ## 🎯 v1.0 Release Criteria
 
