@@ -24,9 +24,11 @@ fn close(label: &str, got: f64, want: f64, tol_pct: f64) {
 }
 
 fn load_result() -> (serde_json::Value, serde_json::Value) {
-    let input = include_str!("fixtures/vabi_houtfabriek_3floors_input.json");
+    let input = include_str!(
+        "../../../tests/verification/isso53_vabi3.11.2.23_houtfabriek-3floors/input.json"
+    );
     let expected: serde_json::Value = serde_json::from_str(include_str!(
-        "fixtures/vabi_houtfabriek_3floors_expected.json"
+        "../../../tests/verification/isso53_vabi3.11.2.23_houtfabriek-3floors/expected.json"
     ))
     .unwrap();
     let result_json = calculate_from_json(input).expect("calc");

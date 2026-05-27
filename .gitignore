@@ -10,7 +10,11 @@ tests/references/*.pdf
 
 # Vabi project files (privacy: contain customer/project data)
 *.vp
+*.vp.zip
 tests/references/*.vp
+
+# Klant-/projectdocumenten (privacy)
+*.docx
 
 # Te groot voor git-history (54 MB) — blijft lokaal
 /tests/references/TR03 - Houtfabriek.vp.zip

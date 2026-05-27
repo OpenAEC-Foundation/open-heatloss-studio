@@ -77,7 +77,9 @@ fn close_monthly(label: &str, got_profile: &nta8800_model::time::MonthlyProfile<
 /// Load fixture input + expected output.
 fn load_fixtures() -> (ProjectV2, TojuliFullInputs, serde_json::Value) {
     // Load ProjectV2 van fixture input JSON
-    let input_json = include_str!("fixtures/vabi_tojuli_woning_120m2_input.json");
+    let input_json = include_str!(
+        "../../../tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/input.json"
+    );
     let project: ProjectV2 = serde_json::from_str(input_json)
         .expect("fixture input moet valide ProjectV2 JSON zijn");
 
@@ -95,7 +97,9 @@ fn load_fixtures() -> (ProjectV2, TojuliFullInputs, serde_json::Value) {
     };
 
     // Load expected output
-    let expected_json = include_str!("fixtures/vabi_tojuli_woning_120m2_expected.json");
+    let expected_json = include_str!(
+        "../../../tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/expected.json"
+    );
     let expected: serde_json::Value = serde_json::from_str(expected_json)
         .expect("fixture expected moet valide JSON zijn");
 
