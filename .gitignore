@@ -19,9 +19,10 @@ tests/references/*.vp
 # Te groot voor git-history (54 MB) — blijft lokaal
 /tests/references/TR03 - Houtfabriek.vp.zip
 
-# Excel spreadsheets
+# Excel spreadsheets (privacy: bevatten klant-/projectdata, of auteursrechtelijk)
 *.xls
 *.xlsx
+*.xlsm
 
 # Session-specific files
 SESSION_STATUS.md
