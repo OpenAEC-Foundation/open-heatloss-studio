@@ -1,5 +1,30 @@
 # TODO
 
+## 🎯 Sprint v1.0 — test-fixture uitbreiding (mei-juni 2026)
+
+### Wacht op user-actie (installateur-aanvraag)
+
+- [ ] Vabi BENG/TO-juli PDF woningbouw → `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/`
+- [ ] Vabi BENG/TO-juli PDF utiliteit → nieuwe `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-utiliteitsbouw/`
+- [ ] Vabi Koellast PDF mét expliciete TO-juli vermelding (combi-rapport)
+- [ ] Uniec voorbeeldproject (XML/CSV-export van EP-online registratie)
+
+### Publieke bronnen (uit web-research mei 2026)
+
+- [ ] **Bijlage AA NTA 8800** lezen (internetconsultatie 2025) — formules implementeren in `crates/nta8800-cooling/src/bijlage_aa.rs`
+- [ ] **Nieman BENG-publicaties** downloaden + reverse-engineer naar 3 fixtures:
+  - [ ] Tussenwoning BENG/TO-juli (Lente-akkoord 2020 brochure)
+  - [ ] Hoekwoning BENG/TO-juli
+  - [ ] Appartement BENG/TO-juli (Nieman/ZEN-themagroep onderzoek)
+- [ ] **RVO Rekentool koelbehoefte NTA 8800** aanvragen via Kenniscentrum
+- [ ] **hr-shahriari/Overheating** GitHub MIT-licentie bestuderen voor TO-juli code-referentie
+- [ ] **ISSO 54 testset** beoordelen (BRL 9501 attestering, ~€1500 BouwZo trial)
+
+### Peak koellast engine
+
+- [ ] Aparte engine `peak-cooling` (EN 12831 / NEN 5060 TO2) ontwerpen — apart van `nta8800-cooling` (annual)
+- [ ] Fixture `koellast_vabi3.12.0.127_dr-engineering-woningbouw/` heeft expected.json klaar (6 rooms + gebouw 6420W); input.json TBD wanneer engine bestaat
+
 ## 🎯 v1.0 Release Criteria
 
 **Vastgelegd 2026-05-26.** v1.0 wordt uitgegeven wanneer onderstaande punten allemaal afgevinkt zijn. v0.2.0 (huidige tag) markeerde ISSO 51 feature-complete; v1.0 markeert het volledige platform (ISSO 51 + 53 + TO-juli) als productie-klaar.

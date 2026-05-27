@@ -16,7 +16,7 @@ Bestaande regressie-only fixtures zonder norm-truth (`portiekwoning`, `woonboot`
 
 | Token | Voorbeelden |
 |---|---|
-| `norm` | `isso51`, `isso53`, `tojuli` |
+| `norm` | `isso51`, `isso53`, `tojuli`, `koellast` |
 | `software-versie` | `vabi3.8.1.14`, `vabi3.11.2.23`, `vabi3.12.0.127` (geen spaties, punten OK) |
 | `projectslug` | kebab-case, kort, uniek binnen norm |
 
@@ -46,7 +46,8 @@ Voorbeeld: `isso53_vabi3.11.2.23_houtfabriek-bedrijfsruimte4`
 | `isso53_vabi3.11.2.23_houtfabriek-bedrijfsruimte4` | ISSO 53 | Vabi 3.11.2.23 | ✅ compleet | ✅ Δ +0.7% totaal | ✅ gemigreerd |
 | `isso53_vabi3.11.2.23_houtfabriek-3floors` | ISSO 53 | Vabi 3.11.2.23 | ✅ compleet (3 rooms) | ✅ 2.10a +0.3%, 3.10a +5.0%, 1.10a `#[ignore]` | ✅ gemigreerd |
 | `isso53_vabi3.12.0.127_dr-engineering-kantoorwest` | ISSO 53 | Vabi 3.12.0.127 | ✅ compleet | ✅ Φ_T +3.5%, Φ_I +1.8% | ✅ gemigreerd |
-| `tojuli_vabi3.12.0.127_dr-engineering-woningbouw` | TO-juli (NTA 8800 cooling) | Vabi 3.12.0.127 | ❌ placeholder | — (woning ~120 m², D + WTW) | ✅ gemigreerd |
+| `koellast_vabi3.12.0.127_dr-engineering-woningbouw` | Peak koellast (EN 12831 / NEN 5060 TO2) | Vabi 3.12.0.127 | ✅ peak W ingevuld (engine TBD) | — (engine ontbreekt nog) | ✅ gemigreerd uit tojuli folder |
+| `tojuli_vabi3.12.0.127_dr-engineering-woningbouw` | TO-juli (NTA 8800 cooling) | Vabi 3.12.0.127 | 🟡 placeholder (wacht op Vabi BENG-PDF aanvraag bij installateur) | — | — |
 | `tojuli_vabi3.12.0.127_dr-engineering-utiliteitsbouw` | TO-juli (NTA 8800 cooling) | Vabi 3.12.0.127 | ❌ nieuw, PDF aanwezig | — | — |
 
 Toekomstige uitbreidingen (bron-referenties liggen lokaal in `tests/references/`, niet getrackt):
@@ -71,7 +72,7 @@ Tests in:
 - `crates/isso51-core/tests/integration_test.rs` — `FixtureSource::Verification { subfolder }` voor de Vabi paren; `FixtureSource::Legacy` voor regressie-only (portiekwoning, woonboot)
 - `crates/isso53-core/tests/{vabi_golden,vabi_dr_golden,vabi_houtfabriek_3floors_golden}.rs` — `include_str!("../../../tests/verification/<subfolder>/{input,expected}.json")`
 - `crates/isso53-core/tests/golden.rs` — leest nog `crates/isso53-core/tests/fixtures/voorbeeld_6{1,2}_*.json` (placeholders zonder norm-truth, niet migreren)
-- `crates/nta8800-cooling/tests/vabi_tojuli_golden.rs` — `include_str!("../../../tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/{input,expected}.json")`
+- `crates/nta8800-cooling/tests/vabi_koellast_golden.rs` — verwijst naar `tests/verification/koellast_vabi3.12.0.127_dr-engineering-woningbouw/expected.json`; alle echte tests `#[ignore]` tot peak-cooling engine bestaat (huidige `nta8800-cooling` doet alleen NTA 8800 H.10 annual)
 
 ---
 
