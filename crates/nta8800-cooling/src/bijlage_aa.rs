@@ -42,6 +42,9 @@
 //! - F_sh (beschaduwingsreductie) wordt per raam als directe `f_sh` ingegeven;
 //!   automatische afleiding uit overstek/zijbelemmering volgens tabellen 17.5,
 //!   17.9 en 17.11 is uit scope (vereist gebouw-geometrie).
+//! - F_F (kozijnfactor, NTA 8800 §7.6.6.1.3) wordt per raam expliciet als
+//!   `f_f` ingegeven. RVO-rekentool 2025.04 hanteert vaste waarde 0.9; voor
+//!   pure glazen panelen 1.0, voor alu-kozijn met thermische onderbreking 0.7.
 //! - SWM-bepaling op basis van bouwwijze (tabellen 7.11/7.12) is hardcoded
 //!   maar de relatie SWM → tijdstip is door de norm zelf afgezwakt
 //!   ("SWM is in deze methode geen rekenparameter, gebouw wordt geladen
@@ -696,6 +699,11 @@ pub struct RaamAa {
     /// F_sh — beschaduwingsreductiefactor (overstek + zijbelemmering),
     /// 0..=1. Default 1.0 (geen belemmering).
     pub f_sh: f64,
+    /// F_F — kozijnfactor (frame factor), 0..=1. NTA 8800 §7.6.6.1.3 default 0.9
+    /// voor gemiddeld kozijn (alu/houten kozijn met glas). Pure glazen panelen
+    /// hebben F_F=1.0, metalen kozijnen met thermische onderbreking F_F=0.7.
+    /// RVO-rekentool 2025.04 hanteert vaste waarde 0.9 in B56-formule.
+    pub f_f: f64,
     /// Zonwering-type — bepaalt F_C via [`ZonweringType::f_c`].
     pub zonwering: ZonweringType,
     /// Hellingshoek β van het raam, in graden (0=horizontaal/plat dak,
@@ -887,7 +895,7 @@ pub fn formule_aa5_p_tr_ntr(klasse: BouwjaarKlasseAa, a_in_m2: f64) -> f64 {
 
 /// Formule (AA.6b) — koellast door zoninstraling per verblijfsruimte, W.
 ///
-/// `P_sol;vr;j = max over t=9..18h van Σ (0,75 · A_wi · g_gl · F_sh · F_C · I_sol;t)`
+/// `P_sol;vr;j = max over t=9..18h van Σ (0,75 · A_wi · g_gl · F_sh · F_F · F_C · I_sol;t)`
 ///
 /// Retourneert (P_sol max, maatgevend tijdstip).
 ///
@@ -905,6 +913,7 @@ pub fn formule_aa6b_p_sol_ruimte(ramen: &[RaamAa]) -> CoolingCalcResult<(f64, u8
                 * raam.oppervlakte_m2
                 * raam.g_waarde
                 * raam.f_sh
+                * raam.f_f
                 * f_c
                 * i_sol_val;
         }
@@ -1067,6 +1076,7 @@ pub fn calculate_bijlage_aa(input: &BijlageAaInput) -> CoolingCalcResult<Bijlage
                     * raam.oppervlakte_m2
                     * raam.g_waarde
                     * raam.f_sh
+                    * raam.f_f
                     * raam.zonwering.f_c()
                     * i_sol_val;
             }
