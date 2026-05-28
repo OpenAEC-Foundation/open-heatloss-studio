@@ -62,7 +62,7 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 - [ ] **ISSO 53 productie-klaar**
   - [ ] Vabi end-to-end verificatie op minimaal 2 reëele projecten binnen norm-tolerantie
   - [ ] Alle ISSO 53-specifieke UI-flows getest (norm-switch, utiliteit-velden, rapport)
-  - [ ] Geen `TODO:` of `FIXME:` in `crates/isso53-core/` en isso53-gerelateerde frontend code
+  - [x] Geen `TODO:` of `FIXME:` in `crates/isso53-core/` en isso53-gerelateerde frontend code (commit `40b905c`, 2026-05-28)
 
 - [ ] **TO-juli productie-klaar**
   - [ ] Vabi-cross-validatie groen op referentie-project
