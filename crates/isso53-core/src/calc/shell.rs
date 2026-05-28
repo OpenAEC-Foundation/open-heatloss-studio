@@ -80,8 +80,10 @@ pub fn calculate_shell(project: &Project) -> Result<f64> {
         // Accumulate H_T,ig (ground) - delegate to ground calc
         h_t_ground += calculate_h_t_ground(&ground_elements, theta_i_building, &project.climate, project.building.heating_system)?;
 
-        // For ventilation: rough estimate based on room area
-        // ASSUMPTION: 0.5 ACH default ventilation rate (TODO: read from VentilationConfig)
+        // Shell-method (ISSO 53 §3 voorontwerp): grove ventilatie-schatting
+        // op basis van 0.5 luchtwissel/uur. Bewuste vereenvoudiging — de
+        // detailled per-room ventilatie via `VentilationConfig` wordt pas in
+        // de volledige `calc/ventilation.rs`-pad toegepast (Hoofdstuk 4).
         let room_volume = room.floor_area * room.height;
         let estimated_q_v = room_volume * 0.5 / 3600.0; // 0.5 air changes per hour as m³/s
         h_v_total += estimated_q_v * RHO_CP_AIR; // H_v without f_v

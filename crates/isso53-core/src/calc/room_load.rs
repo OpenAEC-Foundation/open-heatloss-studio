@@ -45,8 +45,9 @@ pub fn calculate_room(
     // Calculate heating-up supplement
     let phi_hu = heating_up::calculate_heating_up(room, heating_up_config)?;
 
-    // Internal heat gains (for now = 0, as per MVP scope)
-    let phi_gain = 0.0; // TODO: implement internal gains in future batch
+    // Φ_gain = 0: interne warmtelast (personen, apparaten) wordt in
+    // warmteverlies-context conservatief op 0 gezet — worst-case ontwerp.
+    let phi_gain = 0.0;
 
     // Total heat loss: Φ_HL,i = Φ_T + Φ_V + Φ_I + Φ_hu − Φ_gain (formule 4.1)
     let total_heat_loss = transmission_result.phi_t + ventilation_result.phi_vent
@@ -60,7 +61,7 @@ pub fn calculate_room(
         phi_v: ventilation_result.phi_vent,
         phi_i,
         phi_hu,
-        phi_system: 0.0, // TODO: system losses in future scope
+        phi_system: 0.0, // systeemverliezen (leiding/ketel) buiten room-scope
         phi_gain,
         total_heat_loss,
         h_t_exterior: transmission_result.h_t_exterior,
