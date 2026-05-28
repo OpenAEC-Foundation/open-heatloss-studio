@@ -9,10 +9,12 @@ use crate::model::{HeatingUpConfig, Room};
 /// Calculate the heating-up supplement Φ_hu for a room.
 /// ISSO 53 §4.8.
 ///
-/// ## TODO: P-table implementation
-/// The specific supplement P [W/m²] should be looked up from the P-table in
-/// PDF p.51-53 based on thermal mass and warm-up time. For now, this function
-/// uses the configured `p_w_per_m2` value directly.
+/// ## Design note — P-waarde uit configuratie
+/// De specifieke toeslag P [W/m²] wordt direct uit `HeatingUpConfig.p_w_per_m2`
+/// gelezen. ISSO 53 §4.8 + PDF p.51-53 beschrijven een lookup-tabel op basis
+/// van `thermal_mass` × `warmup_minutes`; deze automatische lookup is buiten
+/// MVP-scope omdat eindgebruikers de P-waarde uit de eigen ervaring of
+/// fabrieksspecificatie kennen.
 ///
 /// # Arguments
 /// * `room` - The room to calculate for
@@ -28,8 +30,7 @@ pub fn calculate_heating_up(
         return Ok(0.0);
     }
 
-    // Formule 4.40: Φ_hu = P × A_floor
-    // where P comes from PDF p.51-53 P-table (not yet implemented)
+    // Formule 4.40: Φ_hu = P × A_floor (P uit config, zie module-docstring)
     let phi_hu = config.p_w_per_m2 * room.floor_area;
 
     Ok(phi_hu)

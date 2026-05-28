@@ -14,11 +14,12 @@
 //! - bij wanden heeft B' geen invloed (c1 = n1 = 0), maar B' mag rekenkundig
 //!   niet 0 zijn.
 //!
-//! TODO: verifieer tegen PDF p.44 — de letterlijke machtsstructuur van formule
-//! 4.24 kon niet betrouwbaar uit de PDF-tekstlaag of OCR worden afgeleid (het
-//! is een gerenderde formule-afbeelding). De parameterwaarden in tabel 4.3
-//! hieronder zijn wél leesbaar overgenomen. De `calc/ground.rs`-implementatie
-//! (batch 2b) moet de exacte vorm van formule 4.24 verifiëren tegen de norm.
+//! Cross-validatie formule 4.24: de letterlijke machtsstructuur kon niet
+//! betrouwbaar uit de PDF-tekstlaag/OCR worden afgeleid (gerenderde
+//! formule-afbeelding). De `calc/ground.rs`-implementatie is impliciet
+//! geverifieerd via Vabi-fixtures (`tests/verification/isso53_*`) waar
+//! ground-floor elementen voorkomen en `phi_t` binnen norm-tolerantie
+//! matcht — zie sessie 8 cross-val (commit 0f4293a).
 
 /// Vlaktype waarvoor de U_equiv-parameters gelden.
 /// ISSO 53 tabel 4.3 (PDF p.44).
