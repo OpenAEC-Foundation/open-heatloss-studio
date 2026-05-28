@@ -1,0 +1,55 @@
+{
+  "source": "Vabi Elements Koellast 3.12.0.127, DR Engineering 'Voorbeeld koellast utiliteitsbouw' 27-2-2025",
+  "norm": "EN 12831 / NEN 5060 TO2 (peak cooling load)",
+  "engine_status": "NOG NIET GEÏMPLEMENTEERD in open-heatloss-studio — fixture is bedoeld voor UI-handcheck + toekomstige peak-cooling engine. Onze huidige nta8800-cooling crate doet alleen NTA 8800 H.10 annual TO-juli + Bijlage AA voor woningen.",
+  "last_updated": "2026-05-28",
+  "building": {
+    "ag_cooled_m2": 1815.1,
+    "volume_cooled_m3": 5436.0,
+    "num_cooled_rooms": 27,
+    "building_type": "utiliteit",
+    "t_setpoint_c": 24.0,
+    "shading_enabled": true,
+    "shading_manual_threshold_w_per_m2": 300.0,
+    "climate": "NEN 5060 TO2 streng"
+  },
+  "kpis": {
+    "peak_cooling_load_total_w": 54016,
+    "peak_sensible_w": 46715,
+    "peak_latent_w": 7301,
+    "peak_month": "augustus",
+    "peak_hour_slot": 17
+  },
+  "rooms": [
+    { "name": "0.01 Atrium",        "type": "VKR", "peak_w": 1785, "peak_sensible_w": 1785, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 11 },
+    { "name": "0.03 Kantoor West",  "type": "VG",  "peak_w": 4267, "peak_sensible_w": 3641, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot": 16 },
+    { "name": "0.04 Kantoor Zuid",  "type": "VG",  "peak_w": 4843, "peak_sensible_w": 4270, "peak_latent_w": 573, "peak_month": "augustus", "peak_hour_slot": 11 },
+    { "name": "0.05 Kantoor Oost",  "type": "VG",  "peak_w": 3763, "peak_sensible_w": 3138, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot":  9 },
+    { "name": "0.06 Trappenhuis",   "type": "VKR", "peak_w":   70, "peak_sensible_w":   70, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "0.07 Gang",          "type": "VKR", "peak_w":  157, "peak_sensible_w":  157, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "0.08 Gang",          "type": "VKR", "peak_w":  160, "peak_sensible_w":  160, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "1.03 Kantoor West",  "type": "VG",  "peak_w": 4553, "peak_sensible_w": 3927, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot": 16 },
+    { "name": "1.04 Kantoor Zuid",  "type": "VG",  "peak_w": 5346, "peak_sensible_w": 4772, "peak_latent_w": 573, "peak_month": "juli",     "peak_hour_slot": 13 },
+    { "name": "1.05 Kantoor Oost",  "type": "VG",  "peak_w": 4038, "peak_sensible_w": 3413, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot":  9 },
+    { "name": "1.06 Trappenhuis",   "type": "VKR", "peak_w":  110, "peak_sensible_w":  110, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "1.07 Gang",          "type": "VKR", "peak_w":  225, "peak_sensible_w":  225, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "1.08 Gang",          "type": "VKR", "peak_w":  228, "peak_sensible_w":  228, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "2.01 Atrium",        "type": "VKR", "peak_w": 1093, "peak_sensible_w": 1093, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 11 },
+    { "name": "2.03 Kantoor West",  "type": "VG",  "peak_w": 4553, "peak_sensible_w": 3927, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot": 16 },
+    { "name": "2.04 Kantoor Zuid",  "type": "VG",  "peak_w": 5346, "peak_sensible_w": 4772, "peak_latent_w": 573, "peak_month": "juli",     "peak_hour_slot": 13 },
+    { "name": "2.05 Kantoor Oost",  "type": "VG",  "peak_w": 4038, "peak_sensible_w": 3413, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot":  9 },
+    { "name": "2.06 Trappenhuis",   "type": "VKR", "peak_w":  110, "peak_sensible_w":  110, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "2.07 Gang",          "type": "VKR", "peak_w":  225, "peak_sensible_w":  225, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "2.08 Gang",          "type": "VKR", "peak_w":  228, "peak_sensible_w":  228, "peak_latent_w":   0, "peak_month": "mei",      "peak_hour_slot": 15 },
+    { "name": "3.01 Atrium",        "type": "VKR", "peak_w": 1117, "peak_sensible_w": 1117, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 11 },
+    { "name": "3.03 Kantoor West",  "type": "VG",  "peak_w": 4785, "peak_sensible_w": 4159, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot": 16 },
+    { "name": "3.04 Kantoor Zuid",  "type": "VG",  "peak_w": 5506, "peak_sensible_w": 4933, "peak_latent_w": 573, "peak_month": "juli",     "peak_hour_slot": 13 },
+    { "name": "3.05 Kantoor Oost",  "type": "VG",  "peak_w": 4288, "peak_sensible_w": 3662, "peak_latent_w": 626, "peak_month": "juli",     "peak_hour_slot":  9 },
+    { "name": "3.06 Trappenhuis",   "type": "VKR", "peak_w":  145, "peak_sensible_w":  145, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 15 },
+    { "name": "3.07 Gang",          "type": "VKR", "peak_w":  284, "peak_sensible_w":  284, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 15 },
+    { "name": "3.08 Gang",          "type": "VKR", "peak_w":  286, "peak_sensible_w":  286, "peak_latent_w":   0, "peak_month": "juli",     "peak_hour_slot": 15 }
+  ],
+  "tolerances": {
+    "_note": "TBD wanneer peak-cooling engine geïmplementeerd is. Adviesrange: 10% per room, 5% gebouw-totaal."
+  }
+}
