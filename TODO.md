@@ -23,16 +23,19 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 
 ### Implementatie
 
-- [ ] **Bijlage AA module in nta8800-cooling** (Bijlage AA NTA 8800:2025 concept, ~500 LOC Rust)
-  - [ ] Formules AA.1 (P_int) t/m AA.13 (capaciteits-toets)
-  - [ ] Tabel AA.1 (θ_e per uur), AA.2 (f_iso per bouwjaar), AA.3 (I_sol 240 waarden)
-  - [ ] Per-room max-zoek over 9-18h × 8 oriëntaties × 5 hellingshoeken
+- [x] **Bijlage AA module in nta8800-cooling** (Bijlage AA NTA 8800:2025 concept, ~1300 LOC Rust)
+  - [x] Formules AA.1 (P_int) t/m AA.13 (capaciteits-toets)
+  - [x] Tabel AA.1 (θ_e per uur), AA.2 (f_iso per bouwjaar), AA.3 (I_sol 240 waarden)
+  - [x] Per-room max-zoek over 9-18h × 8 oriëntaties × 5 hellingshoeken
+  - [x] F_F (kozijnfactor, default 0.9) toegevoegd na cross-val (2026-05-28)
+  - [x] **Cross-validatie tegen RVO-rekentool xlsm sample case 1** — groen binnen 0.07% (max 0.26 W op 377 W). Test: `golden_master_xlsm_cross_validatie`. Zie `tests/verification/INSTRUCTIES-bijlage-aa-cross-validatie.md` voor reproductie.
 - [ ] **Peak-koellast engine** (separaat, EN 12831/NEN 5060 TO2) voor de Vabi Koellast cases
   - Twee fixture-cases met expected.json klaar: DR Engineering (6420W) + Koellastberekeningen.nl Woning B (8894W)
   - Statistieken-export Woning C als 3e fixture indien gewenst (kleinere case)
 - [ ] **3 BENG-fixtures uit RVO voorbeeldconcepten** (Tussenwoning M, Hoekwoning M, Vrijstaande M)
   - Eindwaardes (BENG-1/2/3, TO-juli) staan in PDF
   - Volledige invoer-reconstructie via Rekentool xlsm
+- [ ] **Utiliteitsbouw peak-koellast fixture** — folder + expected.json klaar (2026-05-28), wacht op peak-cooling engine
 
 ### Optioneel later
 
