@@ -405,7 +405,12 @@ pub enum TojuliError {
 /// 1. `geometry_to_nta8800` levert Rekenzone + EFR + Window + Construction
 /// 2. Echte transmissie via `nta8800-transmission::calculate_transmission`
 /// 3. Echte ventilatie via `nta8800-ventilation::calculate_ventilation`
-///    (Q_V mét WTW-recovery); H_V voor τ afgeleid via `system_total_airflow`
+///    (Q_V mét WTW-recovery); H_V voor τ afgeleid via `system_total_airflow`.
+///    Voor system D/E/B/C zonder mech-debieten valt mech_supply/exhaust
+///    terug op het NTA 8800 §11.2.2 forfait `q_V;ODA;req` zodat H_V > 0
+///    blijft. Eerder voer voor de keten alleen voor `ventilation_system =
+///    None / Natural`; deze uitbreiding dekt ook D/E/B/C met onbekende
+///    debieten (typisch V1→V2-migratie-output).
 /// 4. `calculate_demand` → Q_C;nd + Q_H;nd 12 maanden
 /// 5. `calculate_cooling` → Q_C;use 12 maanden + jaarsom
 ///
@@ -517,13 +522,50 @@ pub fn compute_tojuli_full(
         }
     });
 
-    let (system, flow, wtw) = map_ventilation_to_nta8800(
+    let (system, mut flow, wtw) = map_ventilation_to_nta8800(
         project.shared.ventilation_system,
         project.shared.mechanical_supply_m3_per_h,
         project.shared.mechanical_exhaust_m3_per_h,
         effective_infiltration_m3_per_h,
         project.shared.heat_recovery.as_ref(),
     );
+
+    // NTA 8800 §11.2.2 forfait-fallback voor mechanische debieten als het
+    // systeem mech vereist maar geen debieten in shared zijn opgegeven.
+    // Zonder dit valt `system_total_airflow(D|E|B)` terug op
+    // `flow.mechanical_supply = 0` (en idem voor C: `flow.mechanical_exhaust = 0`)
+    // → q_v_total = 0 → H_V = 0. Dat is fysisch onmogelijk voor een bewoond
+    // gebouw met mechanische ventilatie. Concreet trigger-pad: V1→V2-migratie
+    // zet `ventilation_system = MechBalanced` + `heat_recovery = Some(η)` maar
+    // laat `mechanical_supply/exhaust_m3_per_h = None`. We vullen die met het
+    // norm-forfait `q_V;ODA;req` zodat de bestaande keten (drukmodel +
+    // heuristiek) een non-zero H_V oplevert.
+    let needs_supply_forfait = matches!(
+        system,
+        VentilationSystem::B | VentilationSystem::D { .. } | VentilationSystem::E
+    ) && project.shared.mechanical_supply_m3_per_h.is_none()
+        && flow.mechanical_supply == 0.0;
+    let needs_exhaust_forfait = matches!(system, VentilationSystem::C)
+        && project.shared.mechanical_exhaust_m3_per_h.is_none()
+        && flow.mechanical_exhaust == 0.0;
+
+    if needs_supply_forfait || needs_exhaust_forfait {
+        let a_g_for_forfait = project
+            .shared
+            .gross_floor_area_m2
+            .filter(|v| *v > 0.0)
+            .unwrap_or_else(|| zone.volume / NTA_DEFAULT_ZONE_HEIGHT_M);
+        let q_oda_req = nta8800_q_v_oda_req_m3_per_h(
+            usage_function_for_ventilation,
+            a_g_for_forfait,
+        );
+        if needs_supply_forfait {
+            flow.mechanical_supply = q_oda_req;
+        }
+        if needs_exhaust_forfait {
+            flow.mechanical_exhaust = q_oda_req;
+        }
+    }
 
     // --- NTA 8800 §11.2.1 drukmodel: massabalans-context + scope-toets ---
     //
@@ -909,6 +951,34 @@ mod tests {
         assert!(r.annual_q_c_use_mj >= 0.0);
         assert!(r.annual_q_c_use_kwh >= 0.0);
         assert!(r.tau_hours > 0.0);
+    }
+
+    #[test]
+    fn systemd_with_wtw_no_mech_debieten_uses_forfait() {
+        // Weesp-scenario: V1→V2-migratie heeft ventilation_system=MechBalanced
+        // en heat_recovery=Some(0.85) gezet, maar mech_supply/exhaust ontbreken.
+        // Zonder de §11.2.2-forfait zou system_total_airflow(D) = 0 → H_V = 0.
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::MechBalanced);
+        p.shared.heat_recovery = Some(HeatRecovery {
+            efficiency: 0.85,
+            frost_protection: false,
+            supply_temperature: None,
+        });
+        // mech_supply / mech_exhaust / infiltration blijven None
+        let i = sample_inputs();
+        let r = compute_tojuli_full(&p, &i).expect("compute ok");
+
+        // Met forfait q_V;ODA;req voor woning 120 m² (zie expected_q_v_oda_req_woning)
+        // en WTW η=0.85 reductie: H_V = q_oda × (1212/3600) × (1 - 0.85)
+        let expected_q_v = expected_q_v_oda_req_woning(120.0);
+        let expected_h_v = expected_q_v * AIR_VOLUMETRIC_HEAT_J_PER_M3_K / 3600.0 * (1.0 - 0.85);
+        assert!(
+            (r.ventilation_h_v_w_per_k - expected_h_v).abs() < 0.5,
+            "verwachte H_V {expected_h_v} W/K, gemeten {} W/K",
+            r.ventilation_h_v_w_per_k
+        );
+        assert!(r.ventilation_h_v_w_per_k > 0.0, "H_V moet > 0 zijn voor D+WTW");
     }
 
     #[test]
