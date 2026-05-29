@@ -50,7 +50,7 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 
 - [ ] **Alle test-fixtures aanwezig**
   - [ ] TO-juli Vabi-cross-validatie fixtures (scaffold staat in `51dc6ae`, referentie-PDF in `tests/references/dr-engineering-koellast-woningbouw-2024.pdf`)
-  - [ ] Spoor 4 fixture-bundeling completeren (calc-algoritme norm-conform, fixtures missen volledige input — zie `docs/PDF_GAPS.md`)
+  - [x] Spoor 4 fixture-bundeling completeren — Bedrijfsruimte4 en 1.10a gedecomposeerd naar 1-op-1 Vabi-mapping, beide `#[ignore]` weg (sessie 14, 2026-05-29)
   - [ ] ISSO 53 batch 2d norm-verificatie afronden (infrastructuur klaar, verificatie pending)
 
 - [ ] **Alle tests groen**
@@ -60,7 +60,7 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
   - [ ] CI groen op de release-commit
 
 - [ ] **ISSO 53 productie-klaar**
-  - [ ] Vabi end-to-end verificatie op minimaal 2 reëele projecten binnen norm-tolerantie
+  - [x] Vabi end-to-end verificatie op minimaal 2 reëele projecten binnen norm-tolerantie — 5 fixtures binnen ≤6% tol: Bedrijfsruimte4 (+3.6%), DR Kantoor West (+3.5%), 1.10a (+0.1%), 2.10a (+0.3%), 3.10a (+5.0%) (sessie 14, 2026-05-29)
   - [ ] Alle ISSO 53-specifieke UI-flows getest (norm-switch, utiliteit-velden, rapport)
   - [x] Geen `TODO:` of `FIXME:` in `crates/isso53-core/` en isso53-gerelateerde frontend code (commit `40b905c`, 2026-05-28)
 

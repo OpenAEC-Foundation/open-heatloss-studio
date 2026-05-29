@@ -65,18 +65,14 @@ fn vabi_bedrijfsruimte4_phi_hu_matches() {
     );
 }
 
-/// Transmissie test — na sessie 8 Optie C wrapper-schrap.
-/// Sessie 7 had −0,03% match (2918 vs 2919), maar dat was toevallige compensatie van de
-/// dubbeltelling in `calculate_transmission_with_adjacent_rooms` wrapper. Na fix: 2737 W =
-/// −6,2% vs Vabi 2919.
+/// Transmissie test — na sessie 14 fixture-decompositie (spoor 4 gesloten).
 ///
-/// **Spoor 4 diagnose (sessie 8):** gehele 182 W gap zit in het `bundel-binnenwanden`-element.
-/// Fixture vereenvoudigt 30+ Vabi-constructies (200+ m² interne wanden → 5/10/18/20°C buren)
-/// tot één bundel (30 m² · U=0,40 · 7°C → 156 W). Vabi-werkelijkheid is 344 W. Calc-core
-/// rekent CORRECT met de fixture-input; gap is een fixture-bundelings-artefact, GEEN calc-core
-/// bug en GEEN norm-vs-Vabi anomaly. Zie PDF_GAPS.md spoor 4 voor element-decompositie.
+/// **Status sessie 14 (2026-05-29):** fixture-bundel `bundel-binnenwanden` (30 m² @U=0,40 @7°C)
+/// vervangen door 25 individuele Vabi-elementen uit PDF p.18-20. Calc 3025 W vs Vabi 2919 W
+/// = +3,6%. Binnen 5% tolerance. Restgap komt uit Vabi's verwarmd-plafond convention (corr=0
+/// voor verwarmde buurruimtes met 18°C; onze norm-strikte calc geeft f_ia,k=2/29=0,069 → ~95W
+/// over 99,74 m² verwarmd-plafond elementen). Accepteer als documented Vabi-anomaly.
 #[test]
-#[ignore = "-6,2% fixture-bundelings-artefact (30 m² bundel vs 200+ m² Vabi-detail). Zie PDF_GAPS.md spoor 4."]
 fn vabi_bedrijfsruimte4_phi_t_matches() {
     let (result, expected) = load_result();
     let room = &result["rooms"][0];
@@ -104,11 +100,11 @@ fn vabi_bedrijfsruimte4_snapshot() {
     let total = room["totalHeatLoss"].as_f64().unwrap();
 
 
-    // Snapshot sessie 8 (2026-05-25): phi_T herzien van 2918→2737 na Optie C wrapper-schrap
-    // (room_load.rs dubbeltelling adjacent-room weggewerkt). totalHeatLoss herzien daarmee.
-    close("phiT", phi_t, 2737.0, 2.0);
+    // Snapshot sessie 14 (2026-05-29): phi_T herzien van 2737→3025 na fixture-decompositie
+    // (bundel-binnenwanden → 25 individuele Vabi-elementen). totalHeatLoss herzien daarmee.
+    close("phiT", phi_t, 3025.0, 2.0);
     close("phiV", phi_v, 0.0, 1.0);     // luchtverwarming θ_t=21°C → f_v=0
     close("phiI", phi_i, 3134.0, 2.0);
     close("phiHu", phi_hu, 2163.0, 2.0);
-    close("totalHeatLoss", total, 8034.0, 2.0);
+    close("totalHeatLoss", total, 8322.0, 2.0);
 }
