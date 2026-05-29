@@ -426,6 +426,14 @@ export function validateProject(data: unknown): Project {
   // `backend.calculate()` met een missing-field fout. Default = de
   // project-brede standaard als die al in de JSON stond, anders
   // radiator_ht (ISSO 51 meest voorkomend).
+  //
+  // NOTE: ISSO 53-projecten hebben camelCase keys (b.v.
+  // `radiatorenConvHtEnLuchtverwarming`). De `default_heating_system`
+  // bevat in dat geval al de juiste norm-key, zodat de fallback hier
+  // automatisch klopt. Alleen als zowel default als per-room ontbreken
+  // grijpen we naar de ISSO 51-default `radiator_ht`; voor pure
+  // ISSO 53-imports zonder default is dat verkeerd, maar zo'n input
+  // bestaat in praktijk niet (ISSO 53 UI vult altijd default in).
   const fallbackHs: HeatingSystem =
     project.building.default_heating_system ?? "radiator_ht";
   project.rooms = project.rooms.map((r: Room) => ({

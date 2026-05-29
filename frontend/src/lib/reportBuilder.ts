@@ -15,13 +15,14 @@ import {
   BOUNDARY_TYPE_LABELS,
   BUILDING_TYPE_LABELS,
   DEFAULT_THETA_WATER,
-  HEATING_SYSTEM_LABELS,
+  getHeatingSystemLabels,
   ROOM_FUNCTION_LABELS,
   ROOM_FUNCTION_TEMPERATURES,
   SECURITY_CLASS_LABELS,
   VENTILATION_SYSTEM_LABELS,
   VERTICAL_POSITION_LABELS,
 } from "./constants";
+import { isIsso53Heating } from "./normSwitch";
 import { calculateRc, type LayerInput } from "./rcCalculation";
 import { getMaterialById } from "./materialsDatabase";
 import { bblMinimumVentilationRate } from "./roomDefaults";
@@ -389,8 +390,14 @@ function buildRoomDetailSection(
   room: RoomResult,
 ): Record<string, unknown> {
   const projectRoom = project.rooms.find((r) => r.id === room.room_id);
+  // Norm-detect via heating_system key-shape: camelCase = ISSO 53,
+  // snake_case = ISSO 51. `Project` heeft zelf geen norm-veld (norm leeft
+  // in projectStore), dus runtime-detect houdt deze builder pure.
+  const heatingLabels = projectRoom && isIsso53Heating(projectRoom.heating_system)
+    ? getHeatingSystemLabels("isso53")
+    : getHeatingSystemLabels("isso51");
   const heatingLabel = projectRoom
-    ? (HEATING_SYSTEM_LABELS[projectRoom.heating_system] ?? projectRoom.heating_system)
+    ? (heatingLabels[projectRoom.heating_system] ?? projectRoom.heating_system)
     : "";
 
   const inputBlocks = projectRoom ? buildRoomInputBlocks(projectRoom) : [];

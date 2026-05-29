@@ -5,10 +5,15 @@ import Modal from "../Modal";
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
 import {
+  LOSSY_51_TO_53_HEATING_KEYS,
+  LOSSY_53_TO_51_HEATING_KEYS,
   MAP_51_TO_53,
   deriveIsso53BuildingFromIsso51,
   deriveIsso53RoomsFromIsso51,
   deriveIsso51BuildingTypeFromIsso53,
+  isIsso51Heating,
+  isIsso53Heating,
+  mapHeatingSystem,
   mapRoom53To51,
   writeNormSwitchBackup,
 } from "../../lib/normSwitch";
@@ -106,25 +111,62 @@ export default function NormSwitchModal({ open, onClose }: NormSwitchModalProps)
 
       // 2. Mapping toepassen + norm-flip in één set-call om geen tussen-
       //    rendering te triggeren waar UI nog de oude norm met nieuwe rooms ziet.
+      let lossyHeatingCount = 0;
       if (state.norm === "isso51") {
         // 51 → 53
         const newIsso53Rooms = deriveIsso53RoomsFromIsso51(state.project);
         const newIsso53Building = deriveIsso53BuildingFromIsso51(state.project);
+        // Map verwarmingssystemen voor building-default + alle rooms naar de
+        // ISSO 53-set. Tel lossy keys (geen 1-op-1 norm-equivalent) voor
+        // de toast-waarschuwing.
+        const oldDefault = state.project.building.default_heating_system;
+        if (isIsso51Heating(oldDefault) && LOSSY_51_TO_53_HEATING_KEYS.has(oldDefault)) {
+          lossyHeatingCount += 1;
+        }
+        const mappedDefault = mapHeatingSystem(oldDefault, "isso51", "isso53");
+        const mappedRooms = state.project.rooms.map((r) => {
+          if (isIsso51Heating(r.heating_system) && LOSSY_51_TO_53_HEATING_KEYS.has(r.heating_system)) {
+            lossyHeatingCount += 1;
+          }
+          return {
+            ...r,
+            heating_system: mapHeatingSystem(r.heating_system, "isso51", "isso53"),
+          };
+        });
         useProjectStore.setState({
           norm: "isso53",
+          project: {
+            ...state.project,
+            rooms: mappedRooms,
+            building: {
+              ...state.project.building,
+              default_heating_system: mappedDefault,
+            },
+          },
           isso53Rooms: newIsso53Rooms,
           isso53Building: newIsso53Building,
           isDirty: true,
         });
       } else {
         // 53 → 51: alle rooms → living_room; building_type uit positie afleiden.
-        const updatedRooms = state.project.rooms.map((r) => ({
-          ...r,
-          function: mapRoom53To51(state.isso53Rooms[r.id] ?? {
-            gebruiksFunctie: "kantoor" as const,
-            ruimteType: "verblijfsruimte" as const,
-          }),
-        }));
+        const oldDefault = state.project.building.default_heating_system;
+        if (isIsso53Heating(oldDefault) && LOSSY_53_TO_51_HEATING_KEYS.has(oldDefault)) {
+          lossyHeatingCount += 1;
+        }
+        const mappedDefault = mapHeatingSystem(oldDefault, "isso53", "isso51");
+        const updatedRooms = state.project.rooms.map((r) => {
+          if (isIsso53Heating(r.heating_system) && LOSSY_53_TO_51_HEATING_KEYS.has(r.heating_system)) {
+            lossyHeatingCount += 1;
+          }
+          return {
+            ...r,
+            function: mapRoom53To51(state.isso53Rooms[r.id] ?? {
+              gebruiksFunctie: "kantoor" as const,
+              ruimteType: "verblijfsruimte" as const,
+            }),
+            heating_system: mapHeatingSystem(r.heating_system, "isso53", "isso51"),
+          };
+        });
         const newBuildingType = deriveIsso51BuildingTypeFromIsso53(
           state.isso53Building,
         );
@@ -136,6 +178,7 @@ export default function NormSwitchModal({ open, onClose }: NormSwitchModalProps)
             building: {
               ...state.project.building,
               building_type: newBuildingType,
+              default_heating_system: mappedDefault,
             },
           },
           // Reset sidecar — ISSO 53 sidecar is niet meer relevant na de wissel.
@@ -143,6 +186,16 @@ export default function NormSwitchModal({ open, onClose }: NormSwitchModalProps)
           isso53Rooms: {},
           isDirty: true,
         });
+      }
+      if (lossyHeatingCount > 0) {
+        addToast(
+          t("normSwitch.heatingLossy", {
+            count: lossyHeatingCount,
+            defaultValue: `${lossyHeatingCount} verwarmingssyst(e)em(en) zonder norm-equivalent — best-effort gemapt. Controleer per vertrek.`,
+          }),
+          "info",
+          6000,
+        );
       }
 
       // 3. Toast

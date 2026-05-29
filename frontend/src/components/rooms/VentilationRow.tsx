@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 
-import { HEATING_SYSTEM_LABELS, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
+import { getHeatingSystemLabels, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { HeatingSystem, Room } from "../../types";
@@ -28,6 +28,14 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
     () => bblMinimumVentilationRate(room.function, room.floor_area),
     [room.function, room.floor_area],
   );
+
+  // Norm-aware heating-systeem opties (ISSO 51 woningen vs. ISSO 53 utiliteit).
+  const norm = useProjectStore((s) => s.norm);
+  const heatingLabels = useMemo(
+    () => getHeatingSystemLabels(norm === "isso53" ? "isso53" : "isso51"),
+    [norm],
+  );
+  const heatingTableRef = norm === "isso53" ? "ISSO 53 Tabel 2.3" : "ISSO 51 Tabel 2.12";
 
   // Bron-kamer dropdown: alle andere rooms in project (exclude self).
   const allRooms = useProjectStore((s) => s.project.rooms);
@@ -199,12 +207,12 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
           {/* Verwarmingssysteem per vertrek */}
           <label
             className="flex items-center gap-1.5"
-            title="ISSO 51 Tabel 2.12 — bepaalt Δθ₁/Δθ₂/Δθᵥ correcties"
+            title={`${heatingTableRef} — bepaalt Δθ₁/Δθ₂/Δθᵥ correcties`}
           >
             <span className="flex flex-col leading-tight">
               <span className="font-medium text-on-surface-muted">Verwarming</span>
               <span className="text-[10px] text-on-surface-muted">
-                ISSO 51 Tabel 2.12
+                {heatingTableRef}
               </span>
             </span>
             <select
@@ -212,7 +220,7 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
               onChange={handleHeatingSystemChange}
               className="min-w-32 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-xs text-on-surface focus:border-primary focus:outline-none"
             >
-              {Object.entries(HEATING_SYSTEM_LABELS).map(([value, label]) => (
+              {Object.entries(heatingLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

@@ -15,6 +15,9 @@
  */
 import type {
   BuildingType,
+  HeatingSystem,
+  HeatingSystemIsso51,
+  HeatingSystemIsso53,
   Project,
   ProjectResult,
   RoomFunction,
@@ -157,6 +160,115 @@ export function deriveIsso51BuildingTypeFromIsso53(
 ): BuildingType {
   return POSITION_53_TO_BUILDING_TYPE[building53.buildingPosition] ?? "detached";
 }
+
+// ---------------------------------------------------------------------------
+// Mapping HeatingSystem ISSO 51 ↔ ISSO 53
+// ---------------------------------------------------------------------------
+
+/**
+ * ISSO 51 → ISSO 53 verwarmingssysteem-mapping.
+ *
+ * Geforceerd best-effort waar de twee normen niet 1-op-1 overlappen:
+ *   - `ir_panel_wall` / `ir_panel_ceiling` hebben geen IR-categorie in
+ *     ISSO 53 → gemapt op `wandverwarming` / `plafondverwarming`
+ *     (zelfde geometrie, andere fysica, gebruiker moet verifiëren).
+ *   - Beide hoge/lage `floor_heating_main_*` varianten vouwen samen op
+ *     `vloerverwarming` (ISSO 53 onderscheidt geen aanvoertemperatuur).
+ *   - `radiator_ht` mapt op de gecombineerde categorie
+ *     `radiatorenConvHtEnLuchtverwarming` (norm-correct, zelfde Δθ).
+ */
+export const MAP_51_TO_53_HEATING: Record<HeatingSystemIsso51, HeatingSystemIsso53> = {
+  local_gas_heater:               "lokaleVerwarming",
+  ir_panel_wall:                  "wandverwarming",
+  ir_panel_ceiling:               "plafondverwarming",
+  radiator_ht:                    "radiatorenConvHtEnLuchtverwarming",
+  radiator_lt:                    "radiatorenConvLt",
+  ceiling_heating:                "plafondverwarming",
+  wall_heating:                   "wandverwarming",
+  plinth_heating:                 "plintverwarming",
+  floor_heating_with_radiator_ht: "vloerverwarmingPlusHtRadi",
+  floor_heating_with_radiator_lt: "vloerverwarmingPlusLtRadi",
+  floor_heating_main_high:        "vloerverwarming",
+  floor_heating_main_low:         "vloerverwarming",
+  floor_and_wall_heating:         "vloerverwarmingPlusWandverwarming",
+  fan_convector:                  "ventilatorgedrevenConvRadi",
+};
+
+/**
+ * ISSO 53 → ISSO 51 verwarmingssysteem-mapping (best-effort inverse).
+ *
+ * `betonkernactivering` heeft geen ISSO 51-equivalent → terug naar
+ * `floor_heating_main_low` als best-fit (beide low-temperature embedded
+ * heating). User moet verifiëren.
+ */
+export const MAP_53_TO_51_HEATING: Record<HeatingSystemIsso53, HeatingSystemIsso51> = {
+  lokaleVerwarming:                  "local_gas_heater",
+  radiatorenConvHtEnLuchtverwarming: "radiator_ht",
+  radiatorenConvLt:                  "radiator_lt",
+  plafondverwarming:                 "ceiling_heating",
+  wandverwarming:                    "wall_heating",
+  plintverwarming:                   "plinth_heating",
+  vloerverwarmingPlusHtRadi:         "floor_heating_with_radiator_ht",
+  vloerverwarmingPlusLtRadi:         "floor_heating_with_radiator_lt",
+  vloerverwarming:                   "floor_heating_main_low",
+  vloerverwarmingPlusWandverwarming: "floor_and_wall_heating",
+  betonkernactivering:               "floor_heating_main_low",
+  ventilatorgedrevenConvRadi:        "fan_convector",
+};
+
+/** Sets om type-guards goedkoop te maken zonder enum-runtime. */
+const ISSO51_HEATING_KEYS = new Set<string>(Object.keys(MAP_51_TO_53_HEATING));
+const ISSO53_HEATING_KEYS = new Set<string>(Object.keys(MAP_53_TO_51_HEATING));
+
+export function isIsso51Heating(value: HeatingSystem | string | undefined): value is HeatingSystemIsso51 {
+  return typeof value === "string" && ISSO51_HEATING_KEYS.has(value);
+}
+
+export function isIsso53Heating(value: HeatingSystem | string | undefined): value is HeatingSystemIsso53 {
+  return typeof value === "string" && ISSO53_HEATING_KEYS.has(value);
+}
+
+/**
+ * Map een `HeatingSystem`-waarde tussen de twee normen. Wanneer
+ * `fromNorm === toNorm` of de waarde al in de target-set zit, wordt de
+ * waarde ongewijzigd teruggegeven. Onbekende waarden → norm-default
+ * (`radiator_ht` / `radiatorenConvHtEnLuchtverwarming`).
+ */
+export function mapHeatingSystem(
+  value: HeatingSystem | undefined,
+  fromNorm: ActiveNorm,
+  toNorm: ActiveNorm,
+): HeatingSystem {
+  if (fromNorm === toNorm) {
+    if (value !== undefined) return value;
+    return toNorm === "isso53" ? "radiatorenConvHtEnLuchtverwarming" : "radiator_ht";
+  }
+  if (toNorm === "isso53") {
+    if (isIsso53Heating(value)) return value;
+    if (isIsso51Heating(value)) return MAP_51_TO_53_HEATING[value];
+    return "radiatorenConvHtEnLuchtverwarming";
+  }
+  // toNorm === "isso51"
+  if (isIsso51Heating(value)) return value;
+  if (isIsso53Heating(value)) return MAP_53_TO_51_HEATING[value];
+  return "radiator_ht";
+}
+
+/**
+ * ISSO 51-keys die geen norm-equivalent in ISSO 53 hebben en dus een
+ * waarschuwing aan de gebruiker verdienen. UI toont dit bij norm-switch.
+ */
+export const LOSSY_51_TO_53_HEATING_KEYS: ReadonlySet<HeatingSystemIsso51> = new Set([
+  "ir_panel_wall",
+  "ir_panel_ceiling",
+  "floor_heating_main_high",
+  "floor_heating_main_low",
+]);
+
+/** ISSO 53-keys zonder ISSO 51-equivalent. */
+export const LOSSY_53_TO_51_HEATING_KEYS: ReadonlySet<HeatingSystemIsso53> = new Set([
+  "betonkernactivering",
+]);
 
 // ---------------------------------------------------------------------------
 // Back-up
