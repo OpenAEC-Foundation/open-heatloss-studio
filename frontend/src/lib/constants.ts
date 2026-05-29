@@ -130,7 +130,7 @@ export const AGGREGATION_METHOD_LABELS: Record<string, string> = {
 /** Default aggregatiemethode — gelijk aan Rust core `serde(default)`. */
 export const DEFAULT_AGGREGATION_METHOD = "vabi_compat" as const;
 
-/** Heating system labels (NL). */
+/** Heating system labels (NL) voor ISSO 51 (woningen). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",
   ir_panel_wall: "IR paneel (wand)",
@@ -147,3 +147,35 @@ export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   floor_and_wall_heating: "Vloer- + wandverwarming",
   fan_convector: "Fanconvector",
 };
+
+/**
+ * Heating system labels (NL) voor ISSO 53 (utiliteit). camelCase keys
+ * matchen de Rust `crates/isso53-core/src/model/enums.rs::HeatingSystem`
+ * enum. `radiatorenConvHtEnLuchtverwarming` is gecombineerd in de norm —
+ * één Δθ₂-correctie geldt voor zowel HT-radiatoren als luchtverwarming.
+ */
+export const HEATING_SYSTEM_LABELS_ISSO53: Record<string, string> = {
+  lokaleVerwarming: "Lokale verwarming (gaskachel/heater)",
+  radiatorenConvHtEnLuchtverwarming: "Radiator HT / Luchtverwarming (>50°C)",
+  radiatorenConvLt: "Radiator LT (≤50°C)",
+  plafondverwarming: "Plafondverwarming",
+  wandverwarming: "Wandverwarming",
+  plintverwarming: "Plintverwarming",
+  vloerverwarmingPlusHtRadi: "Vloerverw. + radiator HT",
+  vloerverwarmingPlusLtRadi: "Vloerverw. + radiator LT",
+  vloerverwarming: "Vloerverwarming",
+  vloerverwarmingPlusWandverwarming: "Vloer- + wandverwarming",
+  betonkernactivering: "Betonkernactivering",
+  ventilatorgedrevenConvRadi: "Ventilatorgedreven convector",
+};
+
+/**
+ * Geef de juiste verwarmingssysteem-labels terug op basis van de actieve
+ * norm. UI-componenten in zowel ISSO 51- als ISSO 53-context gebruiken
+ * deze helper om de dropdown-opties consistent te filteren.
+ */
+export function getHeatingSystemLabels(
+  norm: "isso51" | "isso53",
+): Record<string, string> {
+  return norm === "isso53" ? HEATING_SYSTEM_LABELS_ISSO53 : HEATING_SYSTEM_LABELS;
+}

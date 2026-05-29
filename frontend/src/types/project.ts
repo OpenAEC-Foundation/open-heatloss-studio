@@ -45,7 +45,12 @@ export type RoomFunction =
   | "attic"
   | "custom";
 
-export type HeatingSystem =
+/**
+ * Verwarmingssysteem-keys voor ISSO 51 (woningen). snake_case, mirror van
+ * de Rust `HeatingSystem` enum in `crates/isso51-core/src/model/enums.rs`.
+ * 14 variants — gebruikt voor Δθ₁/Δθ₂/Δθᵥ correcties (ISSO 51 Tabel 2.12).
+ */
+export type HeatingSystemIsso51 =
   | "local_gas_heater"
   | "ir_panel_wall"
   | "ir_panel_ceiling"
@@ -60,6 +65,40 @@ export type HeatingSystem =
   | "floor_heating_main_low"
   | "floor_and_wall_heating"
   | "fan_convector";
+
+/**
+ * Verwarmingssysteem-keys voor ISSO 53 (utiliteit). camelCase, mirror van
+ * de Rust `HeatingSystem` enum in `crates/isso53-core/src/model/enums.rs`.
+ * 12 variants — gebruikt voor Δθ-correcties (ISSO 53 Tabel 2.3).
+ *
+ * NB: `radiatorenConvHtEnLuchtverwarming` is een gecombineerde categorie
+ * die zowel HT-radiatoren als luchtverwarming dekt (norm-correct, zelfde
+ * Δθ₂ = -1K). Er is geen losse `Luchtverwarming`-variant in ISSO 53.
+ */
+export type HeatingSystemIsso53 =
+  | "lokaleVerwarming"
+  | "radiatorenConvHtEnLuchtverwarming"
+  | "radiatorenConvLt"
+  | "plafondverwarming"
+  | "wandverwarming"
+  | "plintverwarming"
+  | "vloerverwarmingPlusHtRadi"
+  | "vloerverwarmingPlusLtRadi"
+  | "vloerverwarming"
+  | "vloerverwarmingPlusWandverwarming"
+  | "betonkernactivering"
+  | "ventilatorgedrevenConvRadi";
+
+/**
+ * Union van beide norm-specifieke verwarmingssysteem-types. Gebruikt waar
+ * shared code (Building.default_heating_system, Room.heating_system) zowel
+ * een ISSO 51- als een ISSO 53-project moet kunnen vertegenwoordigen.
+ *
+ * UI-componenten moeten de juiste subset filteren via
+ * `getHeatingSystemLabels(norm)` uit `lib/constants.ts`. Norm-switch
+ * mappings in `lib/normSwitch.ts` converteren tussen de twee sets.
+ */
+export type HeatingSystem = HeatingSystemIsso51 | HeatingSystemIsso53;
 
 export type VentilationSystemType =
   | "system_a"

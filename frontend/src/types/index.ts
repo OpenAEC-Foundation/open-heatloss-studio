@@ -10,6 +10,8 @@ export type {
   FrostProtectionType,
   GroundParameters,
   HeatingSystem,
+  HeatingSystemIsso51,
+  HeatingSystemIsso53,
   MaterialType,
   Project,
   ProjectInfo,

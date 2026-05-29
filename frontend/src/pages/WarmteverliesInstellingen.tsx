@@ -22,7 +22,7 @@ import {
   DEFAULT_THETA_WATER,
   FROST_PROTECTION_LABELS,
   FROST_PROTECTION_SUPPLY_TEMP,
-  HEATING_SYSTEM_LABELS,
+  getHeatingSystemLabels,
   SECURITY_CLASS_LABELS,
 } from "../lib/constants";
 import type {
@@ -35,7 +35,8 @@ import type {
 } from "../types";
 
 const BULK_APPLY_CONFIRM_THRESHOLD = 5;
-const DEFAULT_HEATING_SYSTEM: HeatingSystem = "radiator_ht";
+const DEFAULT_HEATING_SYSTEM_ISSO51: HeatingSystem = "radiator_ht";
+const DEFAULT_HEATING_SYSTEM_ISSO53: HeatingSystem = "radiatorenConvHtEnLuchtverwarming";
 
 function toOptions(labels: Record<string, string>) {
   return Object.entries(labels).map(([value, label]) => ({ value, label }));
@@ -62,6 +63,22 @@ export function WarmteverliesInstellingen() {
   const addToast = useToastStore((s) => s.addToast);
 
   const { building, climate, ventilation } = project;
+
+  // Norm-aware afgeleide constanten — bepalen welke verwarmingssysteem-
+  // set en welke labels we tonen, en welke tabel-tooltip de norm-referentie
+  // krijgt. Default verwarmingssysteem volgt de norm-specifieke fallback.
+  const isIsso53 = norm === "isso53";
+  const heatingLabels = getHeatingSystemLabels(isIsso53 ? "isso53" : "isso51");
+  const defaultHeatingSystem = isIsso53
+    ? DEFAULT_HEATING_SYSTEM_ISSO53
+    : DEFAULT_HEATING_SYSTEM_ISSO51;
+  const heatingTableRef = isIsso53 ? "ISSO 53 Tabel 2.3" : "ISSO 51 Tabel 2.12";
+  const neighbourResidentialLabel = isIsso53
+    ? "Buurgebouw θ_b (verwarmd)"
+    : "Buurwoning θ_b (wonen)";
+  const neighbourNonResidentialLabel = isIsso53
+    ? "Buurgebouw θ_b (onverwarmd)"
+    : "Buurwoning θ_b (overig)";
 
   const updateBuilding = useCallback(
     (partial: Partial<Building>) => {
@@ -107,7 +124,10 @@ export function WarmteverliesInstellingen() {
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
   const title = t("warmteverliesInstellingen.title", "Warmteverlies-instellingen");
-  const subtitle = t("warmteverliesInstellingen.subtitle", "ISSO 51:2023 parameters");
+  const subtitle = t(
+    "warmteverliesInstellingen.subtitle",
+    isIsso53 ? "ISSO 53:2024 parameters" : "ISSO 51:2023 parameters",
+  );
 
   return (
     <div>
@@ -142,7 +162,7 @@ export function WarmteverliesInstellingen() {
               </div>
               <p className="mt-1 text-[11px] leading-tight text-on-surface-muted">
                 Wisselen converteert je projectdata en maakt een backup.
-                Mixed-use (woning + utiliteit) wordt niet ondersteund.
+                Eén project kan slechts één rekennorm hanteren.
               </p>
             </div>
             <Button variant="secondary" onClick={openNormSwitch}>
@@ -225,8 +245,8 @@ export function WarmteverliesInstellingen() {
               <Select
                 id="default_heating_system"
                 label="Standaard verwarmingssysteem"
-                value={building.default_heating_system ?? DEFAULT_HEATING_SYSTEM}
-                options={toOptions(HEATING_SYSTEM_LABELS)}
+                value={building.default_heating_system ?? defaultHeatingSystem}
+                options={toOptions(heatingLabels)}
                 onChange={(e) =>
                   updateBuilding({
                     default_heating_system: e.target.value as HeatingSystem,
@@ -236,7 +256,7 @@ export function WarmteverliesInstellingen() {
               <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
                 Wordt gebruikt bij nieuwe vertrekken. Gebruik de knop hieronder
                 om dit systeem op alle bestaande vertrekken toe te passen.
-                Bepaalt Δθ₁/Δθ₂/Δθᵥ correcties (ISSO 51 Tabel 2.12).
+                Bepaalt Δθ₁/Δθ₂/Δθᵥ correcties ({heatingTableRef}).
               </p>
             </div>
           </div>
@@ -255,14 +275,14 @@ export function WarmteverliesInstellingen() {
               size="sm"
               onClick={() => {
                 const system =
-                  building.default_heating_system ?? DEFAULT_HEATING_SYSTEM;
+                  building.default_heating_system ?? defaultHeatingSystem;
                 const count = project.rooms.length;
                 if (count === 0) {
                   addToast("Geen vertrekken om aan te passen", "info", 2000);
                   return;
                 }
                 if (count > BULK_APPLY_CONFIRM_THRESHOLD) {
-                  const label = HEATING_SYSTEM_LABELS[system] ?? system;
+                  const label = heatingLabels[system] ?? system;
                   if (
                     !window.confirm(
                       `Weet je zeker dat je "${label}" wilt toepassen op alle ${count} vertrekken? Dit overschrijft eventuele per-vertrek afwijkingen.`,
@@ -347,7 +367,7 @@ export function WarmteverliesInstellingen() {
             />
             <Input
               id="theta_b_res"
-              label="Buurwoning θ_b (wonen)"
+              label={neighbourResidentialLabel}
               type="number"
               unit="°C"
               value={climate.theta_b_residential ?? 17}
@@ -355,7 +375,7 @@ export function WarmteverliesInstellingen() {
             />
             <Input
               id="theta_b_nonres"
-              label="Buurwoning θ_b (overig)"
+              label={neighbourNonResidentialLabel}
               type="number"
               unit="°C"
               value={climate.theta_b_non_residential ?? 14}
