@@ -49,9 +49,9 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 ### Blokkades
 
 - [ ] **Alle test-fixtures aanwezig**
-  - [ ] TO-juli Vabi-cross-validatie fixtures (scaffold staat in `51dc6ae`, referentie-PDF in `tests/references/dr-engineering-koellast-woningbouw-2024.pdf`)
   - [x] Spoor 4 fixture-bundeling completeren — Bedrijfsruimte4 en 1.10a gedecomposeerd naar 1-op-1 Vabi-mapping, beide `#[ignore]` weg (sessie 14, 2026-05-29)
   - [ ] ISSO 53 batch 2d norm-verificatie afronden (infrastructuur klaar, verificatie pending)
+  - _TO-juli Vabi-cross-validatie fixtures verschoven naar v1.1 (geen Vabi TO-juli PDF beschikbaar, sessie 14)_
 
 - [ ] **Alle tests groen**
   - [ ] `cargo test` workspace — alle crates passend (isso51-core, isso53-core, nta8800-cooling, vabi-importer, ifcx)
@@ -65,9 +65,17 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
   - [x] Geen `TODO:` of `FIXME:` in `crates/isso53-core/` en isso53-gerelateerde frontend code (commit `40b905c`, 2026-05-28)
 
 - [ ] **TO-juli productie-klaar**
-  - [ ] Vabi-cross-validatie groen op referentie-project
   - [ ] UI-flow `/tojuli` + `/tojuli-full` getest door user
-  - [ ] PDF-rapport TO-juli verifieerbaar tegen Vabi-uitvoer
+  - _Vabi-cross-validatie groen op referentie-project — verschoven naar v1.1 (geen Vabi TO-juli PDF beschikbaar, sessie 14)_
+  - _PDF-rapport TO-juli verifieerbaar tegen Vabi-uitvoer — verschoven naar v1.1 (sessie 14)_
+
+### v1.1 doelen (post-v1.0)
+
+- [ ] TO-juli Vabi-cross-validatie fixture vullen wanneer Vabi BENG/TO-juli PDF beschikbaar is (folder `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/`)
+- [ ] TO-juli PDF-rapport cross-val tegen Vabi-uitvoer
+- [ ] Utiliteitsbouw peak-koellast fixture invullen wanneer peak-cooling engine af is
+- [ ] 3 BENG-fixtures uit RVO voorbeeldconcepten (Tussenwoning M, Hoekwoning M, Vrijstaande M)
+- [ ] ISSO 54 testset (optioneel, BRL 9501 attestering)
 
 ### Release-actie wanneer alles ✅
 1. Versie bump → `1.0.0` in `Cargo.toml` workspace + `frontend/package.json` + `src-tauri/tauri.conf.json`
