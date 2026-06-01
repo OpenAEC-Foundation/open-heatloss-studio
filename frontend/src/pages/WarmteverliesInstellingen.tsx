@@ -10,7 +10,7 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { useNormSwitch } from "../components/layout/NormSwitchContext";
 import { VentilationPanel } from "../components/projectSetup/VentilationPanel";
 import { useProjectStore } from "../store/projectStore";
-import { formatArea } from "../lib/formatNumber";
+import { formatArea, formatDecimals } from "../lib/formatNumber";
 import { useRunCalculation } from "../hooks/useRunCalculation";
 import { useToastStore } from "../store/toastStore";
 import {
@@ -439,7 +439,7 @@ export function WarmteverliesInstellingen() {
                 <div className="rounded-md bg-[var(--oaec-accent-soft)] px-3 py-2 text-sm">
                   <span className="text-on-surface-muted">ΔT ventilatie: </span>
                   <span className="font-semibold tabular-nums">
-                    {20 - (ventilation.supply_temperature ?? FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ?? 10)}
+                    {formatDecimals(20 - (ventilation.supply_temperature ?? FROST_PROTECTION_SUPPLY_TEMP[ventilation.frost_protection ?? "unknown"] ?? 10))}
                   </span>
                   <span className="text-on-surface-muted"> K</span>
                   <span className="ml-2 text-xs text-on-surface-muted">(bij θ_i = 20°C)</span>

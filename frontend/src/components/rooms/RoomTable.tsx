@@ -51,30 +51,30 @@ export function RoomTable() {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-[var(--oaec-border)]">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-surface-alt">
           <tr className="border-b-2 border-[var(--oaec-border)] text-left text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
             <th className="w-[140px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Vertrek</th>
-            <th className="w-[200px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Functie</th>
-            <th className="w-[70px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
+            <th className="w-[280px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Functie</th>
+            <th className="w-[60px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               {"θ"}i
             </th>
-            <th className="w-[80px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
+            <th className="w-[78px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               A<sub>v</sub> [m{"²"}]
             </th>
-            <th className="w-[70px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
+            <th className="w-[60px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               h [m]
             </th>
-            <th className="w-[60px] px-2 py-2">Grensvlak</th>
-            <th className="w-[160px] px-2 py-2">Type</th>
-            <th className="w-[80px] px-2 py-2 text-right">
+            <th className="w-[460px] px-2 py-2">Grensvlak</th>
+            <th className="w-[140px] px-2 py-2">Type</th>
+            <th className="w-[78px] px-2 py-2 text-right">
               A [m{"²"}]
             </th>
-            <th className="w-[90px] px-2 py-2 text-right">
+            <th className="w-[88px] px-2 py-2 text-right">
               U [W/m{"²"}K]
             </th>
-            <th className="w-[80px] px-2 py-2">Pos.</th>
-            <th className="w-[36px] px-1 py-2" />
+            <th className="w-[76px] px-2 py-2">Pos.</th>
+            <th className="w-[34px] px-1 py-2" />
           </tr>
         </thead>
         <tbody>
