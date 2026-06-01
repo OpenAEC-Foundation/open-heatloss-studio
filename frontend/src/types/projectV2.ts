@@ -176,15 +176,18 @@ export interface Iso51Inputs {
 
 /**
  * ISSO 53 utility-warmteverlies inputs. Parallel aan `Iso51Inputs` — bevat
- * (transitional) een volledige ISSO 53 project-JSON onder `legacy`, identiek
- * patroon als bij ISSO 51. Velden worden in latere fasen uitgesplitst.
+ * (transitional) een volledige ISSO 53 project-JSON. Velden worden in latere
+ * fasen uitgesplitst.
  *
  * Rust spiegel: `openaec_project_shared::calcs::Iso53Inputs` met
- * `#[serde(flatten)] pub legacy: serde_json::Value`.
+ * `#[serde(flatten)] pub legacy: serde_json::Value`. Door de `flatten`
+ * verschijnen de projectvelden (`info`, `building`, `climate`, …) INLINE
+ * direct onder `calcs.isso53` — er is GEEN `legacy`-wrapper-key op de wire.
+ * Daarom is dit type een vlakke record van die inline velden, niet
+ * `{ legacy: ... }` (die wrapper veroorzaakte een `missing field 'info'`
+ * deserialisatie-fout aan de Rust-kant).
  */
-export interface Iso53Inputs {
-  legacy: Record<string, unknown>;
-}
+export type Iso53Inputs = Record<string, unknown>;
 
 export interface TojuliInputs {
   quick_check?: Record<string, unknown> | null;

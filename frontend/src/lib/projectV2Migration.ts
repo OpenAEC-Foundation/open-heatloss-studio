@@ -347,17 +347,19 @@ export function buildV2Payload(
  * Bouw een V2-payload voor een ISSO 53-project. Identiek aan
  * {@link buildV2Payload} qua `shared`/`geometry`, maar de `calcs`-sectie
  * activeert ISSO 53: `isso51` en `tojuli` zijn `null`, en `isso53` bevat de
- * door {@link toIsso53LegacyProject} getransformeerde legacy-blob.
+ * door {@link toIsso53LegacyProject} getransformeerde ISSO 53-projectvelden.
  *
  * Omdat alleen `isso53` gevuld is, geeft de Rust `Calcs::active_norm()`
  * `ActiveNorm::Isso53` terug (zie
  * `crates/openaec-project-shared/src/calcs.rs`).
  *
- * De `legacy`-wrapper-key spiegelt de TS `Iso53Inputs`-shape
- * (`{ legacy: Record<string, unknown> }`). Aan de Rust-kant is
- * `Iso53Inputs.legacy` `#[serde(flatten)]`, dus de ISSO 53-velden
- * verschijnen op de wire inline onder `calcs.isso53` — de wrapper-key is
- * puur een TS-/serde-detail en verdwijnt bij (de)serialisatie.
+ * De ISSO 53-projectvelden (`info`, `building`, `climate`, …) staan op de
+ * wire INLINE direct onder `calcs.isso53` — GEEN `legacy`-wrapper-key. Dit
+ * spiegelt de Rust `Iso53Inputs { #[serde(flatten)] legacy: Value }`: serde
+ * flatten verzamelt de inline sibling-velden in `legacy` en
+ * `to_isso53_project` deserialiseert die als `Project`. Een wrapper-key zou
+ * door flatten NIET worden ontwikkeld (de wrapper-object zélf wordt dan de
+ * blob → `Project` mist `info` → deserialisatie faalt).
  */
 export function buildV2PayloadIsso53(
   project: Project,
@@ -370,7 +372,7 @@ export function buildV2PayloadIsso53(
     ...base,
     calcs: {
       isso51: null,
-      isso53: { legacy: toIsso53LegacyProject(project, isso53Building, isso53Rooms) },
+      isso53: toIsso53LegacyProject(project, isso53Building, isso53Rooms),
       tojuli: null,
     },
   };
