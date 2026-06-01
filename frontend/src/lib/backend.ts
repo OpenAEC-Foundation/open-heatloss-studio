@@ -5,6 +5,8 @@ import type {
   ProjectSummary,
   ProjectResponse,
 } from "../types";
+import type { Isso53ProjectResult } from "../types/isso53Result";
+import type { ProjectV2 } from "../types/projectV2";
 import { API_PREFIX } from "./constants";
 
 /** IFC import result from the Python sidecar. */
@@ -70,6 +72,12 @@ export interface IfcSidecarResult {
 /** Backend interface — same API for web (fetch) and Tauri (invoke). */
 export interface Backend {
   calculate(project: Project): Promise<ProjectResult>;
+  /**
+   * Norm-routerende calculatie (ISSO 51/53/TO-juli) via de V2-payload.
+   * Routeert backend-side op `active_norm()`. Returnt het ISSO 53-resultaat
+   * wanneer de payload op die norm staat (de enige consumer in fase 3).
+   */
+  calculateV2(project: ProjectV2): Promise<Isso53ProjectResult>;
   getSchema(name: "project" | "result"): Promise<unknown>;
   /** Import IFC via native sidecar (Tauri only). Returns null in web mode. */
   importIfc?(filePath: string): Promise<IfcSidecarResult>;
@@ -108,6 +116,11 @@ export function createBackend(): Backend {
         ? createTauriBackend().calculate(project)
         : createWebBackend().calculate(project);
     },
+    async calculateV2(project) {
+      return isTauri()
+        ? createTauriBackend().calculateV2(project)
+        : createWebBackend().calculateV2(project);
+    },
     async getSchema(name) {
       return isTauri()
         ? createTauriBackend().getSchema(name)
@@ -138,6 +151,19 @@ function createWebBackend(): Backend {
       return res.json() as Promise<ProjectResult>;
     },
 
+    async calculateV2(project) {
+      const res = await fetch(`${API_PREFIX}/calculate_v2`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error((err as { detail?: string }).detail ?? "Berekening mislukt");
+      }
+      return res.json() as Promise<Isso53ProjectResult>;
+    },
+
     async getSchema(name) {
       const res = await fetch(`${API_PREFIX}/schemas/${name}`);
       if (!res.ok) {
@@ -158,6 +184,10 @@ function createTauriBackend(): Backend {
   return {
     async calculate(project) {
       return invokeAsync<ProjectResult>("calculate", { project });
+    },
+
+    async calculateV2(project) {
+      return invokeAsync<Isso53ProjectResult>("calculate_v2", { project });
     },
 
     async getSchema(name) {

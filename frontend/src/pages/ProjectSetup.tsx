@@ -11,6 +11,7 @@ import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
 import { exportIfcEnergy, openProjectFile, extractAndLinkConstructions } from "../lib/importExport";
+import type { ProjectResult } from "../types";
 import { prepareProjectForCalculation } from "../lib/frameOverride";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
@@ -79,7 +80,7 @@ export function ProjectSetup() {
 
   const handleExport = useCallback(() => {
     const { result } = useProjectStore.getState();
-    exportIfcEnergy(project, result);
+    exportIfcEnergy(project, result as ProjectResult | null);
   }, [project]);
 
   const handleImportFile = useCallback(

@@ -22,6 +22,7 @@ import ExtensionManagerPanel from "./ExtensionManagerPanel";
 import NormChoiceModal from "./NormChoiceModal";
 import RecentFilesPanel from "./RecentFilesPanel";
 import type { ActiveNorm } from "../../types/projectV2";
+import type { ProjectResult } from "../../types";
 import "./Backstage.css";
 
 const ICONS = {
@@ -449,7 +450,11 @@ export default function Backstage({
           }
           targetPath = await join(folder, `${safe}.ifcenergy`);
         }
-        const writtenPath = await exportIfcEnergy(project, result, targetPath);
+        const writtenPath = await exportIfcEnergy(
+          project,
+          result as ProjectResult | null,
+          targetPath,
+        );
         if (writtenPath) {
           useProjectStore.getState().setCurrentLocalPath(writtenPath);
         }
@@ -495,7 +500,11 @@ export default function Backstage({
   const handleSaveAsLocal = useCallback(async () => {
     // "Opslaan als" → altijd save-as dialog, ook als currentLocalPath bekend.
     try {
-      const writtenPath = await exportIfcEnergy(project, result, undefined);
+      const writtenPath = await exportIfcEnergy(
+        project,
+        result as ProjectResult | null,
+        undefined,
+      );
       if (writtenPath) {
         useProjectStore.getState().setCurrentLocalPath(writtenPath);
       }

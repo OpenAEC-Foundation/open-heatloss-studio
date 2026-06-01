@@ -27,6 +27,7 @@ import { useProjectStore } from "../store/projectStore";
 import { useModellerToolStore } from "../store/modellerToolStore";
 import { useAllConstructions } from "../hooks/useAllConstructions";
 import { openProjectFile, exportIfcEnergy, extractAndLinkConstructions } from "../lib/importExport";
+import type { ProjectResult } from "../types";
 import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
@@ -406,7 +407,7 @@ export function Modeller() {
 
   const handleExportJson = useCallback(() => {
     const { project, result } = useProjectStore.getState();
-    exportIfcEnergy(project, result);
+    exportIfcEnergy(project, result as ProjectResult | null);
     addToast("Project geexporteerd als .ifcenergy", "success");
   }, [addToast]);
 

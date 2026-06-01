@@ -26,6 +26,7 @@ import {
   buildIfcEnergyDocument,
   serializeIfcEnergy,
 } from "../../lib/ifcenergy";
+import type { ProjectResult } from "../../types";
 
 // ───────────────────────────────────────────────────────────────────
 // Syntax highlighting for STEP lines (verbatim van OCS)
@@ -262,7 +263,7 @@ export const IfcPreview: React.FC = () => {
   const ifcxContent = useMemo(() => {
     const doc = buildIfcEnergyDocument({
       project,
-      result,
+      result: result as ProjectResult | null,
       modeller: {
         rooms: modellerState.rooms,
         windows: modellerState.windows,

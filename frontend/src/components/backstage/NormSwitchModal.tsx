@@ -22,6 +22,7 @@ import {
   DEFAULT_ISSO53_ROOM,
 } from "../../types/projectV2";
 import type { ActiveNorm } from "../../types/projectV2";
+import type { ProjectResult } from "../../types";
 import "./NormChoiceModal.css";
 import "./NormSwitchModal.css";
 
@@ -105,7 +106,7 @@ export default function NormSwitchModal({ open, onClose }: NormSwitchModalProps)
       // 1. Back-up
       const backupPath = await writeNormSwitchBackup({
         project: state.project,
-        result: state.result,
+        result: state.result as ProjectResult | null,
         currentNorm: state.norm,
         currentLocalPath: state.currentLocalPath,
         isso53Building: state.isso53Building,

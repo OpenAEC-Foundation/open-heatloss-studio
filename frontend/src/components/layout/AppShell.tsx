@@ -11,6 +11,7 @@ import {
 import { useProjectStore } from "../../store/projectStore";
 import { useToastStore } from "../../store/toastStore";
 import { useRecentFilesStore } from "../../store/recentFilesStore";
+import type { ProjectResult } from "../../types";
 import i18next from "../../i18n/config";
 import { getSetting } from "../../tauriStore";
 import { useModellerStore } from "../modeller/modellerStore";
@@ -229,7 +230,7 @@ export function AppShell({ children }: AppShellProps) {
       }
       const writtenPath = await exportIfcEnergy(
         state.project,
-        state.result,
+        state.result as ProjectResult | null,
         targetPath,
       );
       if (writtenPath) {
@@ -277,7 +278,7 @@ export function AppShell({ children }: AppShellProps) {
         // currentLocalPath bekend is. Update pad na succesvolle save.
         e.preventDefault();
         const state = useProjectStore.getState();
-        exportIfcEnergy(state.project, state.result, undefined)
+        exportIfcEnergy(state.project, state.result as ProjectResult | null, undefined)
           .then((writtenPath) => {
             if (writtenPath) {
               useProjectStore.getState().setCurrentLocalPath(writtenPath);

@@ -9,6 +9,7 @@ import { useReportStore } from "../../store/reportStore";
 import { useModellerStore } from "../modeller/modellerStore";
 import { buildReportData } from "../../lib/reportBuilder";
 import { buildIsso53Report } from "../../lib/isso53ReportBuilder";
+import type { ProjectResult } from "../../types";
 import type { Isso53ProjectResult } from "../../types/isso53Result";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
@@ -58,7 +59,7 @@ export default function RapportTab() {
             )
           : await buildReportData(
               project,
-              result,
+              result as ProjectResult,
               projectConstructions,
               sections,
             );

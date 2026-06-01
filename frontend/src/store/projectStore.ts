@@ -9,6 +9,7 @@ import type {
   ProjectResult,
   Room,
 } from "../types";
+import type { Isso53ProjectResult } from "../types/isso53Result";
 import {
   DEFAULT_ISSO53_BUILDING,
   DEFAULT_ISSO53_ROOM,
@@ -92,8 +93,12 @@ interface ProjectStore {
    * op `room.id`. Alleen actief wanneer `norm === "isso53"`.
    */
   isso53Rooms: Record<string, Isso53RoomState>;
-  /** Calculation result (null if not yet calculated). */
-  result: ProjectResult | null;
+  /**
+   * Calculation result (null if not yet calculated). Houdt een ISSO 51
+   * (`ProjectResult`) of ISSO 53 (`Isso53ProjectResult`) resultaat —
+   * consumers discrimineren op `norm`, niet op het result-shape zelf.
+   */
+  result: ProjectResult | Isso53ProjectResult | null;
   /** Error message from last calculation attempt. */
   error: string | null;
   /** Whether a calculation is in progress. */
@@ -155,7 +160,7 @@ interface ProjectStore {
   /** Set the local filesystem path (or clear with null on New). */
   setCurrentLocalPath: (path: string | null) => void;
   /** Set the calculation result. */
-  setResult: (result: ProjectResult) => void;
+  setResult: (result: ProjectResult | Isso53ProjectResult) => void;
   /** Set an error from a failed calculation. */
   setError: (error: string) => void;
   /** Clear the current error. */
