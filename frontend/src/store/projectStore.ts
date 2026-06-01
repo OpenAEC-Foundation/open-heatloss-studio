@@ -327,13 +327,14 @@ export const useProjectStore = create<ProjectStore>()(
       },
 
       setProject: (project) =>
-        set({
+        set((state) => ({
           project,
           sharedExtra: { ...DEFAULT_SHARED_EXTRA },
-          // Detecteer de norm uit de verwarmings-shape: een geladen ISSO 53-
-          // project (camelCase heating-waarden) mag niet teruggeforceerd
-          // worden naar ISSO 51, anders crasht de ISSO 51-rekenkern.
-          norm: detectNormFromProject(project),
+          // Import mag de norm NOOIT downgraden. Is het geïmporteerde project
+          // duidelijk ISSO 53 → switch naar ISSO 53. Anders behoud de huidige
+          // gekozen norm: een gebruiker in ISSO 53-modus die een isso51-vormig
+          // bestand importeert wil niet teruggezet worden naar ISSO 51.
+          norm: detectNormFromProject(project) === "isso53" ? "isso53" : state.norm,
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
           isDirty: true,
@@ -345,7 +346,7 @@ export const useProjectStore = create<ProjectStore>()(
           currentLocalPath: null,
           _past: [],
           _future: [],
-        }),
+        })),
 
       loadServerProject: (id, project, result, updatedAt) =>
         set({
