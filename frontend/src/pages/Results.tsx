@@ -32,7 +32,6 @@ function fmt2(value: number): string {
 }
 
 export function Results() {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { project, result } = useProjectStore();
   const norm = useProjectStore((s) => s.norm);
@@ -103,10 +102,22 @@ export function Results() {
     );
   }
 
-  // Fase 3: de store kan nu ook een Isso53ProjectResult houden, maar de
-  // rendering hieronder gaat nog uit van het ISSO 51 result-shape. De
-  // norm-aware splitsing van deze tabel/summary volgt in fase 4 — voor nu
-  // narrowen we naar ProjectResult zodat het bestaande pad blijft compileren.
+  // Fase 4: norm-aware splitsing. Bij ISSO 53 rendert een eigen tabel +
+  // gebouw-samenvatting op basis van het echte Isso53ProjectResult-shape
+  // (zonder isso51-charts). Het ISSO 51-pad hieronder blijft ongewijzigd.
+  if (norm === "isso53") {
+    return (
+      <Isso53Results
+        result={result as Isso53ProjectResult}
+        isGenerating={isGenerating}
+        onGenerateReport={handleGenerateReport}
+        onExport={handleExport}
+        onBack={() => navigate("/project")}
+      />
+    );
+  }
+
+  // ISSO 51-pad: result is hier gegarandeerd het ProjectResult-shape.
   const { summary, rooms } = result as ProjectResult;
 
   // Gebouwtotalen — onafhankelijk van norm (geldt voor zowel ISSO 51 als 53).
@@ -336,19 +347,9 @@ export function Results() {
                   &Phi;_T
                   <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Transmissie</span>
                 </Th>
-                <Th
-                  className={
-                    norm === "isso53"
-                      ? "border-l-2 border-[var(--oaec-border)] bg-[var(--oaec-hover)] text-right font-bold"
-                      : "text-right"
-                  }
-                >
-                  {norm === "isso53" ? t("isso53.results.phiI") : "Φ_i"}
-                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
-                    {norm === "isso53"
-                      ? t("isso53.results.phiIDescription")
-                      : "Infiltratie"}
-                  </span>
+                <Th className="text-right">
+                  &Phi;_i
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">Infiltratie</span>
                 </Th>
                 <Th className="text-right">
                   &Phi;_v
@@ -382,16 +383,7 @@ export function Results() {
                   <Td className="font-medium">{room.room_name}</Td>
                   <Td numeric>{fmt2(room.theta_i)} &deg;C</Td>
                   <Td numeric>{fmtW(room.transmission.phi_t)}</Td>
-                  <Td
-                    numeric
-                    className={
-                      norm === "isso53"
-                        ? "border-l-2 border-[var(--oaec-border)] bg-[var(--oaec-hover)] font-semibold"
-                        : ""
-                    }
-                  >
-                    {fmtW(room.infiltration.phi_i)}
-                  </Td>
+                  <Td numeric>{fmtW(room.infiltration.phi_i)}</Td>
                   <Td numeric>{fmtW(room.ventilation.phi_v)}</Td>
                   <Td numeric>{fmtW(room.heating_up.phi_hu)}</Td>
                   <Td numeric>{fmtW(room.system_losses.phi_system_total)}</Td>
@@ -453,6 +445,197 @@ function DetailRow({ label, value, description }: { label: React.ReactNode; valu
         {description && <span className="block text-[10px] leading-tight text-on-surface-muted">{description}</span>}
       </dt>
       <dd className="shrink-0 font-mono text-on-surface">{value}</dd>
+    </div>
+  );
+}
+
+/** ISSO 53 resultatenweergave — per-vertrek tabel + gebouw-samenvatting.
+ *
+ * MVP: geen charts (de bestaande isso51-charts verwachten het isso51-shape).
+ * Toont uitsluitend de echte velden uit `Isso53ProjectResult`.
+ */
+function Isso53Results({
+  result,
+  isGenerating,
+  onGenerateReport,
+  onExport,
+  onBack,
+}: {
+  result: Isso53ProjectResult;
+  isGenerating: boolean;
+  onGenerateReport: () => void;
+  onExport: () => void;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  const { rooms, summary } = result;
+  const maatgevend = Math.max(
+    summary.connectionCapacityIndividual,
+    summary.connectionCapacityCollective,
+  );
+
+  return (
+    <div>
+      <PageHeader
+        title="Resultaten"
+        subtitle={`ISSO 53 · ${rooms.length} vertrekken`}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="primary" onClick={onGenerateReport} disabled={isGenerating}>
+              {isGenerating ? "Genereren..." : "Genereer rapport"}
+            </Button>
+            <Button variant="ghost" onClick={onExport}>
+              Export JSON
+            </Button>
+            <Button variant="secondary" onClick={onBack}>
+              Terug naar project
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="space-y-6 p-6">
+        {/* Gebouw-samenvatting metric cards */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(maatgevend)}</div>
+            <div className="metric-card-label">{t("isso53.results.connectionCapacity")}</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">
+              {t("isso53.results.connectionCapacityDescription")}
+            </div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalBuildingHeatLoss)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalBuildingHeatLoss")}</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">
+              {t("isso53.results.totalBuildingHeatLossDescription")}
+            </div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalTransmissionLoss)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalTransmissionLoss")}</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">
+              {t("isso53.results.totalTransmissionLossDescription")}
+            </div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmt2(summary.infiltrationReductionFactorZ)}</div>
+            <div className="metric-card-label">{t("isso53.results.infiltrationReductionFactorZ")}</div>
+            <div className="mt-0.5 text-[10px] leading-tight text-on-surface-muted">
+              {t("isso53.results.infiltrationReductionFactorZDescription")}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-4">
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalVentilationLoss)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalVentilationLoss")}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalInfiltrationLoss)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalInfiltrationLoss")}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalHeatingUp)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalHeatingUp")}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-card-value">{fmtW(summary.totalSystemLosses)}</div>
+            <div className="metric-card-label">{t("isso53.results.totalSystemLosses")}</div>
+          </div>
+        </div>
+
+        {/* Aansluitvermogen detail */}
+        <Card title={t("isso53.results.connectionTitle")}>
+          <dl className="grid grid-cols-3 gap-6 text-sm">
+            <DetailRow
+              label={t("isso53.results.connectionIndividual")}
+              value={fmtW(summary.connectionCapacityIndividual)}
+            />
+            <DetailRow
+              label={t("isso53.results.connectionCollective")}
+              value={fmtW(summary.connectionCapacityCollective)}
+            />
+            <DetailRow
+              label={t("isso53.results.shellHeatLoss")}
+              value={fmtW(summary.shellHeatLoss)}
+            />
+          </dl>
+        </Card>
+
+        {/* Per-vertrek tabel */}
+        <Card title={t("isso53.results.roomTableTitle")}>
+          <Table>
+            <thead>
+              <tr>
+                <Th>
+                  {t("isso53.results.colRoom")}
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colRoomDescription")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &theta;_i
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colThetaI")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_T
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colPhiT")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_v
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colPhiV")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_i
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colPhiI")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_hu
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colPhiHu")}
+                  </span>
+                </Th>
+                <Th className="text-right">
+                  &Phi;_sys
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colPhiSystem")}
+                  </span>
+                </Th>
+                <Th className="text-right font-bold">
+                  &Phi;_HL
+                  <span className="block text-[10px] font-normal normal-case tracking-normal text-on-surface-muted">
+                    {t("isso53.results.colTotal")}
+                  </span>
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.map((room) => (
+                <tr key={room.roomId} className="hover:bg-[var(--oaec-hover)]">
+                  <Td className="font-medium">{room.roomName}</Td>
+                  <Td numeric>{fmt2(room.thetaI)} &deg;C</Td>
+                  <Td numeric>{fmtW(room.phiT)}</Td>
+                  <Td numeric>{fmtW(room.phiV)}</Td>
+                  <Td numeric>{fmtW(room.phiI)}</Td>
+                  <Td numeric>{fmtW(room.phiHu)}</Td>
+                  <Td numeric>{fmtW(room.phiSystem)}</Td>
+                  <Td numeric className="font-bold">{fmtW(room.totalHeatLoss)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      </div>
     </div>
   );
 }
