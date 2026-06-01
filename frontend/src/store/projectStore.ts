@@ -18,6 +18,7 @@ import {
   DEFAULT_ISSO53_BUILDING,
   DEFAULT_ISSO53_ROOM,
   DEFAULT_SHARED_EXTRA,
+  normalizeIsso53HeatingUp,
   type ActiveNorm,
   type Isso53BuildingState,
   type Isso53RoomState,
@@ -631,9 +632,17 @@ export const useProjectStore = create<ProjectStore>()(
         // Silent migration voor gepersisteerde projecten van vóór fase 2.
         norm: (persisted as Partial<ProjectStore>)?.norm ?? "isso51",
         // Silent migration voor projecten van vóór fase 3 (geen ISSO 53 sidecar).
-        isso53Building:
-          (persisted as Partial<ProjectStore>)?.isso53Building ??
-          current.isso53Building,
+        // Plus §4.8-migratie: normaliseer de heatingUp-blob (vervallen
+        // pWPerM2/warmupMinutes → pWPerM2Override + defaults).
+        isso53Building: (() => {
+          const persistedBuilding = (persisted as Partial<ProjectStore>)
+            ?.isso53Building;
+          if (!persistedBuilding) return current.isso53Building;
+          return {
+            ...persistedBuilding,
+            heatingUp: normalizeIsso53HeatingUp(persistedBuilding.heatingUp),
+          };
+        })(),
         isso53Rooms:
           (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
         isDirty: false,

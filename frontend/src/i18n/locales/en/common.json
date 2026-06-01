@@ -154,11 +154,27 @@
       "thetaMe": "Annual mean outdoor temp. θ_me",
       "thetaMeHint": "ISSO 53 default is 9 °C",
       "qv10Class": "Air permeability class q_v10;kar",
-      "heatingUpTitle": "Night setback / heating-up supplement",
-      "setbackActive": "Night setback active",
-      "heatingUpSupplement": "Heating-up supplement P",
-      "heatingUpSupplementHint": "ISSO 53 §4.8 — P value from thermal mass × warm-up time (PDF p.51-53)",
-      "warmupMinutes": "Warm-up time",
+      "heatingUpTitle": "Intermittent-operation supplement (§4.8)",
+      "setbackActive": "Intermittent operation active",
+      "coolingRegime": "Cooling regime",
+      "coolingRegimeOptions": {
+        "free": "Free cooling (table 4.13)",
+        "limited": "Limited cooling (table 4.14)"
+      },
+      "airChanges": "Air changes during cooling",
+      "airChangeOptions": {
+        "low": "0.1 (windows/doors closed, system off)",
+        "high": "0.5"
+      },
+      "warmupHoursWeekday": "Warm-up time weekday",
+      "warmupHoursWeekend": "Warm-up time after weekend",
+      "setbackHoursWeekday": "Setback hours weekday",
+      "setbackHoursWeekend": "Setback hours weekend",
+      "degreesWeekday": "Setback degrees weekday",
+      "degreesWeekend": "Setback degrees weekend",
+      "mechanicalSupplyOff": "Mechanical supply off during warm-up (§4.8.3)",
+      "heatingUpOverride": "Manual supplement (override)",
+      "heatingUpOverrideHint": "Empty = automatic §4.8 calculation (table 4.13/4.14). A value overrides the lookup.",
       "qv10ClassOptions": {
         "LessThan020": "q_v10 < 0.20",
         "From020To040": "0.20 ≤ q_v10 < 0.40",

@@ -131,7 +131,19 @@ const building53: Isso53BuildingState = {
   constructionYear: 2020,
   thetaMe: 9.0,
   qv10KarClass: "From040To060",
-  heatingUp: { setbackActive: false, pWPerM2: 0, warmupMinutes: 60 },
+  heatingUp: {
+    setbackActive: true,
+    regimeType: "free",
+    setbackHoursWeekday: 14,
+    setbackHoursWeekend: 62,
+    degreesWeekday: 3,
+    degreesWeekend: 3,
+    airChanges: "low",
+    warmupHoursWeekday: 2,
+    warmupHoursWeekend: 4,
+    mechanicalSupplyOff: true,
+    pWPerM2Override: null,
+  },
 };
 
 const rooms53: Record<string, Isso53RoomState> = {
@@ -184,11 +196,19 @@ describe("toIsso53LegacyProject", () => {
     expect(v.hasPreheating).toBe(false);
   });
 
-  it("mapt heatingUp 1:1", () => {
+  it("mapt heatingUp naar de HeatingUpConfig-shape (tagged CoolingRegime, override null)", () => {
     expect(out.heatingUp).toEqual({
-      setbackActive: false,
-      pWPerM2: 0,
-      warmupMinutes: 60,
+      setbackActive: true,
+      pWPerM2Override: null,
+      regime: {
+        type: "free",
+        setbackHoursWeekday: 14,
+        setbackHoursWeekend: 62,
+      },
+      airChanges: "low",
+      warmupHoursWeekday: 2,
+      warmupHoursWeekend: 4,
+      mechanicalSupplyOff: true,
     });
   });
 
