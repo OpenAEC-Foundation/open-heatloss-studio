@@ -51,7 +51,7 @@ export default function RapportTab() {
       // `norm === "isso53"` straks een echt 53-resultaat uit de pipeline.
       const reportData =
         norm === "isso53"
-          ? buildIsso53Report(
+          ? await buildIsso53Report(
               project,
               result as unknown as Isso53ProjectResult,
               isso53Building,

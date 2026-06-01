@@ -414,8 +414,40 @@ const DONUT_SEGMENTS: readonly DonutSegment[] = [
   { key: "total_neighbor_loss", label: "Buurwoningverlies", color: REPORT_COLORS.neighbor },
 ] as const;
 
+/**
+ * Pre-berekende donut-segmenten (label + kleur + absolute waarde). Wordt
+ * gebruikt om de hardcoded ISSO 51-`DONUT_SEGMENTS` te overschrijven, zodat
+ * andere normen (ISSO 53: infiltratie als eigen segment, géén buurwoning) hun
+ * eigen verliestype-set kunnen aanleveren zonder dat de ISSO 51-tak verandert.
+ */
+export interface ResolvedDonutSegment {
+  readonly label: string;
+  readonly color: string;
+  readonly value: number;
+}
+
+/**
+ * Optionele override-parameters voor `buildSummaryDonutSvg`, zodat de donut
+ * additief bruikbaar is voor andere normen dan ISSO 51.
+ *
+ * - `segments` — vervangt de hardcoded `DONUT_SEGMENTS` (incl. de keying op
+ *   `BuildingSummary`). De waarden zijn al absoluut (W), dus de functie hoeft
+ *   niet uit `summary` te lezen.
+ * - `centerValue` — het getal in het donut-centrum (default
+ *   `summary.connection_capacity`).
+ * - `centerLabel` — onderschrift in het centrum (default "aansluitvermogen").
+ */
+export interface SummaryDonutOptions {
+  readonly segments?: readonly ResolvedDonutSegment[];
+  readonly centerValue?: number;
+  readonly centerLabel?: string;
+}
+
 /** 2. Donut — gebouwtotaal per verliestype, met legenda binnen de SVG. */
-export function buildSummaryDonutSvg(summary: BuildingSummary): string | null {
+export function buildSummaryDonutSvg(
+  summary: BuildingSummary,
+  options?: SummaryDonutOptions,
+): string | null {
   const DONUT_SIZE = 200;
   const CENTER = DONUT_SIZE / 2;
   const OUTER_R = 80;
@@ -425,10 +457,19 @@ export function buildSummaryDonutSvg(summary: BuildingSummary): string | null {
   const TOTAL_WIDTH = 560;
   const TOTAL_HEIGHT = 200;
 
-  const values = DONUT_SEGMENTS.map((s) => ({
-    ...s,
-    value: Math.max(0, (summary[s.key] as number) ?? 0),
-  }));
+  // Override-segmenten (andere normen) winnen; anders de ISSO 51-default die
+  // direct uit het `BuildingSummary` leest.
+  const values = options?.segments
+    ? options.segments.map((s) => ({
+        label: s.label,
+        color: s.color,
+        value: Math.max(0, s.value),
+      }))
+    : DONUT_SEGMENTS.map((s) => ({
+        label: s.label,
+        color: s.color,
+        value: Math.max(0, (summary[s.key] as number) ?? 0),
+      }));
   const total = values.reduce((sum, v) => sum + v.value, 0);
   if (total <= 0) return null;
 
@@ -452,17 +493,19 @@ export function buildSummaryDonutSvg(summary: BuildingSummary): string | null {
     parts.push(`<path d="${arc.path}" fill="${arc.color}"/>`);
   }
 
-  // Center text — aansluitvermogen
+  // Center text — aansluitvermogen (of norm-specifieke override)
+  const centerValue = options?.centerValue ?? summary.connection_capacity;
+  const centerLabel = options?.centerLabel ?? "aansluitvermogen";
   parts.push(
     `<text x="${CENTER}" y="${CENTER - 6}" text-anchor="middle" ` +
       `dominant-baseline="middle" fill="${REPORT_COLORS.text}" ` +
       `font-size="16" font-weight="bold" font-family="${FONT_FAMILY}">` +
-      `${xmlEscape(formatWatts(summary.connection_capacity))}</text>`,
+      `${xmlEscape(formatWatts(centerValue))}</text>`,
   );
   parts.push(
     `<text x="${CENTER}" y="${CENTER + 12}" text-anchor="middle" ` +
       `dominant-baseline="middle" fill="${REPORT_COLORS.textMuted}" ` +
-      `font-size="10" font-family="${FONT_FAMILY}">aansluitvermogen</text>`,
+      `font-size="10" font-family="${FONT_FAMILY}">${xmlEscape(centerLabel)}</text>`,
   );
 
   // Legend — rijen rechts van de donut

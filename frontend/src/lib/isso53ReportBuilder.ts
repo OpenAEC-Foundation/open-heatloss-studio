@@ -20,6 +20,19 @@ import {
   BOUNDARY_TYPE_LABELS,
   VERTICAL_POSITION_LABELS,
 } from "./constants";
+import {
+  buildConstructionLossSvg,
+  buildStackedBarSvg,
+  buildSummaryDonutSvg,
+  rasterizeSvgToPng,
+  type ResolvedDonutSegment,
+} from "./reportCharts";
+import {
+  isso53DonutSegments,
+  isso53DonutSummary,
+  isso53MaatgevendVermogen,
+  isso53StackedBarRooms,
+} from "./isso53ChartData";
 
 /** Default outdoor temperature when project.climate.theta_e is undefined. */
 const DEFAULT_THETA_E = -10;
@@ -99,15 +112,20 @@ function lookupIsso53Room(
  * - `isso53Building` — sidecar gebouw-state (buildingShape, position, …)
  * - `isso53Rooms`    — sidecar per-ruimte state (gebruiksFunctie + ruimteType)
  */
-export function buildIsso53Report(
+export async function buildIsso53Report(
   project: Project,
   result: Isso53ProjectResult,
   isso53Building: Isso53BuildingState,
   isso53Rooms: Record<string, Isso53RoomState>,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const today = todayIso();
   const projectName =
     project.info.name || i18next.t("isso53.report.untitled", { defaultValue: "Naamloos project" });
+
+  // Diagrammen-sectie wordt async opgebouwd (SVG → PNG-rasterisatie). Geeft
+  // `null` als er geen renderbare charts zijn, in welk geval de sectie uit het
+  // rapport wordt weggelaten.
+  const diagrammenSection = await buildDiagrammenSection(project, result);
 
   return {
     template: "standaard_rapport",
@@ -219,6 +237,7 @@ export function buildIsso53Report(
     sections: [
       buildUitgangspuntenSection(project, isso53Building),
       buildGebouwresultatenSection(result),
+      ...(diagrammenSection ? [diagrammenSection] : []),
       ...buildVertrekkenChapter(project, result, isso53Rooms),
     ],
 
@@ -229,6 +248,123 @@ export function buildIsso53Report(
       generated_at: new Date().toISOString(),
       theta_e: project.climate.theta_e ?? DEFAULT_THETA_E,
     },
+  };
+}
+
+/**
+ * Sectie "Diagrammen" voor ISSO 53 — spiegelt de ISSO 51-diagrammensectie
+ * (`reportBuilder.ts::buildDiagrammenSection`), maar voedt de charts met het
+ * ISSO 53-resultshape via de adapters uit `isso53ChartData.ts`.
+ *
+ * Drie charts, identiek aan het scherm (`Isso53Results`):
+ *  1. Gestapelde staaf — verliezen per vertrek (5 categorieën incl. infiltratie
+ *     als eigen stack-segment).
+ *  2. Donut — gebouwtotaal per verliestype. Wijkt af van ISSO 51: infiltratie is
+ *     een eigen segment, buurwoningverlies ontbreekt (bestaat niet als
+ *     gebouwtotaal in het ISSO 53-result). Centrum toont het maatgevende
+ *     aansluitvermogen (max van individueel/collectief).
+ *  3. Horizontale bars — verlies per constructietype (norm-onafhankelijk: rekent
+ *     rechtstreeks op `project.rooms` + θ_e/θ_water, identiek aan ISSO 51).
+ *
+ * VALKUIL: charts MOETEN client-side naar PNG gerasterized worden
+ * (`rasterizeSvgToPng`). De BM Reports (PyMuPDF) backend kan `image/svg+xml`
+ * niet parsen → `FzErrorFormat` 500. Daarom geen rauwe SVG in het block_image.
+ *
+ * Geeft `null` wanneer geen enkele chart renderbare data heeft; de sectie wordt
+ * dan uit het rapport weggelaten.
+ */
+async function buildDiagrammenSection(
+  project: Project,
+  result: Isso53ProjectResult,
+): Promise<Record<string, unknown> | null> {
+  const STACKED_WIDTH_MM = 170;
+  const DONUT_WIDTH_MM = 170;
+  const CONSTRUCTION_WIDTH_MM = 150;
+  const SPACER_MM = 4;
+
+  const content: Record<string, unknown>[] = [];
+
+  // 1. Verliezen per vertrek (gestapelde staaf).
+  const stackedSvg = buildStackedBarSvg(isso53StackedBarRooms(result));
+  if (stackedSvg) {
+    const png = await rasterizeSvgToPng(stackedSvg);
+    content.push({
+      type: "image",
+      src: {
+        data: png.data,
+        media_type: "image/png",
+        filename: "verliezen-per-vertrek.png",
+      },
+      caption: i18next.t("isso53.report.chartStackedCaption", {
+        defaultValue: "Warmteverliezen per vertrek",
+      }),
+      width_mm: STACKED_WIDTH_MM,
+      alignment: "center",
+    });
+    content.push({ type: "spacer", height_mm: SPACER_MM });
+  }
+
+  // 2. Gebouwtotaal (donut) — ISSO 53-segmenten + maatgevend aansluitvermogen
+  // in het centrum.
+  const donutSegments: ResolvedDonutSegment[] = isso53DonutSegments(
+    result.summary,
+  ).map((s) => ({ label: s.label, color: s.color, value: s.value }));
+  const donutSvg = buildSummaryDonutSvg(isso53DonutSummary(result.summary), {
+    segments: donutSegments,
+    centerValue: isso53MaatgevendVermogen(result.summary),
+    centerLabel: i18next.t("isso53.report.chartDonutCenter", {
+      defaultValue: "aansluitvermogen",
+    }),
+  });
+  if (donutSvg) {
+    const png = await rasterizeSvgToPng(donutSvg);
+    content.push({
+      type: "image",
+      src: {
+        data: png.data,
+        media_type: "image/png",
+        filename: "gebouwtotaal.png",
+      },
+      caption: i18next.t("isso53.report.chartDonutCaption", {
+        defaultValue: "Gebouwtotaal warmteverliezen per type",
+      }),
+      width_mm: DONUT_WIDTH_MM,
+      alignment: "center",
+    });
+    content.push({ type: "spacer", height_mm: SPACER_MM });
+  }
+
+  // 3. Verlies per constructietype (norm-onafhankelijk).
+  const constructionSvg = buildConstructionLossSvg(
+    project.rooms,
+    project.climate.theta_e ?? DEFAULT_THETA_E,
+    project.climate.theta_water,
+  );
+  if (constructionSvg) {
+    const png = await rasterizeSvgToPng(constructionSvg);
+    content.push({
+      type: "image",
+      src: {
+        data: png.data,
+        media_type: "image/png",
+        filename: "verlies-per-constructietype.png",
+      },
+      caption: i18next.t("isso53.report.chartConstructionCaption", {
+        defaultValue: "Verlies per constructietype",
+      }),
+      width_mm: CONSTRUCTION_WIDTH_MM,
+      alignment: "center",
+    });
+  }
+
+  if (content.length === 0) return null;
+
+  return {
+    title: i18next.t("isso53.report.sectionDiagrammen", {
+      defaultValue: "Diagrammen",
+    }),
+    level: 1,
+    content,
   };
 }
 
