@@ -257,7 +257,7 @@ export function AlgemeenTab() {
                 id="total_floor_area_general"
                 label={t(
                   "projectSetup.fields.gross_floor_area",
-                  "Bruto gebruiksoppervlak A_g",
+                  "Gebruiksoppervlak A_g",
                 )}
                 type="number"
                 unit="m²"
@@ -323,7 +323,7 @@ export function AlgemeenTab() {
             />
             <Input
               id="total_floor_area_general"
-              label={t("projectSetup.fields.gross_floor_area", "Bruto gebruiksoppervlak A_g")}
+              label={t("projectSetup.fields.gross_floor_area", "Gebruiksoppervlak A_g")}
               type="number"
               unit="m²"
               value={building.total_floor_area}

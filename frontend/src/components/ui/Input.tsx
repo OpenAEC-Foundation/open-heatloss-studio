@@ -41,6 +41,23 @@ function normalizeDecimal(raw: string): string {
   return raw.replace(",", ".");
 }
 
+/**
+ * Strip binaire float-representatieruis uit een waarde vóór weergave.
+ *
+ * `238.2` opgeteld in IEEE-754 wordt `238.20000000000002`; `String(...)`
+ * lekt die ruis naar het veld. `toPrecision(12)` rondt op 12 significante
+ * cijfers — ruim genoeg om legitieme decimalen (U-waarden `0.153`, etc.)
+ * intact te laten, maar genoeg om de ~15e-cijfer ruis weg te poetsen.
+ * `Number(...)` haalt vervolgens trailing zeros weg (`238.200000000000`
+ * → `238.2`). Niet-numerieke of niet-eindige input gaat ongewijzigd door.
+ */
+function stripFloatNoise(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return value == null ? "" : String(value);
+  }
+  return String(Number(value.toPrecision(12)));
+}
+
 /** Tussentijds-validate: accepteer alleen tekens die in een decimaal getal
  *  passen (incl. een leidend minteken). Voorkomt dat plakwerk of een typo
  *  zoals letters in het veld terechtkomt. */
@@ -78,13 +95,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     // De draft is alleen relevant terwijl het veld focus heeft. Zo blijft het
     // veld synchroon met externe state-wijzigingen wanneer de gebruiker
     // ergens anders is.
-    const [draft, setDraft] = useState<string>(() => (value == null ? "" : String(value)));
+    const [draft, setDraft] = useState<string>(() => (value == null ? "" : stripFloatNoise(value)));
     const [editing, setEditing] = useState(false);
     const lastCommittedRef = useRef<string>(draft);
 
     useEffect(() => {
       if (!editing && isNumeric) {
-        const incoming = value == null || value === "" ? "" : String(value);
+        const incoming = value == null || value === "" ? "" : stripFloatNoise(value);
         setDraft(incoming);
         lastCommittedRef.current = incoming;
       }
@@ -182,7 +199,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             type="text"
             inputMode="decimal"
             // Tijdens edit toont draft, anders de externe value als string.
-            value={editing ? draft : value == null || value === "" ? "" : String(value)}
+            value={editing ? draft : value == null || value === "" ? "" : stripFloatNoise(value)}
             onFocus={handleFocus}
             onChange={handleDraftChange}
             onBlur={handleBlur}
