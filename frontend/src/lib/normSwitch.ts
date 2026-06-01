@@ -49,16 +49,16 @@ import { isTauri } from "./backend";
  * User verfijnt na de wissel handmatig in de ruimte-tab.
  */
 export const MAP_51_TO_53: Record<RoomFunction, Isso53RoomState> = {
-  living_room: { gebruiksFunctie: "kantoor", ruimteType: "verblijfsruimte" },
-  kitchen:     { gebruiksFunctie: "kantoor", ruimteType: "verblijfsruimte" },
-  bedroom:     { gebruiksFunctie: "kantoor", ruimteType: "verblijfsruimte" },
-  bathroom:    { gebruiksFunctie: "kantoor", ruimteType: "badruimte" },
-  toilet:      { gebruiksFunctie: "kantoor", ruimteType: "toiletruimte" },
-  hallway:     { gebruiksFunctie: "kantoor", ruimteType: "verkeersruimte" },
-  landing:     { gebruiksFunctie: "kantoor", ruimteType: "verkeersruimte" },
-  storage:     { gebruiksFunctie: "kantoor", ruimteType: "bergruimte" },
-  attic:       { gebruiksFunctie: "kantoor", ruimteType: "onbenoemdeRuimte" },
-  custom:      { gebruiksFunctie: "kantoor", ruimteType: "onbenoemdeRuimte" },
+  living_room: { ...DEFAULT_ISSO53_ROOM, ruimteType: "verblijfsruimte" },
+  kitchen:     { ...DEFAULT_ISSO53_ROOM, ruimteType: "verblijfsruimte" },
+  bedroom:     { ...DEFAULT_ISSO53_ROOM, ruimteType: "verblijfsruimte" },
+  bathroom:    { ...DEFAULT_ISSO53_ROOM, ruimteType: "badruimte" },
+  toilet:      { ...DEFAULT_ISSO53_ROOM, ruimteType: "toiletruimte" },
+  hallway:     { ...DEFAULT_ISSO53_ROOM, ruimteType: "verkeersruimte" },
+  landing:     { ...DEFAULT_ISSO53_ROOM, ruimteType: "verkeersruimte" },
+  storage:     { ...DEFAULT_ISSO53_ROOM, ruimteType: "bergruimte" },
+  attic:       { ...DEFAULT_ISSO53_ROOM, ruimteType: "onbenoemdeRuimte" },
+  custom:      { ...DEFAULT_ISSO53_ROOM, ruimteType: "onbenoemdeRuimte" },
 };
 
 /**

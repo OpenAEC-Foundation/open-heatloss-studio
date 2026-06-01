@@ -85,6 +85,14 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
     RUIMTE_TYPES.map((v) => [v, t(`isso53.room.ruimteTypeOptions.${v}`)]),
   );
 
+  const personen = sidecar?.personen ?? undefined;
+  const zFactor = sidecar?.infiltrationReductionZ ?? 1.0;
+  const zOptions: Record<string, string> = {
+    "1": t("isso53.room.zFactorOptions.1"),
+    "0.7": t("isso53.room.zFactorOptions.0.7"),
+    "0.5": t("isso53.room.zFactorOptions.0.5"),
+  };
+
   return (
     <div className="flex flex-col gap-0.5">
       <EditableSelect
@@ -103,6 +111,36 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
         }
         options={rtOptions}
       />
+      <label className="flex items-center gap-1 text-xs text-on-surface-variant">
+        <span className="shrink-0">{t("isso53.room.personenLabel")}</span>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={personen ?? ""}
+          placeholder={t("isso53.room.personenPlaceholder")}
+          onChange={(e) => {
+            const raw = e.target.value;
+            updateIsso53Room(roomId, {
+              personen: raw === "" ? null : Number(raw),
+            });
+          }}
+          className="w-full rounded border-none bg-transparent px-1 py-0.5 text-xs
+            text-on-surface outline-none hover:bg-[var(--oaec-hover)]
+            focus:bg-[var(--oaec-bg-input)] focus:ring-1 focus:ring-primary"
+        />
+      </label>
+      <label className="flex items-center gap-1 text-xs text-on-surface-variant">
+        <span className="shrink-0">{t("isso53.room.zFactorLabel")}</span>
+        <EditableSelect
+          value={String(zFactor)}
+          onChange={(v) =>
+            updateIsso53Room(roomId, { infiltrationReductionZ: Number(v) })
+          }
+          options={zOptions}
+          className="text-xs"
+        />
+      </label>
     </div>
   );
 }

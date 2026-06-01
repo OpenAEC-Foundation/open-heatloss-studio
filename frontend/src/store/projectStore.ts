@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import {
   DEFAULT_ISSO53_BUILDING,
+  DEFAULT_ISSO53_ROOM,
   DEFAULT_SHARED_EXTRA,
   type ActiveNorm,
   type Isso53BuildingState,
@@ -243,10 +244,7 @@ export const useProjectStore = create<ProjectStore>()(
       updateIsso53Room: (roomId, partial) =>
         set((state) => {
           const current = state.isso53Rooms[roomId];
-          const base: Isso53RoomState = current ?? {
-            gebruiksFunctie: "kantoor",
-            ruimteType: "verblijfsruimte",
-          };
+          const base: Isso53RoomState = current ?? { ...DEFAULT_ISSO53_ROOM };
           return {
             isso53Rooms: {
               ...state.isso53Rooms,

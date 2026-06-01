@@ -17,7 +17,10 @@ import {
   mapRoom53To51,
   writeNormSwitchBackup,
 } from "../../lib/normSwitch";
-import { DEFAULT_ISSO53_BUILDING } from "../../types/projectV2";
+import {
+  DEFAULT_ISSO53_BUILDING,
+  DEFAULT_ISSO53_ROOM,
+} from "../../types/projectV2";
 import type { ActiveNorm } from "../../types/projectV2";
 import "./NormChoiceModal.css";
 import "./NormSwitchModal.css";
@@ -160,10 +163,9 @@ export default function NormSwitchModal({ open, onClose }: NormSwitchModalProps)
           }
           return {
             ...r,
-            function: mapRoom53To51(state.isso53Rooms[r.id] ?? {
-              gebruiksFunctie: "kantoor" as const,
-              ruimteType: "verblijfsruimte" as const,
-            }),
+            function: mapRoom53To51(
+              state.isso53Rooms[r.id] ?? { ...DEFAULT_ISSO53_ROOM },
+            ),
             heating_system: mapHeatingSystem(r.heating_system, "isso53", "isso51"),
           };
         });
