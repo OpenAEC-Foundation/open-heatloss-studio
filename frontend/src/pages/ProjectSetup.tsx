@@ -7,48 +7,32 @@ import { AlgemeenTab } from "../components/projectSetup/AlgemeenTab";
 import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useAuth } from "../hooks/useAuth";
-import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
 import { exportIfcEnergy, openProjectFile, extractAndLinkConstructions } from "../lib/importExport";
 import type { ProjectResult } from "../types";
-import { prepareProjectForCalculation } from "../lib/frameOverride";
-import { useModellerStore } from "../components/modeller/modellerStore";
+import { useRunCalculation } from "../hooks/useRunCalculation";
 import { useToastStore } from "../store/toastStore";
 
 export function ProjectSetup() {
   const navigate = useNavigate();
-  const backend = useBackend();
   const auth = useAuth();
   const {
-    project, isCalculating, setCalculating,
-    setResult, setError, activeProjectId, setActiveProjectId,
+    project, isCalculating,
+    setError, activeProjectId, setActiveProjectId,
     serverUpdatedAt,
   } = useProjectStore();
-  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
+  const runCalculation = useRunCalculation();
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCalculate = useCallback(async () => {
-    setCalculating(true);
-    try {
-      const payload = prepareProjectForCalculation(project, projectConstructions);
-      const result = await backend.calculate(payload);
-      setResult(result);
+    const ok = await runCalculation();
+    if (ok) {
       navigate("/results");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Berekening mislukt");
     }
-  }, [
-    backend,
-    project,
-    projectConstructions,
-    setCalculating,
-    setResult,
-    setError,
-    navigate,
-  ]);
+  }, [runCalculation, navigate]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);

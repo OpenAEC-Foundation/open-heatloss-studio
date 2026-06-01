@@ -5,13 +5,9 @@ import RibbonButton from "./RibbonButton";
 import RibbonGroup from "./RibbonGroup";
 import { plusIcon, calculatorIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
-import { useModellerStore } from "../modeller/modellerStore";
 import { createRoom } from "../../lib/roomDefaults";
-import { createBackend } from "../../lib/backend";
-import { prepareProjectForCalculation } from "../../lib/frameOverride";
+import { useRunCalculation } from "../../hooks/useRunCalculation";
 import { useToastStore } from "../../store/toastStore";
-
-const backend = createBackend();
 
 export default function VertrekkenTab() {
   const { t } = useTranslation("ribbon");
@@ -19,12 +15,9 @@ export default function VertrekkenTab() {
   const navigate = useNavigate();
   const addRoom = useProjectStore((s) => s.addRoom);
   const project = useProjectStore((s) => s.project);
-  const setResult = useProjectStore((s) => s.setResult);
-  const setError = useProjectStore((s) => s.setError);
-  const setCalculating = useProjectStore((s) => s.setCalculating);
   const isCalculating = useProjectStore((s) => s.isCalculating);
-  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
+  const runCalculation = useRunCalculation();
   const hasRooms = project.rooms.length > 0;
 
   const handleAddRoom = () => {
@@ -33,16 +26,12 @@ export default function VertrekkenTab() {
   };
 
   const handleCalculate = async () => {
-    setCalculating(true);
-    try {
-      const payload = prepareProjectForCalculation(project, projectConstructions);
-      const result = await backend.calculate(payload);
-      setResult(result);
+    const ok = await runCalculation();
+    if (ok) {
       addToast(tc("calculationComplete"), "success");
       navigate("/results");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : tc("calculationFailed");
-      setError(msg);
+    } else {
+      const msg = useProjectStore.getState().error ?? tc("calculationFailed");
       addToast(msg, "error");
     }
   };

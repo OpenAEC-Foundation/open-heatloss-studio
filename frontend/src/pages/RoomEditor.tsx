@@ -4,37 +4,20 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/layout/PageHeader";
 import { RoomTable } from "../components/rooms/RoomTable";
 import { Button } from "../components/ui/Button";
-import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
-import { useModellerStore } from "../components/modeller/modellerStore";
-import { prepareProjectForCalculation } from "../lib/frameOverride";
+import { useRunCalculation } from "../hooks/useRunCalculation";
 
 export function RoomEditor() {
   const navigate = useNavigate();
-  const backend = useBackend();
-  const { project, isCalculating, setCalculating, setResult, setError } =
-    useProjectStore();
-  const projectConstructions = useModellerStore((s) => s.projectConstructions);
+  const { project, isCalculating } = useProjectStore();
+  const runCalculation = useRunCalculation();
 
   const handleCalculate = useCallback(async () => {
-    setCalculating(true);
-    try {
-      const payload = prepareProjectForCalculation(project, projectConstructions);
-      const result = await backend.calculate(payload);
-      setResult(result);
+    const ok = await runCalculation();
+    if (ok) {
       navigate("/results");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Berekening mislukt");
     }
-  }, [
-    backend,
-    project,
-    projectConstructions,
-    setCalculating,
-    setResult,
-    setError,
-    navigate,
-  ]);
+  }, [runCalculation, navigate]);
 
   return (
     <div>
