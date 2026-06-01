@@ -65,7 +65,7 @@ export function RoomTable() {
             <th className="w-[70px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               h [m]
             </th>
-            <th className="w-[160px] px-2 py-2">Grensvlak</th>
+            <th className="w-[90px] px-2 py-2">Grensvlak</th>
             <th className="w-[160px] px-2 py-2">Type</th>
             <th className="w-[80px] px-2 py-2 text-right">
               A [m{"²"}]

@@ -228,6 +228,7 @@ export const ConstructionCells = memo(function ConstructionCells({
               value={construction.boundary_type}
               onChange={(v) => onUpdate({ boundary_type: v as BoundaryType })}
               options={BOUNDARY_TYPE_LABELS}
+              className="min-w-0"
             />
             <BoundaryBadge type={construction.boundary_type} />
           </div>
