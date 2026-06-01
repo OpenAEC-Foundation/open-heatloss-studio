@@ -101,6 +101,11 @@ function mapInfo(info: ProjectInfo): Record<string, unknown> {
  *
  * `groundParams`: alleen voor `boundary_type === "ground"`. Mapt
  * `u_equivalent`→`uEquivalent`, `ground_water_factor`→`groundWaterFactor`.
+ * Heeft het grondvlak-element geen (geldige) `ground_params.u_equivalent`,
+ * dan valt `uEquivalent` terug op de construction-`u_value`. Zo levert een
+ * grondvlak altijd een positieve equivalente U mee en heeft de ISSO 53-kern
+ * geen `perimeter`/`depth` meer nodig (vermijdt "Ground element requires
+ * perimeter and depth for U_equiv calculation").
  * `fg2` wordt GEDROPT (geen ISSO 53-veld). `fIg`/`perimeter`/`depth` worden
  * weggelaten zodat de kern ze auto-bepaalt zodra `uEquivalent > 0`.
  */
@@ -121,10 +126,14 @@ function mapConstruction(c: ConstructionElement): Record<string, unknown> {
     hasEmbeddedHeating: c.has_embedded_heating ?? false,
   };
 
-  if (c.ground_params != null) {
+  if (c.boundary_type === "ground") {
+    const groundU =
+      c.ground_params?.u_equivalent != null && c.ground_params.u_equivalent > 0
+        ? c.ground_params.u_equivalent
+        : c.u_value; // fallback: gebruik de construction-U als equivalente grond-U
     out.groundParams = {
-      uEquivalent: c.ground_params.u_equivalent,
-      groundWaterFactor: c.ground_params.ground_water_factor ?? 1.0,
+      uEquivalent: groundU,
+      groundWaterFactor: c.ground_params?.ground_water_factor ?? 1.0,
       // fg2 wordt bewust gedropt (geen ISSO 53-veld). fIg/perimeter/depth
       // weggelaten → kern auto-berekent f_ig zodra uEquivalent > 0.
     };
