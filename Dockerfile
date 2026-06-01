@@ -24,6 +24,9 @@ RUN cargo build --release -p isso51-api 2>/dev/null || true
 
 # Cache-bust: changes when source code changes (git commit hash)
 ARG SOURCE_HASH
+# Force cache invalidation of the Rust copy+build when source changes.
+# An ARG only affects a layer's cache key if it is *used* in a RUN.
+RUN echo "rust source hash: ${SOURCE_HASH}" > /tmp/.source_hash
 # Copy actual source code
 COPY crates/ crates/
 COPY schemas/ schemas/
@@ -51,6 +54,9 @@ RUN npm ci
 
 # Cache-bust: changes when source code changes (git commit hash)
 ARG SOURCE_HASH
+# Force cache invalidation of the frontend copy+build when source changes.
+# An ARG only affects a layer's cache key if it is *used* in a RUN.
+RUN echo "frontend source hash: ${SOURCE_HASH}" > /tmp/.source_hash
 # Copy frontend source and schemas (needed for type generation)
 COPY frontend/ .
 COPY schemas/ /build/schemas/
