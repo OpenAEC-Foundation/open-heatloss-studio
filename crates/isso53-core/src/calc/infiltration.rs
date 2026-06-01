@@ -50,12 +50,14 @@ pub fn calculate_h_i(
 
     let q_i = match method {
         InfiltrationMethod::Known { .. } => {
-            // Formule 4.28: q_i = q_is × A_u (uitwendige scheidingsconstructie = gevel excl. plat dak)
+            // Formule 4.28: q_i = q_is × A_u (uitwendige gevel = verticale buitenwanden)
             let a_u: f64 = room.constructions
                 .iter()
                 .filter(|element| element.boundary_type == BoundaryType::Exterior)
-                // Tabel 4.5 voetnoot/§2.2: A_u is gevel excl. plat dak.
-                .filter(|element| element.vertical_position != crate::model::VerticalPosition::Ceiling)
+                // Tabel 4.5: A_u = uitwendige gevel (verticale buitenwanden), excl. plat dak
+                // én vloer. Bij een zwevend gebouw zou een exterior vloer anders ten
+                // onrechte als gevel meetellen (infiltratie te hoog).
+                .filter(|element| element.vertical_position == crate::model::VerticalPosition::Wall)
                 .map(|element| element.area)
                 .sum();
             q_is * a_u
@@ -341,6 +343,117 @@ mod tests {
         let h_i = calculate_h_i(&room, &building, &method).unwrap();
         // 1 × 0.00103 × 30 × 1200 = 37.08 W/K
         assert!((h_i - 37.08).abs() < 0.1, "Expected ~37.08, got {}", h_i);
+    }
+
+    #[test]
+    fn test_infiltration_known_exterior_floor_excluded_from_a_u() {
+        // Regressie: ISSO 53 tabel 4.5 — A_u is de uitwendige GEVEL (verticale
+        // buitenwanden). Bij een zwevend gebouw bestaat er een exterior vloer; die
+        // mag NIET als gevel meetellen in de infiltratieberekening (Known-methode).
+        use crate::model::{ConstructionElement, MaterialType, VerticalPosition};
+
+        let method = InfiltrationMethod::Known {
+            qv10_kar_class: Qv10Class::From040To060,
+        };
+        let building = create_test_building();
+
+        // Basis-room: 1 exterior wand (area 30), vloer als Ground (geen gevel).
+        let mut room_grounded = create_test_room();
+        room_grounded.infiltration_reduction_z = 1.0;
+        room_grounded.constructions.push(ConstructionElement {
+            id: "ground_floor".to_string(),
+            description: "Vloer op grond".to_string(),
+            area: 240.0,
+            u_value: 0.20,
+            boundary_type: BoundaryType::Ground,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        });
+
+        // Zwevend gebouw: identiek, maar de vloer is een EXTERIOR vloer.
+        let mut room_floating = create_test_room();
+        room_floating.infiltration_reduction_z = 1.0;
+        room_floating.constructions.push(ConstructionElement {
+            id: "exterior_floor".to_string(),
+            description: "Blootgestelde vloer (zwevend)".to_string(),
+            area: 240.0,
+            u_value: 0.20,
+            boundary_type: BoundaryType::Exterior,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        });
+
+        let h_i_grounded = calculate_h_i(&room_grounded, &building, &method).unwrap();
+        let h_i_floating = calculate_h_i(&room_floating, &building, &method).unwrap();
+
+        assert!(
+            (h_i_grounded - h_i_floating).abs() < 1e-9,
+            "Exterior vloer mag A_u niet veranderen: grounded={} floating={}",
+            h_i_grounded, h_i_floating
+        );
+
+        // Sanity: A_u = alléén de gevel (30 m²), niet de vloer (240 m²).
+        // H_i = z(1) × q_is(0.00064) × 30 × 1200 = 23.04 W/K.
+        assert!(
+            (h_i_floating - 23.04).abs() < 0.1,
+            "A_u mag alleen de 30 m² gevel tellen, kreeg H_i={}",
+            h_i_floating
+        );
+    }
+
+    #[test]
+    fn test_infiltration_known_exterior_ceiling_excluded_from_a_u() {
+        // Borg: een exterior plat dak (Ceiling) telt evenmin mee in A_u.
+        use crate::model::{ConstructionElement, MaterialType, VerticalPosition};
+
+        let method = InfiltrationMethod::Known {
+            qv10_kar_class: Qv10Class::From040To060,
+        };
+        let building = create_test_building();
+
+        let mut room = create_test_room();
+        room.infiltration_reduction_z = 1.0;
+        room.constructions.push(ConstructionElement {
+            id: "flat_roof".to_string(),
+            description: "Plat dak".to_string(),
+            area: 240.0,
+            u_value: 0.18,
+            boundary_type: BoundaryType::Exterior,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Ceiling,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        });
+
+        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        // A_u blijft 30 m² gevel → 23.04 W/K, dak telt niet mee.
+        assert!(
+            (h_i - 23.04).abs() < 0.1,
+            "Plat dak mag A_u niet vergroten, kreeg H_i={}",
+            h_i
+        );
     }
 
     fn create_test_room() -> Room {
