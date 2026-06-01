@@ -4,10 +4,13 @@ import { persist } from "zustand/middleware";
 import type {
   AggregationMethod,
   ConstructionElement,
+  ConstructionElementLayer,
   HeatingSystem,
+  MaterialType,
   Project,
   ProjectResult,
   Room,
+  VerticalPosition,
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import {
@@ -198,6 +201,25 @@ interface ProjectStore {
 
   /** Apply a heating_system to all rooms in the project in one mutation (with undo). */
   applyHeatingSystemToAllRooms: (system: HeatingSystem) => void;
+
+  /**
+   * Propageer een bewerkte ProjectConstruction naar álle room-elementen die
+   * eraan gekoppeld zijn (`project_construction_id === pcId`). Overschrijft
+   * uitsluitend de type-definiërende velden (`description`, `u_value`,
+   * `material_type`, `vertical_position`, `layers`). Element-specifieke velden
+   * (`id`, `area`, `boundary_type`, `adjacent_room_id`, `uw_breakdown`, …)
+   * blijven ongemoeid. Undo-aware: één undo-stap herstelt alle elementen.
+   */
+  syncProjectConstruction: (
+    pcId: string,
+    values: {
+      description: string;
+      u_value: number;
+      material_type: MaterialType;
+      vertical_position: VerticalPosition;
+      layers: ConstructionElementLayer[];
+    },
+  ) => void;
 
   /**
    * Zet de aggregatiemethode voor `Φ_basis_gebouw`. Schakelt tussen
@@ -485,6 +507,37 @@ export const useProjectStore = create<ProjectStore>()(
             rooms: state.project.rooms.map((r) => ({
               ...r,
               heating_system: system,
+            })),
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
+      syncProjectConstruction: (pcId, values) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) => ({
+              ...r,
+              constructions: r.constructions.map((c) =>
+                c.project_construction_id === pcId
+                  ? {
+                      ...c,
+                      description: values.description,
+                      u_value: values.u_value,
+                      material_type: values.material_type,
+                      vertical_position: values.vertical_position,
+                      layers:
+                        values.layers.length > 0
+                          ? values.layers.map((l) => ({ ...l }))
+                          : undefined,
+                    }
+                  : c,
+              ),
             })),
           },
           isDirty: true,

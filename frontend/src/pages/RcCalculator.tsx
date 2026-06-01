@@ -32,6 +32,7 @@ import { generateReportDirect } from "../lib/reportClient";
 import { calculateYearlyMoisture } from "../lib/yearlyMoistureCalculation";
 import { useCatalogueStore } from "../store/catalogueStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
+import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
 import type { MaterialType, VerticalPosition } from "../types";
 
@@ -114,6 +115,9 @@ export function RcCalculator() {
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const updateProjectConstruction = useModellerStore(
     (s) => s.updateProjectConstruction,
+  );
+  const syncProjectConstruction = useProjectStore(
+    (s) => s.syncProjectConstruction,
   );
   const addToast = useToastStore((s) => s.addToast);
 
@@ -389,13 +393,24 @@ export function RcCalculator() {
     };
 
     if (editProjectId) {
+      const roundedU = Math.round(rcResult.uValue * 1000) / 1000;
       updateProjectConstruction(editProjectId, {
         name: layerName,
         category,
         materialType,
         verticalPosition: position,
         layers: mappedLayers,
-        uValue: Math.round(rcResult.uValue * 1000) / 1000,
+        uValue: roundedU,
+      });
+      // Propageer de bijgewerkte type-velden naar álle gekoppelde
+      // room-elementen, zodat de berekening (die de element-snapshot van
+      // u_value/layers gebruikt) meeloopt zonder her-toewijzing.
+      syncProjectConstruction(editProjectId, {
+        description: layerName,
+        u_value: roundedU,
+        material_type: materialType,
+        vertical_position: position,
+        layers: mappedLayers,
       });
       setName(layerName);
     } else if (editId) {
@@ -422,6 +437,7 @@ export function RcCalculator() {
     editId,
     editProjectId,
     updateProjectConstruction,
+    syncProjectConstruction,
     navigate,
   ]);
 
@@ -489,8 +505,12 @@ export function RcCalculator() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title={editId ? "Constructie bewerken" : "Rc-waarde"}
-        subtitle={editId ? name : "Constructie-opbouw samenstellen en opslaan"}
+        title={editId || editProjectId ? "Constructie bewerken" : "Rc-waarde"}
+        subtitle={
+          editId || editProjectId
+            ? name
+            : "Constructie-opbouw samenstellen en opslaan"
+        }
         actions={
           editId ? (
             <button
@@ -499,6 +519,14 @@ export function RcCalculator() {
               className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
             >
               Terug naar bibliotheek
+            </button>
+          ) : editProjectId ? (
+            <button
+              type="button"
+              onClick={() => navigate("/constructies")}
+              className="rounded-md border border-[var(--oaec-border)] px-3 py-1.5 text-sm text-on-surface-secondary hover:bg-surface-alt"
+            >
+              Terug naar projectconstructies
             </button>
           ) : undefined
         }
@@ -1108,7 +1136,7 @@ export function RcCalculator() {
                 >
                   {isGenerating ? "Genereren..." : "Genereer rapport"}
                 </Button>
-                {!editId && (
+                {!editId && !editProjectId && (
                   <Button
                     variant="secondary"
                     onClick={handleSaveToProject}
@@ -1123,7 +1151,7 @@ export function RcCalculator() {
                   disabled={!canSave}
                   size="md"
                 >
-                  {editId ? "Opslaan" : "Opslaan in bibliotheek"}
+                  {editId || editProjectId ? "Opslaan" : "Opslaan in bibliotheek"}
                 </Button>
               </div>
             </div>
