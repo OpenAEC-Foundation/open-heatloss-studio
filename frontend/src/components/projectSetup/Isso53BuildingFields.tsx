@@ -198,6 +198,75 @@ export function Isso53BuildingFields() {
           }
         />
       </div>
+
+      <div className="mt-6 border-t border-[var(--oaec-border)] pt-4">
+        <h4 className="mb-3 text-sm font-semibold text-on-surface-secondary">
+          {t("isso53.building.heatingUpTitle")}
+        </h4>
+        <label
+          htmlFor="isso53_setback_active"
+          className="flex items-center gap-2 text-sm text-on-surface"
+        >
+          <input
+            id="isso53_setback_active"
+            type="checkbox"
+            checked={isso53Building.heatingUp.setbackActive}
+            onChange={(e) =>
+              updateIsso53Building({
+                heatingUp: {
+                  ...isso53Building.heatingUp,
+                  setbackActive: e.target.checked,
+                },
+              })
+            }
+            className="h-4 w-4 rounded border-[1.5px] border-[var(--oaec-border)]
+              accent-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          {t("isso53.building.setbackActive")}
+        </label>
+
+        {isso53Building.heatingUp.setbackActive && (
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div>
+              <Input
+                id="isso53_heating_up_p"
+                label={t("isso53.building.heatingUpSupplement")}
+                type="number"
+                step="0.1"
+                unit="W/m²"
+                value={isso53Building.heatingUp.pWPerM2}
+                onChange={(e) =>
+                  updateIsso53Building({
+                    heatingUp: {
+                      ...isso53Building.heatingUp,
+                      pWPerM2: Number(e.target.value),
+                    },
+                  })
+                }
+              />
+              <p className="mt-1 text-xs text-on-surface-muted">
+                {t("isso53.building.heatingUpSupplementHint")}
+              </p>
+            </div>
+            <Input
+              id="isso53_warmup_minutes"
+              label={t("isso53.building.warmupMinutes")}
+              type="number"
+              step="1"
+              unit="min"
+              value={isso53Building.heatingUp.warmupMinutes}
+              onChange={(e) =>
+                updateIsso53Building({
+                  heatingUp: {
+                    ...isso53Building.heatingUp,
+                    warmupMinutes: Number(e.target.value),
+                  },
+                })
+              }
+            />
+          </div>
+        )}
+      </div>
     </Card>
   );
 }

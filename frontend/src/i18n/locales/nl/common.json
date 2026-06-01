@@ -154,6 +154,11 @@
       "thetaMe": "Jaargem. buitentemp. θ_me",
       "thetaMeHint": "ISSO 53-standaard is 9 °C",
       "qv10Class": "Luchtdichtheidsklasse q_v10;kar",
+      "heatingUpTitle": "Nachtverlaging / opwarmtoeslag",
+      "setbackActive": "Nachtverlaging actief",
+      "heatingUpSupplement": "Opwarmtoeslag P",
+      "heatingUpSupplementHint": "ISSO 53 §4.8 — P-waarde uit therm. massa × opwarmtijd (PDF p.51-53)",
+      "warmupMinutes": "Opwarmtijd",
       "qv10ClassOptions": {
         "LessThan020": "q_v10 < 0,20",
         "From020To040": "0,20 ≤ q_v10 < 0,40",
