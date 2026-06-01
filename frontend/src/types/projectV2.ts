@@ -308,6 +308,28 @@ export type Isso53RuimteType =
   | "warenhuis";
 
 /**
+ * Luchtdichtheidsklasse q_v10;kar (ISSO 53 tabel 4.5).
+ *
+ * Spiegelt exact de serde-representatie van de Rust-enum
+ * `Qv10Class` in `crates/isso53-core/src/tables/infiltration.rs`
+ * (geen `rename_all`, dus de PascalCase variant-namen zijn de
+ * serde-strings). q_v10;kar in dm³/(s·m² gebruiksoppervlak):
+ * - `LessThan020`   — q_v10;kar < 0,20
+ * - `From020To040`  — 0,20 ≤ q_v10;kar < 0,40
+ * - `From040To060`  — 0,40 ≤ q_v10;kar < 0,60
+ * - `From060To080`  — 0,60 ≤ q_v10;kar < 0,80
+ * - `From080To100`  — 0,80 ≤ q_v10;kar ≤ 1,00
+ * - `GreaterThan100` — q_v10;kar > 1,0
+ */
+export type Qv10Class =
+  | "LessThan020"
+  | "From020To040"
+  | "From040To060"
+  | "From060To080"
+  | "From080To100"
+  | "GreaterThan100";
+
+/**
  * ISSO 53 building-niveau invoer die niet in V1 `Building` past.
  * Wordt sidecar opgeslagen in `projectStore` en is alleen actief
  * wanneer `norm === "isso53"`. Bij norm-wissel (fase 4) wordt deze
@@ -320,6 +342,10 @@ export interface Isso53BuildingState {
   thermalMass: Isso53ThermalMass;
   ventilationSystem: Isso53VentilationSystem;
   constructionYear: number | null;
+  /** Jaargemiddelde buitentemperatuur θ_me (°C). ISSO 53-default = 9,0. */
+  thetaMe: number;
+  /** Infiltratie-luchtdoorlatendheidsklasse q_v10;kar (ISSO 53 tabel 4.5). */
+  qv10KarClass: Qv10Class;
 }
 
 export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
@@ -329,6 +355,8 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
   thermalMass: "gemiddeld",
   ventilationSystem: "systemD",
   constructionYear: null,
+  thetaMe: 9.0,
+  qv10KarClass: "From040To060",
 };
 
 /**

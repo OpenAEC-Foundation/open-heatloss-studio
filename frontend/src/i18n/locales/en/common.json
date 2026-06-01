@@ -151,6 +151,17 @@
       "thermalMass": "Thermal mass",
       "ventilationSystem": "Ventilation system",
       "constructionYear": "Construction year",
+      "thetaMe": "Annual mean outdoor temp. θ_me",
+      "thetaMeHint": "ISSO 53 default is 9 °C",
+      "qv10Class": "Air permeability class q_v10;kar",
+      "qv10ClassOptions": {
+        "LessThan020": "q_v10 < 0.20",
+        "From020To040": "0.20 ≤ q_v10 < 0.40",
+        "From040To060": "0.40 ≤ q_v10 < 0.60",
+        "From060To080": "0.60 ≤ q_v10 < 0.80",
+        "From080To100": "0.80 ≤ q_v10 ≤ 1.00",
+        "GreaterThan100": "q_v10 > 1.0"
+      },
       "shapeOptions": {
         "meerlaags": "Multi-storey",
         "eenLaagMetKap": "Single storey with pitched roof",
