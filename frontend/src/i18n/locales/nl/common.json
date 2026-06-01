@@ -206,6 +206,16 @@
     "room": {
       "gebruiksFunctie": "Gebruiksfunctie",
       "ruimteType": "Ruimtetype",
+      "personen": "Personen",
+      "personenLabel": "pers.",
+      "personenPlaceholder": "auto",
+      "zFactor": "z-factor infiltratie",
+      "zFactorLabel": "z",
+      "zFactorOptions": {
+        "1": "1,0 — 1 buitengevel / 2 niet-tegenover",
+        "0.7": "0,7 — overig",
+        "0.5": "0,5 — 2 tegenover elkaar"
+      },
       "gebruiksFunctieOptions": {
         "kantoor": "Kantoor",
         "onderwijs": "Onderwijs",

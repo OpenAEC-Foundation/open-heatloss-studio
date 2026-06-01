@@ -206,6 +206,16 @@
     "room": {
       "gebruiksFunctie": "Use function",
       "ruimteType": "Space type",
+      "personen": "Occupants",
+      "personenLabel": "occ.",
+      "personenPlaceholder": "auto",
+      "zFactor": "Infiltration z-factor",
+      "zFactorLabel": "z",
+      "zFactorOptions": {
+        "1": "1.0 — 1 exterior wall / 2 non-opposite",
+        "0.7": "0.7 — other",
+        "0.5": "0.5 — 2 opposite walls"
+      },
       "gebruiksFunctieOptions": {
         "kantoor": "Office",
         "onderwijs": "Education",

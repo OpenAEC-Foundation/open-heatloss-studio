@@ -385,11 +385,25 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
 export interface Isso53RoomState {
   gebruiksFunctie: Isso53GebruiksFunctie;
   ruimteType: Isso53RuimteType;
+  /**
+   * Override aantal personen in dit vertrek.
+   * `undefined`/`null` = auto-bepaling via ISSO 53 tabel 4.11
+   * (personen per m² afhankelijk van ruimtetype).
+   */
+  personen?: number | null;
+  /**
+   * Reductiefactor z voor infiltratie (ISSO 53 tabel 4.4):
+   * 1.0 = 1 buitengevel of 2 niet-tegenover elkaar,
+   * 0.7 = overig,
+   * 0.5 = 2 buitengevels tegenover elkaar.
+   */
+  infiltrationReductionZ: number;
 }
 
 export const DEFAULT_ISSO53_ROOM: Isso53RoomState = {
   gebruiksFunctie: "kantoor",
   ruimteType: "verblijfsruimte",
+  infiltrationReductionZ: 1.0,
 };
 
 // ---------------------------------------------------------------------------
