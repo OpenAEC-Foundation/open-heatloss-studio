@@ -97,6 +97,7 @@ const WTW_UNITS = getWtwUnits();
 
 export function VentilationPanel() {
   const { project, updateProject } = useProjectStore();
+  const norm = useProjectStore((s) => s.norm);
 
   // Catalogus-keuze is puur UI-lokaal — de berekening leest uitsluitend V1
   // `heat_recovery_efficiency`. `MANUAL_PRODUCT_ID` = vrije invoer behouden.
@@ -232,17 +233,22 @@ export function VentilationPanel() {
 
   return (
     <Card title="Ventilatie (ISSO 51)">
-      <div className="grid grid-cols-3 gap-4">
-        <Select
-          id="ventilation_system_type"
-          label="Ventilatiesysteem"
-          value={currentSystem}
-          options={VENTILATION_SYSTEM_OPTIONS}
-          onChange={(e) =>
-            handleSystemChange(e.target.value as VentilationSystemType)
-          }
-        />
-      </div>
+      {/* Systeemkeuze voor ISSO 53 verborgen: het ventilatiesysteem op de
+          Project-tab (Isso53BuildingFields) is daar leidend. De WTW-UI
+          hieronder blijft wel actief — die V1-velden gebruikt de isso53-calc. */}
+      {norm !== "isso53" && (
+        <div className="grid grid-cols-3 gap-4">
+          <Select
+            id="ventilation_system_type"
+            label="Ventilatiesysteem"
+            value={currentSystem}
+            options={VENTILATION_SYSTEM_OPTIONS}
+            onChange={(e) =>
+              handleSystemChange(e.target.value as VentilationSystemType)
+            }
+          />
+        </div>
+      )}
 
       {hasWtw && (
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
