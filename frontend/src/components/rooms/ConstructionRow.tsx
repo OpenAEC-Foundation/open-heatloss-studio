@@ -6,7 +6,7 @@ import {
   ROOM_FUNCTION_TEMPERATURES,
   VERTICAL_POSITION_LABELS,
 } from "../../lib/constants";
-import { formatArea } from "../../lib/formatNumber";
+import { formatArea, formatUValue } from "../../lib/formatNumber";
 import {
   isFrameConstruction,
   isFrameOverrideActive,
@@ -282,6 +282,7 @@ export const ConstructionCells = memo(function ConstructionCells({
               onChange={handleUValue}
               type="number"
               unit="W/m²K"
+              displayFormatter={formatUValue}
             />
             {!isFrame && (
               <button
