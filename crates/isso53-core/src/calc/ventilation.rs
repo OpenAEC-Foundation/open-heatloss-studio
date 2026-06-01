@@ -82,14 +82,15 @@ fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
             format!("No ventilation requirement found for {:?} {:?}", room.gebruiks_functie, room.ruimte_type)
         ))?;
 
-    // Calculate number of people
-    let people = if let Some(explicit_people) = room.bezetting.personen {
-        explicit_people
-    } else {
-        let density = room.bezetting.personen_per_m2_default
-            .or(req.personen_per_m2)
-            .unwrap_or(0.05); // Default density
-        room.floor_area * density
+    // Calculate number of people: maximum of (area-based occupancy, explicit input).
+    // An explicit value raises the count above the area-based default but never lowers it.
+    let density = room.bezetting.personen_per_m2_default
+        .or(req.personen_per_m2)
+        .unwrap_or(0.05); // Default density
+    let area_based = room.floor_area * density;
+    let people = match room.bezetting.personen {
+        Some(explicit) => explicit.max(area_based),
+        None => area_based,
     };
 
     // Get ventilation rate per person in dm³/s
@@ -251,8 +252,10 @@ mod tests {
 
     #[test]
     fn test_ventilation_smoke() {
-        // Kantoor, 1 persoon, geen WTW
-        // q_v = 6.5/1000 = 0.0065 m³/s; H_v = 0.0065 × 1200 × 1 = 7.8 W/K
+        // Kantoor (0,05 pers/m²), floor_area 25 m² → area_based = 1,25 personen.
+        // Ingevoerd 1 persoon < area_based → max-semantiek kiest 1,25.
+        // q_v = 1,25 × 6,5/1000 = 0,008125 m³/s; H_v = 0,008125 × 1200 × 1 = 9,75 W/K.
+        // (Voorheen koos de override 1,0 pers → H_v = 7,8 W/K; aangepast voor max-logica.)
         let mut room = create_test_room();
         room.bezetting.personen = Some(1.0);
 
@@ -269,8 +272,48 @@ mod tests {
         let result = calculate_ventilation(&room, &config, 20.0, -10.0);
         assert!(result.is_ok());
         let ventilation = result.unwrap();
-        assert!((ventilation.h_v - 7.8).abs() < 0.1, "Expected ~7.8, got {}", ventilation.h_v);
+        assert!((ventilation.h_v - 9.75).abs() < 0.1, "Expected ~9.75, got {}", ventilation.h_v);
         assert!((ventilation.f_v - 1.0).abs() < 0.001, "f_v should be 1.0 for natural ventilation");
+    }
+
+    #[test]
+    fn test_people_count_is_max_of_explicit_and_area_based() {
+        // Kantoor/Kantoorruimte → personen_per_m2 = 0,05.
+        // Configuratie zonder WTW (f_v = 1), zodat H_v = q_v × 1200 lineair in people is.
+        // q_v = people × 6,5/1000  →  H_v = people × 6,5 × 1,2 = people × 7,8.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        // floor_area 25 m² × 0,05 = 1,25 area-based personen.
+
+        // 1) explicit > area_based → gebruikt explicit (10,0).
+        let mut room_explicit_high = create_test_room();
+        room_explicit_high.floor_area = 25.0;
+        room_explicit_high.bezetting.personen = Some(10.0);
+        let r = calculate_ventilation(&room_explicit_high, &config, 20.0, -10.0).unwrap();
+        assert!((r.h_v - 10.0 * 7.8).abs() < 0.1, "explicit>area: expected H_v {}, got {}", 10.0 * 7.8, r.h_v);
+
+        // 2) explicit < area_based → gebruikt area_based (1,25). NIEUW gedrag:
+        //    voorheen werd hier de override 0,5 gekozen.
+        let mut room_explicit_low = create_test_room();
+        room_explicit_low.floor_area = 25.0;
+        room_explicit_low.bezetting.personen = Some(0.5);
+        let r = calculate_ventilation(&room_explicit_low, &config, 20.0, -10.0).unwrap();
+        assert!((r.h_v - 1.25 * 7.8).abs() < 0.1, "explicit<area: expected area-based H_v {}, got {}", 1.25 * 7.8, r.h_v);
+
+        // 3) personen = None → gebruikt area_based (1,25).
+        let mut room_none = create_test_room();
+        room_none.floor_area = 25.0;
+        room_none.bezetting.personen = None;
+        let r = calculate_ventilation(&room_none, &config, 20.0, -10.0).unwrap();
+        assert!((r.h_v - 1.25 * 7.8).abs() < 0.1, "none: expected area-based H_v {}, got {}", 1.25 * 7.8, r.h_v);
     }
 
     #[test]
