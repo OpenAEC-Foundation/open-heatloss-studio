@@ -17,6 +17,20 @@ use crate::model::{
     SecurityClass, VentilationConfig, VentilationSystemType, VerticalPosition,
 };
 
+// ─── Default U-values for openings without an explicit value ───
+//
+// Engineering-defaults, GEEN norm-waarde. Worden alleen toegepast als de
+// export geen `u_value` op de opening meegeeft; een expliciete waarde wint
+// altijd. Bedoeld als redelijke startwaarde die de gebruiker kan bijstellen.
+
+/// Default U-waarde voor buitenkozijnen/vliesgevels (host grenst aan buiten).
+/// Engineering-default, geen norm-waarde.
+const DEFAULT_EXTERIOR_OPENING_U: f64 = 1.1;
+
+/// Default U-waarde voor binnenkozijnen (host grenst aan een andere ruimte).
+/// Engineering-default, geen norm-waarde.
+const DEFAULT_INTERIOR_OPENING_U: f64 = 1.8;
+
 // ─── Input types (deserialized from thermal-import JSON) ───
 
 /// Top-level container for a Revit thermal export.
@@ -527,12 +541,23 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
                                 .unwrap_or(""),
                         );
 
+                        // Default U-waarde afhankelijk van of de host-constructie
+                        // aan buiten grenst. `boundary_type` is hierboven al
+                        // afgeleid uit de buurruimte (Outside → Exterior), dus
+                        // dat is de robuuste bron i.p.v. de room_b-literal.
+                        // Een expliciete u_value uit de export wint altijd.
+                        let default_opening_u = if boundary_type == BoundaryType::Exterior {
+                            DEFAULT_EXTERIOR_OPENING_U
+                        } else {
+                            DEFAULT_INTERIOR_OPENING_U
+                        };
+
                         elem_counter += 1;
                         opening_elements.push(ConstructionElement {
                             id: format!("{}-c{}", thermal_room.id, elem_counter),
                             description: opening_desc,
                             area: opening_area,
-                            u_value: opening.u_value.unwrap_or(0.0),
+                            u_value: opening.u_value.unwrap_or(default_opening_u),
                             boundary_type,
                             material_type: MaterialType::NonMasonry,
                             temperature_factor: None,
