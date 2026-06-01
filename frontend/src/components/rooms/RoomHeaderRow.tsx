@@ -4,7 +4,7 @@ import {
   ROOM_FUNCTION_LABELS,
   ROOM_FUNCTION_TEMPERATURES,
 } from "../../lib/constants";
-import { formatArea } from "../../lib/formatNumber";
+import { formatArea, formatDecimals } from "../../lib/formatNumber";
 import { useProjectStore } from "../../store/projectStore";
 import type { Room, RoomFunction } from "../../types";
 import { EditableCell } from "./EditableCell";
@@ -110,6 +110,7 @@ export function RoomHeaderCells({
           onChange={handleThetaChange}
           type="number"
           unit={"°C"}
+          displayFormatter={formatDecimals}
         />
       </td>
       <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 text-right">
@@ -127,6 +128,7 @@ export function RoomHeaderCells({
           onChange={(v) => onUpdate({ height: Number(v) || 2.6 })}
           type="number"
           unit="m"
+          displayFormatter={formatDecimals}
         />
       </td>
     </>
