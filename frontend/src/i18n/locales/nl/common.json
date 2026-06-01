@@ -154,11 +154,27 @@
       "thetaMe": "Jaargem. buitentemp. θ_me",
       "thetaMeHint": "ISSO 53-standaard is 9 °C",
       "qv10Class": "Luchtdichtheidsklasse q_v10;kar",
-      "heatingUpTitle": "Nachtverlaging / opwarmtoeslag",
-      "setbackActive": "Nachtverlaging actief",
-      "heatingUpSupplement": "Opwarmtoeslag P",
-      "heatingUpSupplementHint": "ISSO 53 §4.8 — P-waarde uit therm. massa × opwarmtijd (PDF p.51-53)",
-      "warmupMinutes": "Opwarmtijd",
+      "heatingUpTitle": "Toeslag voor bedrijfsbeperking (§4.8)",
+      "setbackActive": "Bedrijfsbeperking actief",
+      "coolingRegime": "Afkoel-regime",
+      "coolingRegimeOptions": {
+        "free": "Vrije afkoeling (tabel 4.13)",
+        "limited": "Beperkte afkoeling (tabel 4.14)"
+      },
+      "airChanges": "Luchtwisselingen tijdens afkoeling",
+      "airChangeOptions": {
+        "low": "0,1 (ramen/deuren dicht, installatie uit)",
+        "high": "0,5"
+      },
+      "warmupHoursWeekday": "Opwarmtijd doordeweeks",
+      "warmupHoursWeekend": "Opwarmtijd na weekend",
+      "setbackHoursWeekday": "Uren verlaging doordeweeks",
+      "setbackHoursWeekend": "Uren verlaging weekend",
+      "degreesWeekday": "Graden verlaging doordeweeks",
+      "degreesWeekend": "Graden verlaging weekend",
+      "mechanicalSupplyOff": "Mechanische toevoer uit tijdens opwarmen (§4.8.3)",
+      "heatingUpOverride": "Handmatige toeslag (override)",
+      "heatingUpOverrideHint": "Leeg = automatische §4.8-berekening (tabel 4.13/4.14). Ingevuld overschrijft de lookup.",
       "qv10ClassOptions": {
         "LessThan020": "q_v10 < 0,20",
         "From020To040": "0,20 ≤ q_v10 < 0,40",

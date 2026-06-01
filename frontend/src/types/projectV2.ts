@@ -350,22 +350,71 @@ export interface Isso53BuildingState {
   /** Infiltratie-luchtdoorlatendheidsklasse q_v10;kar (ISSO 53 tabel 4.5). */
   qv10KarClass: Qv10Class;
   /**
-   * Nachtverlaging / opwarmtoeslag (ISSO 53 §4.8, PDF p.51-53).
+   * Toeslag voor bedrijfsbeperking / opwarmtoeslag (ISSO 53 §4.8).
    *
    * Mapt 1:1 op de Rust `HeatingUpConfig`
    * (`crates/isso53-core/src/model/heating_up.rs`, serde camelCase).
-   * De kern doet GEEN auto-lookup: de gebruiker voert de P-waarde zelf
-   * in op basis van thermische massa × opwarmtijd. Φ_hu = `pWPerM2 ×
-   * vloeroppervlak` als `setbackActive`, anders 0.
+   * De kern doet sinds Fase A (commit `e8dd82b`) een **automatische**
+   * tabel-lookup (4.13 vrije afkoeling / 4.14 beperkte afkoeling) over
+   * regime × opwarmtijd × verlaging, met `pWPerM2Override` als handmatige
+   * override (leeg = automatisch). `warmupMinutes`/`pWPerM2` zijn vervallen.
    */
-  heatingUp: {
-    /** Nachtverlaging actief — zonder dit is de opwarmtoeslag 0. */
-    setbackActive: boolean;
-    /** Opwarmtoeslag P [W/m²] (ISSO 53 §4.8, PDF p.51-53). */
-    pWPerM2: number;
-    /** Opwarmtijd [min] — informatief voor de P-keuze. */
-    warmupMinutes: number;
-  };
+  heatingUp: Isso53HeatingUpState;
+}
+
+/**
+ * Afkoel-regime tijdens de bedrijfsbeperking. Spiegelt de Rust-enum
+ * `CoolingRegime` (`#[serde(rename_all="camelCase", tag="type")]`):
+ * intern tagged op `type` met varianten `free` / `limited`.
+ */
+export type Isso53CoolingRegimeType = "free" | "limited";
+
+/**
+ * Aantal luchtwisselingen tijdens de afkoelperiode. Spiegelt de Rust-enum
+ * `AirChangeRate` (`#[serde(rename_all="camelCase")]`): `low` (0,1) / `high`
+ * (0,5).
+ */
+export type Isso53AirChangeRate = "low" | "high";
+
+/**
+ * Frontend-state voor de §4.8 toeslag-configuratie. Wordt door
+ * `isso53ProjectMapper` geserialiseerd naar de Rust `HeatingUpConfig`-JSON.
+ *
+ * `regimeType` + de bijbehorende velden (uren bij vrije, graden bij beperkte
+ * afkoeling) worden bij serialisatie samengevouwen tot de tagged
+ * `CoolingRegime`-enum. `pWPerM2Override` is optioneel: `null`/leeg → de kern
+ * doet de automatische tabel-lookup; een getal overschrijft die lookup.
+ *
+ * `legacyPWPerM2`/`legacyWarmupMinutes` houden vervallen velden uit oude
+ * opgeslagen projecten vast voor migratie (zie `normalizeIsso53HeatingUp`);
+ * ze worden niet meer in de UI getoond en niet meer geserialiseerd.
+ */
+export interface Isso53HeatingUpState {
+  /** Toeslag voor bedrijfsbeperking actief — zonder dit is de toeslag 0. */
+  setbackActive: boolean;
+  /** Afkoel-regime: vrije (tabel 4.13) of beperkte (tabel 4.14) afkoeling. */
+  regimeType: Isso53CoolingRegimeType;
+  /** Vrije afkoeling: aantal úren verlaging doordeweeks (typisch 14). */
+  setbackHoursWeekday: number;
+  /** Vrije afkoeling: aantal úren verlaging in het weekend (typisch 62). */
+  setbackHoursWeekend: number;
+  /** Beperkte afkoeling: aantal gráden verlaging doordeweeks {1..5}. */
+  degreesWeekday: number;
+  /** Beperkte afkoeling: aantal gráden verlaging in het weekend {1..5}. */
+  degreesWeekend: number;
+  /** Aantal luchtwisselingen tijdens de afkoelperiode (0,1 of 0,5). */
+  airChanges: Isso53AirChangeRate;
+  /** Maximaal toegestane opwarmtijd doordeweeks [h]. */
+  warmupHoursWeekday: number;
+  /** Maximaal toegestane opwarmtijd na het weekend [h]. */
+  warmupHoursWeekend: number;
+  /** Mechanische toevoer uit tijdens opwarmen (§4.8.3, a=1 bij true). */
+  mechanicalSupplyOff: boolean;
+  /**
+   * Handmatige override voor de specifieke toeslag φ_hu,i [W/m²].
+   * `null` (leeg) → automatische §4.8-tabel-lookup; een getal overschrijft.
+   */
+  pWPerM2Override: number | null;
 }
 
 export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
@@ -377,8 +426,70 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
   constructionYear: null,
   thetaMe: 9.0,
   qv10KarClass: "From040To060",
-  heatingUp: { setbackActive: false, pWPerM2: 0, warmupMinutes: 120 },
+  heatingUp: {
+    setbackActive: false,
+    regimeType: "free",
+    setbackHoursWeekday: 14,
+    setbackHoursWeekend: 62,
+    degreesWeekday: 3,
+    degreesWeekend: 3,
+    airChanges: "low",
+    warmupHoursWeekday: 2,
+    warmupHoursWeekend: 4,
+    mechanicalSupplyOff: false,
+    pWPerM2Override: null,
+  },
 };
+
+/**
+ * Migreer een (mogelijk legacy) `heatingUp`-blob naar de actuele
+ * `Isso53HeatingUpState`. Robuust tegen:
+ * - vervallen velden `pWPerM2` / `warmupMinutes` (Fase A verwijderde deze);
+ *   een aanwezige legacy `pWPerM2 > 0` wordt naar `pWPerM2Override` getild
+ *   zodat de oude handmatige waarde behouden blijft.
+ * - ontbrekende nieuwe velden → val terug op de defaults.
+ *
+ * Wordt door de store-rehydration aangeroepen op gepersisteerde projecten.
+ */
+export function normalizeIsso53HeatingUp(raw: unknown): Isso53HeatingUpState {
+  const d = DEFAULT_ISSO53_BUILDING.heatingUp;
+  if (raw == null || typeof raw !== "object") {
+    return { ...d };
+  }
+  const o = raw as Record<string, unknown>;
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+  // Legacy `pWPerM2` (vervallen veld): til een positieve waarde over naar de
+  // override zodat de oude handmatige toeslag niet stilzwijgend verdwijnt.
+  let pWPerM2Override: number | null = null;
+  if (typeof o.pWPerM2Override === "number" && Number.isFinite(o.pWPerM2Override)) {
+    pWPerM2Override = o.pWPerM2Override;
+  } else if (typeof o.pWPerM2 === "number" && Number.isFinite(o.pWPerM2) && o.pWPerM2 > 0) {
+    pWPerM2Override = o.pWPerM2;
+  }
+
+  const regimeType: Isso53CoolingRegimeType =
+    o.regimeType === "limited" ? "limited" : "free";
+  const airChanges: Isso53AirChangeRate = o.airChanges === "high" ? "high" : "low";
+
+  return {
+    setbackActive: typeof o.setbackActive === "boolean" ? o.setbackActive : d.setbackActive,
+    regimeType,
+    setbackHoursWeekday: num(o.setbackHoursWeekday, d.setbackHoursWeekday),
+    setbackHoursWeekend: num(o.setbackHoursWeekend, d.setbackHoursWeekend),
+    degreesWeekday: num(o.degreesWeekday, d.degreesWeekday),
+    degreesWeekend: num(o.degreesWeekend, d.degreesWeekend),
+    airChanges,
+    warmupHoursWeekday: num(o.warmupHoursWeekday, d.warmupHoursWeekday),
+    warmupHoursWeekend: num(o.warmupHoursWeekend, d.warmupHoursWeekend),
+    mechanicalSupplyOff:
+      typeof o.mechanicalSupplyOff === "boolean"
+        ? o.mechanicalSupplyOff
+        : d.mechanicalSupplyOff,
+    pWPerM2Override,
+  };
+}
 
 /**
  * Per-ruimte ISSO 53 sidecar-state (gebruiksFunctie + ruimteType).

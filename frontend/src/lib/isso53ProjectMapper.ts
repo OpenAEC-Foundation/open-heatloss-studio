@@ -247,10 +247,34 @@ export function toIsso53LegacyProject(
     preheatingTemperature: v?.preheating_temperature ?? null,
   };
 
+  // heatingUp → Rust `HeatingUpConfig` (serde camelCase). `regime` is een
+  // intern-tagged enum (`#[serde(tag="type")]`): de variant-tag staat in het
+  // veld `type` ("free"/"limited"), de regime-specifieke velden (uren bij
+  // vrije, graden bij beperkte afkoeling) staan op hetzelfde niveau. De
+  // tegenovergestelde set velden wordt weggelaten zodat serde de juiste
+  // variant matcht. `pWPerM2Override` is `Option<f64>` → null laat de kern de
+  // §4.8-tabel-lookup doen, een getal overschrijft.
+  const hu = isso53Building.heatingUp;
+  const regime: Record<string, unknown> =
+    hu.regimeType === "limited"
+      ? {
+          type: "limited",
+          degreesWeekday: hu.degreesWeekday,
+          degreesWeekend: hu.degreesWeekend,
+        }
+      : {
+          type: "free",
+          setbackHoursWeekday: hu.setbackHoursWeekday,
+          setbackHoursWeekend: hu.setbackHoursWeekend,
+        };
   const heatingUp: Record<string, unknown> = {
-    setbackActive: isso53Building.heatingUp.setbackActive,
-    pWPerM2: isso53Building.heatingUp.pWPerM2,
-    warmupMinutes: isso53Building.heatingUp.warmupMinutes,
+    setbackActive: hu.setbackActive,
+    pWPerM2Override: hu.pWPerM2Override,
+    regime,
+    airChanges: hu.airChanges,
+    warmupHoursWeekday: hu.warmupHoursWeekday,
+    warmupHoursWeekend: hu.warmupHoursWeekend,
+    mechanicalSupplyOff: hu.mechanicalSupplyOff,
   };
 
   // InfiltrationMethod::Known — variant-key "known", VELD snake_case
