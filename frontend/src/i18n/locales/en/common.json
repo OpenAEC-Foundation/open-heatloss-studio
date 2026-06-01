@@ -154,6 +154,11 @@
       "thetaMe": "Annual mean outdoor temp. θ_me",
       "thetaMeHint": "ISSO 53 default is 9 °C",
       "qv10Class": "Air permeability class q_v10;kar",
+      "heatingUpTitle": "Night setback / heating-up supplement",
+      "setbackActive": "Night setback active",
+      "heatingUpSupplement": "Heating-up supplement P",
+      "heatingUpSupplementHint": "ISSO 53 §4.8 — P value from thermal mass × warm-up time (PDF p.51-53)",
+      "warmupMinutes": "Warm-up time",
       "qv10ClassOptions": {
         "LessThan020": "q_v10 < 0.20",
         "From020To040": "0.20 ≤ q_v10 < 0.40",

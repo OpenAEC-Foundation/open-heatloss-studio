@@ -346,6 +346,23 @@ export interface Isso53BuildingState {
   thetaMe: number;
   /** Infiltratie-luchtdoorlatendheidsklasse q_v10;kar (ISSO 53 tabel 4.5). */
   qv10KarClass: Qv10Class;
+  /**
+   * Nachtverlaging / opwarmtoeslag (ISSO 53 §4.8, PDF p.51-53).
+   *
+   * Mapt 1:1 op de Rust `HeatingUpConfig`
+   * (`crates/isso53-core/src/model/heating_up.rs`, serde camelCase).
+   * De kern doet GEEN auto-lookup: de gebruiker voert de P-waarde zelf
+   * in op basis van thermische massa × opwarmtijd. Φ_hu = `pWPerM2 ×
+   * vloeroppervlak` als `setbackActive`, anders 0.
+   */
+  heatingUp: {
+    /** Nachtverlaging actief — zonder dit is de opwarmtoeslag 0. */
+    setbackActive: boolean;
+    /** Opwarmtoeslag P [W/m²] (ISSO 53 §4.8, PDF p.51-53). */
+    pWPerM2: number;
+    /** Opwarmtijd [min] — informatief voor de P-keuze. */
+    warmupMinutes: number;
+  };
 }
 
 export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
@@ -357,6 +374,7 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
   constructionYear: null,
   thetaMe: 9.0,
   qv10KarClass: "From040To060",
+  heatingUp: { setbackActive: false, pWPerM2: 0, warmupMinutes: 120 },
 };
 
 /**
