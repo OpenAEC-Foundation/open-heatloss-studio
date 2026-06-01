@@ -99,6 +99,7 @@ const WTW_UNITS = getWtwUnits();
 export function VentilationPanel() {
   const { project, updateProject } = useProjectStore();
   const norm = useProjectStore((s) => s.norm);
+  const isso53Building = useProjectStore((s) => s.isso53Building);
 
   // Catalogus-keuze is puur UI-lokaal — de berekening leest uitsluitend V1
   // `heat_recovery_efficiency`. `MANUAL_PRODUCT_ID` = vrije invoer behouden.
@@ -106,12 +107,29 @@ export function VentilationPanel() {
 
   const v1Vent = project.ventilation;
   const currentSystem: VentilationSystemType = v1Vent.system_type;
-  const { hasWtw } = SYSTEM_CAPABILITIES[currentSystem];
+
+  // WTW-zichtbaarheid is norm-afhankelijk. ISSO 51 leest het V1-systeemtype
+  // (A–E) uit de capability-tabel. ISSO 53 verbergt die systeemkeuze hier — het
+  // ventilatiesysteem staat op de Project-tab (`Isso53BuildingFields`) — dus
+  // leiden we WTW af uit `isso53Building.ventilationSystem` (gebalanceerd =
+  // systemD/systemE). Zonder deze tak bleef `hasWtw` voor ISSO 53 hangen op de
+  // V1-default → WTW-blok verscheen nooit → ventilatieverlies overschat.
+  const hasWtw =
+    norm === "isso53"
+      ? isso53Building.ventilationSystem === "systemD" ||
+        isso53Building.ventilationSystem === "systemE"
+      : SYSTEM_CAPABILITIES[currentSystem].hasWtw;
 
   // Benodigd ventilatiedebiet op gebouwniveau — identiek aan de Gebouwtotaal-
   // berekening op /results: per kamer de q_v (dm³/s) optellen, met BBL-
   // minimum als fallback. Conversie naar m³/h: × 3.6.
-  const requiredM3h = useMemo(() => {
+  // De gebouw-q_v-drempel leunt op de ISSO 51 V1-kamerdebieten. Voor ISSO 53
+  // wonen die debieten niet hier (NTA 8800 / TO-juli m³/h op de TO-juli-tab),
+  // dus zou de som onzin opleveren. We zetten de drempel daar op `null` → de
+  // capaciteits-hint + "te klein"-waarschuwing + uitgrijzen vervallen, maar de
+  // WTW-rendement-invoer en BCRG-selector blijven volledig werkend.
+  const requiredM3h = useMemo<number | null>(() => {
+    if (norm === "isso53") return null;
     let qvSum = 0;
     for (const room of project.rooms) {
       qvSum +=
@@ -119,7 +137,7 @@ export function VentilationPanel() {
         bblMinimumVentilationRate(room.function, room.floor_area);
     }
     return qvSum * 3.6;
-  }, [project.rooms]);
+  }, [norm, project.rooms]);
 
   // Dropdown-opties met capaciteit zichtbaar in het label en disabled-vlag
   // voor units onder de drempel. De huidige selectie blijft altijd selecteer-
@@ -133,7 +151,10 @@ export function VentilationPanel() {
         label: `${u.brand} ${u.model} — ${formatDecimals(u.q_nominal_m3h)} m³/h — η_hr ${Math.round(
           u.eta_hr * 100,
         )}%`,
-        disabled: u.q_nominal_m3h < requiredM3h && u.id !== selectedWtwId,
+        disabled:
+          requiredM3h != null &&
+          u.q_nominal_m3h < requiredM3h &&
+          u.id !== selectedWtwId,
       })),
     ],
     [requiredM3h, selectedWtwId],
@@ -214,7 +235,9 @@ export function VentilationPanel() {
 
   // Waarschuwing wanneer de gekozen unit onder de gebouw-drempel ligt.
   const selectedUnitTooSmall =
-    selectedWtwUnit != null && selectedWtwUnit.q_nominal_m3h < requiredM3h;
+    requiredM3h != null &&
+    selectedWtwUnit != null &&
+    selectedWtwUnit.q_nominal_m3h < requiredM3h;
 
   // Toon hint over hoe het WTW-veld zich verhoudt tot V1 ISSO 51 ventilatie.
   const heatRecoveryHint: HeatRecovery | null =
@@ -253,14 +276,16 @@ export function VentilationPanel() {
 
       {hasWtw && (
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
-          <div className="col-span-3 -mb-2 rounded-md bg-[var(--oaec-accent-soft)] px-3 py-1.5 text-xs">
-            <span className="text-on-surface-muted">
-              Min. benodigde capaciteit (gebouw q_v):{" "}
-            </span>
-            <span className="font-semibold tabular-nums text-on-surface">
-              {requiredM3h.toFixed(0)} m³/h
-            </span>
-          </div>
+          {requiredM3h != null && (
+            <div className="col-span-3 -mb-2 rounded-md bg-[var(--oaec-accent-soft)] px-3 py-1.5 text-xs">
+              <span className="text-on-surface-muted">
+                Min. benodigde capaciteit (gebouw q_v):{" "}
+              </span>
+              <span className="font-semibold tabular-nums text-on-surface">
+                {requiredM3h.toFixed(0)} m³/h
+              </span>
+            </div>
+          )}
           <div>
             <Select
               id="wtw_product"
@@ -278,7 +303,7 @@ export function VentilationPanel() {
               <p className="mt-1 text-[10px] leading-tight text-amber-600">
                 ⚠ Capaciteit te laag voor dit gebouw (
                 {formatDecimals(selectedWtwUnit?.q_nominal_m3h)} m³/h &lt;{" "}
-                {requiredM3h.toFixed(0)} m³/h).
+                {(requiredM3h ?? 0).toFixed(0)} m³/h).
               </p>
             )}
           </div>
