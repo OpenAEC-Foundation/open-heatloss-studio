@@ -17,8 +17,13 @@ import { buildReportData } from "../lib/reportBuilder";
 import { buildIsso53Report } from "../lib/isso53ReportBuilder";
 import { bblMinimumVentilationRate } from "../lib/roomDefaults";
 import { HDD_NL, computeAnnualHeatDemandKWh } from "../lib/annualEnergy";
-import type { ProjectResult } from "../types";
+import type { Project, ProjectResult } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
+import {
+  isso53DonutSegments,
+  isso53DonutSummary,
+  isso53StackedBarRooms,
+} from "../lib/isso53ChartData";
 import { generateReportDirect } from "../lib/reportClient";
 
 /** Format a number as W (watts) with locale formatting. */
@@ -53,7 +58,7 @@ export function Results() {
       // norm-onafhankelijk en accepteert beide JSON-shapes.
       const reportData =
         norm === "isso53"
-          ? buildIsso53Report(
+          ? await buildIsso53Report(
               project,
               result as unknown as Isso53ProjectResult,
               isso53Building,
@@ -109,6 +114,7 @@ export function Results() {
     return (
       <Isso53Results
         result={result as Isso53ProjectResult}
+        project={project}
         isGenerating={isGenerating}
         onGenerateReport={handleGenerateReport}
         onExport={handleExport}
@@ -451,17 +457,25 @@ function DetailRow({ label, value, description }: { label: React.ReactNode; valu
 
 /** ISSO 53 resultatenweergave — per-vertrek tabel + gebouw-samenvatting.
  *
- * MVP: geen charts (de bestaande isso51-charts verwachten het isso51-shape).
- * Toont uitsluitend de echte velden uit `Isso53ProjectResult`.
+ * Spiegelt de ISSO 51-presentatie: 3 diagrammen (verliezen per vertrek,
+ * gebouwtotaal per type, verlies per constructietype) + per-vertrek
+ * transmissie/ventilatie-breakdowns. Chart-data wordt afgeleid via
+ * `lib/isso53ChartData.ts` zodat de bestaande SVG-componenten herbruikt
+ * worden zonder ze te herschrijven.
+ *
+ * ISSO 51-specifieke teksten (graaddagen-jaarverbruik, θ_w-water) zijn
+ * bewust weggelaten — die zijn niet fysisch overdraagbaar naar ISSO 53.
  */
 function Isso53Results({
   result,
+  project,
   isGenerating,
   onGenerateReport,
   onExport,
   onBack,
 }: {
   result: Isso53ProjectResult;
+  project: Project;
   isGenerating: boolean;
   onGenerateReport: () => void;
   onExport: () => void;
@@ -473,6 +487,15 @@ function Isso53Results({
     summary.connectionCapacityIndividual,
     summary.connectionCapacityCollective,
   );
+
+  const [zoomedChart, setZoomedChart] = useState<
+    "bar" | "donut" | "construction" | null
+  >(null);
+
+  // Chart-data afgeleid uit het ISSO 53-result (zie lib/isso53ChartData.ts).
+  const barRooms = useMemo(() => isso53StackedBarRooms(result), [result]);
+  const donutSummary = useMemo(() => isso53DonutSummary(summary), [summary]);
+  const donutSegments = useMemo(() => isso53DonutSegments(summary), [summary]);
 
   return (
     <div>
@@ -564,6 +587,85 @@ function Isso53Results({
           </dl>
         </Card>
 
+        {/* Diagrammen — gespiegeld van het ISSO 51-scherm. */}
+        <div className="grid grid-cols-2 gap-6">
+          <Card title="Verliezen per vertrek">
+            <div
+              className="cursor-pointer"
+              onClick={() => setZoomedChart("bar")}
+              title="Klik om te vergroten"
+            >
+              <StackedBarChart rooms={barRooms} />
+            </div>
+            <p className="mt-1 text-center text-[10px] text-on-surface-muted">
+              Klik om te vergroten
+            </p>
+          </Card>
+          <Card title="Gebouwtotaal">
+            <div
+              className="cursor-pointer"
+              onClick={() => setZoomedChart("donut")}
+              title="Klik om te vergroten"
+            >
+              <SummaryDonut summary={donutSummary} segments={donutSegments} />
+            </div>
+            <p className="mt-1 text-center text-[10px] text-on-surface-muted">
+              Klik om te vergroten
+            </p>
+            <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
+              ISSO 53 splitst infiltratie áf van ventilatie; beide worden los
+              getoond. Het centrum toont het maatgevende aansluitvermogen
+              (max. individueel/collectief).
+            </p>
+          </Card>
+        </div>
+
+        {/* Chart zoom modals */}
+        <ChartZoomModal
+          open={zoomedChart === "bar"}
+          onClose={() => setZoomedChart(null)}
+          title="Verliezen per vertrek"
+        >
+          <StackedBarChart rooms={barRooms} />
+        </ChartZoomModal>
+        <ChartZoomModal
+          open={zoomedChart === "donut"}
+          onClose={() => setZoomedChart(null)}
+          title="Gebouwtotaal"
+        >
+          <SummaryDonut summary={donutSummary} segments={donutSegments} />
+        </ChartZoomModal>
+
+        {/* Verlies per constructietype — norm-onafhankelijk: rekent op
+            project.rooms + θ_e, identiek aan de ISSO 51-tak. */}
+        <Card title="Verlies per constructietype">
+          <div
+            className="mx-auto max-w-2xl cursor-pointer"
+            onClick={() => setZoomedChart("construction")}
+            title="Klik om te vergroten"
+          >
+            <ConstructionLossChart
+              rooms={project.rooms}
+              thetaE={project.climate.theta_e ?? -10}
+              thetaWater={project.climate.theta_water}
+            />
+          </div>
+          <p className="mt-1 text-center text-[10px] text-on-surface-muted">
+            Klik om te vergroten
+          </p>
+        </Card>
+        <ChartZoomModal
+          open={zoomedChart === "construction"}
+          onClose={() => setZoomedChart(null)}
+          title="Verlies per constructietype"
+        >
+          <ConstructionLossChart
+            rooms={project.rooms}
+            thetaE={project.climate.theta_e ?? -10}
+            thetaWater={project.climate.theta_water}
+          />
+        </ChartZoomModal>
+
         {/* Per-vertrek tabel */}
         <Card title={t("isso53.results.roomTableTitle")}>
           <Table>
@@ -635,6 +737,43 @@ function Isso53Results({
             </tbody>
           </Table>
         </Card>
+
+        {/* Per-vertrek detail — transmissie + ventilatie/infiltratie
+            breakdown. ISSO 53 levert geen f_v/q_v per vertrek; die rijen
+            (anders dan in de ISSO 51-tak) zijn daarom weggelaten. */}
+        {rooms.map((room) => (
+          <Card key={room.roomId} title={`${room.roomName} (${room.roomId})`}>
+            <div className="grid grid-cols-2 gap-6">
+              {/* Transmissie */}
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
+                  Transmissie
+                </h4>
+                <dl className="space-y-1 text-sm">
+                  <DetailRow label="H_T,ie (schil)" value={`${fmt2(room.hTExterior)} W/K`} description="Warmtegeleiding naar buitenlucht" />
+                  <DetailRow label="H_T,ia (intern)" value={`${fmt2(room.hTAdjacentRooms)} W/K`} description="Warmtegeleiding naar verwarmde buurruimten" />
+                  <DetailRow label="H_T,iae (onverwarmd)" value={`${fmt2(room.hTUnheated)} W/K`} description="Warmtegeleiding naar onverwarmde ruimten" />
+                  <DetailRow label="H_T,iaBE (buurwoning)" value={`${fmt2(room.hTAdjacentBuildings)} W/K`} description="Warmtegeleiding naar aangrenzende gebouwen" />
+                  <DetailRow label="H_T,ig (grond)" value={`${fmt2(room.hTGround)} W/K`} description="Warmtegeleiding naar de grond" />
+                  <DetailRow label={<strong>&Phi;_T totaal</strong>} value={<strong>{fmtW(room.phiT)}</strong>} description="Totaal transmissieverlies van dit vertrek" />
+                </dl>
+              </div>
+
+              {/* Ventilatie & infiltratie */}
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
+                  Ventilatie &amp; infiltratie
+                </h4>
+                <dl className="space-y-1 text-sm">
+                  <DetailRow label="H_v" value={`${fmt2(room.hV)} W/K`} description="Warmteoverdrachtscoëfficiënt ventilatie" />
+                  <DetailRow label={<strong>&Phi;_v</strong>} value={<strong>{fmtW(room.phiV)}</strong>} description="Totaal ventilatieverlies" />
+                  <DetailRow label="H_i" value={`${fmt2(room.hI)} W/K`} description="Warmteoverdrachtscoëfficiënt infiltratie" />
+                  <DetailRow label="&Phi;_i" value={fmtW(room.phiI)} description="Warmteverlies door luchtlekkage" />
+                </dl>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );

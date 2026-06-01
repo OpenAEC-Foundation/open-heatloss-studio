@@ -33,7 +33,7 @@ export default function ResultatenTab() {
       // Norm-routing — zie RapportTab.handleGenerate voor toelichting.
       const reportData =
         norm === "isso53"
-          ? buildIsso53Report(
+          ? await buildIsso53Report(
               project,
               result as unknown as Isso53ProjectResult,
               isso53Building,

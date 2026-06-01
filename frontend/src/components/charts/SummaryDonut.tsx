@@ -17,20 +17,39 @@ const SEGMENTS = [
 
 type SegmentKey = (typeof SEGMENTS)[number]["key"];
 
-interface SummaryDonutProps {
-  summary: BuildingSummary;
+/**
+ * Vooraf-afgeleid donut-segment. Maakt de donut norm-onafhankelijk: i.p.v.
+ * vaste `BuildingSummary`-velden uit te lezen, kan een caller (bv. ISSO 53)
+ * een eigen segmenten-set met absolute waarden meegeven. Wanneer `segments`
+ * ontbreekt valt de donut terug op de ISSO 51-default uit `SEGMENTS`.
+ */
+export interface DonutSegment {
+  key: string;
+  label: string;
+  color: string;
+  value: number;
 }
 
-export function SummaryDonut({ summary }: SummaryDonutProps) {
+interface SummaryDonutProps {
+  summary: BuildingSummary;
+  /** Optionele segment-override (ISSO 53). Default = ISSO 51-velden. */
+  segments?: DonutSegment[];
+}
+
+export function SummaryDonut({ summary, segments }: SummaryDonutProps) {
   const SIZE = 200;
   const CENTER = SIZE / 2;
   const OUTER_R = 80;
   const INNER_R = 52;
 
-  const values = SEGMENTS.map((s) => ({
-    ...s,
-    value: Math.max(0, summary[s.key as SegmentKey] as number),
-  }));
+  const values: DonutSegment[] =
+    segments ??
+    SEGMENTS.map((s) => ({
+      key: s.key,
+      label: s.label,
+      color: s.color,
+      value: Math.max(0, summary[s.key as SegmentKey] as number),
+    }));
   const total = values.reduce((sum, v) => sum + v.value, 0);
 
   if (total <= 0) return null;
