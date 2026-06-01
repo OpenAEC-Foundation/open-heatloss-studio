@@ -17,6 +17,7 @@ import { buildReportData } from "../lib/reportBuilder";
 import { buildIsso53Report } from "../lib/isso53ReportBuilder";
 import { bblMinimumVentilationRate } from "../lib/roomDefaults";
 import { HDD_NL, computeAnnualHeatDemandKWh } from "../lib/annualEnergy";
+import type { ProjectResult } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import { generateReportDirect } from "../lib/reportClient";
 
@@ -42,7 +43,7 @@ export function Results() {
   const [zoomedChart, setZoomedChart] = useState<"bar" | "donut" | "construction" | null>(null);
 
   const handleExport = useCallback(() => {
-    exportProject(project, result);
+    exportProject(project, result as ProjectResult | null);
   }, [project, result]);
 
   const handleGenerateReport = useCallback(async () => {
@@ -59,7 +60,7 @@ export function Results() {
               isso53Building,
               isso53Rooms,
             )
-          : await buildReportData(project, result);
+          : await buildReportData(project, result as ProjectResult);
       const blob = await generateReportDirect(reportData);
 
       const url = URL.createObjectURL(blob);
@@ -102,7 +103,11 @@ export function Results() {
     );
   }
 
-  const { summary, rooms } = result;
+  // Fase 3: de store kan nu ook een Isso53ProjectResult houden, maar de
+  // rendering hieronder gaat nog uit van het ISSO 51 result-shape. De
+  // norm-aware splitsing van deze tabel/summary volgt in fase 4 — voor nu
+  // narrowen we naar ProjectResult zodat het bestaande pad blijft compileren.
+  const { summary, rooms } = result as ProjectResult;
 
   // Gebouwtotalen — onafhankelijk van norm (geldt voor zowel ISSO 51 als 53).
   // q_v effectief = som van per-kamer q_v (of BBL-fallback als q_v leeg is).

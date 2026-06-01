@@ -10,6 +10,7 @@ import { useModellerStore } from "../modeller/modellerStore";
 import { exportIfcEnergy } from "../../lib/importExport";
 import { buildReportData } from "../../lib/reportBuilder";
 import { buildIsso53Report } from "../../lib/isso53ReportBuilder";
+import type { ProjectResult } from "../../types";
 import type { Isso53ProjectResult } from "../../types/isso53Result";
 import { generateReportDirect } from "../../lib/reportClient";
 import i18next from "../../i18n/config";
@@ -38,7 +39,11 @@ export default function ResultatenTab() {
               isso53Building,
               isso53Rooms,
             )
-          : await buildReportData(project, result, projectConstructions);
+          : await buildReportData(
+              project,
+              result as ProjectResult,
+              projectConstructions,
+            );
       const blob = await generateReportDirect(reportData);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -64,7 +69,7 @@ export default function ResultatenTab() {
   ]);
 
   const handleExport = useCallback(() => {
-    exportIfcEnergy(project, result);
+    exportIfcEnergy(project, result as ProjectResult | null);
     addToast(i18next.t("projectExported"), "success");
   }, [project, result, addToast]);
 

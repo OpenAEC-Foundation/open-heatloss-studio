@@ -13,6 +13,7 @@ import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { formatArea } from "../lib/formatNumber";
 import { prepareProjectForCalculation } from "../lib/frameOverride";
+import { buildV2PayloadIsso53 } from "../lib/projectV2Migration";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useToastStore } from "../store/toastStore";
 import {
@@ -49,6 +50,9 @@ export function WarmteverliesInstellingen() {
   const {
     project,
     norm,
+    sharedExtra,
+    isso53Building,
+    isso53Rooms,
     updateProject,
     isCalculating,
     setCalculating,
@@ -104,16 +108,34 @@ export function WarmteverliesInstellingen() {
   const handleCalculate = useCallback(async () => {
     setCalculating(true);
     try {
-      const payload = prepareProjectForCalculation(project, projectConstructions);
-      const result = await backend.calculate(payload);
-      setResult(result);
+      if (norm === "isso53") {
+        // ISSO 53 routeert via de V2-payload (active_norm → Isso53) naar
+        // de calculate_v2-kern. De isso51-route crasht op de camelCase
+        // verwarmingssysteem-enum van ISSO 53.
+        const payload = buildV2PayloadIsso53(
+          project,
+          sharedExtra,
+          isso53Building,
+          isso53Rooms,
+        );
+        const result = await backend.calculateV2(payload);
+        setResult(result);
+      } else {
+        const payload = prepareProjectForCalculation(project, projectConstructions);
+        const result = await backend.calculate(payload);
+        setResult(result);
+      }
       navigate("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Berekening mislukt");
     }
   }, [
     backend,
+    norm,
     project,
+    sharedExtra,
+    isso53Building,
+    isso53Rooms,
     projectConstructions,
     setCalculating,
     setResult,
