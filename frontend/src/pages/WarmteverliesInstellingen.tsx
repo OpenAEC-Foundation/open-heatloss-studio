@@ -167,32 +167,38 @@ export function WarmteverliesInstellingen() {
               value={building.total_floor_area}
               onChange={(e) => updateBuilding({ total_floor_area: numVal(e.target.value) })}
             />
-            <Input
-              id="qv10"
-              label="Luchtdichtheid qv10 (totaal)"
-              type="number"
-              unit="dm³/s"
-              value={building.qv10}
-              onChange={(e) => updateBuilding({ qv10: numVal(e.target.value) })}
-            />
-            <Input
-              id="qv10_spec"
-              label="qv10;spec (BENG)"
-              type="number"
-              step={0.01}
-              unit="dm³/(s·m²)"
-              value={
-                building.total_floor_area > 0
-                  ? Number((building.qv10 / building.total_floor_area).toFixed(3))
-                  : ""
-              }
-              onChange={(e) => {
-                const spec = numVal(e.target.value);
-                if (building.total_floor_area > 0) {
-                  updateBuilding({ qv10: spec * building.total_floor_area });
-                }
-              }}
-            />
+            {/* qv10 voor ISSO 53 verborgen: de luchtdichtheidsklasse op de
+                Project-tab (Isso53BuildingFields) is daar leidend. */}
+            {!isIsso53 && (
+              <>
+                <Input
+                  id="qv10"
+                  label="Luchtdichtheid qv10 (totaal)"
+                  type="number"
+                  unit="dm³/s"
+                  value={building.qv10}
+                  onChange={(e) => updateBuilding({ qv10: numVal(e.target.value) })}
+                />
+                <Input
+                  id="qv10_spec"
+                  label="qv10;spec (BENG)"
+                  type="number"
+                  step={0.01}
+                  unit="dm³/(s·m²)"
+                  value={
+                    building.total_floor_area > 0
+                      ? Number((building.qv10 / building.total_floor_area).toFixed(3))
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const spec = numVal(e.target.value);
+                    if (building.total_floor_area > 0) {
+                      updateBuilding({ qv10: spec * building.total_floor_area });
+                    }
+                  }}
+                />
+              </>
+            )}
             <Select
               id="security_class"
               label="Zekerheidsklasse"
