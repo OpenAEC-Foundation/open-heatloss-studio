@@ -718,7 +718,6 @@
   },
   "heatingUp": {
     "setbackActive": true,
-    "pWPerM2": 10.0,
-    "warmupMinutes": 120.0
+    "pWPerM2Override": 10.0
   }
 }

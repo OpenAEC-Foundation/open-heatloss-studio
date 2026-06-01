@@ -20,6 +20,7 @@
 pub mod adjacent_unheated;
 pub mod building_type;
 pub mod ground_params;
+pub mod heating_up;
 pub mod infiltration;
 pub mod nen8088;
 pub mod occupancy;
@@ -37,6 +38,10 @@ pub use building_type::{f_type, f_typ};
 pub use ground_params::{
     ground_params, GroundParams, GroundSurfaceKind, B_PRIME_MAX, B_PRIME_MIN, U_EQUIV_MIN,
     Z_DEPTH_MAX,
+};
+pub use heating_up::{
+    lookup_free_cooling, lookup_limited_cooling, AirChanges, BuildingWeight, FREE_COOLING,
+    LIMITED_COOLING,
 };
 pub use infiltration::{
     q_i_spec_reken, q_is_known, q_is_known_from_values, BuildingHeightClass, Qv10Class,

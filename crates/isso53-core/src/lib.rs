@@ -208,8 +208,7 @@ mod tests {
             },
             heating_up: HeatingUpConfig {
                 setback_active: false,
-                p_w_per_m2: 0.0,
-                warmup_minutes: 60.0,
+                ..Default::default()
             },
             infiltration_method: crate::calc::infiltration::InfiltrationMethod::Known {
                 qv10_kar_class: crate::tables::infiltration::Qv10Class::From040To060,

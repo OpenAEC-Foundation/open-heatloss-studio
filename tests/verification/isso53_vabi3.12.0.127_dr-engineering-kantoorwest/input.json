@@ -235,8 +235,6 @@
     }
   },
   "heatingUp": {
-    "setbackActive": false,
-    "pWPerM2": 0.0,
-    "warmupMinutes": 0.0
+    "setbackActive": false
   }
 }
