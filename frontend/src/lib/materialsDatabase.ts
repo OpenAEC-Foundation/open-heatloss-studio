@@ -156,7 +156,7 @@ const RAW_MATERIALS: RawMaterial[] = [
   { categorie: "Mortel", naam: "Cementmortel", lambda: 1.16, lambda_nat: 1.40, mu: 18, rho: 2000, rd_vast: null, keywords: ["cement", "mortel", "voeg"] },
   { categorie: "Mortel", naam: "Kalkmortel", lambda: 0.91, lambda_nat: 1.10, mu: 10, rho: 1800, rd_vast: null, keywords: ["kalk", "mortel"] },
   { categorie: "Mortel", naam: "Gipsmortel", lambda: 0.58, lambda_nat: 0.70, mu: 10, rho: 1400, rd_vast: null, keywords: ["gips", "mortel"] },
-  { categorie: "Mortel", naam: "Isolerende mortel", lambda: 0.12, mu: 15, rho: 450, rd_vast: null, keywords: ["isolatie", "mortel"] },
+  { categorie: "Mortel", naam: "Isolerende mortel", lambda: 0.12, mu: 15, rho: 450, rd_vast: null, keywords: ["isolerende", "mortel"] },
 
   // Natuursteen
   { categorie: "Natuursteen", naam: "Basalt / Graniet", lambda: 4.34, lambda_nat: 4.56, mu: 10000, rho: 2900, rd_vast: null, keywords: ["basalt", "graniet", "natuursteen"] },
