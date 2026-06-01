@@ -1,5 +1,16 @@
 # TODO
 
+## 🔍 ISSO 53 warmteverlies — open validatie & bugs (gemeld 01-06, ~240 m² zwevend kantoor)
+
+> Context: gebruiker valideerde een ISSO 53-berekening van een zwevend kantoor (~240 m²). Eerder deze sessie gefixt: infiltratie A_u telde de blootgestelde vloer mee (`d529378`). Onderstaande punten staan nog open.
+
+- [ ] **Opwarmtoeslag (§4.8) erg hoog** — net geïmplementeerd (`e8dd82b`, `crates/isso53-core/src/calc/heating_up.rs` + `tables/heating_up.rs`). Regressie matcht PDF-voorbeeld p.66, maar gebruiker ziet hoge waarden op het eigen project. Valideren tegen een Vabi-uitvoer van dít kantoor. Verdenking: default `regime=free` met weekendverlaging 62h → tabel 4.13 geeft hoge φ, en `max(dag, weekend)` pakt dan het weekend. Check of de defaults (14/62h, vrije afkoeling) passend zijn en of `max(dag,weekend)` norm-correct toegepast wordt.
+- [ ] **Ventilatieverlies erg laag** — onderzoek Φ_vent in `crates/isso53-core/src/calc/ventilation.rs`. Mogelijke oorzaken: (a) WTW stille 75%-default over-reduceert (zie WTW-rendement-UI `d1c8b38`), (b) personen-gebaseerde flow te laag na de `max(oppervlakte-bezetting, personen)`-wijziging (`5abc693`), (c) `f_v`-berekening. Valideren tegen Vabi.
+- [ ] **Verlies door binnenwanden klopt niet — zit de (zwevende) vloer erbij?** — controleer `crates/isso53-core/src/calc/transmission.rs` + de groepering per `boundary_type`/`vertical_position` in results/rapport. Hypothese: een exterior/adjacent **vloer** (`vertical_position == Floor`) wordt onder "binnenwand"-transmissie meegeteld/gegroepeerd. Echo van de A_u-vloer-bug (`d529378`), maar dan in de transmissie-/weergavegroepering. Verifieer welke constructies onder "binnenwand" vallen.
+- [ ] **Ventilatie-rij: toon personen-gebaseerde ventilatie** — na de `max(oppervlakte, personen)`-wijziging is onduidelijk welk personen-aantal/q_v gebruikt wordt. Voeg in de ventilatie-rij een veldje/indicatie toe dat de personen-gebaseerde ventilatie (effectief personen-aantal × tarief, of de resulterende q_v) toont. Frontend: `frontend/src/components/rooms/VentilationRow.tsx` + `Isso53RoomFunctionCell.tsx` (personen-input zit daar al).
+
+---
+
 ## 🎯 Sprint v1.0 — BENG/TO-juli/koellast strategie (mei-juni 2026)
 
 ### Beschikbaar lokaal (`tests/references/`, gitignored)
