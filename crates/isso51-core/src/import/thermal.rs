@@ -31,6 +31,11 @@ const DEFAULT_EXTERIOR_OPENING_U: f64 = 1.1;
 /// Engineering-default, geen norm-waarde.
 const DEFAULT_INTERIOR_OPENING_U: f64 = 1.8;
 
+/// Default U-waarde voor een open verbinding tussen ruimten (open doorloop,
+/// geen wand), als transmissie-element naar de aangrenzende ruimte.
+/// Engineering-default, geen norm-waarde.
+const DEFAULT_OPEN_CONNECTION_U: f64 = 1.9;
+
 // ─── Input types (deserialized from thermal-import JSON) ───
 
 /// Top-level container for a Revit thermal export.
@@ -291,6 +296,25 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             .push(opening);
     }
 
+    // Build lookup: room_id → list of (other_room_id, area_m2) for open connections.
+    //
+    // Een open verbinding (`{room_a, room_b, area_m2}`) is symmetrisch: beide
+    // ruimten krijgen een transmissie-element naar de andere kant. We indexeren
+    // de verbinding daarom onder BEIDE room-ids, telkens met de tegenoverliggende
+    // ruimte als "andere kant". Pseudo-rooms en niet-bestaande ruimten worden
+    // verderop (in de room-loop) overgeslagen.
+    let mut open_connections_by_room: HashMap<&str, Vec<(&str, f64)>> = HashMap::new();
+    for oc in &input.open_connections {
+        open_connections_by_room
+            .entry(oc.room_a.as_str())
+            .or_default()
+            .push((oc.room_b.as_str(), oc.area_m2));
+        open_connections_by_room
+            .entry(oc.room_b.as_str())
+            .or_default()
+            .push((oc.room_a.as_str(), oc.area_m2));
+    }
+
     // Collect rooms that should become ISSO 51 Room objects (heated + unheated only).
     let real_rooms: Vec<&ThermalRoom> = input
         .rooms
@@ -368,7 +392,11 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         // Phase 1: Collect individual construction surfaces and openings.
         let mut raw_elements: Vec<ConstructionElement> = Vec::new();
         let mut opening_elements: Vec<ConstructionElement> = Vec::new();
+        let mut oc_elements: Vec<ConstructionElement> = Vec::new();
         let mut elem_counter: u32 = 0;
+        // Aparte teller voor open-verbinding-elementen zodat hun id's niet
+        // botsen met de `-c{}` / `-g{}` element-ids.
+        let mut oc_counter: u32 = 0;
 
         // Track grouping info per element: (revit_type_name, boundary_type, orientation, layers)
         // Used for grouping in phase 2.
@@ -583,6 +611,49 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
             }
         }
 
+        // Open verbindingen (open doorloop, geen wand) → transmissie-element
+        // naar de aangrenzende ruimte met vaste U-waarde.
+        //
+        // Een open verbinding is symmetrisch: deze ruimte krijgt een element
+        // dat naar de andere ruimte wijst (de andere ruimte krijgt in haar eigen
+        // loop-iteratie het spiegelbeeld). Pseudo-rooms (outside/ground/water) en
+        // niet-bestaande ruimten worden overgeslagen — een open verbinding bestaat
+        // alleen tussen twee echte ruimten. De elementen hebben `catalog_ref: None`
+        // en blijven (net als openingen) buiten de catalog-grouping van fase 3.
+        if let Some(connections) = open_connections_by_room.get(thermal_room.id.as_str()) {
+            for (other_room_id, area_m2) in connections {
+                // Sla over als de andere kant geen real (heated/unheated) room is.
+                if !real_room_ids.contains(*other_room_id) {
+                    continue;
+                }
+
+                let other_name = room_map
+                    .get(*other_room_id)
+                    .map(|r| r.name.clone())
+                    .unwrap_or_else(|| (*other_room_id).to_string());
+
+                oc_counter += 1;
+                oc_elements.push(ConstructionElement {
+                    id: format!("{}-oc{}", thermal_room.id, oc_counter),
+                    description: format!("Open verbinding → {}", other_name),
+                    area: *area_m2,
+                    u_value: DEFAULT_OPEN_CONNECTION_U,
+                    boundary_type: BoundaryType::AdjacentRoom,
+                    material_type: MaterialType::NonMasonry,
+                    temperature_factor: None,
+                    adjacent_room_id: Some((*other_room_id).to_string()),
+                    adjacent_temperature: None,
+                    vertical_position: VerticalPosition::Wall,
+                    use_forfaitaire_thermal_bridge: false,
+                    custom_delta_u_tb: None,
+                    ground_params: None,
+                    has_embedded_heating: false,
+                    catalog_ref: None,
+                    uw_breakdown: None,
+                });
+            }
+        }
+
         // Phase 2: Group construction surfaces by
         // (layer_fingerprint, boundary_type, orientation, adjacent_room_id?).
         // Surfaces with the same key are merged: areas summed, SfB-based name assigned.
@@ -762,6 +833,9 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
 
         // Add opening elements (not grouped).
         elements.extend(opening_elements);
+
+        // Add open-connection elements (not grouped, geen catalog_ref).
+        elements.extend(oc_elements);
 
         if elements.is_empty() {
             warnings.push(format!(
@@ -1233,10 +1307,13 @@ mod tests {
         // So we expect: 3 wall/floor elements + 3 opening elements = 6 total.
         // But openings from constr-0 are exterior (NonMasonry),
         // opening from constr-1 is to unheated space (NonMasonry).
+        // Open-verbinding-elementen zijn óók NonMasonry; die filteren we hier
+        // expliciet weg (deze test gaat alleen over openingen).
         let non_masonry_elements: Vec<&ConstructionElement> = room_0
             .constructions
             .iter()
             .filter(|c| c.material_type == MaterialType::NonMasonry)
+            .filter(|c| !c.description.starts_with("Open verbinding"))
             .collect();
         assert_eq!(
             non_masonry_elements.len(),
@@ -1282,6 +1359,106 @@ mod tests {
             "Opening area should be 1.2 m², got {}",
             room_2_non_masonry[0].area
         );
+    }
+
+    #[test]
+    fn test_map_open_connections_symmetric() {
+        // Two heated rooms with an open connection between them, plus one
+        // pseudo-room (outside) that also has an open connection to room-a —
+        // the pseudo side must be skipped.
+        let rooms = vec![
+            ThermalRoom {
+                id: "oc-a".to_string(),
+                revit_id: None,
+                name: "Woonkamer".to_string(),
+                room_type: ThermalRoomType::Heated,
+                level: None,
+                area_m2: Some(30.0),
+                height_m: Some(2.6),
+                volume_m3: None,
+                boundary_polygon: None,
+            },
+            ThermalRoom {
+                id: "oc-b".to_string(),
+                revit_id: None,
+                name: "Keuken".to_string(),
+                room_type: ThermalRoomType::Heated,
+                level: None,
+                area_m2: Some(15.0),
+                height_m: Some(2.6),
+                volume_m3: None,
+                boundary_polygon: None,
+            },
+            ThermalRoom {
+                id: "oc-out".to_string(),
+                revit_id: None,
+                name: "Buiten".to_string(),
+                room_type: ThermalRoomType::Outside,
+                level: None,
+                area_m2: None,
+                height_m: None,
+                volume_m3: None,
+                boundary_polygon: None,
+            },
+        ];
+
+        let input = ThermalImport {
+            version: "1.0".to_string(),
+            source: "test".to_string(),
+            exported_at: "2026-06-01".to_string(),
+            project_name: Some("Open connection test".to_string()),
+            rooms,
+            constructions: vec![],
+            openings: vec![],
+            open_connections: vec![
+                ThermalOpenConnection {
+                    room_a: "oc-a".to_string(),
+                    room_b: "oc-b".to_string(),
+                    area_m2: 4.2,
+                },
+                // Open connection to a pseudo-room: must be skipped on the real side.
+                ThermalOpenConnection {
+                    room_a: "oc-a".to_string(),
+                    room_b: "oc-out".to_string(),
+                    area_m2: 9.9,
+                },
+            ],
+        };
+
+        let result = map_thermal_import(input);
+
+        let collect_oc = |room_id: &str| -> Vec<ConstructionElement> {
+            result
+                .project
+                .rooms
+                .iter()
+                .find(|r| r.id == room_id)
+                .unwrap_or_else(|| panic!("{} not found", room_id))
+                .constructions
+                .iter()
+                .filter(|c| c.description.starts_with("Open verbinding"))
+                .cloned()
+                .collect()
+        };
+
+        // Room A: exactly one open-connection element (the oc-out one is skipped).
+        let a = collect_oc("oc-a");
+        assert_eq!(a.len(), 1, "oc-a should have exactly 1 open-connection element (pseudo skipped)");
+        assert_eq!(a[0].boundary_type, BoundaryType::AdjacentRoom);
+        assert_eq!(a[0].adjacent_room_id.as_deref(), Some("oc-b"));
+        assert!((a[0].u_value - 1.9).abs() < 1e-9, "U-value should be 1.9, got {}", a[0].u_value);
+        assert!((a[0].area - 4.2).abs() < 1e-9, "area should be 4.2, got {}", a[0].area);
+        assert_eq!(a[0].material_type, MaterialType::NonMasonry);
+        assert!(!a[0].use_forfaitaire_thermal_bridge);
+        assert!(a[0].catalog_ref.is_none());
+
+        // Room B: the symmetric counterpart, pointing back to room A.
+        let b = collect_oc("oc-b");
+        assert_eq!(b.len(), 1, "oc-b should have exactly 1 open-connection element");
+        assert_eq!(b[0].boundary_type, BoundaryType::AdjacentRoom);
+        assert_eq!(b[0].adjacent_room_id.as_deref(), Some("oc-a"));
+        assert!((b[0].u_value - 1.9).abs() < 1e-9);
+        assert!((b[0].area - 4.2).abs() < 1e-9);
     }
 
     #[test]
