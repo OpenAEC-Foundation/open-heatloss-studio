@@ -36,6 +36,7 @@ import {
   getWtwUnits,
 } from "../../lib/productCatalog";
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
+import { formatDecimals } from "../../lib/formatNumber";
 import { useProjectStore } from "../../store/projectStore";
 import type { VentilationConfig, VentilationSystemType } from "../../types";
 import type { HeatRecovery } from "../../types/projectV2";
@@ -129,7 +130,7 @@ export function VentilationPanel() {
       { value: MANUAL_PRODUCT_ID, label: "Handmatig invoeren" },
       ...WTW_UNITS.map((u) => ({
         value: u.id,
-        label: `${u.brand} ${u.model} — ${u.q_nominal_m3h} m³/h — η_hr ${Math.round(
+        label: `${u.brand} ${u.model} — ${formatDecimals(u.q_nominal_m3h)} m³/h — η_hr ${Math.round(
           u.eta_hr * 100,
         )}%`,
         disabled: u.q_nominal_m3h < requiredM3h && u.id !== selectedWtwId,
@@ -232,7 +233,7 @@ export function VentilationPanel() {
       : null;
 
   return (
-    <Card title="Ventilatie (ISSO 51)">
+    <Card title={norm === "isso53" ? "Ventilatie" : "Ventilatie (ISSO 51)"}>
       {/* Systeemkeuze voor ISSO 53 verborgen: het ventilatiesysteem op de
           Project-tab (Isso53BuildingFields) is daar leidend. De WTW-UI
           hieronder blijft wel actief — die V1-velden gebruikt de isso53-calc. */}
@@ -276,7 +277,7 @@ export function VentilationPanel() {
             {selectedUnitTooSmall && (
               <p className="mt-1 text-[10px] leading-tight text-amber-600">
                 ⚠ Capaciteit te laag voor dit gebouw (
-                {selectedWtwUnit?.q_nominal_m3h} m³/h &lt;{" "}
+                {formatDecimals(selectedWtwUnit?.q_nominal_m3h)} m³/h &lt;{" "}
                 {requiredM3h.toFixed(0)} m³/h).
               </p>
             )}
@@ -319,7 +320,7 @@ export function VentilationPanel() {
                       θ_toevoer:{" "}
                     </span>
                     <span className="font-semibold tabular-nums">
-                      {heatRecoveryHint.supply_temperature}°C
+                      {formatDecimals(heatRecoveryHint.supply_temperature)}°C
                     </span>
                   </>
                 )}
@@ -330,8 +331,9 @@ export function VentilationPanel() {
       )}
 
       <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
-        ISSO 51 ventilatie — systeemtype A–E + WTW-rendement. De NTA 8800 /
-        TO-juli luchtdebieten (m³/h) staan op de TO-juli-tab.
+        {norm === "isso53"
+          ? "Warmteterugwinning-rendement. Het ventilatiesysteem stel je in op de Project-tab (ISSO 53 gebouw); de NTA 8800 / TO-juli luchtdebieten (m³/h) staan op de TO-juli-tab."
+          : "ISSO 51 ventilatie — systeemtype A–E + WTW-rendement. De NTA 8800 / TO-juli luchtdebieten (m³/h) staan op de TO-juli-tab."}
       </p>
     </Card>
   );
