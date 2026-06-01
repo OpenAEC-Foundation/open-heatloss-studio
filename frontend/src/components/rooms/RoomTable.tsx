@@ -55,7 +55,7 @@ export function RoomTable() {
         <thead className="sticky top-0 z-10 bg-surface-alt">
           <tr className="border-b-2 border-[var(--oaec-border)] text-left text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
             <th className="w-[140px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Vertrek</th>
-            <th className="w-[280px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Functie</th>
+            <th className="w-[360px] border-r border-[var(--oaec-border-subtle)] px-2 py-2">Functie</th>
             <th className="w-[60px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               {"θ"}i
             </th>
@@ -65,7 +65,7 @@ export function RoomTable() {
             <th className="w-[60px] border-r border-[var(--oaec-border-subtle)] px-2 py-2 text-right">
               h [m]
             </th>
-            <th className="w-[460px] px-2 py-2">Grensvlak</th>
+            <th className="w-[300px] px-2 py-2">Grensvlak</th>
             <th className="w-[140px] px-2 py-2">Type</th>
             <th className="w-[78px] px-2 py-2 text-right">
               A [m{"²"}]
