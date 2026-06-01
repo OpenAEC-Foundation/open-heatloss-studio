@@ -22,6 +22,7 @@ import type {
   Isso53ThermalMass,
   Isso53VentilationSystem,
   Isso53WindPressureType,
+  Qv10Class,
 } from "../../types/projectV2";
 
 const BUILDING_SHAPES: Isso53BuildingShape[] = [
@@ -60,6 +61,15 @@ const VENTILATION_SYSTEMS: Isso53VentilationSystem[] = [
   "systemE",
 ];
 
+const QV10_CLASSES: Qv10Class[] = [
+  "LessThan020",
+  "From020To040",
+  "From040To060",
+  "From060To080",
+  "From080To100",
+  "GreaterThan100",
+];
+
 export function Isso53BuildingFields() {
   const { t } = useTranslation();
   const isso53Building = useProjectStore((s) => s.isso53Building);
@@ -84,6 +94,10 @@ export function Isso53BuildingFields() {
   const ventOptions = VENTILATION_SYSTEMS.map((v) => ({
     value: v,
     label: t(`isso53.building.ventilationSystemOptions.${v}`),
+  }));
+  const qv10Options = QV10_CLASSES.map((v) => ({
+    value: v,
+    label: t(`isso53.building.qv10ClassOptions.${v}`),
   }));
 
   return (
@@ -153,6 +167,33 @@ export function Isso53BuildingFields() {
             updateIsso53Building({
               constructionYear:
                 e.target.value === "" ? null : Number(e.target.value),
+            })
+          }
+        />
+        <div>
+          <Input
+            id="isso53_theta_me"
+            label={t("isso53.building.thetaMe")}
+            type="number"
+            step="0.1"
+            unit="°C"
+            value={isso53Building.thetaMe}
+            onChange={(e) =>
+              updateIsso53Building({ thetaMe: Number(e.target.value) })
+            }
+          />
+          <p className="mt-1 text-xs text-on-surface-muted">
+            {t("isso53.building.thetaMeHint")}
+          </p>
+        </div>
+        <Select
+          id="isso53_qv10_class"
+          label={t("isso53.building.qv10Class")}
+          value={isso53Building.qv10KarClass}
+          options={qv10Options}
+          onChange={(e) =>
+            updateIsso53Building({
+              qv10KarClass: e.target.value as Qv10Class,
             })
           }
         />
