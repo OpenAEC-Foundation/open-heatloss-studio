@@ -150,15 +150,17 @@ export function WarmteverliesInstellingen() {
         {/* Building */}
         <Card title="Gebouw">
           <div className="grid grid-cols-3 gap-4">
-            <Select
-              id="building_type"
-              label="Gebouwtype"
-              value={building.building_type}
-              options={toOptions(BUILDING_TYPE_LABELS)}
-              onChange={(e) =>
-                updateBuilding({ building_type: e.target.value as Building["building_type"] })
-              }
-            />
+            {!isIsso53 && (
+              <Select
+                id="building_type"
+                label="Gebouwtype"
+                value={building.building_type}
+                options={toOptions(BUILDING_TYPE_LABELS)}
+                onChange={(e) =>
+                  updateBuilding({ building_type: e.target.value as Building["building_type"] })
+                }
+              />
+            )}
             <Input
               id="total_floor_area"
               label="Gebruiksoppervlak Ag"
@@ -199,30 +201,34 @@ export function WarmteverliesInstellingen() {
                 />
               </>
             )}
-            <Select
-              id="security_class"
-              label="Zekerheidsklasse"
-              value={building.security_class}
-              options={toOptions(SECURITY_CLASS_LABELS)}
-              onChange={(e) =>
-                updateBuilding({ security_class: e.target.value as Building["security_class"] })
-              }
-            />
-            <Input
-              id="num_floors"
-              label="Aantal verdiepingen"
-              type="number"
-              value={building.num_floors ?? 1}
-              onChange={(e) => updateBuilding({ num_floors: Math.max(1, numVal(e.target.value)) })}
-            />
-            <Input
-              id="warmup_time"
-              label="Opwarmtijd"
-              type="number"
-              unit="uur"
-              value={building.warmup_time ?? 2}
-              onChange={(e) => updateBuilding({ warmup_time: numVal(e.target.value) })}
-            />
+            {!isIsso53 && (
+              <>
+                <Select
+                  id="security_class"
+                  label="Zekerheidsklasse"
+                  value={building.security_class}
+                  options={toOptions(SECURITY_CLASS_LABELS)}
+                  onChange={(e) =>
+                    updateBuilding({ security_class: e.target.value as Building["security_class"] })
+                  }
+                />
+                <Input
+                  id="num_floors"
+                  label="Aantal verdiepingen"
+                  type="number"
+                  value={building.num_floors ?? 1}
+                  onChange={(e) => updateBuilding({ num_floors: Math.max(1, numVal(e.target.value)) })}
+                />
+                <Input
+                  id="warmup_time"
+                  label="Opwarmtijd"
+                  type="number"
+                  unit="uur"
+                  value={building.warmup_time ?? 2}
+                  onChange={(e) => updateBuilding({ warmup_time: numVal(e.target.value) })}
+                />
+              </>
+            )}
             <div>
               <Select
                 id="default_heating_system"
@@ -243,15 +249,17 @@ export function WarmteverliesInstellingen() {
             </div>
           </div>
           <div className="mt-3 flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={building.has_night_setback ?? false}
-                onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
-                className="rounded border-[var(--oaec-border)] accent-primary"
-              />
-              Nachtreductie
-            </label>
+            {!isIsso53 && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={building.has_night_setback ?? false}
+                  onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
+                  className="rounded border-[var(--oaec-border)] accent-primary"
+                />
+                Nachtreductie
+              </label>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -284,6 +292,7 @@ export function WarmteverliesInstellingen() {
               Toepassen op alle vertrekken
             </Button>
           </div>
+          {!isIsso53 && (
           <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
             <div>
               <Input
@@ -331,6 +340,7 @@ export function WarmteverliesInstellingen() {
               </p>
             </div>
           </div>
+          )}
         </Card>
 
         {/* V2 Ventilation (TO-juli / NTA 8800) — sidecar + V1 spiegel */}
