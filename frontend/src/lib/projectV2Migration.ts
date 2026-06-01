@@ -32,6 +32,8 @@ import {
   type Construction,
   type ConstructionKind,
   type HeatRecovery,
+  type Isso53BuildingState,
+  type Isso53RoomState,
   type ProjectV2,
   type ResidentialType,
   type SharedExtra,
@@ -40,6 +42,7 @@ import {
   type VentilationSystemKind,
   SCHEMA_VERSION_V2,
 } from "../types/projectV2";
+import { toIsso53LegacyProject } from "./isso53ProjectMapper";
 
 /** Detecteer schema-versie uit raw JSON of geparste data. */
 export function detectSchemaVersion(data: unknown): 1 | 2 {
@@ -335,6 +338,39 @@ export function buildV2Payload(
     geometry: { spaces: project.rooms.map(mapV1RoomToSpace) },
     calcs: {
       isso51: { legacy_v1: project },
+      tojuli: null,
+    },
+  };
+}
+
+/**
+ * Bouw een V2-payload voor een ISSO 53-project. Identiek aan
+ * {@link buildV2Payload} qua `shared`/`geometry`, maar de `calcs`-sectie
+ * activeert ISSO 53: `isso51` en `tojuli` zijn `null`, en `isso53` bevat de
+ * door {@link toIsso53LegacyProject} getransformeerde legacy-blob.
+ *
+ * Omdat alleen `isso53` gevuld is, geeft de Rust `Calcs::active_norm()`
+ * `ActiveNorm::Isso53` terug (zie
+ * `crates/openaec-project-shared/src/calcs.rs`).
+ *
+ * De `legacy`-wrapper-key spiegelt de TS `Iso53Inputs`-shape
+ * (`{ legacy: Record<string, unknown> }`). Aan de Rust-kant is
+ * `Iso53Inputs.legacy` `#[serde(flatten)]`, dus de ISSO 53-velden
+ * verschijnen op de wire inline onder `calcs.isso53` — de wrapper-key is
+ * puur een TS-/serde-detail en verdwijnt bij (de)serialisatie.
+ */
+export function buildV2PayloadIsso53(
+  project: Project,
+  sharedExtra: SharedExtra,
+  isso53Building: Isso53BuildingState,
+  isso53Rooms: Record<string, Isso53RoomState>,
+): ProjectV2 {
+  const base = buildV2Payload(project, sharedExtra);
+  return {
+    ...base,
+    calcs: {
+      isso51: null,
+      isso53: { legacy: toIsso53LegacyProject(project, isso53Building, isso53Rooms) },
       tojuli: null,
     },
   };
