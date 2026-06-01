@@ -10,7 +10,7 @@ mod report;
 mod thermal_import;
 mod user;
 
-pub use calculation::{calculate, get_schema, health, list_schemas};
+pub use calculation::{calculate, calculate_v2, get_schema, health, list_schemas};
 pub use cooling::{simplified_cooling, tojuli_calculate};
 pub use cloud::{
     cloud_list_calculations, cloud_list_models, cloud_list_projects, cloud_save_calculation,

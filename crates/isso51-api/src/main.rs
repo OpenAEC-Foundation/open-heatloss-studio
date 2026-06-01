@@ -92,6 +92,7 @@ async fn main() {
     let public = Router::new()
         .route("/health", get(handlers::health))
         .route("/calculate", post(handlers::calculate))
+        .route("/calculate_v2", post(handlers::calculate_v2))
         .route("/calculate/ifcx", post(handlers::calculate_ifcx_handler))
         .route("/import/thermal", post(handlers::thermal_import_handler))
         .route("/cooling/simplified", post(handlers::simplified_cooling))

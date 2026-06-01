@@ -52,6 +52,115 @@ pub async fn calculate(body: String) -> impl IntoResponse {
     }
 }
 
+/// POST /calculate_v2 — Run heat loss calculation with dual-pipeline routing.
+///
+/// Accepts a `ProjectV2` JSON body and routes to ISSO 51 or ISSO 53 based on
+/// `project.calcs.active_norm()` (mirrors the Tauri `calculate_v2` command).
+///
+/// Error mapping:
+/// - body deserialisation failure → 400 with the serde message,
+/// - view conversion / serialisation failure → 422 with the detail,
+/// - calculation error → mapped via `Isso51Error` (400/422/404) for ISSO 51;
+///   ISSO 53 calc errors → 422 with the detail,
+/// - blocking-task join failure → 500.
+pub async fn calculate_v2(body: String) -> impl IntoResponse {
+    use openaec_project_shared::calcs::ActiveNorm;
+    use openaec_project_shared::{view, ProjectV2};
+
+    // Explicit deserialisation so a malformed body yields 400, not 500.
+    let project: ProjectV2 = match serde_json::from_str(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "deserialization_error",
+                    "detail": e.to_string()
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let result = tokio::task::spawn_blocking(move || -> Result<serde_json::Value, (StatusCode, String, String)> {
+        match project.calcs.active_norm() {
+            ActiveNorm::Isso51 => {
+                let isso51_project = view::to_isso51_project(&project).map_err(|e| {
+                    (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "conversion_error".to_string(),
+                        format!("Failed to convert to ISSO 51 project: {e}"),
+                    )
+                })?;
+                let result = isso51_core::calculate(&isso51_project).map_err(|e| {
+                    let (status, error_type) = match &e {
+                        isso51_core::error::Isso51Error::OutOfRange { .. }
+                        | isso51_core::error::Isso51Error::InfiltrationConfig(_) => {
+                            (StatusCode::UNPROCESSABLE_ENTITY, "calc_error")
+                        }
+                        isso51_core::error::Isso51Error::RoomNotFound(_) => {
+                            (StatusCode::NOT_FOUND, "room_not_found")
+                        }
+                        _ => (StatusCode::BAD_REQUEST, "calc_error"),
+                    };
+                    (status, error_type.to_string(), e.to_string())
+                })?;
+                serde_json::to_value(&result).map_err(|e| {
+                    (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "serialization_error".to_string(),
+                        format!("Failed to serialize ISSO 51 result: {e}"),
+                    )
+                })
+            }
+            ActiveNorm::Isso53 => {
+                let isso53_project = view::to_isso53_project(&project).map_err(|e| {
+                    (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "conversion_error".to_string(),
+                        format!("Failed to convert to ISSO 53 project: {e}"),
+                    )
+                })?;
+                let result = isso53_core::calculate(&isso53_project).map_err(|e| {
+                    (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "calc_error".to_string(),
+                        e.to_string(),
+                    )
+                })?;
+                serde_json::to_value(&result).map_err(|e| {
+                    (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "serialization_error".to_string(),
+                        format!("Failed to serialize ISSO 53 result: {e}"),
+                    )
+                })
+            }
+        }
+    })
+    .await;
+
+    match result {
+        Ok(Ok(json)) => (StatusCode::OK, Json(json)).into_response(),
+        Ok(Err((status, error_type, detail))) => (
+            status,
+            Json(serde_json::json!({
+                "error": error_type,
+                "detail": detail
+            })),
+        )
+            .into_response(),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "internal_error",
+                "detail": join_err.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
 /// Available schema definitions.
 const AVAILABLE_SCHEMAS: &[(&str, &str)] = &[
     ("project", "Project input schema"),
