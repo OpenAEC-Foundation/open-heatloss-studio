@@ -7,6 +7,7 @@ description = "REST API for ISSO 51 heat loss calculations"
 
 [dependencies]
 isso51-core = { path = "../isso51-core" }
+isso53-core = { path = "../isso53-core" }
 isso51-ifcx = { path = "../isso51-ifcx" }
 nta8800-cooling = { path = "../nta8800-cooling" }
 nta8800-model = { path = "../nta8800-model" }
