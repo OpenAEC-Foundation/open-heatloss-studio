@@ -98,20 +98,39 @@ export function matchIfcMaterial(ifcName: string): MaterialMatch {
     }
   }
 
-  // Strategy 2: Keyword overlap scoring
+  // Strategy 2: Keyword overlap scoring.
+  //
+  // A token that is EXACTLY equal to a database keyword (or name-token) is a far
+  // stronger signal than a mere substring hit, so it is weighted 3×. This makes
+  // a specific match (e.g. "pir" → PIR) decisively beat a generic substring hit
+  // (e.g. "isolatie" landing inside another material's keyword). Per token we
+  // take the strongest contribution across the whole haystack.
+  const EXACT_WEIGHT = 3;
   let bestMatch: Material | null = null;
   let bestScore = 0;
 
   for (const m of MATERIALS_DATABASE) {
     const haystack = [normalize(m.name), ...m.keywords.map(normalize)];
+    // name + each keyword split into individual words for exact token comparison.
+    const haystackTokens = new Set(
+      haystack.flatMap((h) => h.split(/\s+/)).filter((t) => t.length > 1),
+    );
     let score = 0;
     for (const token of tokens) {
-      for (const h of haystack) {
-        if (h.includes(token)) {
-          score += token.length;
-          break;
+      let tokenScore = 0;
+      if (haystackTokens.has(token)) {
+        // Exact token == keyword/name-word match: strongest signal.
+        tokenScore = token.length * EXACT_WEIGHT;
+      } else {
+        // Fall back to substring containment (e.g. "baksteen" in "gevelbaksteen").
+        for (const h of haystack) {
+          if (h.includes(token)) {
+            tokenScore = token.length;
+            break;
+          }
         }
       }
+      score += tokenScore;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -119,7 +138,8 @@ export function matchIfcMaterial(ifcName: string): MaterialMatch {
     }
   }
 
-  // Require at least 2 meaningful token matches or 5 chars matched
+  // Require a meaningful overlap: ≥5 weighted chars. An exact keyword hit of
+  // ≥2 chars (×3 = 6) clears this on its own; substring hits need ≥5 chars.
   if (bestMatch && bestScore >= 5) {
     return { material: bestMatch, confidence: "keyword", ifcName };
   }
