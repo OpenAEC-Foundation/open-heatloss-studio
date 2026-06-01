@@ -326,8 +326,7 @@
     }
   },
   "warmteverliesInstellingen": {
-    "title": "Heat loss settings",
-    "subtitle": "ISSO 51:2023 parameters"
+    "title": "Heat loss settings"
   },
   "uw": {
     "title": "Window U-value",

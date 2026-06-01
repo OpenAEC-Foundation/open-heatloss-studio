@@ -225,6 +225,18 @@ describe("toIsso53LegacyProject", () => {
     expect(byId["floor"].boundaryType).toBe("ground");
   });
 
+  it("valt onverwarmd grensvlak zonder factor terug op temperatureFactor 0.5", () => {
+    const rooms = out.rooms as Array<Record<string, unknown>>;
+    const cons = rooms[0].constructions as Array<Record<string, unknown>>;
+    const byId = Object.fromEntries(cons.map((c) => [c.id as string, c]));
+
+    // unheated_space zonder expliciete temperature_factor → 0.5 (isso51-consistent)
+    expect(byId["wall-corridor"].temperatureFactor).toBe(0.5);
+    // andere grensvlaktypes zonder factor blijven null
+    expect(byId["wall-n"].temperatureFactor).toBeNull();
+    expect(byId["wall-adj"].temperatureFactor).toBeNull();
+  });
+
   it("remapt materialType (non_masonry→nonMasonry) en zet uValue", () => {
     const rooms = out.rooms as Array<Record<string, unknown>>;
     const cons = rooms[0].constructions as Array<Record<string, unknown>>;
