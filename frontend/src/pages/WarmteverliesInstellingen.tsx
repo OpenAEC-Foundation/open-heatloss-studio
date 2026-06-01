@@ -9,12 +9,9 @@ import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useNormSwitch } from "../components/layout/NormSwitchContext";
 import { VentilationPanel } from "../components/projectSetup/VentilationPanel";
-import { useBackend } from "../hooks/useBackend";
 import { useProjectStore } from "../store/projectStore";
 import { formatArea } from "../lib/formatNumber";
-import { prepareProjectForCalculation } from "../lib/frameOverride";
-import { buildV2PayloadIsso53 } from "../lib/projectV2Migration";
-import { useModellerStore } from "../components/modeller/modellerStore";
+import { useRunCalculation } from "../hooks/useRunCalculation";
 import { useToastStore } from "../store/toastStore";
 import {
   AGGREGATION_METHOD_LABELS,
@@ -46,25 +43,18 @@ function toOptions(labels: Record<string, string>) {
 export function WarmteverliesInstellingen() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const backend = useBackend();
   const {
     project,
     norm,
-    sharedExtra,
-    isso53Building,
-    isso53Rooms,
     updateProject,
     isCalculating,
-    setCalculating,
-    setResult,
-    setError,
     setFrameUValueOverride,
     applyHeatingSystemToAllRooms,
     setAggregationMethod,
   } = useProjectStore();
   const { openNormSwitch } = useNormSwitch();
-  const projectConstructions = useModellerStore((s) => s.projectConstructions);
   const addToast = useToastStore((s) => s.addToast);
+  const runCalculation = useRunCalculation();
 
   const { building, climate, ventilation } = project;
 
@@ -106,42 +96,11 @@ export function WarmteverliesInstellingen() {
   );
 
   const handleCalculate = useCallback(async () => {
-    setCalculating(true);
-    try {
-      if (norm === "isso53") {
-        // ISSO 53 routeert via de V2-payload (active_norm → Isso53) naar
-        // de calculate_v2-kern. De isso51-route crasht op de camelCase
-        // verwarmingssysteem-enum van ISSO 53.
-        const payload = buildV2PayloadIsso53(
-          project,
-          sharedExtra,
-          isso53Building,
-          isso53Rooms,
-        );
-        const result = await backend.calculateV2(payload);
-        setResult(result);
-      } else {
-        const payload = prepareProjectForCalculation(project, projectConstructions);
-        const result = await backend.calculate(payload);
-        setResult(result);
-      }
+    const ok = await runCalculation();
+    if (ok) {
       navigate("/results");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Berekening mislukt");
     }
-  }, [
-    backend,
-    norm,
-    project,
-    sharedExtra,
-    isso53Building,
-    isso53Rooms,
-    projectConstructions,
-    setCalculating,
-    setResult,
-    setError,
-    navigate,
-  ]);
+  }, [runCalculation, navigate]);
 
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
