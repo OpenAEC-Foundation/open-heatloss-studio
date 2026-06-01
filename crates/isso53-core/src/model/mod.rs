@@ -18,7 +18,7 @@ pub use building::Building;
 pub use climate::DesignConditions;
 pub use construction::ConstructionElement;
 pub use enums::*;
-pub use heating_up::HeatingUpConfig;
+pub use heating_up::{AirChangeRate, CoolingRegime, HeatingUpConfig};
 pub use project::{Project, ProjectInfo};
 pub use room::{Bezetting, Room};
 pub use ventilation::VentilationConfig;

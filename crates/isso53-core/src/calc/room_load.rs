@@ -42,8 +42,16 @@ pub fn calculate_room(
         room, ventilation, theta_i, climate.theta_e
     )?;
 
-    // Calculate heating-up supplement
-    let phi_hu = heating_up::calculate_heating_up(room, heating_up_config)?;
+    // Calculate heating-up supplement (§4.8). H_v, θ_i en θ_e zijn nodig voor
+    // de §4.8.3-reductie (formule 4.45) bij uitgeschakelde mechanische toevoer.
+    let phi_hu = heating_up::calculate_heating_up(
+        room,
+        heating_up_config,
+        building.thermal_mass,
+        ventilation_result.h_v,
+        theta_i,
+        climate.theta_e,
+    )?;
 
     // Φ_gain = 0: interne warmtelast (personen, apparaten) wordt in
     // warmteverlies-context conservatief op 0 gezet — worst-case ontwerp.

@@ -49,9 +49,11 @@ fn vabi_bedrijfsruimte4_phi_vi_combined_matches() {
 }
 
 /// Verifieert dat opwarmtoeslag binnen 5% blijft.
-/// Tautologisch (P=10 W/m² is direct uit Vabi overgenomen omdat onze P-tabel
-/// nog niet uit PDF p.51-53 is ingelezen) — maar bevestigt de
-/// Φ_hu = P × A_floor formule.
+/// Tautologisch (P=10 W/m² is direct uit Vabi overgenomen via de handmatige
+/// override `pWPerM2Override`; Vabi gebruikt hier geen ISSO 53 §4.8-regime)
+/// — maar bevestigt de Φ_op = P × A_floor formule (4.43). De automatische
+/// §4.8-lookup (tabel 4.13/4.14) is gedekt door de regressietest in
+/// `calc/heating_up.rs::regression_isso53_example_p66`.
 #[test]
 fn vabi_bedrijfsruimte4_phi_hu_matches() {
     let (result, expected) = load_result();
