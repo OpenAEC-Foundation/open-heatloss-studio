@@ -108,6 +108,10 @@ function mapInfo(info: ProjectInfo): Record<string, unknown> {
  * perimeter and depth for U_equiv calculation").
  * `fg2` wordt GEDROPT (geen ISSO 53-veld). `fIg`/`perimeter`/`depth` worden
  * weggelaten zodat de kern ze auto-bepaalt zodra `uEquivalent > 0`.
+ *
+ * `temperatureFactor`: onverwarmd (`unheated_space`) zonder expliciete factor
+ * → fallback 0.5 (isso51-consistent, `h_t_unheated_element` unwrap_or(0.5)).
+ * Andere grensvlaktypes houden `null` — die vereisen geen f_k.
  */
 function mapConstruction(c: ConstructionElement): Record<string, unknown> {
   const out: Record<string, unknown> = {
@@ -117,7 +121,9 @@ function mapConstruction(c: ConstructionElement): Record<string, unknown> {
     uValue: c.u_value,
     boundaryType: BOUNDARY_TYPE_MAP[c.boundary_type] ?? "exterior",
     materialType: MATERIAL_TYPE_MAP[c.material_type] ?? "masonry",
-    temperatureFactor: c.temperature_factor ?? null,
+    temperatureFactor:
+      c.temperature_factor ??
+      (c.boundary_type === "unheated_space" ? 0.5 : null),
     adjacentRoomId: c.adjacent_room_id ?? null,
     adjacentTemperature: c.adjacent_temperature ?? null,
     verticalPosition: mapVerticalPosition(c.vertical_position),

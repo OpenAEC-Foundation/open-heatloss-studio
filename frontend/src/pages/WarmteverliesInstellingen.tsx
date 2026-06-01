@@ -105,16 +105,11 @@ export function WarmteverliesInstellingen() {
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
 
   const title = t("warmteverliesInstellingen.title", "Warmteverlies-instellingen");
-  const subtitle = t(
-    "warmteverliesInstellingen.subtitle",
-    isIsso53 ? "ISSO 53:2024 parameters" : "ISSO 51:2023 parameters",
-  );
 
   return (
     <div>
       <PageHeader
         title={title}
-        subtitle={subtitle}
         actions={
           <Button
             onClick={handleCalculate}
