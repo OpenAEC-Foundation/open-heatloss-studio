@@ -25,9 +25,11 @@
  *     `personenPerM2Default` (de typo `persorenPerM2Default` in de fixture
  *     is een serde-onbekend veld dat genegeerd wordt; wij schrijven de
  *     correcte naam).
- *   - `Iso53Inputs.legacy` is `#[serde(flatten)]` in Rust; aan de TS-kant
- *     wikkelt `buildV2PayloadIsso53` de output van deze functie in
- *     `{ legacy: ... }` (zie `projectV2Migration.ts`).
+ *   - `Iso53Inputs.legacy` is `#[serde(flatten)]` in Rust; daardoor moeten de
+ *     projectvelden INLINE onder `calcs.isso53` staan. `buildV2PayloadIsso53`
+ *     plaatst de output van deze functie dus direct onder `isso53` (GEEN
+ *     `legacy`-wrapper — die zou serde-flatten als de project-blob verzamelen
+ *     en `to_isso53_project` op `missing field info` laten falen).
  */
 
 import type {

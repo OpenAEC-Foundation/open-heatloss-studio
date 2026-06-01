@@ -288,11 +288,11 @@ describe("buildV2PayloadIsso53", () => {
     expect(v2.calcs.isso53).not.toBeNull();
   });
 
-  it("wikkelt de legacy-blob onder calcs.isso53.legacy", () => {
-    const legacy = v2.calcs.isso53?.legacy as Record<string, unknown>;
-    expect(legacy.info).toBeDefined();
-    expect(legacy.building).toBeDefined();
-    expect(legacy.infiltrationMethod).toEqual({
+  it("plaatst de ISSO 53-projectvelden direct onder calcs.isso53", () => {
+    const isso53 = v2.calcs.isso53 as Record<string, unknown>;
+    expect(isso53.info).toBeDefined();
+    expect(isso53.building).toBeDefined();
+    expect(isso53.infiltrationMethod).toEqual({
       known: { qv10_kar_class: "From040To060" },
     });
   });
