@@ -13,6 +13,7 @@ import type {
   VerticalPosition,
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
+import { isIsso53Heating } from "../lib/normSwitch";
 import {
   DEFAULT_ISSO53_BUILDING,
   DEFAULT_ISSO53_ROOM,
@@ -35,6 +36,16 @@ interface ProjectSnapshot {
 
 function takeProjectSnapshot(state: { project: Project }): ProjectSnapshot {
   return { project: structuredClone(state.project) };
+}
+
+/** Detecteer de norm van een geladen project uit de verwarmings-shape:
+ * camelCase ISSO 53-waarden (bv. radiatorenConvLt) => isso53, anders isso51. */
+function detectNormFromProject(project: Project): ActiveNorm {
+  const heatings = [
+    project.building?.default_heating_system,
+    ...project.rooms.map((r) => r.heating_system),
+  ];
+  return heatings.some((h) => isIsso53Heating(h)) ? "isso53" : "isso51";
 }
 
 /** Default project for a new calculation. */
@@ -319,9 +330,10 @@ export const useProjectStore = create<ProjectStore>()(
         set({
           project,
           sharedExtra: { ...DEFAULT_SHARED_EXTRA },
-          // Silent migration: geladen V1-projecten zonder norm-veld zijn
-          // ISSO 51. Fase 4 (wissel-flow) introduceert UI om dit te wijzigen.
-          norm: "isso51",
+          // Detecteer de norm uit de verwarmings-shape: een geladen ISSO 53-
+          // project (camelCase heating-waarden) mag niet teruggeforceerd
+          // worden naar ISSO 51, anders crasht de ISSO 51-rekenkern.
+          norm: detectNormFromProject(project),
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
           isDirty: true,
@@ -338,8 +350,9 @@ export const useProjectStore = create<ProjectStore>()(
       loadServerProject: (id, project, result, updatedAt) =>
         set({
           project,
-          // Silent migration: server-projecten zonder norm-veld → ISSO 51.
-          norm: "isso51",
+          // Detecteer de norm uit de verwarmings-shape (zie setProject) —
+          // server-projecten met ISSO 53 heating mogen niet naar ISSO 51.
+          norm: detectNormFromProject(project),
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
           activeProjectId: id,
