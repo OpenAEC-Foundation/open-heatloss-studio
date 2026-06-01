@@ -336,7 +336,7 @@ export function AppShell({ children }: AppShellProps) {
 
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className={`flex-1 ${mainOverflow} bg-surface text-on-surface`}>
+        <main className={`min-w-0 flex-1 ${mainOverflow} bg-surface text-on-surface`}>
           {error && (
             <div className="flex items-center gap-2 bg-red-600/15 border-b border-red-600/30 px-4 py-2.5 text-sm text-red-400">
               <span className="flex-1">{error}</span>
