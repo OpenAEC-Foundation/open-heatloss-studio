@@ -181,11 +181,13 @@ function mapRoom(
     // ventilatiewarmteverlies. `false` → kern gate't q_v op 0; `undefined`
     // (veld afwezig) → `null` → Rust `None` → geen gate, ongewijzigde berekening.
     hasMechanicalSupply: room.has_mechanical_supply ?? null,
-    // Vastgestelde toevoer q_v: sidecar in dm³/s → kern verwacht m³/s
-    // (Rust `ventilation_q_v_established: Option<f64>`). ISSO 53 stuurt ALTIJD
-    // een getal: leeg veld → 0 (geen toevoer). Een waarde > 0 overschrijft de
-    // BBL/bezetting-afleiding én de has_mechanical_supply-gate in de kern.
-    ventilationQvEstablished: (s.ventilationEstablished ?? 0) / 1000,
+    // Vastgestelde toevoer q_v uit het bestaande VentilationRow-veld
+    // (`room.ventilation_rate`, in dm³/s) → kern verwacht m³/s
+    // (Rust `ventilation_q_v_established: Option<f64>`). Leeg q_v → BBL-
+    // placeholder (ISSO 53 verblijfsgebied: 0,9 dm³/s·m²). De kern gebruikt
+    // altijd deze waarde.
+    ventilationQvEstablished:
+      (room.ventilation_rate ?? 0.9 * room.floor_area) / 1000,
   };
 }
 
