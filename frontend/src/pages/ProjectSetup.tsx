@@ -85,10 +85,15 @@ export function ProjectSetup() {
             return;
           }
 
-          // Regular project import
+          // Regular project import — thread norm + ISSO 53 sidecars uit de
+          // envelope mee zodat ISSO 53-config behouden blijft.
           extractAndLinkConstructions(imported.project);
           const { setProject, setResult } = useProjectStore.getState();
-          setProject(imported.project);
+          setProject(imported.project, {
+            norm: imported.norm,
+            isso53Building: imported.isso53?.building,
+            isso53Rooms: imported.isso53?.rooms,
+          });
           if (imported.result) {
             setResult(imported.result);
           }

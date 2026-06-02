@@ -274,7 +274,11 @@ export default function Backstage({
             "Lokaal bestand",
         );
         extractAndLinkConstructions(imported.project);
-        setProject(imported.project);
+        setProject(imported.project, {
+          norm: imported.norm,
+          isso53Building: imported.isso53?.building,
+          isso53Rooms: imported.isso53?.rooms,
+        });
         useProjectStore.getState().setCurrentLocalPath(selected);
         if (imported.result) {
           useProjectStore.getState().setResult(imported.result);
@@ -321,7 +325,11 @@ export default function Backstage({
 
         // Regular project import
         extractAndLinkConstructions(imported.project);
-        setProject(imported.project);
+        setProject(imported.project, {
+          norm: imported.norm,
+          isso53Building: imported.isso53?.building,
+          isso53Rooms: imported.isso53?.rooms,
+        });
         if (imported.result) {
           useProjectStore.getState().setResult(imported.result);
         }
@@ -367,7 +375,11 @@ export default function Backstage({
             return;
           }
           extractAndLinkConstructions(imported.project);
-          setProject(imported.project);
+          setProject(imported.project, {
+            norm: imported.norm,
+            isso53Building: imported.isso53?.building,
+            isso53Rooms: imported.isso53?.rooms,
+          });
           useProjectStore.getState().setCurrentLocalPath(entry.path);
           if (imported.result) {
             useProjectStore.getState().setResult(imported.result);

@@ -431,9 +431,13 @@ export function Modeller() {
             return;
           }
 
-          // Regular project import
+          // Regular project import — thread norm + ISSO 53 sidecars mee.
           extractAndLinkConstructions(imported.project);
-          useProjectStore.getState().setProject(imported.project);
+          useProjectStore.getState().setProject(imported.project, {
+            norm: imported.norm,
+            isso53Building: imported.isso53?.building,
+            isso53Rooms: imported.isso53?.rooms,
+          });
           if (imported.result) {
             useProjectStore.getState().setResult(imported.result);
           }
