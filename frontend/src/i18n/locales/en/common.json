@@ -243,6 +243,9 @@
         "0.7": "0.7 — other",
         "0.5": "0.5 — 2 opposite walls"
       },
+      "unheatedFactorLabel": "f_k unheated",
+      "unheatedFactorPlaceholder": "0.5",
+      "unheatedFactorTitle": "Temperature reduction factor f_k for this unheated space. Applies to all walls bounding it. Empty = norm default 0.5; lower it for spaces that are passively heated (e.g. 0.17).",
       "gebruiksFunctieOptions": {
         "kantoor": "Office",
         "onderwijs": "Education",

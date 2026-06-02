@@ -156,6 +156,16 @@ export function ConstructionLossChart({
         }
       : undefined;
 
+    // ISSO 53: per-onverwarmde-doelruimte f_k uit de sidecar. `null` →
+    // computeDeltaT valt terug op de norm-default 0,5. Niet gezet in ISSO
+    // 51-modus → unheated-pad gebruikt enkel `ce.temperature_factor` ?? 0,5.
+    const resolveUnheatedFactor = isIsso53
+      ? (adjacentRoomId: string | null | undefined): number | null =>
+          (adjacentRoomId != null
+            ? isso53Rooms?.[adjacentRoomId]?.unheatedFactor
+            : undefined) ?? null
+      : undefined;
+
     for (const room of rooms) {
       // Self-θ: ISSO 53 → sidecar-ruimteType; anders ISSO 51 room.function.
       let thetaI: number;
@@ -171,6 +181,7 @@ export function ConstructionLossChart({
           rooms: roomLookup,
           thetaWater: thetaW,
           resolveRoomTemperature,
+          resolveUnheatedFactor,
         });
         const phiT = ce.u_value * ce.area * dT;
         if (phiT <= 0) continue;

@@ -43,6 +43,7 @@ import {
   type Isso53BuildingState,
   type Isso53RoomState,
 } from "../types/projectV2";
+import { DEFAULT_UNHEATED_FACTOR } from "./isso53Unheated";
 import { mapHeatingSystem } from "./normSwitch";
 
 // ---------------------------------------------------------------------------
@@ -109,11 +110,18 @@ function mapInfo(info: ProjectInfo): Record<string, unknown> {
  * `fg2` wordt GEDROPT (geen ISSO 53-veld). `fIg`/`perimeter`/`depth` worden
  * weggelaten zodat de kern ze auto-bepaalt zodra `uEquivalent > 0`.
  *
- * `temperatureFactor`: onverwarmd (`unheated_space`) zonder expliciete factor
- * → fallback 0.5 (isso51-consistent, `h_t_unheated_element` unwrap_or(0.5)).
- * Andere grensvlaktypes houden `null` — die vereisen geen f_k.
+ * `temperatureFactor`: onverwarmd (`unheated_space`) → een expliciete
+ * `c.temperature_factor` op de constructie wint altijd; anders de per-DOEL-
+ * ruimte ingestelde f_k uit de sidecar van de aangrenzende onverwarmde ruimte
+ * (`isso53Rooms[c.adjacent_room_id].unheatedFactor`); anders de norm-default
+ * 0.5 (isso51-consistent, `h_t_unheated_element` unwrap_or(0.5)). Zo telt één
+ * f_k per onverwarmde ruimte door op álle wanden die eraan grenzen. Andere
+ * grensvlaktypes houden `null` — die vereisen geen f_k.
  */
-function mapConstruction(c: ConstructionElement): Record<string, unknown> {
+function mapConstruction(
+  c: ConstructionElement,
+  isso53Rooms: Record<string, Isso53RoomState>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {
     id: c.id,
     description: c.description,
@@ -123,7 +131,11 @@ function mapConstruction(c: ConstructionElement): Record<string, unknown> {
     materialType: MATERIAL_TYPE_MAP[c.material_type] ?? "masonry",
     temperatureFactor:
       c.temperature_factor ??
-      (c.boundary_type === "unheated_space" ? 0.5 : null),
+      (c.boundary_type === "unheated_space"
+        ? (c.adjacent_room_id != null
+            ? isso53Rooms[c.adjacent_room_id]?.unheatedFactor
+            : undefined) ?? DEFAULT_UNHEATED_FACTOR
+        : null),
     adjacentRoomId: c.adjacent_room_id ?? null,
     adjacentTemperature: c.adjacent_temperature ?? null,
     verticalPosition: mapVerticalPosition(c.vertical_position),
@@ -161,6 +173,7 @@ function mapConstruction(c: ConstructionElement): Record<string, unknown> {
 function mapRoom(
   room: Room,
   sidecar: Isso53RoomState | undefined,
+  isso53Rooms: Record<string, Isso53RoomState>,
 ): Record<string, unknown> {
   const s = sidecar ?? DEFAULT_ISSO53_ROOM;
   return {
@@ -171,7 +184,9 @@ function mapRoom(
     floorArea: room.floor_area,
     height: room.height ?? 2.7,
     customTemperature: room.custom_temperature ?? null,
-    constructions: room.constructions.map(mapConstruction),
+    constructions: room.constructions.map((c) =>
+      mapConstruction(c, isso53Rooms),
+    ),
     bezetting: {
       personen: s.personen ?? null,
       personenPerM2Default: null,
@@ -298,7 +313,7 @@ export function toIsso53LegacyProject(
   };
 
   const rooms = project.rooms.map((room) =>
-    mapRoom(room, isso53Rooms[room.id]),
+    mapRoom(room, isso53Rooms[room.id], isso53Rooms),
   );
 
   return {
