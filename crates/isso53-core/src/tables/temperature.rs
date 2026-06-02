@@ -11,6 +11,7 @@
 //! §3.1, PDF p.27) geldt een eenvoudiger regel: 22 °C zorg, 20 °C overig.
 
 use crate::model::enums::{GebruiksFunctie, RuimteType};
+use crate::model::Room;
 
 /// Ontwerpbinnentemperatuur die aangeeft dat de waarde gelijk is aan de
 /// ontwerpbuitentemperatuur θ_e (ruimten buiten de thermische schil).
@@ -94,6 +95,29 @@ pub fn design_indoor_temperature(functie: GebruiksFunctie, ruimte: RuimteType) -
     }
 }
 
+/// Bepaal de effectieve ontwerpbinnentemperatuur θ_i voor een ruimte.
+///
+/// Respecteert in volgorde:
+/// 1. `room.custom_temperature` indien gezet;
+/// 2. de tabel 2.2-waarde [`design_indoor_temperature`];
+/// 3. vervangt de sentinel [`TEMPERATURE_IS_EXTERIOR`] (ruimten buiten de
+///    thermische schil, bv. [`RuimteType::Garage`]) door de meegegeven `theta_e`.
+///
+/// Hierdoor kan de sentinel `f64::MIN` nooit in een verlies-berekening
+/// lekken: voor een garage zonder `custom_temperature` wordt θ_i = θ_e,
+/// zodat Φ_T over de garage-schil eindig (en typisch ~0) is.
+pub fn resolve_theta_i(room: &Room, theta_e: f64) -> f64 {
+    if let Some(custom) = room.custom_temperature {
+        return custom;
+    }
+    let theta_i = design_indoor_temperature(room.gebruiks_functie, room.ruimte_type);
+    if theta_i == TEMPERATURE_IS_EXTERIOR {
+        theta_e
+    } else {
+        theta_i
+    }
+}
+
 /// Ontwerpbinnentemperatuur θ_i voor de **voorontwerpfase** (schilmethode).
 ///
 /// ISSO 53 §3.1 (PDF p.27): 22 °C voor gezondheidszorgfuncties, 20 °C voor
@@ -169,6 +193,84 @@ mod tests {
         assert_eq!(
             design_indoor_temperature(GebruiksFunctie::Industrie, RuimteType::Garage),
             TEMPERATURE_IS_EXTERIOR
+        );
+    }
+
+    #[test]
+    fn test_resolve_theta_i_garage_uses_theta_e() {
+        // D1-regressie: garage zonder custom_temperature → sentinel
+        // f64::MIN mag NIET lekken; resolve_theta_i moet θ_e teruggeven.
+        use crate::calc::transmission::calculate_transmission;
+        use crate::model::*;
+
+        let garage = Room {
+            id: "garage1".to_string(),
+            name: "Garage".to_string(),
+            gebruiks_functie: GebruiksFunctie::Industrie,
+            ruimte_type: RuimteType::Garage,
+            floor_area: 30.0,
+            height: 3.0,
+            custom_temperature: None,
+            constructions: vec![ConstructionElement {
+                id: "wall1".to_string(),
+                description: "Garage exterior wall".to_string(),
+                area: 20.0,
+                u_value: 1.5,
+                boundary_type: BoundaryType::Exterior,
+                material_type: MaterialType::Masonry,
+                temperature_factor: None,
+                adjacent_room_id: None,
+                adjacent_temperature: None,
+                vertical_position: VerticalPosition::Wall,
+                use_forfaitaire_thermal_bridge: false,
+                custom_delta_u_tb: None,
+                ground_params: None,
+                has_embedded_heating: false,
+                unheated_space: None,
+            }],
+            bezetting: Bezetting {
+                personen: None,
+                personen_per_m2_default: None,
+            },
+            infiltration_reduction_z: 1.0,
+            has_mechanical_supply: None,
+            ventilation_q_v_established: None,
+        };
+
+        let building = Building {
+            building_shape: BuildingShape::Meerlaags,
+            construction_year: 2020,
+            building_position: GebouwTypePositie::MeerlaagsTussen,
+            ventilation_system: VentilationSystemType::SystemB,
+            thermal_mass: ThermalMass::Gemiddeld,
+            wind_pressure_type: crate::model::enums::GebouwTypeWinddruk::MeerlaagsStandaard,
+            building_height: None,
+            building_length: None,
+            building_width: None,
+            heating_system: Default::default(),
+            source_zone_config: Default::default(),
+        };
+
+        let climate = DesignConditions::default();
+
+        // resolve_theta_i moet exact θ_e zijn (sentinel vervangen).
+        let theta_i = resolve_theta_i(&garage, climate.theta_e);
+        assert_eq!(theta_i, climate.theta_e, "garage θ_i moet θ_e zijn");
+
+        // En de transmissie-berekening mag geen astronomisch verlies geven.
+        let rooms = vec![garage.clone()];
+        let result =
+            calculate_transmission(&garage, &rooms, &building, &climate).unwrap();
+        assert!(
+            result.phi_t.is_finite(),
+            "Φ_T over garage-schil moet eindig zijn, kreeg {}",
+            result.phi_t
+        );
+        // θ_i = θ_e → Φ_T precies 0 (geen temperatuurverschil over de schil).
+        assert!(
+            result.phi_t.abs() < 1e-6,
+            "Φ_T moet ~0 zijn bij θ_i = θ_e, kreeg {}",
+            result.phi_t
         );
     }
 

@@ -49,11 +49,18 @@ pub fn calculate_shell(project: &Project) -> Result<f64> {
 
         // Accumulate H_T,ie (exterior)
         for element in &exterior_elements {
-            let delta_u_tb = if element.use_forfaitaire_thermal_bridge {
-                DELTA_U_TB_DEFAULT
-            } else {
-                element.custom_delta_u_tb.unwrap_or(0.0)
-            };
+            // ΔU_TB-voorkeursvolgorde (identiek aan calc/transmission.rs,
+            // de referentie-implementatie): expliciete custom-waarde >
+            // forfaitaire default > 0. Een opgegeven custom ΔU_TB wint dus
+            // altijd over de forfaitaire vlag.
+            let delta_u_tb = element.custom_delta_u_tb
+                .unwrap_or_else(|| {
+                    if element.use_forfaitaire_thermal_bridge {
+                        DELTA_U_TB_DEFAULT
+                    } else {
+                        0.0
+                    }
+                });
             h_t_exterior += element.area * (element.u_value + delta_u_tb);
         }
 
@@ -145,6 +152,44 @@ mod tests {
         let result = calculate_shell(&project);
         assert!(result.is_ok());
         // Can't test the exact temperature directly, but test passes if no error
+    }
+
+    #[test]
+    fn test_custom_delta_u_tb_wins_over_forfaitaire() {
+        // A6-regressie: een expliciete custom ΔU_TB moet de forfaitaire
+        // vlag overrulen — consistent met calc/transmission.rs.
+        let mut project = create_minimal_project();
+        // Eén exterior-element, A=15, U=0.3. Zet beide vlaggen actief:
+        // forfaitaire vlag AAN én een custom ΔU_TB = 0.05.
+        project.rooms[0].constructions[0].use_forfaitaire_thermal_bridge = true;
+        project.rooms[0].constructions[0].custom_delta_u_tb = Some(0.05);
+
+        // Verwacht: ΔU_TB = 0.05 (custom), NIET DELTA_U_TB_DEFAULT (0.1).
+        // H_T,ie = 15 × (0.3 + 0.05) = 5.25 W/K. Met DELTA_U_TB_DEFAULT
+        // zou het 15 × (0.3 + 0.1) = 6.0 W/K zijn → afwijkende Φ_T.
+        let phi_custom = calculate_shell(&project).unwrap();
+
+        // Referentie: zelfde project, maar custom ΔU_TB expliciet als enige
+        // bron (forfaitaire vlag uit) — moet identiek resultaat geven.
+        let mut ref_project = create_minimal_project();
+        ref_project.rooms[0].constructions[0].use_forfaitaire_thermal_bridge = false;
+        ref_project.rooms[0].constructions[0].custom_delta_u_tb = Some(0.05);
+        let phi_ref = calculate_shell(&ref_project).unwrap();
+
+        assert!(
+            (phi_custom - phi_ref).abs() < 1e-9,
+            "custom ΔU_TB moet forfaitaire vlag overrulen: {phi_custom} vs {phi_ref}"
+        );
+
+        // En het mag NIET gelijk zijn aan de forfaitaire variant.
+        let mut forf_project = create_minimal_project();
+        forf_project.rooms[0].constructions[0].use_forfaitaire_thermal_bridge = true;
+        forf_project.rooms[0].constructions[0].custom_delta_u_tb = None;
+        let phi_forf = calculate_shell(&forf_project).unwrap();
+        assert!(
+            (phi_custom - phi_forf).abs() > 1e-6,
+            "custom (0.05) en forfaitaire (0.1) ΔU_TB moeten verschillen"
+        );
     }
 
     fn create_minimal_project() -> Project {

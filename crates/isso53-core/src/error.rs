@@ -40,6 +40,11 @@ pub enum Isso53Error {
     /// Feature not supported in this ISSO 53 implementation.
     #[error("not supported: {0}")]
     NotSupported(String),
+
+    /// Heating-up (opwarmtoeslag) parameters fall outside the ISSO 53
+    /// table domain (§4.8, tabel 4.13/4.14), so φ_hu,i is undefined.
+    #[error("invalid heating-up parameters: {0}")]
+    InvalidHeatingUpParameters(String),
 }
 
 /// Result type alias for ISSO 53 calculations.
