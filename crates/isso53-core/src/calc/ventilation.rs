@@ -76,6 +76,14 @@ pub fn calculate_phi_vent(
 
 /// Calculate ventilation flow rate q_v in m³/s based on room occupancy and requirements.
 fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
+    // In ISSO 53 telt alleen de toevoer van verse buitenlucht mee voor het
+    // ventilatiewarmteverlies. Een ruimte zonder mechanische toevoer
+    // (`Some(false)`) levert dus q_v = 0. `None` (oudere fixtures zonder veld)
+    // → geen gate, bestaande berekening ongewijzigd.
+    if room.has_mechanical_supply == Some(false) {
+        return Ok(0.0);
+    }
+
     // Get ventilation requirement for this room type.
     // Ruimtetypen zonder personen-gebaseerde eis in tabel 4.10
     // (berg-/technische/verkeers-/sanitaire ruimten) leveren `None` →
@@ -397,6 +405,65 @@ mod tests {
         assert!(v.q_v > 0.0, "kantoor moet q_v > 0 hebben");
     }
 
+    #[test]
+    fn test_no_mechanical_supply_gates_ventilation_to_zero() {
+        // ISSO 53: alleen toevoer telt mee. has_mechanical_supply == Some(false)
+        // → q_v = 0 en dus phi_vent = 0, ondanks geldige eis + bezetting.
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(10.0);
+        room.has_mechanical_supply = Some(false);
+
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert_eq!(v.q_v, 0.0, "geen toevoer → q_v moet 0 zijn");
+        assert_eq!(v.phi_vent, 0.0, "geen toevoer → phi_vent moet 0 zijn");
+        assert_eq!(v.h_v, 0.0, "geen toevoer → h_v moet 0 zijn");
+    }
+
+    #[test]
+    fn test_mechanical_supply_true_unchanged() {
+        // has_mechanical_supply == Some(true) → identiek aan veld afwezig (None):
+        // de gate grijpt niet in, q_v > 0.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room_supply = create_test_room();
+        room_supply.bezetting.personen = Some(10.0);
+        room_supply.has_mechanical_supply = Some(true);
+        let v_supply = calculate_ventilation(&room_supply, &config, 20.0, -10.0).unwrap();
+        assert!(v_supply.q_v > 0.0, "met toevoer (Some(true)) moet q_v > 0 zijn");
+
+        // backward-compat: None geeft exact hetzelfde resultaat als Some(true).
+        let mut room_none = create_test_room();
+        room_none.bezetting.personen = Some(10.0);
+        room_none.has_mechanical_supply = None;
+        let v_none = calculate_ventilation(&room_none, &config, 20.0, -10.0).unwrap();
+        assert_eq!(
+            v_supply.q_v, v_none.q_v,
+            "Some(true) en None moeten identieke q_v geven"
+        );
+        assert_eq!(
+            v_supply.phi_vent, v_none.phi_vent,
+            "Some(true) en None moeten identieke phi_vent geven"
+        );
+    }
+
     fn create_test_room() -> Room {
         Room {
             id: "test_room".to_string(),
@@ -430,6 +497,7 @@ mod tests {
                 personen_per_m2_default: None,
             },
             infiltration_reduction_z: 1.0,
+            has_mechanical_supply: None,
         }
     }
 }

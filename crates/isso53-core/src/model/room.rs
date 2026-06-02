@@ -44,6 +44,12 @@ pub struct Room {
     /// 1.0 = 1 buitengevel of 2 niet-tegenover, 0.5 = 2 tegenover, 0.7 = overig.
     #[serde(default = "default_infiltration_z")]
     pub infiltration_reduction_z: f64,
+
+    /// Of de ruimte mechanische toevoer van ventilatielucht heeft. In ISSO 53
+    /// telt alleen toevoer mee voor het ventilatiewarmteverlies; `Some(false)`
+    /// → q_v = 0. `None` (veld afwezig in oudere fixtures) → geen gate.
+    #[serde(default)]
+    pub has_mechanical_supply: Option<bool>,
 }
 
 /// Bezettingsinformatie voor ventilatie-eisen.
