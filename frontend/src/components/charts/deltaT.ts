@@ -38,6 +38,33 @@ export function buildRoomLookup(rooms: Room[]): Map<string, Room> {
 export interface DeltaTContext {
   rooms: Map<string, Room>;
   thetaWater: number;
+  /**
+   * Optionele norm-aware temperatuur-resolver. Wanneer gezet (ISSO 53-modus)
+   * bepaalt deze de design-θ van een (buur-)ruimte i.p.v. de ISSO 51
+   * `room.function`-tabel. `custom_temperature` blijft altijd voorrang houden
+   * (afgehandeld in `getRoomDesignTemperature` / vóór de resolver-aanroep).
+   * Retourneert `null` als de resolver geen waarde kan leveren (val dan terug
+   * op het ISSO 51-gedrag).
+   */
+  resolveRoomTemperature?: (room: Room) => number | null;
+}
+
+/**
+ * Bepaal de design-θ van een (buur-)ruimte met respect voor een optionele
+ * norm-aware resolver. `custom_temperature` wint altijd; daarna de resolver
+ * (ISSO 53); anders de ISSO 51 `room.function`-tabel.
+ */
+function resolveRoomDesignTemperature(room: Room, ctx?: DeltaTContext): number {
+  if (room.custom_temperature != null) {
+    return room.custom_temperature;
+  }
+  if (ctx?.resolveRoomTemperature) {
+    const resolved = ctx.resolveRoomTemperature(room);
+    if (resolved != null) {
+      return resolved;
+    }
+  }
+  return getRoomDesignTemperature(room);
 }
 
 /**
@@ -67,18 +94,21 @@ export function computeDeltaT(
     case "ground":
       return thetaI - thetaE;
     case "unheated_space":
-      if (ce.temperature_factor != null) {
-        return ce.temperature_factor * (thetaI - thetaE);
-      }
-      return thetaI - thetaE;
+      // f_k = expliciete temperature_factor, anders 0,5 — identiek aan de
+      // Rust-mapper-default (`isso53ProjectMapper`/`h_t_unheated_element`
+      // unwrap_or(0.5)). Vroeger viel dit op de volle ΔT terug → chart ~2× te
+      // hoog voor onverwarmde grensvlakken zonder expliciete factor.
+      return (ce.temperature_factor ?? 0.5) * (thetaI - thetaE);
     case "adjacent_building":
       return thetaI - (ce.adjacent_temperature ?? thetaE);
     case "adjacent_room": {
-      // Live lookup via room-id — one source of truth.
+      // Live lookup via room-id — one source of truth. Norm-aware resolver
+      // (ISSO 53) wint over de ISSO 51 room.function-tabel; custom_temperature
+      // blijft altijd voorrang houden (zie resolveRoomDesignTemperature).
       if (ce.adjacent_room_id && ctx) {
         const adjacent = ctx.rooms.get(ce.adjacent_room_id);
         if (adjacent) {
-          return thetaI - getRoomDesignTemperature(adjacent);
+          return thetaI - resolveRoomDesignTemperature(adjacent, ctx);
         }
       }
       // Legacy fallback — oude projecten met enkel adjacent_temperature.

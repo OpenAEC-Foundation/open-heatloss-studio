@@ -21,6 +21,7 @@ export const CONSTRUCTION_CATEGORY_COLORS = {
   roofs: "var(--domain-chart-roofs)",
   floors: "var(--domain-chart-floors)",
   internalWalls: "var(--domain-chart-internal-walls)",
+  unheated: "var(--domain-chart-neighbor)",
   other: "var(--domain-chart-other)",
 } as const;
 

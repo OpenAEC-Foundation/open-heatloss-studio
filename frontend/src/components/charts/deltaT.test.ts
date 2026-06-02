@@ -250,3 +250,109 @@ export function runAllTests(): void {
   test_ConstructionLossChart_water_boundary();
   test_ConstructionLossChart_adjacent_room_picker_recalc();
 }
+
+// ---------------------------------------------------------------------------
+// Vitest suites — unheated f_k-default + norm-aware adjacent-room resolver
+// ---------------------------------------------------------------------------
+
+import { describe, expect, it } from "vitest";
+import type { DeltaTContext } from "./deltaT.ts";
+
+const THETA_I = 20;
+const THETA_E = -10;
+const FULL_DELTA = THETA_I - THETA_E; // 30 K
+
+function ctx(rooms: Room[] = []): DeltaTContext {
+  return { rooms: buildRoomLookup(rooms), thetaWater: 5 };
+}
+
+describe("computeDeltaT — unheated_space f_k", () => {
+  it("null temperature_factor → 0,5 × ΔT (mapper-default, niet volle ΔT)", () => {
+    const dT = computeDeltaT(
+      "unheated_space",
+      THETA_I,
+      THETA_E,
+      { temperature_factor: null },
+      ctx(),
+    );
+    expect(dT).toBeCloseTo(0.5 * FULL_DELTA, 12);
+    expect(dT).not.toBeCloseTo(FULL_DELTA, 12);
+  });
+
+  it("undefined temperature_factor → 0,5 × ΔT", () => {
+    const dT = computeDeltaT("unheated_space", THETA_I, THETA_E, {}, ctx());
+    expect(dT).toBeCloseTo(0.5 * FULL_DELTA, 12);
+  });
+
+  it("expliciete temperature_factor → factor × ΔT", () => {
+    const dT = computeDeltaT(
+      "unheated_space",
+      THETA_I,
+      THETA_E,
+      { temperature_factor: 0.8 },
+      ctx(),
+    );
+    expect(dT).toBeCloseTo(0.8 * FULL_DELTA, 12);
+  });
+});
+
+describe("computeDeltaT — adjacent_room norm-aware resolver", () => {
+  const adjacent = makeRoom({ id: "K02", function: "bedroom" });
+
+  it("zonder resolver → ISSO 51 room.function (bedroom = 20 °C) → ΔT 0", () => {
+    const dT = computeDeltaT(
+      "adjacent_room",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "K02" },
+      ctx([adjacent]),
+    );
+    expect(dT).toBeCloseTo(0, 12);
+  });
+
+  it("met ISSO 53-resolver → gebruikt resolver-θ (18 °C) → ΔT 2", () => {
+    const c: DeltaTContext = {
+      ...ctx([adjacent]),
+      resolveRoomTemperature: () => 18,
+    };
+    const dT = computeDeltaT(
+      "adjacent_room",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "K02" },
+      c,
+    );
+    expect(dT).toBeCloseTo(2, 12);
+  });
+
+  it("custom_temperature wint over resolver", () => {
+    const adj = makeRoom({ id: "K03", custom_temperature: 16 });
+    const c: DeltaTContext = {
+      ...ctx([adj]),
+      resolveRoomTemperature: () => 18,
+    };
+    const dT = computeDeltaT(
+      "adjacent_room",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "K03" },
+      c,
+    );
+    expect(dT).toBeCloseTo(THETA_I - 16, 12); // 4
+  });
+
+  it("resolver retourneert null → val terug op ISSO 51 room.function", () => {
+    const c: DeltaTContext = {
+      ...ctx([adjacent]),
+      resolveRoomTemperature: () => null,
+    };
+    const dT = computeDeltaT(
+      "adjacent_room",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "K02" },
+      c,
+    );
+    expect(dT).toBeCloseTo(0, 12);
+  });
+});
