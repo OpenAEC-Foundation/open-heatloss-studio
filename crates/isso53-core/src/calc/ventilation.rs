@@ -76,11 +76,14 @@ pub fn calculate_phi_vent(
 
 /// Calculate ventilation flow rate q_v in m³/s based on room occupancy and requirements.
 fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
-    // Get ventilation requirement for this room type
-    let req = requirement(room.gebruiks_functie, room.ruimte_type)
-        .ok_or_else(|| crate::error::Isso53Error::NotSupported(
-            format!("No ventilation requirement found for {:?} {:?}", room.gebruiks_functie, room.ruimte_type)
-        ))?;
+    // Get ventilation requirement for this room type.
+    // Ruimtetypen zonder personen-gebaseerde eis in tabel 4.10
+    // (berg-/technische/verkeers-/sanitaire ruimten) leveren `None` →
+    // geen ventilatie-eis, dus q_v = 0 (geen crash van de berekening).
+    let req = match requirement(room.gebruiks_functie, room.ruimte_type) {
+        Some(req) => req,
+        None => return Ok(0.0),
+    };
 
     // Calculate number of people: maximum of (area-based occupancy, explicit input).
     // An explicit value raises the count above the area-based default but never lowers it.
@@ -335,6 +338,63 @@ mod tests {
 
         let ventilation = result.unwrap();
         assert!((ventilation.f_v - 0.15).abs() < 0.02, "Expected f_v ≈ 0.15, got {}", ventilation.f_v);
+    }
+
+    #[test]
+    fn test_room_without_ventilation_requirement_yields_zero() {
+        // TechnischeRuimte / Bergruimte hebben geen personen-gebaseerde eis in
+        // tabel 4.10 → requirement() == None. De berekening moet dan q_v = 0
+        // teruggeven i.p.v. een Err (regressie: voorheen NotSupported-crash die
+        // de hele projectberekening blokkeerde).
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        for ruimte in [RuimteType::TechnischeRuimte, RuimteType::Bergruimte] {
+            let mut room = create_test_room();
+            room.ruimte_type = ruimte;
+
+            let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+            assert!(
+                result.is_ok(),
+                "{:?} zonder eis moet Ok teruggeven, kreeg {:?}",
+                ruimte,
+                result
+            );
+            let v = result.unwrap();
+            assert_eq!(v.q_v, 0.0, "q_v moet 0 zijn voor {:?}", ruimte);
+            assert_eq!(v.phi_vent, 0.0, "phi_vent moet 0 zijn voor {:?}", ruimte);
+            assert_eq!(v.h_v, 0.0, "h_v moet 0 zijn voor {:?}", ruimte);
+        }
+    }
+
+    #[test]
+    fn test_office_calculation_unchanged_after_none_fix() {
+        // Borg dat de None→0 fix de normale kantoor-berekening niet raakt.
+        // Identiek aan test_ventilation_smoke: Kantoor, 25 m², 1 pers ingevoerd
+        // → area-based 1,25 pers wint → H_v = 9,75 W/K.
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(1.0);
+
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert!((v.h_v - 9.75).abs() < 0.1, "Expected ~9.75, got {}", v.h_v);
+        assert!(v.q_v > 0.0, "kantoor moet q_v > 0 hebben");
     }
 
     fn create_test_room() -> Room {
