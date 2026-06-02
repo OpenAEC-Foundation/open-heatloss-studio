@@ -4,7 +4,18 @@
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
 > **ISSO 53 is voorgetrokken** (blokken A–C) vóór ISSO 51 (D–E).
-> **Voortgang:** ronde 1 (D1, B1, A6) ✅ commit `f815c1f`. Ronde 2 (D3, B3) ✅. A4/A5/A7 ontgrendeld — exacte formules in `audit-reports/07-isso53-formules-ref.md` (form. 4.24+Tabel 4.3, 4.15/4.16 Δθ₁, 4.39 Δθ_v).
+> **Voortgang:** ronde 1 (D1, B1, A6) ✅ commit `f815c1f`. Ronde 2 (D3, B3) ✅ `bb70f7e`. A4/A5/A7 ontgrendeld — exacte formules in `audit-reports/07-isso53-formules-ref.md` (form. 4.24+Tabel 4.3, 4.15/4.16 Δθ₁, 4.39 Δθ_v).
+
+### 🌅 MORGENOCHTEND — START HIER (aanbevolen volgorde)
+
+> Alle items hieronder staan met detail in blokken A–F. Baseline: `cargo test -p isso53-core` = 111 groen. Werk per ronde: general-purpose agent (NIET rust-developer — worktree-faalt), foreground, daarna `cargo test`, dan git-release commit. Formules: `audit-reports/07-isso53-formules-ref.md`.
+
+1. **Ronde 3a — A5 (ISSO 53 stratificatie Δθ₁ + vide).** Grootste, raakt calc-kern. Nieuwe `delta_theta_1(system)` + `delta_theta_v(system, rc_high)` in `tables/temperature_stratification.rs` (waarden in ref §Tabel 2.3). Toepassen in form. 4.5/4.6 (`shell.rs`/`transmission.rs` exterior vloer-boven-buitenlucht + plat dak), 4.11/4.12 (adjacent vertrek), 4.15/4.16 (`transmission.rs` onverwarmd vloer/plafond), 4.19/4.20 (adjacent gebouw) + vide-correctie Δθ₁×(h/4) bij h>4m (room.height). **⚠️ Verschuift golden-tests** (~+10% dak): daarna Vabi-fixtures herijken — 3.10a (+5,0%) wordt vermoedelijk béter. Split desnoods in data-laag (tabellen) + toepassing.
+2. **Ronde 3b — A4 + A7 (ISSO 53 grond + Δθ_v).** A4: ΔU_TB toevoegen aan U_k in `ground.rs:48` (form. 4.24, prioriteit als A6) + bestaande U_equiv-impl in `ground_params.rs` verifiëren tegen ref §Tabel 4.3. A7: Δθ_v toepassen in `ventilation.rs:154`/`infiltration.rs:75` (form. 4.39, `f_v=(θ_i+Δθ_v−θ_e)/(θ_i−θ_e)`) — vereist opp.-gewogen R_c per ruimte voor kolomkeuze.
+3. **Ronde 4 — D2 + D4 (ISSO 53 common-case).** D2: bouwfase-veld in `VentilationConfig` + model + UI (U-blok), `ventilation.rs:116` ontkoppelen van hardcoded Nieuwbouw (+89% bestaande bouw). D4: `ground.rs:144` z=0-grondvloer (form. 4.24 nu bekend).
+4. **Ronde 5 — ISSO 51 A1 + A2 (opwarmtoeslag 2023-rewrite).** `isso51 heating_up.rs` herschrijven naar `Φ_hu=P×A_g` (Form. 4.15 + Tabel 2.10, zie `00-SAMENVATTING.md`), Δt uit Ū (Afb 2.7, Ū≤0,5→1K), regeltype-branches §4.3.1/4.3.2/4.3.3. Verwijder de fout-codificerende test `test_isso51_example_room1_heating_up`. **+ V1: nieuwe fixture mét nachtverlaging** (anders blijft het ongetest).
+5. **Ronde 6 — afronding.** K2 (gelijktijdigheid bronvermogen), UI-gaten U1-U6 (B-blok), test-aanscherping (C-blok V2 + split Φ_V/Φ_I), ISSO 51 K3 + vabi_import.rs (D-blok), twijfel-items A3-blok (PDF-verificatie), Vabi C1/C2-markering (F-blok).
+
 
 ### A. ISSO 53 — calc-conformiteit (urgent eerst)
 - [x] **D1 [L] LANDMINE** ✅ `f815c1f` (resolve_theta_i helper) — `tables/temperature.rs:21,93` sentinel `f64::MIN` voor `Garage` wordt door callers (`calc/transmission.rs:38`, `ventilation.rs:71`, `infiltration.rs:94`) NIET vervangen door θ_e → `H×(f64::MIN−θ_e)` = **oneindig/astronomisch verlies**. ✅ Fix: enum/Option of sentinel centraal resolven.
