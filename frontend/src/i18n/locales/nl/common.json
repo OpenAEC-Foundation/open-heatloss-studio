@@ -243,6 +243,9 @@
         "0.7": "0,7 — overig",
         "0.5": "0,5 — 2 tegenover elkaar"
       },
+      "unheatedFactorLabel": "f_k onverwarmd",
+      "unheatedFactorPlaceholder": "0,5",
+      "unheatedFactorTitle": "Temperatuurreductiefactor f_k voor deze onverwarmde ruimte. Telt door op alle wanden die eraan grenzen. Leeg = norm-default 0,5; verlaag voor ruimtes die passief meeverwarmen (bv. 0,17).",
       "gebruiksFunctieOptions": {
         "kantoor": "Kantoor",
         "onderwijs": "Onderwijs",

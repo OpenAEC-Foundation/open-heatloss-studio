@@ -512,6 +512,19 @@ export interface Isso53RoomState {
    * 0.5 = 2 buitengevels tegenover elkaar.
    */
   infiltrationReductionZ: number;
+  /**
+   * Temperatuurreductiefactor f_k voor het verlies naar deze ruimte wanneer
+   * zij als ONVERWARMDE doelruimte fungeert (een verwarmde ruimte heeft een
+   * constructie met `boundary_type === "unheated_space"` en
+   * `adjacent_room_id` = deze room-id). Toegepast op álle wanden die hieraan
+   * grenzen.
+   *
+   * `undefined` = norm-default 0,5 (isso51-consistent, `h_t_unheated_element`
+   * unwrap_or(0.5)). Voor een ruimte die passief meeverwarmt (meterkast,
+   * berging) kan dit lager gezet worden (bv. 0,17). Alleen zinvol voor rooms
+   * die daadwerkelijk een onverwarmd-doel zijn (zie `isso53Unheated.ts`).
+   */
+  unheatedFactor?: number;
 }
 
 export const DEFAULT_ISSO53_ROOM: Isso53RoomState = {

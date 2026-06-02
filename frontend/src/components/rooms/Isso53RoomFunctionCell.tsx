@@ -13,6 +13,7 @@
 import { useTranslation } from "react-i18next";
 
 import { useProjectStore } from "../../store/projectStore";
+import { collectUnheatedTargetIds } from "../../lib/isso53Unheated";
 import type {
   Isso53GebruiksFunctie,
   Isso53RuimteType,
@@ -70,6 +71,12 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
   const { t } = useTranslation();
   const sidecar = useProjectStore((s) => s.isso53Rooms[roomId]);
   const updateIsso53Room = useProjectStore((s) => s.updateIsso53Room);
+  const rooms = useProjectStore((s) => s.project.rooms);
+
+  // Is deze ruimte ergens in het project een ONVERWARMD doel? Zo ja, dan kan
+  // de gebruiker de f_k zetten die op alle aangrenzende wanden doortelt.
+  const isUnheatedTargetRoom = collectUnheatedTargetIds(rooms).has(roomId);
+  const unheatedFactor = sidecar?.unheatedFactor;
 
   const gebruiksFunctie: Isso53GebruiksFunctie =
     sidecar?.gebruiksFunctie ?? "kantoor";
@@ -142,6 +149,33 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
           className="text-xs"
         />
       </label>
+      {isUnheatedTargetRoom && (
+        <label
+          className="flex items-center gap-1 text-xs text-on-surface-variant"
+          title={t("isso53.room.unheatedFactorTitle")}
+        >
+          <span className="shrink-0">
+            {t("isso53.room.unheatedFactorLabel")}
+          </span>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={unheatedFactor ?? ""}
+            placeholder={t("isso53.room.unheatedFactorPlaceholder")}
+            onChange={(e) => {
+              const raw = e.target.value;
+              updateIsso53Room(roomId, {
+                unheatedFactor: raw === "" ? undefined : Number(raw),
+              });
+            }}
+            className="w-full rounded border-none bg-transparent px-1 py-0.5 text-xs
+              text-on-surface outline-none hover:bg-[var(--oaec-hover)]
+              focus:bg-[var(--oaec-bg-input)] focus:ring-1 focus:ring-primary"
+          />
+        </label>
+      )}
     </div>
   );
 }

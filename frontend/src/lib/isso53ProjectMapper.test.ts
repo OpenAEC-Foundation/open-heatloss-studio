@@ -323,6 +323,119 @@ describe("toIsso53LegacyProject", () => {
     expect(byId["wall-adj"].temperatureFactor).toBeNull();
   });
 
+  it("gebruikt de f_k uit de sidecar van de onverwarmde DOEL-ruimte", () => {
+    // Onverwarmd grensvlak naar K02; K02-sidecar zet unheatedFactor = 0.17.
+    const base = makeProject();
+    const proj: Project = {
+      ...base,
+      rooms: [
+        {
+          ...base.rooms[0],
+          constructions: [
+            {
+              id: "wall-to-meterkast",
+              description: "Wand naar meterkast (onverwarmd)",
+              area: 5,
+              u_value: 0.5,
+              boundary_type: "unheated_space",
+              material_type: "masonry",
+              vertical_position: "wall",
+              adjacent_room_id: "K02",
+            },
+          ],
+        },
+      ],
+    };
+    const rooms53WithFactor: Record<string, Isso53RoomState> = {
+      ...rooms53,
+      K02: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "bergruimte",
+        infiltrationReductionZ: 1.0,
+        unheatedFactor: 0.17,
+      },
+    };
+    const o = toIsso53LegacyProject(proj, building53, rooms53WithFactor);
+    const cons = (o.rooms as Array<Record<string, unknown>>)[0]
+      .constructions as Array<Record<string, unknown>>;
+    expect(cons[0].temperatureFactor).toBe(0.17);
+  });
+
+  it("valt terug op 0.5 als de DOEL-ruimte-sidecar geen unheatedFactor heeft", () => {
+    const base = makeProject();
+    const proj: Project = {
+      ...base,
+      rooms: [
+        {
+          ...base.rooms[0],
+          constructions: [
+            {
+              id: "wall-to-berging",
+              description: "Wand naar berging",
+              area: 5,
+              u_value: 0.5,
+              boundary_type: "unheated_space",
+              material_type: "masonry",
+              vertical_position: "wall",
+              adjacent_room_id: "K02",
+            },
+          ],
+        },
+      ],
+    };
+    // K02-sidecar bestaat maar zonder unheatedFactor → norm-default 0.5.
+    const rooms53NoFactor: Record<string, Isso53RoomState> = {
+      ...rooms53,
+      K02: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "bergruimte",
+        infiltrationReductionZ: 1.0,
+      },
+    };
+    const o = toIsso53LegacyProject(proj, building53, rooms53NoFactor);
+    const cons = (o.rooms as Array<Record<string, unknown>>)[0]
+      .constructions as Array<Record<string, unknown>>;
+    expect(cons[0].temperatureFactor).toBe(0.5);
+  });
+
+  it("expliciete temperature_factor op de constructie wint van de sidecar-f_k", () => {
+    const base = makeProject();
+    const proj: Project = {
+      ...base,
+      rooms: [
+        {
+          ...base.rooms[0],
+          constructions: [
+            {
+              id: "wall-explicit",
+              description: "Wand naar onverwarmd (expliciete f_k)",
+              area: 5,
+              u_value: 0.5,
+              boundary_type: "unheated_space",
+              material_type: "masonry",
+              vertical_position: "wall",
+              adjacent_room_id: "K02",
+              temperature_factor: 0.8,
+            },
+          ],
+        },
+      ],
+    };
+    const rooms53WithFactor: Record<string, Isso53RoomState> = {
+      ...rooms53,
+      K02: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "bergruimte",
+        infiltrationReductionZ: 1.0,
+        unheatedFactor: 0.17,
+      },
+    };
+    const o = toIsso53LegacyProject(proj, building53, rooms53WithFactor);
+    const cons = (o.rooms as Array<Record<string, unknown>>)[0]
+      .constructions as Array<Record<string, unknown>>;
+    expect(cons[0].temperatureFactor).toBe(0.8);
+  });
+
   it("remapt materialType (non_masonry→nonMasonry) en zet uValue", () => {
     const rooms = out.rooms as Array<Record<string, unknown>>;
     const cons = rooms[0].constructions as Array<Record<string, unknown>>;

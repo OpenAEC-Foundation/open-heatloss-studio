@@ -47,6 +47,15 @@ export interface DeltaTContext {
    * op het ISSO 51-gedrag).
    */
   resolveRoomTemperature?: (room: Room) => number | null;
+  /**
+   * Optionele resolver voor de temperatuurreductiefactor f_k van een
+   * ONVERWARMDE doelruimte (ISSO 53-modus). Krijgt de `adjacent_room_id` van
+   * een `unheated_space`-constructie en retourneert de per-doel ingestelde f_k
+   * uit de sidecar, of `null` als er niets is ingesteld (val dan terug op de
+   * norm-default 0,5). Wanneer niet gezet (ISSO 51-modus) blijft het gedrag
+   * ongewijzigd: alleen `ce.temperature_factor` ?? 0,5.
+   */
+  resolveUnheatedFactor?: (adjacentRoomId: string | null | undefined) => number | null;
 }
 
 /**
@@ -93,12 +102,20 @@ export function computeDeltaT(
       return thetaI - thetaE;
     case "ground":
       return thetaI - thetaE;
-    case "unheated_space":
-      // f_k = expliciete temperature_factor, anders 0,5 — identiek aan de
-      // Rust-mapper-default (`isso53ProjectMapper`/`h_t_unheated_element`
-      // unwrap_or(0.5)). Vroeger viel dit op de volle ΔT terug → chart ~2× te
-      // hoog voor onverwarmde grensvlakken zonder expliciete factor.
-      return (ce.temperature_factor ?? 0.5) * (thetaI - thetaE);
+    case "unheated_space": {
+      // f_k-prioriteit (gelijk aan `isso53ProjectMapper.mapConstruction`):
+      //   1. expliciete `ce.temperature_factor` op de constructie,
+      //   2. ISSO 53: de per-DOEL-ruimte ingestelde f_k uit de sidecar (via
+      //      `resolveUnheatedFactor` op de `adjacent_room_id`),
+      //   3. norm-default 0,5 (`h_t_unheated_element` unwrap_or(0.5)).
+      // Zo tonen chart en calc dezelfde waarde. Vroeger viel dit op de volle
+      // ΔT terug → chart ~2× te hoog voor onverwarmde grensvlakken.
+      const factor =
+        ce.temperature_factor ??
+        ctx?.resolveUnheatedFactor?.(ce.adjacent_room_id) ??
+        0.5;
+      return factor * (thetaI - thetaE);
+    }
     case "adjacent_building":
       return thetaI - (ce.adjacent_temperature ?? thetaE);
     case "adjacent_room": {

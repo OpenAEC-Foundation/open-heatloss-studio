@@ -294,6 +294,51 @@ describe("computeDeltaT — unheated_space f_k", () => {
     );
     expect(dT).toBeCloseTo(0.8 * FULL_DELTA, 12);
   });
+
+  it("ISSO 53 resolveUnheatedFactor → per-doel f_k (0,17) × ΔT", () => {
+    const c: DeltaTContext = {
+      ...ctx(),
+      resolveUnheatedFactor: (id) => (id === "MK" ? 0.17 : null),
+    };
+    const dT = computeDeltaT(
+      "unheated_space",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "MK" },
+      c,
+    );
+    expect(dT).toBeCloseTo(0.17 * FULL_DELTA, 12);
+  });
+
+  it("resolveUnheatedFactor retourneert null → val terug op 0,5", () => {
+    const c: DeltaTContext = {
+      ...ctx(),
+      resolveUnheatedFactor: () => null,
+    };
+    const dT = computeDeltaT(
+      "unheated_space",
+      THETA_I,
+      THETA_E,
+      { adjacent_room_id: "MK" },
+      c,
+    );
+    expect(dT).toBeCloseTo(0.5 * FULL_DELTA, 12);
+  });
+
+  it("expliciete temperature_factor wint van resolveUnheatedFactor", () => {
+    const c: DeltaTContext = {
+      ...ctx(),
+      resolveUnheatedFactor: () => 0.17,
+    };
+    const dT = computeDeltaT(
+      "unheated_space",
+      THETA_I,
+      THETA_E,
+      { temperature_factor: 0.8, adjacent_room_id: "MK" },
+      c,
+    );
+    expect(dT).toBeCloseTo(0.8 * FULL_DELTA, 12);
+  });
 });
 
 describe("computeDeltaT — adjacent_room norm-aware resolver", () => {
