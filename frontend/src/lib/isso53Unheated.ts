@@ -12,6 +12,7 @@
  * `h_t_unheated_element` `unwrap_or(0.5)`.
  */
 import type { Room } from "../types/project";
+import type { Isso53RoomState } from "../types/projectV2";
 
 /** Norm-default temperatuurreductiefactor f_k voor onverwarmde ruimtes. */
 export const DEFAULT_UNHEATED_FACTOR = 0.5;
@@ -41,4 +42,29 @@ export function collectUnheatedTargetIds(rooms: Room[]): Set<string> {
  */
 export function isUnheatedTarget(rooms: Room[], roomId: string): boolean {
   return collectUnheatedTargetIds(rooms).has(roomId);
+}
+
+/**
+ * Gecombineerde set ONVERWARMDE room-ids:
+ *   {@link collectUnheatedTargetIds}(rooms)  (impliciete doelen via
+ *   `unheated_space`-constructies)  ∪  alle room-ids met
+ *   `isso53Rooms[id].isUnheated === true`  (expliciet gemarkeerde vertrekken).
+ *
+ * Wanden van buren náár een room in deze set worden in mapper én chart als
+ * grensvlak naar een onverwarmde ruimte behandeld (f_k-reductie), ongeacht of
+ * de bron-constructie `unheated_space` of `adjacent_room` is.
+ *
+ * Pure functie — geen store-coupling.
+ */
+export function resolveUnheatedRoomIds(
+  rooms: Room[],
+  isso53Rooms: Record<string, Isso53RoomState>,
+): Set<string> {
+  const ids = collectUnheatedTargetIds(rooms);
+  for (const [roomId, sidecar] of Object.entries(isso53Rooms)) {
+    if (sidecar.isUnheated) {
+      ids.add(roomId);
+    }
+  }
+  return ids;
 }

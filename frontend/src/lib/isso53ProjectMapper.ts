@@ -43,7 +43,10 @@ import {
   type Isso53BuildingState,
   type Isso53RoomState,
 } from "../types/projectV2";
-import { DEFAULT_UNHEATED_FACTOR } from "./isso53Unheated";
+import {
+  DEFAULT_UNHEATED_FACTOR,
+  resolveUnheatedRoomIds,
+} from "./isso53Unheated";
 import { mapHeatingSystem } from "./normSwitch";
 
 // ---------------------------------------------------------------------------
@@ -117,21 +120,40 @@ function mapInfo(info: ProjectInfo): Record<string, unknown> {
  * 0.5 (isso51-consistent, `h_t_unheated_element` unwrap_or(0.5)). Zo telt één
  * f_k per onverwarmde ruimte door op álle wanden die eraan grenzen. Andere
  * grensvlaktypes houden `null` — die vereisen geen f_k.
+ *
+ * **Onverwarmd-conversie:** een `adjacent_room`-constructie waarvan de
+ * doel-ruimte (`adjacent_room_id`) in `unheatedRoomIds` zit (gemarkeerd via
+ * `Isso53RoomState.isUnheated` of impliciet doel van een `unheated_space`),
+ * wordt geëmit als `boundaryType: "unheated"` met dezelfde f_k-resolutie. Zo
+ * lopen 10 °C-service-ruimtes die als `adjacent_room` zijn gemodelleerd alsnog
+ * via de f_k-reductie i.p.v. de volle ΔT naar 10 °C.
  */
 function mapConstruction(
   c: ConstructionElement,
   isso53Rooms: Record<string, Isso53RoomState>,
+  unheatedRoomIds: Set<string>,
 ): Record<string, unknown> {
+  // Behandel een adjacent_room naar een (expliciet/impliciet) onverwarmde
+  // ruimte als unheated grensvlak. unheated_space blijft uiteraard unheated.
+  const targetsUnheatedRoom =
+    c.boundary_type === "adjacent_room" &&
+    c.adjacent_room_id != null &&
+    unheatedRoomIds.has(c.adjacent_room_id);
+  const isUnheatedBoundary =
+    c.boundary_type === "unheated_space" || targetsUnheatedRoom;
+
   const out: Record<string, unknown> = {
     id: c.id,
     description: c.description,
     area: c.area,
     uValue: c.u_value,
-    boundaryType: BOUNDARY_TYPE_MAP[c.boundary_type] ?? "exterior",
+    boundaryType: isUnheatedBoundary
+      ? "unheated"
+      : BOUNDARY_TYPE_MAP[c.boundary_type] ?? "exterior",
     materialType: MATERIAL_TYPE_MAP[c.material_type] ?? "masonry",
     temperatureFactor:
       c.temperature_factor ??
-      (c.boundary_type === "unheated_space"
+      (isUnheatedBoundary
         ? (c.adjacent_room_id != null
             ? isso53Rooms[c.adjacent_room_id]?.unheatedFactor
             : undefined) ?? DEFAULT_UNHEATED_FACTOR
@@ -174,6 +196,7 @@ function mapRoom(
   room: Room,
   sidecar: Isso53RoomState | undefined,
   isso53Rooms: Record<string, Isso53RoomState>,
+  unheatedRoomIds: Set<string>,
 ): Record<string, unknown> {
   const s = sidecar ?? DEFAULT_ISSO53_ROOM;
   return {
@@ -185,7 +208,7 @@ function mapRoom(
     height: room.height ?? 2.7,
     customTemperature: room.custom_temperature ?? null,
     constructions: room.constructions.map((c) =>
-      mapConstruction(c, isso53Rooms),
+      mapConstruction(c, isso53Rooms, unheatedRoomIds),
     ),
     bezetting: {
       personen: s.personen ?? null,
@@ -312,8 +335,13 @@ export function toIsso53LegacyProject(
     },
   };
 
+  // Gecombineerde set onverwarmde room-ids: impliciete unheated_space-doelen
+  // ∪ expliciet via sidecar `isUnheated` gemarkeerde vertrekken. Bepaalt welke
+  // adjacent_room-wanden als unheated-grensvlak worden geëmit.
+  const unheatedRoomIds = resolveUnheatedRoomIds(project.rooms, isso53Rooms);
+
   const rooms = project.rooms.map((room) =>
-    mapRoom(room, isso53Rooms[room.id], isso53Rooms),
+    mapRoom(room, isso53Rooms[room.id], isso53Rooms, unheatedRoomIds),
   );
 
   return {

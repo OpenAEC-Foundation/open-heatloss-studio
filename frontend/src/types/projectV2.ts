@@ -525,6 +525,19 @@ export interface Isso53RoomState {
    * die daadwerkelijk een onverwarmd-doel zijn (zie `isso53Unheated.ts`).
    */
   unheatedFactor?: number;
+  /**
+   * Markeer dit vertrek expliciet als ONVERWARMD. Sommige service-ruimtes
+   * (techniek, afval) zijn in het model als 10 °C `adjacent_room` opgenomen
+   * i.p.v. als onverwarmd doel; daardoor verliezen verwarmde buren via dunne
+   * wanden onnodig warmte naar 10 °C. Met deze vlag worden álle wanden van
+   * buren náár dit vertrek behandeld als grensvlak naar een onverwarmde ruimte
+   * (f_k-reductie via {@link unheatedFactor}), gelijk aan een
+   * `unheated_space`-doel.
+   *
+   * Verwijdert dit vertrek NIET uit het gebouwtotaal (aparte follow-up i.v.m.
+   * dubbeltelling) — het zet alleen de buren-wanden om.
+   */
+  isUnheated?: boolean;
 }
 
 export const DEFAULT_ISSO53_ROOM: Isso53RoomState = {

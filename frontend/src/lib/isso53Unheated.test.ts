@@ -4,8 +4,13 @@ import {
   DEFAULT_UNHEATED_FACTOR,
   collectUnheatedTargetIds,
   isUnheatedTarget,
+  resolveUnheatedRoomIds,
 } from "./isso53Unheated";
 import type { ConstructionElement, Room } from "../types/project";
+import {
+  DEFAULT_ISSO53_ROOM,
+  type Isso53RoomState,
+} from "../types/projectV2";
 
 function makeElement(
   overrides: Partial<ConstructionElement> = {},
@@ -126,5 +131,42 @@ describe("isUnheatedTarget", () => {
 describe("DEFAULT_UNHEATED_FACTOR", () => {
   it("is 0,5 (isso51-consistent)", () => {
     expect(DEFAULT_UNHEATED_FACTOR).toBe(0.5);
+  });
+});
+
+describe("resolveUnheatedRoomIds", () => {
+  const rooms: Room[] = [
+    makeRoom({
+      id: "K01",
+      constructions: [
+        makeElement({
+          boundary_type: "unheated_space",
+          adjacent_room_id: "MK", // impliciet onverwarmd-doel
+        }),
+      ],
+    }),
+    makeRoom({ id: "TECH" }),
+    makeRoom({ id: "AFVAL" }),
+  ];
+
+  it("vereent impliciete unheated_space-doelen met expliciete isUnheated-flags", () => {
+    const isso53Rooms: Record<string, Isso53RoomState> = {
+      TECH: { ...DEFAULT_ISSO53_ROOM, isUnheated: true },
+      AFVAL: { ...DEFAULT_ISSO53_ROOM, isUnheated: true },
+    };
+    expect(resolveUnheatedRoomIds(rooms, isso53Rooms)).toEqual(
+      new Set(["MK", "TECH", "AFVAL"]),
+    );
+  });
+
+  it("negeert sidecars zonder isUnheated en levert puur de impliciete doelen", () => {
+    const isso53Rooms: Record<string, Isso53RoomState> = {
+      TECH: { ...DEFAULT_ISSO53_ROOM, isUnheated: false },
+    };
+    expect(resolveUnheatedRoomIds(rooms, isso53Rooms)).toEqual(new Set(["MK"]));
+  });
+
+  it("lege sidecar-map → alleen impliciete doelen", () => {
+    expect(resolveUnheatedRoomIds(rooms, {})).toEqual(new Set(["MK"]));
   });
 });
