@@ -4,24 +4,25 @@
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
 > **ISSO 53 is voorgetrokken** (blokken A–C) vóór ISSO 51 (D–E).
+> **Voortgang:** ronde 1 (D1, B1, A6) ✅ commit `f815c1f`. Ronde 2 (D3, B3) ✅. A4/A5/A7 ontgrendeld — exacte formules in `audit-reports/07-isso53-formules-ref.md` (form. 4.24+Tabel 4.3, 4.15/4.16 Δθ₁, 4.39 Δθ_v).
 
 ### A. ISSO 53 — calc-conformiteit (urgent eerst)
-- [ ] **D1 [L] LANDMINE** — `tables/temperature.rs:21,93` sentinel `f64::MIN` voor `Garage` wordt door callers (`calc/transmission.rs:38`, `ventilation.rs:71`, `infiltration.rs:94`) NIET vervangen door θ_e → `H×(f64::MIN−θ_e)` = **oneindig/astronomisch verlies**. ✅ Fix: enum/Option of sentinel centraal resolven.
+- [x] **D1 [L] LANDMINE** ✅ `f815c1f` (resolve_theta_i helper) — `tables/temperature.rs:21,93` sentinel `f64::MIN` voor `Garage` wordt door callers (`calc/transmission.rs:38`, `ventilation.rs:71`, `infiltration.rs:94`) NIET vervangen door θ_e → `H×(f64::MIN−θ_e)` = **oneindig/astronomisch verlies**. ✅ Fix: enum/Option of sentinel centraal resolven.
 - [ ] **D2 [M]** — `calc/ventilation.rs:116` hardcodet `VentilatieBouwfase::Nieuwbouw` → bestaande bouw krijgt ~6,5 i.p.v. ~3,44 dm³/s pp ≈ **+89% Φ_V**. ✅ Fix: bouwfase in `VentilationConfig` + model/UI-veld (zie U-blok).
 - [ ] **D4 [M]** — `calc/ground.rs:144-155` `U_equiv` weigert normale `z=0` grondvloer (`ground.rs:214` test bevestigt fout gedrag). Fix: formule 4.24 herafleiden + norm-voorbeelden z=0/0,5/5.
-- [ ] **D3 [L]** — `calc/infiltration.rs:117-119,134-136` `Unknown`/`UnknownVabiCompat` negeren `building_length/width/height` → f_wind=1,0 i.p.v. ~1,29 (~22% te laag). Fix: methode-dimensies gebruiken of verplicht maken.
-- [ ] **A6 [L]** — `calc/shell.rs:52-56` ΔU_TB-prioriteit omgekeerd t.o.v. `transmission.rs` (forfaitair wint, custom genegeerd) → tot kW-orde voorontwerp.
-- [ ] **A4 [L]** — `calc/ground.rs:44-50,154` `U_k = U + ΔU_TB` mist (docstring liegt) → systematische lichte onderschatting H_T,ig.
-- [ ] **A7 [L]** — `calc/ventilation.rs:154` + `calc/infiltration.rs:75` natuurlijke ventilatie `f_v=1.0` hardcoded, negeert Δθ_v (form. 4.39) → ~1,7% overschatting. Fix: gedeelde Δθ_v-helper.
+- [x] **D3 [L]** ✅ ronde 2 (resolve_building_dimensions helper) — `calc/infiltration.rs:117-119,134-136` `Unknown`/`UnknownVabiCompat` negeren `building_length/width/height` → f_wind=1,0 i.p.v. ~1,29 (~22% te laag). Fix: methode-dimensies gebruiken of verplicht maken.
+- [x] **A6 [L]** ✅ `f815c1f` (shell.rs = transmission.rs) — `calc/shell.rs:52-56` ΔU_TB-prioriteit omgekeerd t.o.v. `transmission.rs` (forfaitair wint, custom genegeerd) → tot kW-orde voorontwerp.
+- [ ] **A4 [M]** ✅ ONTGRENDELD (form. 4.24 + Tabel 4.3 in `07-isso53-formules-ref.md`) — `calc/ground.rs:48` geeft rauwe `u_value` als U_k aan `calculate_u_equivalent`, maar form. 4.24 vereist `(U_k + ΔU_TB)`. Voeg ΔU_TB toe met dezelfde forfaitair/custom-prioriteit als transmission.rs (A6). Verifieer meteen de bestaande `ground_params.rs` U_equiv-impl tegen de nu-bevestigde 4.24/Tabel 4.3.
+- [ ] **A7 [M]** ✅ ONTGRENDELD (form. 4.39 in `07-isso53-formules-ref.md`: `f_v = (θ_i + Δθ_v − θ_e)/(θ_i − θ_e)`) — `calc/ventilation.rs:154` + `calc/infiltration.rs:75` hardcoden f_v=1,0, negeren Δθ_v → ~3% overschatting bij straling/vloer/wand-verwarming. Fix: nieuwe `delta_theta_v(system, rc≥3,5)` in `temperature_stratification.rs` (Tabel 2.3-kolom) + toepassen in 4.39/4.30. Vereist oppervlakte-gewogen R_c per ruimte voor de kolomkeuze.
 - [ ] **A3 [M]** — `calc/heating_up.rs:106-110` §4.8.3-reductie `−H_v·Δθ` wordt via project-brede vlag óók op natuurlijk geventileerde ruimten toegepast → Φ_hu te laag/0.
 - [ ] **K2 [M]** — `lib.rs:93` / `calc/source_capacity.rs:38,79` sommeren Σ Φ_hu onvoorwaardelijk; geen gelijktijdigheids-selectie (§4.1/§5.1) → overdimensionering Φ_source.
 - [ ] **A5 [H]** ✅ PDF-bevestigd (tab 2.3 p.21-22 + voetnoot 2) — `tables/temperature_stratification.rs` heeft alléén Δθ₂ (1 call-site `ground.rs:189`, correct). Ontbreekt: **Δθ₁** (+4/+3/+2/+1/0/0,5 per systeem; nodig in form. 3.4/3.5, 4.5/4.6, 4.11/4.12, 4.15/4.16, 4.19/4.20 → ~+10% op dak/vloer-boven-buitenlucht), **Δθ_v** (=A7), Δθ_a1/Δθ_a2, en vide-correctie **Δθ₁×(h/4)** bij h>4m (voetnoot 2). Volledige tabel in `audit-reports/00-SAMENVATTING.md`. Mogelijk verklaart dit de verborgen +5,0% op dak-zwaar vertrek 3.10a.
 - [ ] **D5 [H]** — `calc/shell.rs:88-94` voorontwerp-schil grove vaste aannames (0,5 ach + 0,00001 m³/s·m²) = niet norm-conform hfst 3. Fix: hfst 3 implementeren of API als niet-normatief labelen.
 
 ### A2. ISSO 53 — stille-fout defaults (fout antwoord zónder error)
-- [ ] **B1 [L]** — `calc/heating_up.rs:97` `unwrap_or(0.0)` bij ongeldige setback-uren/graden → Φ_hu verdwijnt geruisloos. Fix: error i.p.v. 0.
+- [x] **B1 [L]** ✅ `f815c1f` (InvalidHeatingUpParameters error) — `calc/heating_up.rs:97` `unwrap_or(0.0)` bij ongeldige setback-uren/graden → Φ_hu verdwijnt geruisloos.
 - [ ] **B2 [L]** — `model/project.rs:27` `#[serde(default)]` → ontbrekend `heatingUp`-blok = Φ_hu=0 hele gebouw (third-party import ~10-28% te laag). Fix: expliciete waarschuwing/error.
-- [ ] **B3 [L]** — `calc/ventilation.rs:108,117` magic `unwrap_or(0.05/6.5)` zonder rapport-spoor.
+- [x] **B3 [L]** ✅ ronde 2 (benoemde consts DEFAULT_OCCUPANCY_DENSITY/VENTILATION_RATE) — `calc/ventilation.rs:108,117` magic `unwrap_or(0.05/6.5)` zonder rapport-spoor.
 
 ### A3. ISSO 53 — twijfel (PDF-verificatie vóór fix)
 - [ ] Formule 4.24 exacte `U_equiv`-machtsstructuur — `tables/ground_params.rs` geeft OCR-onzekerheid toe (verifieer tegen worked example p.65: U=2,43→U_equiv=0,177).
