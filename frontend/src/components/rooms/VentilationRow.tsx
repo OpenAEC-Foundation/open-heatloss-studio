@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 
 import { getHeatingSystemLabels, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
+import { isso53BblMinimumDm3s } from "../../lib/isso53Ventilation";
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { HeatingSystem, Room } from "../../types";
@@ -24,13 +25,20 @@ interface VentilationRowProps {
  * en door de Rust core automatisch berekend.
  */
 export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
+  // Norm-aware: ISSO 51 woningen vs. ISSO 53 utiliteit.
+  const norm = useProjectStore((s) => s.norm);
+
+  // BBL-minimum als placeholder/auto-waarde voor q_v. ISSO 53 hanteert een
+  // uniforme verblijfsgebied-eis van 0,9 dm³/s·m²; ISSO 51 de functie-
+  // afhankelijke woning-eis uit roomDefaults.
   const bblMinimum = useMemo(
-    () => bblMinimumVentilationRate(room.function, room.floor_area),
-    [room.function, room.floor_area],
+    () =>
+      norm === "isso53"
+        ? isso53BblMinimumDm3s(room.floor_area)
+        : bblMinimumVentilationRate(room.function, room.floor_area),
+    [norm, room.function, room.floor_area],
   );
 
-  // Norm-aware heating-systeem opties (ISSO 51 woningen vs. ISSO 53 utiliteit).
-  const norm = useProjectStore((s) => s.norm);
   const heatingLabels = useMemo(
     () => getHeatingSystemLabels(norm === "isso53" ? "isso53" : "isso51"),
     [norm],

@@ -12,10 +12,6 @@
  */
 import { useTranslation } from "react-i18next";
 
-import {
-  bblMinimumDm3s,
-  bezettingMinimumDm3s,
-} from "../../lib/isso53Ventilation";
 import { useProjectStore } from "../../store/projectStore";
 import type {
   Isso53GebruiksFunctie,
@@ -73,9 +69,6 @@ interface Isso53RoomFunctionCellProps {
 export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) {
   const { t } = useTranslation();
   const sidecar = useProjectStore((s) => s.isso53Rooms[roomId]);
-  const floorArea = useProjectStore(
-    (s) => s.project.rooms.find((r) => r.id === roomId)?.floor_area ?? 0,
-  );
   const updateIsso53Room = useProjectStore((s) => s.updateIsso53Room);
 
   const gebruiksFunctie: Isso53GebruiksFunctie =
@@ -94,23 +87,7 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
 
   const personen = sidecar?.personen ?? undefined;
   const zFactor = sidecar?.infiltrationReductionZ ?? 1.0;
-  const ventilationEstablished = sidecar?.ventilationEstablished ?? undefined;
 
-  // Read-only referentie-minimums (ISSO 53 tabel 4.10, nieuwbouw). Beide in
-  // dm³/s, afgerond op 1 decimaal. `null` = geen eis voor deze (functie×type)
-  // of personen niet ingevuld → toon "—" en disable de snelknop.
-  const bblMin = bblMinimumDm3s(gebruiksFunctie, ruimteType, floorArea);
-  const bezettingMin = bezettingMinimumDm3s(
-    gebruiksFunctie,
-    ruimteType,
-    personen,
-  );
-  const maxMin =
-    bblMin === null && bezettingMin === null
-      ? null
-      : Math.max(bblMin ?? 0, bezettingMin ?? 0);
-  const dash = "—";
-  const fmt = (v: number | null): string => (v === null ? dash : v.toFixed(1));
   const zOptions: Record<string, string> = {
     "1": t("isso53.room.zFactorOptions.1"),
     "0.7": t("isso53.room.zFactorOptions.0.7"),
@@ -164,82 +141,6 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
           options={zOptions}
           className="text-xs"
         />
-      </label>
-      <div className="flex items-center gap-1 text-[10px] text-on-surface-muted">
-        <span className="shrink-0">{t("isso53.room.bblMinLabel")}</span>
-        <span className="tabular-nums">{fmt(bblMin)}</span>
-        <span className="shrink-0">dm³/s</span>
-        <button
-          type="button"
-          disabled={bblMin === null}
-          onClick={() =>
-            bblMin !== null &&
-            updateIsso53Room(roomId, { ventilationEstablished: bblMin })
-          }
-          className="ml-auto shrink-0 rounded border border-outline px-1 py-0.5
-            text-on-surface-variant enabled:hover:bg-[var(--oaec-hover)]
-            disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("isso53.room.applyBblButton")}
-        </button>
-      </div>
-      <div className="flex items-center gap-1 text-[10px] text-on-surface-muted">
-        <span className="shrink-0">{t("isso53.room.bezettingMinLabel")}</span>
-        <span className="tabular-nums">{fmt(bezettingMin)}</span>
-        <span className="shrink-0">dm³/s</span>
-        <button
-          type="button"
-          disabled={bezettingMin === null}
-          onClick={() =>
-            bezettingMin !== null &&
-            updateIsso53Room(roomId, { ventilationEstablished: bezettingMin })
-          }
-          className="ml-auto shrink-0 rounded border border-outline px-1 py-0.5
-            text-on-surface-variant enabled:hover:bg-[var(--oaec-hover)]
-            disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("isso53.room.applyBezettingButton")}
-        </button>
-      </div>
-      <label className="flex items-center gap-1 text-xs text-on-surface-variant">
-        <span className="shrink-0">
-          {t("isso53.room.ventilationEstablishedLabel")}
-        </span>
-        <input
-          type="number"
-          min={0}
-          step={0.1}
-          value={ventilationEstablished ?? ""}
-          placeholder={t("isso53.room.ventilationEstablishedPlaceholder")}
-          onChange={(e) => {
-            const raw = e.target.value;
-            updateIsso53Room(roomId, {
-              ventilationEstablished: raw === "" ? undefined : Number(raw),
-            });
-          }}
-          className="w-full rounded border-none bg-transparent px-1 py-0.5 text-xs
-            text-on-surface outline-none hover:bg-[var(--oaec-hover)]
-            focus:bg-[var(--oaec-bg-input)] focus:ring-1 focus:ring-primary"
-        />
-        <span className="shrink-0 text-[10px] text-on-surface-muted">dm³/s</span>
-        {ventilationEstablished != null && ventilationEstablished > 0 && (
-          <span className="shrink-0 text-[10px] text-on-surface-muted tabular-nums">
-            ({(ventilationEstablished * 3.6).toFixed(1)} m³/h)
-          </span>
-        )}
-        <button
-          type="button"
-          disabled={maxMin === null}
-          onClick={() =>
-            maxMin !== null &&
-            updateIsso53Room(roomId, { ventilationEstablished: maxMin })
-          }
-          className="shrink-0 rounded border border-outline px-1 py-0.5 text-[10px]
-            text-on-surface-variant enabled:hover:bg-[var(--oaec-hover)]
-            disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {t("isso53.room.applyMaxButton")}
-        </button>
       </label>
     </div>
   );
