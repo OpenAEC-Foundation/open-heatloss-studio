@@ -234,6 +234,11 @@
       },
       "ventilationEstablishedLabel": "q_v vastgesteld",
       "ventilationEstablishedPlaceholder": "0",
+      "bblMinLabel": "Min. BBL",
+      "bezettingMinLabel": "Min. bezetting",
+      "applyBblButton": "=BBL",
+      "applyBezettingButton": "=bezetting",
+      "applyMaxButton": "=max",
       "gebruiksFunctieOptions": {
         "kantoor": "Kantoor",
         "onderwijs": "Onderwijs",
