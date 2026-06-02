@@ -7,6 +7,20 @@ use crate::tables::ventilation_requirements::{requirement, ventilation_rate_per_
 use crate::model::enums::VentilatieBouwfase;
 use crate::tables::temperature::resolve_theta_i;
 
+/// Fallback-bezettingsdichtheid in personen/m² wanneer noch de ruimte-bezetting
+/// (`personen_per_m2_default`) noch de tabel 4.10-eis (`req.personen_per_m2`)
+/// een waarde levert. Komt overeen met de laagste tabel 4.11-richtwaarde
+/// (kantoor/vergaderen, ISSO 53 PDF p.51). Bewust benoemd i.p.v. magic getal;
+/// in de praktijk zelden bereikt omdat functies zonder richtwaarde via de
+/// `None`-gate al q_v = 0 opleveren.
+const DEFAULT_OCCUPANCY_DENSITY_PERS_M2: f64 = 0.05;
+
+/// Fallback-ventilatiedebiet in dm³/s per persoon wanneer de tabel 4.10-regel
+/// geen bouwfase-specifieke waarde geeft. Komt overeen met de meest
+/// voorkomende tabel 4.10-eis voor verblijfs-/kantoor-/vergaderruimten
+/// (6,5 dm³/s·pp, ISSO 53 PDF p.48-50). Benoemd i.p.v. magic getal.
+const DEFAULT_VENTILATION_RATE_DM3_S_PP: f64 = 6.5;
+
 /// Results from ventilation calculation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VentilationResult {
@@ -104,7 +118,7 @@ fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
     // An explicit value raises the count above the area-based default but never lowers it.
     let density = room.bezetting.personen_per_m2_default
         .or(req.personen_per_m2)
-        .unwrap_or(0.05); // Default density
+        .unwrap_or(DEFAULT_OCCUPANCY_DENSITY_PERS_M2);
     let area_based = room.floor_area * density;
     let people = match room.bezetting.personen {
         Some(explicit) => explicit.max(area_based),
@@ -113,7 +127,7 @@ fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
 
     // Get ventilation rate per person in dm³/s
     let dm3_s_per_person = ventilation_rate_per_person(req, VentilatieBouwfase::Nieuwbouw)
-        .unwrap_or(6.5); // Default rate
+        .unwrap_or(DEFAULT_VENTILATION_RATE_DM3_S_PP);
 
     // Convert to m³/s: q_v = (people × dm³/s per person) / 1000
     let q_v = people * dm3_s_per_person / 1000.0;

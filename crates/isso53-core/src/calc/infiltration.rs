@@ -10,6 +10,13 @@ use crate::model::{BoundaryType, Building, DesignConditions, Room};
 use crate::tables::infiltration::{q_is_known, BuildingHeightClass, Qv10Class};
 use crate::tables::temperature::resolve_theta_i;
 
+/// Laatste-redmiddel-gebouwhoogte (m) voor f_wind/q_is wanneer noch de
+/// infiltratiemethode noch het [`Building`] een bruikbare hoogte levert.
+/// Komt overeen met één bouwlaag (vertrekhoogte ISSO 53, PDF p.1 titel).
+/// Bewust geen `0,0,3` magic in de berekening: deze constante is benoemd zodat
+/// een ontbrekende hoogte traceerbaar is i.p.v. een stille verkeerde f_wind.
+const FALLBACK_BUILDING_HEIGHT_M: f64 = 3.0;
+
 /// Infiltration calculation method.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -108,14 +115,26 @@ fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f6
 
             Ok(q_is_known(*qv10_kar_class, height_class))
         }
-        InfiltrationMethod::Unknown { construction_year, .. } => {
+        InfiltrationMethod::Unknown {
+            construction_year,
+            building_length,
+            building_width,
+            building_height,
+        } => {
             // Formule 4.31: q_is = f_wind · f_type · f_inf · (0,23 · q_i,spec)
             // Formule 4.33: q_i,spec = f_typ · f_jaar · q_i,spec,reken (tabel 4.9)
             use crate::tables::{building_type, ventilation_system, infiltration::q_i_spec_reken};
 
-            let l = building.building_length.unwrap_or(0.0);
-            let w = building.building_width.unwrap_or(0.0);
-            let h = building.building_height.unwrap_or(3.0);
+            // Gebruik de afmetingen die op de methode zelf staan; val pas terug
+            // op het [`Building`] als die ontbreken (D3-fix). Een ontbrekende
+            // hoogte valt door naar FALLBACK_BUILDING_HEIGHT_M i.p.v. een stille
+            // verkeerde f_wind.
+            let (l, w, h) = resolve_building_dimensions(
+                *building_length,
+                *building_width,
+                *building_height,
+                building,
+            );
 
             let f_wind = calculate_f_wind(l, w, h);
             let f_type = building_type::f_type(building.wind_pressure_type);
@@ -126,13 +145,23 @@ fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f6
             let q_i_spec = f_typ * f_jaar * q_i_spec_basis;
             Ok(f_wind * f_type * f_inf * 0.23 * q_i_spec)
         }
-        InfiltrationMethod::UnknownVabiCompat { construction_year, delta_p_pa, .. } => {
+        InfiltrationMethod::UnknownVabiCompat {
+            construction_year,
+            building_length,
+            building_width,
+            building_height,
+            delta_p_pa,
+        } => {
             // Vabi-compatibele infiltratie via NEN 8088-1 + NTA 8800 + power-law drukconversie
             use crate::tables::{building_type, nen8088, infiltration::q_i_spec_reken};
 
-            let l = building.building_length.unwrap_or(0.0);
-            let w = building.building_width.unwrap_or(0.0);
-            let h = building.building_height.unwrap_or(3.0);
+            // Zelfde D3-fix als bij Unknown: methode-afmetingen eerst, dan Building.
+            let (l, w, h) = resolve_building_dimensions(
+                *building_length,
+                *building_width,
+                *building_height,
+                building,
+            );
 
             #[allow(clippy::approx_constant)]
             let dp = delta_p_pa.unwrap_or(3.14); // Specific pressure value, not π
@@ -154,6 +183,43 @@ fn calculate_q_is(building: &Building, method: &InfiltrationMethod) -> Result<f6
             Ok(f_wind * f_type * f_inf * k * q_i_spec)
         }
     }
+}
+
+/// Bepaalt (L, B, H) voor de infiltratieberekening met een vaste prioriteit:
+/// 1. de afmetingen die op de infiltratiemethode-variant zelf staan (`method_*`);
+/// 2. anders de afmetingen van het [`Building`];
+/// 3. en als laatste redmiddel [`FALLBACK_BUILDING_HEIGHT_M`] voor de hoogte
+///    (L en B blijven dan 0, waarop `calculate_f_wind` conservatief op 1 clampt).
+///
+/// Een waarde telt als "aanwezig" zodra hij > 0 is. Hierdoor wordt een
+/// Unknown-methode met expliciete afmetingen (D3) niet langer stilzwijgend op
+/// `0,0,3` teruggezet wanneer het `Building` toevallig leeg is.
+fn resolve_building_dimensions(
+    method_length: f64,
+    method_width: f64,
+    method_height: f64,
+    building: &Building,
+) -> (f64, f64, f64) {
+    // Prefereer per dimensie de methode-waarde, anders de Building-waarde.
+    let pick = |method_val: f64, building_val: Option<f64>| -> f64 {
+        if method_val > 0.0 {
+            method_val
+        } else {
+            building_val.filter(|v| *v > 0.0).unwrap_or(0.0)
+        }
+    };
+
+    let l = pick(method_length, building.building_length);
+    let w = pick(method_width, building.building_width);
+    let h_raw = pick(method_height, building.building_height);
+    // Hoogte mag nooit 0 worden: gebruik de benoemde fallback i.p.v. magic 3.0.
+    let h = if h_raw > 0.0 {
+        h_raw
+    } else {
+        FALLBACK_BUILDING_HEIGHT_M
+    };
+
+    (l, w, h)
 }
 
 /// Correctiefactor f_wind volgens ISSO 53 formule 4.32 (PDF p.46):
@@ -297,6 +363,101 @@ mod tests {
 
         // Geen dimensies → fallback 1.0
         assert_eq!(calculate_f_wind(0.0, 0.0, 0.0), 1.0);
+    }
+
+    #[test]
+    fn test_resolve_dimensions_prefers_method_over_building() {
+        // D3-regressie: de Unknown-methode draagt zelf de gebouwafmetingen.
+        // Als het Building leeg is (alle dims None) moet de berekening tóch de
+        // methode-afmetingen gebruiken i.p.v. stil terug te vallen op 0,0,3.
+        let room = create_test_room();
+
+        // Building zonder afmetingen → vroeger: l=0,w=0,h=3 → f_wind=1.0.
+        let building_empty = create_test_building();
+        assert!(building_empty.building_length.is_none());
+
+        // Groot gebouw via de methode-velden: 50×30×20 → f_wind ruim > 1.
+        let method_with_dims = InfiltrationMethod::Unknown {
+            construction_year: 2020,
+            building_length: 50.0,
+            building_width: 30.0,
+            building_height: 20.0,
+        };
+
+        // Fallback-referentie: methode zónder bruikbare dims (0,0,0) op hetzelfde
+        // lege Building → resolve valt op (0,0,FALLBACK) → f_wind = 1.0.
+        let method_fallback = InfiltrationMethod::Unknown {
+            construction_year: 2020,
+            building_length: 0.0,
+            building_width: 0.0,
+            building_height: 0.0,
+        };
+
+        let h_i_dims = calculate_h_i(&room, &building_empty, &method_with_dims).unwrap();
+        let h_i_fallback = calculate_h_i(&room, &building_empty, &method_fallback).unwrap();
+
+        // De methode-afmetingen leveren een meetbaar HOGERE infiltratie dan de
+        // 0,0,3-fallback (f_wind 50×30×20 ≈ 1,29 > 1,0).
+        assert!(
+            h_i_dims > h_i_fallback,
+            "Methode-afmetingen moeten hogere H_i geven dan fallback: dims={} fallback={}",
+            h_i_dims,
+            h_i_fallback
+        );
+
+        // Verifieer dat het verschil substantieel is (de bug onderschatte ~22%).
+        let ratio = h_i_dims / h_i_fallback;
+        let expected_ratio = calculate_f_wind(50.0, 30.0, 20.0); // f_wind bij volledige dims
+        assert!(
+            (ratio - expected_ratio).abs() < 1e-6,
+            "Verhouding dims/fallback {} moet gelijk zijn aan f_wind {}",
+            ratio,
+            expected_ratio
+        );
+        assert!(
+            expected_ratio > 1.25,
+            "f_wind voor 50×30×20 moet ruim > 1 zijn, kreeg {}",
+            expected_ratio
+        );
+    }
+
+    #[test]
+    fn test_resolve_dimensions_falls_back_to_building() {
+        // Als de methode-velden 0 zijn maar het Building wél afmetingen heeft,
+        // gebruikt de berekening de Building-afmetingen (geen verlies van data
+        // voor oudere flows die de dims op het Building zetten).
+        let room = create_test_room();
+
+        let mut building = create_test_building();
+        building.building_length = Some(50.0);
+        building.building_width = Some(30.0);
+        building.building_height = Some(20.0);
+
+        let method_no_dims = InfiltrationMethod::Unknown {
+            construction_year: 2020,
+            building_length: 0.0,
+            building_width: 0.0,
+            building_height: 0.0,
+        };
+
+        let h_i_building = calculate_h_i(&room, &building, &method_no_dims).unwrap();
+
+        // Zelfde verwachte f_wind als wanneer de dims op de methode hadden gestaan.
+        let building_empty = create_test_building();
+        let method_with_dims = InfiltrationMethod::Unknown {
+            construction_year: 2020,
+            building_length: 50.0,
+            building_width: 30.0,
+            building_height: 20.0,
+        };
+        let h_i_method = calculate_h_i(&room, &building_empty, &method_with_dims).unwrap();
+
+        assert!(
+            (h_i_building - h_i_method).abs() < 1e-9,
+            "Building-fallback en methode-dims moeten identieke H_i geven: building={} method={}",
+            h_i_building,
+            h_i_method
+        );
     }
 
     #[test]
