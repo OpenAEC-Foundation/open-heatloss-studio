@@ -177,6 +177,10 @@ function mapRoom(
       personenPerM2Default: null,
     },
     infiltrationReductionZ: s.infiltrationReductionZ ?? 1.0,
+    // ISSO 53: alleen mechanische toevoer telt mee voor het
+    // ventilatiewarmteverlies. `false` → kern gate't q_v op 0; `undefined`
+    // (veld afwezig) → `null` → Rust `None` → geen gate, ongewijzigde berekening.
+    hasMechanicalSupply: room.has_mechanical_supply ?? null,
   };
 }
 

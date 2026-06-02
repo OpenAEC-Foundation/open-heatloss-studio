@@ -156,6 +156,7 @@ mod tests {
                 personen_per_m2_default: None,
             },
             infiltration_reduction_z: 1.0,
+            has_mechanical_supply: None,
         };
 
         let all_rooms = vec![room1.clone(), room2];
@@ -199,6 +200,7 @@ mod tests {
                 personen_per_m2_default: None,
             },
             infiltration_reduction_z: 1.0,
+            has_mechanical_supply: None,
         }
     }
 

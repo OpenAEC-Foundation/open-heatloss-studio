@@ -231,6 +231,36 @@ describe("toIsso53LegacyProject", () => {
     expect(r.customTemperature).toBeNull();
     expect(r.bezetting).toEqual({ personen: 3, personenPerM2Default: null });
     expect(r.infiltrationReductionZ).toBe(1.0);
+    // has_mechanical_supply afwezig in de V1-room → null (Rust None, geen gate).
+    expect(r.hasMechanicalSupply).toBeNull();
+  });
+
+  it("propageert has_mechanical_supply (true/false/afwezig → true/false/null)", () => {
+    const base = makeProject();
+
+    const projTrue: Project = {
+      ...base,
+      rooms: [{ ...base.rooms[0], has_mechanical_supply: true }],
+    };
+    const outTrue = toIsso53LegacyProject(projTrue, building53, rooms53);
+    expect((outTrue.rooms as Array<Record<string, unknown>>)[0].hasMechanicalSupply).toBe(
+      true,
+    );
+
+    const projFalse: Project = {
+      ...base,
+      rooms: [{ ...base.rooms[0], has_mechanical_supply: false }],
+    };
+    const outFalse = toIsso53LegacyProject(projFalse, building53, rooms53);
+    expect((outFalse.rooms as Array<Record<string, unknown>>)[0].hasMechanicalSupply).toBe(
+      false,
+    );
+
+    // afwezig → null
+    const outAbsent = toIsso53LegacyProject(base, building53, rooms53);
+    expect(
+      (outAbsent.rooms as Array<Record<string, unknown>>)[0].hasMechanicalSupply,
+    ).toBeNull();
   });
 
   it("remapt boundaryType-waarden correct (incl. unheated_space→unheated)", () => {
