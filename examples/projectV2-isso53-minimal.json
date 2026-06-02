@@ -133,8 +133,16 @@
       },
       "heatingUp": {
         "setbackActive": false,
-        "pWPerM2": 0.0,
-        "warmupMinutes": 60.0
+        "pWPerM2Override": null,
+        "regime": {
+          "type": "free",
+          "setbackHoursWeekday": 14,
+          "setbackHoursWeekend": 62
+        },
+        "airChanges": "low",
+        "warmupHoursWeekday": 2.0,
+        "warmupHoursWeekend": 4.0,
+        "mechanicalSupplyOff": false
       }
     }
   }
