@@ -21,6 +21,12 @@ import type {
   ProjectConstruction,
 } from "../components/modeller/types";
 import { useModellerStore } from "../components/modeller/modellerStore";
+import { useProjectStore } from "../store/projectStore";
+import type {
+  ActiveNorm,
+  Isso53BuildingState,
+  Isso53RoomState,
+} from "../types/projectV2";
 import {
   buildIfcEnergyDocument,
   detectFormat,
@@ -50,6 +56,16 @@ interface ModellerEnvelope {
   doors: ModelDoor[];
 }
 
+/**
+ * ISSO 53 sidecar-state section of the envelope. Mirrors the
+ * `projectStore` sidecar fields (`isso53Building` + `isso53Rooms`).
+ * Only written when the active norm is `"isso53"`.
+ */
+interface Isso53Envelope {
+  building: Isso53BuildingState;
+  rooms: Record<string, Isso53RoomState>;
+}
+
 /** Envelope format written to disk. */
 interface ProjectEnvelope {
   version: string;
@@ -70,6 +86,21 @@ interface ProjectEnvelope {
    * and clears the modeller store accordingly.
    */
   modeller?: ModellerEnvelope;
+  /**
+   * Actieve norm voor dit project. Optioneel + ALLEEN geschreven wanneer
+   * de norm `"isso53"` is. Bij `"isso51"` blijft de envelope byte-gelijk
+   * aan de oude versie (geen `norm`-veld). Oude loaders negeren onbekende
+   * velden, dus dit breekt geen bestaande bestanden. Wanneer aanwezig is
+   * deze waarde autoritatief boven heating-shape-detectie.
+   */
+  norm?: ActiveNorm;
+  /**
+   * ISSO 53 sidecar-state (building + per-room). Optioneel + ALLEEN
+   * geschreven wanneer de norm `"isso53"` is. Leeft buiten het V1
+   * `Project` type in `projectStore` en moet expliciet mee-geserialiseerd
+   * worden, anders gaat ISSO 53-config verloren bij opslaan/heropenen.
+   */
+  isso53?: Isso53Envelope;
 }
 
 /** Result of a successful regular project import. */
@@ -77,10 +108,27 @@ export interface ImportResult {
   type: "project";
   project: Project;
   result: ProjectResult | null;
+  /**
+   * Actieve norm uit de envelope, indien aanwezig (ISSO 53-bestanden).
+   * `undefined` voor oude `.isso51.json`-bestanden zonder norm-veld — de
+   * caller valt dan terug op heating-shape-detectie in de store.
+   */
+  norm?: ActiveNorm;
+  /**
+   * ISSO 53 sidecar-state uit de envelope, indien aanwezig. `undefined`
+   * voor oude bestanden — de store reset dan naar defaults (huidig gedrag).
+   */
+  isso53?: Isso53Envelope;
 }
 
 /**
- * Export project + result as a downloadable `.isso51.json` file.
+ * Export project + result as a downloadable `.heatloss.json` file.
+ *
+ * Norm-aware: voor ISSO 51-projecten blijft de output BYTE-GELIJK aan de
+ * oude versie (geen `norm`/`isso53`-velden). Alleen wanneer de actieve
+ * norm `"isso53"` is worden de norm + sidecar-state (`isso53Building` +
+ * `isso53Rooms`) uit de `projectStore` mee-geserialiseerd, zodat de
+ * ISSO 53-configuratie een opslaan/heropenen overleeft.
  */
 export function exportProject(
   project: Project,
@@ -108,6 +156,18 @@ export function exportProject(
     },
   };
 
+  // ISSO 53 sidecars leven buiten het V1 `Project` type. Alleen toevoegen
+  // bij norm === "isso53" zodat ISSO 51-export byte-gelijk blijft aan de
+  // oude versie (geen extra velden, geen volgorde-wijziging).
+  const projectState = useProjectStore.getState();
+  if (projectState.norm === "isso53") {
+    envelope.norm = "isso53";
+    envelope.isso53 = {
+      building: projectState.isso53Building,
+      rooms: projectState.isso53Rooms,
+    };
+  }
+
   const json = JSON.stringify(envelope, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -117,7 +177,7 @@ export function exportProject(
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${safeName}.isso51.json`;
+  a.download = `${safeName}.heatloss.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -346,7 +406,14 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
       modeller?.doors ?? [],
     );
 
-    return { type: "project", project, result };
+    // ISSO 53 norm + sidecars uit de envelope (alleen aanwezig bij
+    // norm === "isso53"). Afwezig → undefined, caller valt terug op
+    // heating-shape-detectie + defaults (exact huidig gedrag voor oude
+    // `.isso51.json`-bestanden).
+    const norm = obj.norm === "isso51" || obj.norm === "isso53" ? obj.norm : undefined;
+    const isso53 = readIsso53Envelope(obj.isso53);
+
+    return { type: "project", project, result, norm, isso53 };
   }
 
   // Try as raw Project JSON. No envelope means no modeller data either —
@@ -354,6 +421,24 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
   const project = validateProject(data);
   useModellerStore.getState().importModel([], [], []);
   return { type: "project", project, result: null };
+}
+
+/**
+ * Lees de optionele `isso53`-sidecar uit een envelope. Net als
+ * `project_constructions` valideren we niet structureel (envelope-level
+ * optioneel veld) — alleen een shallow shape-check op `building` + `rooms`,
+ * dan doorcasten. Ontbrekend/ongeldig → `undefined`, zodat de caller
+ * terugvalt op detectie + defaults (huidig gedrag voor oude bestanden).
+ */
+function readIsso53Envelope(raw: unknown): Isso53Envelope | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.building !== "object" || o.building === null) return undefined;
+  if (typeof o.rooms !== "object" || o.rooms === null) return undefined;
+  return {
+    building: o.building as Isso53BuildingState,
+    rooms: o.rooms as Record<string, Isso53RoomState>,
+  };
 }
 
 /**

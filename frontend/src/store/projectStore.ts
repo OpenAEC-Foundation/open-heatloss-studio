@@ -168,8 +168,25 @@ interface ProjectStore {
    * individuele per-element waardes blijven dan intact.
    */
   setFrameUValueOverride: (value: number | undefined) => void;
-  /** Replace the entire project. */
-  setProject: (project: Project) => void;
+  /**
+   * Replace the entire project.
+   *
+   * `opts` is optioneel en wordt gevuld door de import-flow voor
+   * ISSO 53-bestanden die de norm + sidecar-state expliciet meedragen:
+   *   - `norm` — autoritatief boven heating-shape-detectie. Afwezig →
+   *     detectie + (huidig) "nooit downgraden" gedrag.
+   *   - `isso53Building` / `isso53Rooms` — herstellen de sidecar-state
+   *     i.p.v. naar defaults te resetten. Afwezig → defaults (huidig
+   *     gedrag voor oude bestanden zonder sidecars).
+   */
+  setProject: (
+    project: Project,
+    opts?: {
+      norm?: ActiveNorm;
+      isso53Building?: Isso53BuildingState;
+      isso53Rooms?: Record<string, Isso53RoomState>;
+    },
+  ) => void;
   /** Set the active server-side project ID. */
   setActiveProjectId: (id: string | null) => void;
   /** Set the local filesystem path (or clear with null on New). */
@@ -327,27 +344,36 @@ export const useProjectStore = create<ProjectStore>()(
         });
       },
 
-      setProject: (project) =>
-        set((state) => ({
-          project,
-          sharedExtra: { ...DEFAULT_SHARED_EXTRA },
-          // Import mag de norm NOOIT downgraden. Is het geïmporteerde project
-          // duidelijk ISSO 53 → switch naar ISSO 53. Anders behoud de huidige
-          // gekozen norm: een gebruiker in ISSO 53-modus die een isso51-vormig
-          // bestand importeert wil niet teruggezet worden naar ISSO 51.
-          norm: detectNormFromProject(project) === "isso53" ? "isso53" : state.norm,
-          isso53Building: { ...DEFAULT_ISSO53_BUILDING },
-          isso53Rooms: {},
-          isDirty: true,
-          result: null,
-          error: null,
-          activeProjectId: null,
-          serverUpdatedAt: null,
-          hasConflict: false,
-          currentLocalPath: null,
-          _past: [],
-          _future: [],
-        })),
+      setProject: (project, opts) =>
+        set((state) => {
+          // Expliciete envelope-norm is autoritatief: een ISSO 53-bestand
+          // draagt zijn norm + sidecars mee en moet die exact herstellen.
+          // Zonder expliciete norm → val terug op het bestaande gedrag:
+          // detecteer uit de verwarmings-shape en downgrade NOOIT (een
+          // gebruiker in ISSO 53-modus die een isso51-vormig bestand
+          // importeert wil niet teruggezet worden naar ISSO 51).
+          const norm: ActiveNorm =
+            opts?.norm ??
+            (detectNormFromProject(project) === "isso53" ? "isso53" : state.norm);
+          return {
+            project,
+            sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+            norm,
+            // Sidecars uit de envelope herstellen indien meegegeven, anders
+            // resetten naar defaults (huidig gedrag voor oude bestanden).
+            isso53Building: opts?.isso53Building ?? { ...DEFAULT_ISSO53_BUILDING },
+            isso53Rooms: opts?.isso53Rooms ?? {},
+            isDirty: true,
+            result: null,
+            error: null,
+            activeProjectId: null,
+            serverUpdatedAt: null,
+            hasConflict: false,
+            currentLocalPath: null,
+            _past: [],
+            _future: [],
+          };
+        }),
 
       loadServerProject: (id, project, result, updatedAt) =>
         set({

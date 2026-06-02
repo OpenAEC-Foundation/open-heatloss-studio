@@ -129,7 +129,11 @@ export function AppShell({ children }: AppShellProps) {
               return;
             }
             extractAndLinkConstructions(imported.project);
-            useProjectStore.getState().setProject(imported.project);
+            useProjectStore.getState().setProject(imported.project, {
+              norm: imported.norm,
+              isso53Building: imported.isso53?.building,
+              isso53Rooms: imported.isso53?.rooms,
+            });
             // setProject reset currentLocalPath naar null; daarna pas
             // het echte pad zetten zodat Bestand → Opslaan stil terug-
             // schrijft naar dit bestand.
