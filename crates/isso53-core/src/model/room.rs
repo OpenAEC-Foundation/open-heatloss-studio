@@ -50,6 +50,13 @@ pub struct Room {
     /// → q_v = 0. `None` (veld afwezig in oudere fixtures) → geen gate.
     #[serde(default)]
     pub has_mechanical_supply: Option<bool>,
+
+    /// Vastgestelde toevoer-luchtvolumestroom q_v in m³/s (fase 3, uitvoering).
+    /// Indien `Some` gebruikt de ventilatieberekening deze waarde direct en
+    /// negeert de BBL/bezetting-afleiding én de has_mechanical_supply-gate.
+    /// `None` (oudere fixtures) → reguliere afleiding.
+    #[serde(default)]
+    pub ventilation_q_v_established: Option<f64>,
 }
 
 /// Bezettingsinformatie voor ventilatie-eisen.

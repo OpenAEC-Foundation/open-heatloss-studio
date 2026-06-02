@@ -133,6 +133,7 @@ mod tests {
             },
             infiltration_reduction_z: 1.0,
             has_mechanical_supply: None,
+            ventilation_q_v_established: None,
         }
     }
 
