@@ -76,6 +76,14 @@ pub fn calculate_phi_vent(
 
 /// Calculate ventilation flow rate q_v in m³/s based on room occupancy and requirements.
 fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
+    // Fase 3 (uitvoering): een vastgestelde toevoer-q_v overrulet alles.
+    // Wordt direct als q_v gebruikt; negeert de has_mechanical_supply-gate,
+    // de requirement-lookup én de personen-/bezetting-afleiding.
+    // Negatieve waarden defensief clampen op 0.
+    if let Some(v) = room.ventilation_q_v_established {
+        return Ok(v.max(0.0));
+    }
+
     // In ISSO 53 telt alleen de toevoer van verse buitenlucht mee voor het
     // ventilatiewarmteverlies. Een ruimte zonder mechanische toevoer
     // (`Some(false)`) levert dus q_v = 0. `None` (oudere fixtures zonder veld)
@@ -464,6 +472,116 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_established_q_v_is_used_directly() {
+        // Fase 3: ventilation_q_v_established == Some(0.05) → q_v == 0.05 ongeacht
+        // functie, bezetting of supply-gate.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(10.0); // zou normaal hoge q_v geven
+        room.ventilation_q_v_established = Some(0.05);
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert_eq!(v.q_v, 0.05, "vastgestelde q_v moet direct gebruikt worden");
+    }
+
+    #[test]
+    fn test_established_q_v_overrides_supply_gate() {
+        // Vastgestelde q_v overrulet de has_mechanical_supply==Some(false)-gate.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.has_mechanical_supply = Some(false);
+        room.ventilation_q_v_established = Some(0.03);
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert_eq!(
+            v.q_v, 0.03,
+            "vastgestelde q_v moet de supply-gate overrulen"
+        );
+    }
+
+    #[test]
+    fn test_established_q_v_zero_yields_zero() {
+        // Some(0.0) → q_v == 0 (expliciet geen toevoer).
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(10.0);
+        room.ventilation_q_v_established = Some(0.0);
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert_eq!(v.q_v, 0.0, "Some(0.0) → q_v moet 0 zijn");
+        assert_eq!(v.phi_vent, 0.0, "Some(0.0) → phi_vent moet 0 zijn");
+    }
+
+    #[test]
+    fn test_established_q_v_negative_clamped_to_zero() {
+        // Defensief: negatieve waarde wordt geclamped op 0.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.ventilation_q_v_established = Some(-0.02);
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        assert_eq!(v.q_v, 0.0, "negatieve vastgestelde q_v moet op 0 clampen");
+    }
+
+    #[test]
+    fn test_established_q_v_none_unchanged() {
+        // None → reguliere afleiding ongewijzigd; identiek aan de smoke-test.
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(1.0);
+        room.ventilation_q_v_established = None;
+
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        // Kantoor 25 m² → area-based 1,25 pers → H_v = 9,75 W/K.
+        assert!((v.h_v - 9.75).abs() < 0.1, "None: verwacht ~9.75, kreeg {}", v.h_v);
+    }
+
     fn create_test_room() -> Room {
         Room {
             id: "test_room".to_string(),
@@ -498,6 +616,7 @@ mod tests {
             },
             infiltration_reduction_z: 1.0,
             has_mechanical_supply: None,
+            ventilation_q_v_established: None,
         }
     }
 }

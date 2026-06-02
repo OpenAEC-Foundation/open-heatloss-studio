@@ -152,6 +152,7 @@ const rooms53: Record<string, Isso53RoomState> = {
     ruimteType: "verblijfsruimte",
     personen: 3,
     infiltrationReductionZ: 1.0,
+    ventilationEstablished: 50,
   },
 };
 
@@ -233,6 +234,36 @@ describe("toIsso53LegacyProject", () => {
     expect(r.infiltrationReductionZ).toBe(1.0);
     // has_mechanical_supply afwezig in de V1-room → null (Rust None, geen gate).
     expect(r.hasMechanicalSupply).toBeNull();
+    // ventilationEstablished 50 dm³/s → 0.05 m³/s (key matcht Rust
+    // `ventilation_q_v_established` via rename_all=camelCase).
+    expect(r.ventilationQvEstablished).toBeCloseTo(0.05, 12);
+  });
+
+  it("mapt ventilationQvEstablished van dm³/s naar m³/s, 0 bij leeg/undefined", () => {
+    // Ingevuld: 50 dm³/s → 0.05 m³/s.
+    expect(
+      (out.rooms as Array<Record<string, unknown>>)[0].ventilationQvEstablished,
+    ).toBeCloseTo(0.05, 12);
+
+    // undefined in sidecar → ALTIJD een getal (0 m³/s, geen toevoer).
+    const outNoVent = toIsso53LegacyProject(makeProject(), building53, {
+      K01: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "verblijfsruimte",
+        infiltrationReductionZ: 1.0,
+      },
+    });
+    expect(
+      (outNoVent.rooms as Array<Record<string, unknown>>)[0]
+        .ventilationQvEstablished,
+    ).toBe(0);
+
+    // sidecar volledig afwezig (DEFAULT_ISSO53_ROOM) → ook 0.
+    const outDefault = toIsso53LegacyProject(makeProject(), building53, {});
+    expect(
+      (outDefault.rooms as Array<Record<string, unknown>>)[0]
+        .ventilationQvEstablished,
+    ).toBe(0);
   });
 
   it("propageert has_mechanical_supply (true/false/afwezig → true/false/null)", () => {
@@ -333,6 +364,7 @@ describe("toIsso53LegacyProject", () => {
     expect(r.ruimteType).toBe("verblijfsruimte");
     expect(r.bezetting).toEqual({ personen: null, personenPerM2Default: null });
     expect(r.infiltrationReductionZ).toBe(1.0);
+    expect(r.ventilationQvEstablished).toBe(0);
   });
 });
 

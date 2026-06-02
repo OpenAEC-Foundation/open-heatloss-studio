@@ -87,6 +87,7 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
 
   const personen = sidecar?.personen ?? undefined;
   const zFactor = sidecar?.infiltrationReductionZ ?? 1.0;
+  const ventilationEstablished = sidecar?.ventilationEstablished ?? undefined;
   const zOptions: Record<string, string> = {
     "1": t("isso53.room.zFactorOptions.1"),
     "0.7": t("isso53.room.zFactorOptions.0.7"),
@@ -140,6 +141,33 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
           options={zOptions}
           className="text-xs"
         />
+      </label>
+      <label className="flex items-center gap-1 text-xs text-on-surface-variant">
+        <span className="shrink-0">
+          {t("isso53.room.ventilationEstablishedLabel")}
+        </span>
+        <input
+          type="number"
+          min={0}
+          step={0.1}
+          value={ventilationEstablished ?? ""}
+          placeholder={t("isso53.room.ventilationEstablishedPlaceholder")}
+          onChange={(e) => {
+            const raw = e.target.value;
+            updateIsso53Room(roomId, {
+              ventilationEstablished: raw === "" ? undefined : Number(raw),
+            });
+          }}
+          className="w-full rounded border-none bg-transparent px-1 py-0.5 text-xs
+            text-on-surface outline-none hover:bg-[var(--oaec-hover)]
+            focus:bg-[var(--oaec-bg-input)] focus:ring-1 focus:ring-primary"
+        />
+        <span className="shrink-0 text-[10px] text-on-surface-muted">dm³/s</span>
+        {ventilationEstablished != null && ventilationEstablished > 0 && (
+          <span className="shrink-0 text-[10px] text-on-surface-muted tabular-nums">
+            ({(ventilationEstablished * 3.6).toFixed(1)} m³/h)
+          </span>
+        )}
       </label>
     </div>
   );

@@ -512,6 +512,13 @@ export interface Isso53RoomState {
    * 0.5 = 2 buitengevels tegenover elkaar.
    */
   infiltrationReductionZ: number;
+  /**
+   * Vastgestelde toevoer-luchtvolumestroom q_v in **dm³/s** (UI-eenheid).
+   * `undefined` = niet ingevuld → mapper stuurt 0 m³/s naar de kern
+   * (geen toevoer). Een getal overschrijft de BBL/bezetting-afleiding én
+   * de mechanische-toevoer-gate (fase 3, uitvoering).
+   */
+  ventilationEstablished?: number;
 }
 
 export const DEFAULT_ISSO53_ROOM: Isso53RoomState = {

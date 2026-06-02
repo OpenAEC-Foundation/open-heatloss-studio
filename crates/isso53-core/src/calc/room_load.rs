@@ -157,6 +157,7 @@ mod tests {
             },
             infiltration_reduction_z: 1.0,
             has_mechanical_supply: None,
+            ventilation_q_v_established: None,
         };
 
         let all_rooms = vec![room1.clone(), room2];
@@ -201,6 +202,7 @@ mod tests {
             },
             infiltration_reduction_z: 1.0,
             has_mechanical_supply: None,
+            ventilation_q_v_established: None,
         }
     }
 

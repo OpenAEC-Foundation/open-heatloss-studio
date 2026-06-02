@@ -232,6 +232,8 @@
         "0.7": "0,7 — overig",
         "0.5": "0,5 — 2 tegenover elkaar"
       },
+      "ventilationEstablishedLabel": "q_v vastgesteld",
+      "ventilationEstablishedPlaceholder": "0",
       "gebruiksFunctieOptions": {
         "kantoor": "Kantoor",
         "onderwijs": "Onderwijs",
