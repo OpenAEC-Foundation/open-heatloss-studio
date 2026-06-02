@@ -225,6 +225,17 @@
       "personen": "Personen",
       "personenLabel": "pers.",
       "personenPlaceholder": "auto",
+      "vent": {
+        "bblMin": "BBL min.",
+        "persMin": "Pers. min.",
+        "chosen": "Gekozen",
+        "setBbl": "=BBL",
+        "setBblTitle": "Neem BBL-minimum (0,9 dm³/s·m²) over als gekozen q_v",
+        "setPers": "=pers",
+        "setPersTitle": "Neem bezettings-minimum (personen × tarief tabel 4.10) over als gekozen q_v",
+        "setMax": "=max",
+        "setMaxTitle": "Neem de hoogste van BBL- en bezettings-minimum over als gekozen q_v"
+      },
       "zFactor": "z-factor infiltratie",
       "zFactorLabel": "z",
       "zFactorOptions": {

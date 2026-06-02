@@ -225,6 +225,17 @@
       "personen": "Occupants",
       "personenLabel": "occ.",
       "personenPlaceholder": "auto",
+      "vent": {
+        "bblMin": "BBL min.",
+        "persMin": "Occ. min.",
+        "chosen": "Chosen",
+        "setBbl": "=BBL",
+        "setBblTitle": "Use BBL minimum (0.9 dm³/s·m²) as the chosen q_v",
+        "setPers": "=occ",
+        "setPersTitle": "Use occupancy minimum (occupants × table 4.10 rate) as the chosen q_v",
+        "setMax": "=max",
+        "setMaxTitle": "Use the higher of the BBL and occupancy minimum as the chosen q_v"
+      },
       "zFactor": "Infiltration z-factor",
       "zFactorLabel": "z",
       "zFactorOptions": {
