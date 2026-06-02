@@ -436,6 +436,87 @@ describe("toIsso53LegacyProject", () => {
     expect(cons[0].temperatureFactor).toBe(0.8);
   });
 
+  it("emit adjacent_room naar een isUnheated-room als boundary 'unheated' met f_k uit sidecar", () => {
+    const base = makeProject();
+    // Een verwarmd vertrek met een adjacent_room-wand naar TECH (techniek).
+    const proj: Project = {
+      ...base,
+      rooms: [
+        {
+          ...base.rooms[0],
+          constructions: [
+            {
+              id: "wall-to-tech",
+              description: "Wand naar techniekruimte",
+              area: 6,
+              u_value: 0.5,
+              boundary_type: "adjacent_room",
+              material_type: "masonry",
+              vertical_position: "wall",
+              adjacent_room_id: "TECH",
+            },
+          ],
+        },
+      ],
+    };
+    // TECH is een aparte room die de gebruiker als onverwarmd markeert + f_k 0.03.
+    const rooms53WithUnheated: Record<string, Isso53RoomState> = {
+      ...rooms53,
+      TECH: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "technischeRuimte",
+        infiltrationReductionZ: 1.0,
+        isUnheated: true,
+        unheatedFactor: 0.03,
+      },
+    };
+    const o = toIsso53LegacyProject(proj, building53, rooms53WithUnheated);
+    const cons = (o.rooms as Array<Record<string, unknown>>)[0]
+      .constructions as Array<Record<string, unknown>>;
+    expect(cons[0].boundaryType).toBe("unheated");
+    expect(cons[0].temperatureFactor).toBe(0.03);
+    // adjacentRoomId blijft behouden, groundParams null (geen ground-element)
+    expect(cons[0].adjacentRoomId).toBe("TECH");
+    expect(cons[0].groundParams).toBeNull();
+  });
+
+  it("laat adjacent_room naar een NIET-onverwarmde room ongewijzigd (adjacentRoom)", () => {
+    const base = makeProject();
+    const proj: Project = {
+      ...base,
+      rooms: [
+        {
+          ...base.rooms[0],
+          constructions: [
+            {
+              id: "wall-to-k02",
+              description: "Wand naar buurvertrek",
+              area: 8,
+              u_value: 0.4,
+              boundary_type: "adjacent_room",
+              material_type: "masonry",
+              vertical_position: "wall",
+              adjacent_room_id: "K02",
+            },
+          ],
+        },
+      ],
+    };
+    // K02 niet gemarkeerd als onverwarmd.
+    const o = toIsso53LegacyProject(proj, building53, {
+      ...rooms53,
+      K02: {
+        gebruiksFunctie: "kantoor",
+        ruimteType: "verblijfsruimte",
+        infiltrationReductionZ: 1.0,
+      },
+    });
+    const cons = (o.rooms as Array<Record<string, unknown>>)[0]
+      .constructions as Array<Record<string, unknown>>;
+    expect(cons[0].boundaryType).toBe("adjacentRoom");
+    expect(cons[0].temperatureFactor).toBeNull();
+  });
+
   it("remapt materialType (non_masonry→nonMasonry) en zet uValue", () => {
     const rooms = out.rooms as Array<Record<string, unknown>>;
     const cons = rooms[0].constructions as Array<Record<string, unknown>>;

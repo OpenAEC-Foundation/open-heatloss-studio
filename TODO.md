@@ -1,13 +1,27 @@
 # TODO
 
-## 🔍 ISSO 53 warmteverlies — open validatie & bugs (gemeld 01-06, ~240 m² zwevend kantoor)
+## 🔍 ISSO 53 warmteverlies — ventilatie + onverwarmd (02-06, Reddingspost Kijkduin, 256 m² utiliteit)
 
-> Context: gebruiker valideerde een ISSO 53-berekening van een zwevend kantoor (~240 m²). Eerder deze sessie gefixt: infiltratie A_u telde de blootgestelde vloer mee (`d529378`). Onderstaande punten staan nog open.
+> Context: gebruiker valideerde een ISSO 53-utiliteitsproject (reddingspost, kleedkamers/techniek/berging). 02-06 zijn 10 commits gemaakt (zie `sessions/warmteverlies_latest.md` in de orchestrator). Onderstaande items staan nog open; de oorspronkelijke 4 meldingen van 01-06 zijn opgelost of doorontwikkeld.
 
-- [ ] **Opwarmtoeslag (§4.8) erg hoog** — net geïmplementeerd (`e8dd82b`, `crates/isso53-core/src/calc/heating_up.rs` + `tables/heating_up.rs`). Regressie matcht PDF-voorbeeld p.66, maar gebruiker ziet hoge waarden op het eigen project. Valideren tegen een Vabi-uitvoer van dít kantoor. Verdenking: default `regime=free` met weekendverlaging 62h → tabel 4.13 geeft hoge φ, en `max(dag, weekend)` pakt dan het weekend. Check of de defaults (14/62h, vrije afkoeling) passend zijn en of `max(dag,weekend)` norm-correct toegepast wordt.
-- [ ] **Ventilatieverlies erg laag** — onderzoek Φ_vent in `crates/isso53-core/src/calc/ventilation.rs`. Mogelijke oorzaken: (a) WTW stille 75%-default over-reduceert (zie WTW-rendement-UI `d1c8b38`), (b) personen-gebaseerde flow te laag na de `max(oppervlakte-bezetting, personen)`-wijziging (`5abc693`), (c) `f_v`-berekening. Valideren tegen Vabi.
-- [ ] **Verlies door binnenwanden klopt niet — zit de (zwevende) vloer erbij?** — controleer `crates/isso53-core/src/calc/transmission.rs` + de groepering per `boundary_type`/`vertical_position` in results/rapport. Hypothese: een exterior/adjacent **vloer** (`vertical_position == Floor`) wordt onder "binnenwand"-transmissie meegeteld/gegroepeerd. Echo van de A_u-vloer-bug (`d529378`), maar dan in de transmissie-/weergavegroepering. Verifieer welke constructies onder "binnenwand" vallen.
-- [ ] **Ventilatie-rij: toon personen-gebaseerde ventilatie** — na de `max(oppervlakte, personen)`-wijziging is onduidelijk welk personen-aantal/q_v gebruikt wordt. Voeg in de ventilatie-rij een veldje/indicatie toe dat de personen-gebaseerde ventilatie (effectief personen-aantal × tarief, of de resulterende q_v) toont. Frontend: `frontend/src/components/rooms/VentilationRow.tsx` + `Isso53RoomFunctionCell.tsx` (personen-input zit daar al).
+### ✅ Opgelost 02-06
+- Berekenen crashte (serde regime `9c2bb2b`); opslaan verloor ISSO 53-config (`3e29bf4`, nu `.heatloss.json` met norm+sidecars); ruimte zonder ventilatie-eis crashte (`d32d497`).
+- Ventilatie-rij: **vastgestelde toevoer-q_v** stuurt de calc (leeg=BBL-placeholder 0,9 dm³/s·m²), met **BBL-min / personen-min / gekozen** in de rij + snelknoppen (`5e9834d`/`365556b`/`ac62b4b`). Vervangt #2 "ventilatie te laag" + #4 "personen-ventilatie tonen".
+- Chart transmissie: **onverwarmd eigen categorie** + f_k=0,5 i.p.v. volle ΔT + ISSO 53-temps (`95873cf`). Het "8000W naar binnenwanden" was puur deze weergavebug — echte binnenwanden = netto −772W.
+- **f_k per onverwarmde ruimte instelbaar** (`5584384`), default 0,5, override per ruimte.
+
+### ⬜ Open — calc/feature
+- [ ] **Auto-f_k voor onverwarmde ruimtes** = `H_ue / (H_iu + H_ue)` uit de geometrie van de onverwarmde ruimte (ISSO 53 §4.4 / tabel 4.2). Goed geïsoleerde, "meeverwarmende" ruimtes → f_k≈0 → verlies ~0. **Geverifieerd op dit project: Berging 0,030 · Meterkast 0,026** (i.p.v. 0,5 → 16× lager, verlies 3843W→~230W). Handmatige `unheatedFactor` (`5584384`) blijft als override. Plek: `lib/isso53Unheated.ts` (helper aanwezig: `collectUnheatedTargetIds`) + `isso53ProjectMapper.ts` + chart `deltaT.ts`.
+- [x] **Per-ruimte "Onverwarmd"-toggle** — checkbox + f_k-veld per ruimte (`Isso53RoomState.isUnheated`). Aanvinken → wanden van buren naar die ruimte worden als `unheated` geëmit met de f_k van de ruimte. Lost de inconsistente import-markering op (Techniek/afval als 10°C adjacent_room → nu handmatig op onverwarmd te zetten, f_k≈0,03 → ~0 verlies).
+- [ ] **Onverwarmde ruimte uit gebouwtotaal halen.** Een als onverwarmd gemarkeerde ruimte telt nog steeds als eigen (10/15°C) ruimte mee in het totaal → kleine dubbeltelling met de buren-f_k-route. Flagged-unheated rooms zouden geen eigen verwarmingsvraag moeten produceren (hun schilverlies loopt via de buren-f_k).
+- [ ] **Opwarmtoeslag §4.8 valideren tegen Vabi** — formule matcht PDF p.66 (test `regression_isso53_example_p66`), maar nog geen Vabi-ijkpunt voor dit project. In de huidige config staat `setbackActive=false` → φ_hu=0, dus alleen relevant zodra setback aan gaat. `crates/isso53-core/src/calc/heating_up.rs`.
+- [ ] **Onverwarmde ruimtes lichte dubbeltelling** — Meterkast/Bergingen tellen óók als 15°C-ruimte mee in het gebouwtotaal (+365W netto). Conceptueel dubbel (onverwarmd-buur én 15°C-ruimte).
+
+### ⬜ Open — opschoning/weergave
+- [ ] **supply-toggle opruimen** (`514bbf9`, `has_mechanical_supply`-gate) — overbodig geworden nu de vastgestelde q_v leidend is (leeg/0 = geen toevoer). Verwarrend in de UI voor ISSO 53.
+- [ ] **Chart adjacent_room: bruto-positief vs netto** — de chart sommeert alleen positieve bijdragen (1662W) terwijl de calc netto −772W oplevert (koude ruimtes winnen terug). Overweeg netto tonen of het label verduidelijken.
+- [ ] **`.ifcenergy`-export draagt ISSO 53-sidecars niet** — alleen `.heatloss.json` persisteert norm+sidecars. Bij opslaan als `.ifcenergy` gaat ISSO 53-config verloren.
+- [ ] **Rust `temperature_factor` `#[serde(default)]`** ontbreekt (`room.rs`); third-party clients zonder dit veld falen. Mapper vult het nu altijd, dus geen blocker.
 
 ---
 

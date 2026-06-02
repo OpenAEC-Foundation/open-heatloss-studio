@@ -18,6 +18,7 @@ import {
   TEMPERATURE_IS_EXTERIOR,
   design_indoor_temperature,
 } from "../../lib/isso53Temperature";
+import { resolveUnheatedRoomIds } from "../../lib/isso53Unheated";
 import { buildRoomLookup, computeDeltaT } from "./deltaT";
 
 // ---------------------------------------------------------------------------
@@ -140,6 +141,15 @@ export function ConstructionLossChart({
     const roomLookup = buildRoomLookup(rooms);
     const isIsso53 = norm === "isso53";
 
+    // ISSO 53: gecombineerde set onverwarmde room-ids (impliciete
+    // unheated_space-doelen ∪ expliciet via sidecar `isUnheated` gemarkeerd).
+    // Een adjacent_room-wand náár een room in deze set wordt — net als in de
+    // mapper — als onverwarmd grensvlak behandeld (categorie + f_k-ΔT). In
+    // ISSO 51-modus blijft de set leeg → geen gedragswijziging.
+    const unheatedRoomIds = isIsso53
+      ? resolveUnheatedRoomIds(rooms, isso53Rooms ?? {})
+      : new Set<string>();
+
     // Norm-aware temperatuur-resolver — alleen actief in ISSO 53-modus.
     // Leidt de design-θ van een ruimte af uit de sidecar-`ruimteType`
     // (tabel 2.2) i.p.v. de ISSO 51 room.function-tabel. `garage` → θ_e.
@@ -177,7 +187,17 @@ export function ConstructionLossChart({
       }
 
       for (const ce of room.constructions) {
-        const dT = computeDeltaT(ce.boundary_type, thetaI, thetaE, ce, {
+        // Effectief grensvlaktype: een adjacent_room náár een onverwarmde
+        // ruimte gedraagt zich als unheated_space (f_k-ΔT + categorie
+        // "Onverwarmd"), consistent met de mapper. Andere types ongewijzigd.
+        const effectiveBoundary: BoundaryType =
+          ce.boundary_type === "adjacent_room" &&
+          ce.adjacent_room_id != null &&
+          unheatedRoomIds.has(ce.adjacent_room_id)
+            ? "unheated_space"
+            : ce.boundary_type;
+
+        const dT = computeDeltaT(effectiveBoundary, thetaI, thetaE, ce, {
           rooms: roomLookup,
           thetaWater: thetaW,
           resolveRoomTemperature,
@@ -188,7 +208,7 @@ export function ConstructionLossChart({
 
         const matched = CATEGORIES.find((cat) =>
           cat.matchFn({
-            boundary_type: ce.boundary_type,
+            boundary_type: effectiveBoundary,
             description: ce.description,
             vertical_position: ce.vertical_position,
           }),

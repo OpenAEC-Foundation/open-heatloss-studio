@@ -73,9 +73,13 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
   const updateIsso53Room = useProjectStore((s) => s.updateIsso53Room);
   const rooms = useProjectStore((s) => s.project.rooms);
 
-  // Is deze ruimte ergens in het project een ONVERWARMD doel? Zo ja, dan kan
-  // de gebruiker de f_k zetten die op alle aangrenzende wanden doortelt.
+  // Is deze ruimte ergens in het project een ONVERWARMD doel (impliciet, via
+  // een unheated_space-constructie van een buur)? Zo ja, of als de gebruiker
+  // dit vertrek expliciet als onverwarmd markeert, kan de f_k worden gezet die
+  // op alle aangrenzende wanden doortelt.
   const isUnheatedTargetRoom = collectUnheatedTargetIds(rooms).has(roomId);
+  const isUnheated = sidecar?.isUnheated ?? false;
+  const showUnheatedFactor = isUnheated || isUnheatedTargetRoom;
   const unheatedFactor = sidecar?.unheatedFactor;
 
   const gebruiksFunctie: Isso53GebruiksFunctie =
@@ -149,7 +153,21 @@ export function Isso53RoomFunctionCell({ roomId }: Isso53RoomFunctionCellProps) 
           className="text-xs"
         />
       </label>
-      {isUnheatedTargetRoom && (
+      <label
+        className="flex items-center gap-1 text-xs text-on-surface-variant"
+        title={t("isso53.room.unheatedTitle")}
+      >
+        <input
+          type="checkbox"
+          checked={isUnheated}
+          onChange={(e) =>
+            updateIsso53Room(roomId, { isUnheated: e.target.checked })
+          }
+          className="h-3 w-3 accent-primary"
+        />
+        <span className="shrink-0">{t("isso53.room.unheatedLabel")}</span>
+      </label>
+      {showUnheatedFactor && (
         <label
           className="flex items-center gap-1 text-xs text-on-surface-variant"
           title={t("isso53.room.unheatedFactorTitle")}
