@@ -1,5 +1,69 @@
 # TODO
 
+## 🧪 Norm-conformiteit audit (02-06) — VOLLEDIGE LIJST
+
+> Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
+> **ISSO 53 is voorgetrokken** (blokken A–C) vóór ISSO 51 (D–E).
+
+### A. ISSO 53 — calc-conformiteit (urgent eerst)
+- [ ] **D1 [L] LANDMINE** — `tables/temperature.rs:21,93` sentinel `f64::MIN` voor `Garage` wordt door callers (`calc/transmission.rs:38`, `ventilation.rs:71`, `infiltration.rs:94`) NIET vervangen door θ_e → `H×(f64::MIN−θ_e)` = **oneindig/astronomisch verlies**. ✅ Fix: enum/Option of sentinel centraal resolven.
+- [ ] **D2 [M]** — `calc/ventilation.rs:116` hardcodet `VentilatieBouwfase::Nieuwbouw` → bestaande bouw krijgt ~6,5 i.p.v. ~3,44 dm³/s pp ≈ **+89% Φ_V**. ✅ Fix: bouwfase in `VentilationConfig` + model/UI-veld (zie U-blok).
+- [ ] **D4 [M]** — `calc/ground.rs:144-155` `U_equiv` weigert normale `z=0` grondvloer (`ground.rs:214` test bevestigt fout gedrag). Fix: formule 4.24 herafleiden + norm-voorbeelden z=0/0,5/5.
+- [ ] **D3 [L]** — `calc/infiltration.rs:117-119,134-136` `Unknown`/`UnknownVabiCompat` negeren `building_length/width/height` → f_wind=1,0 i.p.v. ~1,29 (~22% te laag). Fix: methode-dimensies gebruiken of verplicht maken.
+- [ ] **A6 [L]** — `calc/shell.rs:52-56` ΔU_TB-prioriteit omgekeerd t.o.v. `transmission.rs` (forfaitair wint, custom genegeerd) → tot kW-orde voorontwerp.
+- [ ] **A4 [L]** — `calc/ground.rs:44-50,154` `U_k = U + ΔU_TB` mist (docstring liegt) → systematische lichte onderschatting H_T,ig.
+- [ ] **A7 [L]** — `calc/ventilation.rs:154` + `calc/infiltration.rs:75` natuurlijke ventilatie `f_v=1.0` hardcoded, negeert Δθ_v (form. 4.39) → ~1,7% overschatting. Fix: gedeelde Δθ_v-helper.
+- [ ] **A3 [M]** — `calc/heating_up.rs:106-110` §4.8.3-reductie `−H_v·Δθ` wordt via project-brede vlag óók op natuurlijk geventileerde ruimten toegepast → Φ_hu te laag/0.
+- [ ] **K2 [M]** — `lib.rs:93` / `calc/source_capacity.rs:38,79` sommeren Σ Φ_hu onvoorwaardelijk; geen gelijktijdigheids-selectie (§4.1/§5.1) → overdimensionering Φ_source.
+- [ ] **A5 [H]** ✅ PDF-bevestigd (tab 2.3 p.21-22 + voetnoot 2) — `tables/temperature_stratification.rs` heeft alléén Δθ₂ (1 call-site `ground.rs:189`, correct). Ontbreekt: **Δθ₁** (+4/+3/+2/+1/0/0,5 per systeem; nodig in form. 3.4/3.5, 4.5/4.6, 4.11/4.12, 4.15/4.16, 4.19/4.20 → ~+10% op dak/vloer-boven-buitenlucht), **Δθ_v** (=A7), Δθ_a1/Δθ_a2, en vide-correctie **Δθ₁×(h/4)** bij h>4m (voetnoot 2). Volledige tabel in `audit-reports/00-SAMENVATTING.md`. Mogelijk verklaart dit de verborgen +5,0% op dak-zwaar vertrek 3.10a.
+- [ ] **D5 [H]** — `calc/shell.rs:88-94` voorontwerp-schil grove vaste aannames (0,5 ach + 0,00001 m³/s·m²) = niet norm-conform hfst 3. Fix: hfst 3 implementeren of API als niet-normatief labelen.
+
+### A2. ISSO 53 — stille-fout defaults (fout antwoord zónder error)
+- [ ] **B1 [L]** — `calc/heating_up.rs:97` `unwrap_or(0.0)` bij ongeldige setback-uren/graden → Φ_hu verdwijnt geruisloos. Fix: error i.p.v. 0.
+- [ ] **B2 [L]** — `model/project.rs:27` `#[serde(default)]` → ontbrekend `heatingUp`-blok = Φ_hu=0 hele gebouw (third-party import ~10-28% te laag). Fix: expliciete waarschuwing/error.
+- [ ] **B3 [L]** — `calc/ventilation.rs:108,117` magic `unwrap_or(0.05/6.5)` zonder rapport-spoor.
+
+### A3. ISSO 53 — twijfel (PDF-verificatie vóór fix)
+- [ ] Formule 4.24 exacte `U_equiv`-machtsstructuur — `tables/ground_params.rs` geeft OCR-onzekerheid toe (verifieer tegen worked example p.65: U=2,43→U_equiv=0,177).
+- [ ] Tabellen 4.13/4.14 dash-cellen — mag `tables/heating_up.rs:166-198` nearest-defined fallback gebruiken?
+- [ ] Tabel 4.10 — behandeling afzuig/overstroomlucht in sanitair + keuken.
+- [ ] Dode params: `material_type` (claimt ΔU_TB-invloed die niet bestaat — `DELTA_U_TB_DEFAULT` is constant) + `theta_b_adjacent_building` (hardcoded 15°C in `transmission.rs:178`).
+
+### B. ISSO 53 — UI-veld-dekking (calc-input zónder invoerveld → stille default)
+- [ ] **U1** — `source_zone_config` niet gemapt → Φ_source altijd z=0,5; gescheiden opwekker (z=1,0) onbereikbaar.
+- [ ] **U2** — `unheated_space`-enum (15 norm-varianten tab 4.2) niet kiesbaar → reductiefactor altijd 0,5.
+- [ ] **U3** — koudebrug-toggle + custom ΔU_TB geen UI → forfaitair altijd aan (raakt A6).
+- [ ] **U4** — grond-params (u_equiv, f_gw, perimeter/diepte) alleen via thermal-import; f_gw altijd 1,0.
+- [ ] **U5** — voorverwarming (`has_preheating`/temperatuur) geen UI.
+- [ ] **U6** — vide/vertrekhoogte >4m: per-vertrek-calc leest `room.height` niet (raakt A5).
+
+### C. ISSO 53 — testdekking
+- [ ] **V2** — toleranties aanscherpen: `vabi_houtfabriek_3floors_golden.rs:48,54` (6% laat 3.10a +5% door); `vabi_dr_golden.rs:77,92` (10%, expected 3059 W vs snapshot 3165 W = +3,5%, nog ~190 W slack).
+- [ ] Split `vabi_golden.rs:37` gecombineerde Φ_V+Φ_I-check → aparte Φ_V, Φ_I, q_v, H_v, q_i, H_i (fouten compenseren nu).
+- [ ] Test bestaande-bouw ventilatiefase (dekt D2) + afzuig-only toilet/bad/keuken-eisen.
+- [ ] End-to-end fixture met `source_fraction_z` (bronvermogen 5.1/5.9 heeft alleen synthetische units).
+- [ ] Guard/test voor vertrekhoogte >4m (scope-grens, raakt A5).
+- [ ] Fixture mét nachtverlaging die Φ_hu écht uitvoert.
+
+### D. ISSO 51 — calc-conformiteit
+- [ ] **A1 [H] GROOTSTE FOUT** — `calc/heating_up.rs:39-52` + `room_load.rs:222-242` gebruiken 2017-model `f_RH × ΣA_metselwerk` i.p.v. 2023 Formule 4.15 `Φ_hu = P × A_g` (vloeroppervlak). `f_RH` bestaat niet in 2023. ✅ PDF-bevestigd (§4.3.1 p.70 + Tabel 2.10 p.45). Rewrite + verwijder de fout-codificerende test `test_isso51_example_room1_heating_up`. Scope A_g (per-vertrek vs gebouwbreed verdeeld) exact uitwerken.
+- [ ] **A2 [M]** — `tables/heating_up.rs:9-16` nacht-afkoeling Δt aan gebouwtype gekoppeld i.p.v. Ū (Afb 2.7 p.44); mist regel Ū≤0,50→1K + zwaarte-as (ZL+L+M/Z) van Tabel 2.10. ✅ PDF-bevestigd.
+- [ ] **A1b [M]** — regeltype-branches ontbreken: §4.3.1 P×A_g / §4.3.2 zelflerend → Φ_hu=0 / §4.3.3 kamerthermostaat → 5 W/m².
+- [ ] **K3 [M]** — `lib.rs:204,218-225,257` `connection_capacity` telt systeemverliezen mee (strijdig met Form. 3.12; horen alleen in 3.13). Alleen bij embedded heating.
+- [ ] **vabi_import.rs [L]** — example compileert niet (`import_vabi_project` alleen onder `#[cfg(feature="vabi-import")]`). Fix: `[[example]]` met `required-features = ["vabi-import"]` in `Cargo.toml` (geen code-wijziging).
+
+### E. ISSO 51 — testdekking
+- [ ] **V1 KRITIEK** — beide Vabi-fixtures hebben `night_setback=false` → alle `phi_hu=0`; A1/A2 worden NOOIT getest. Voeg fixture mét nachtverlaging toe.
+- [ ] **V3** — `integration_test.rs:5-11` comment claimt dat DR moet falen op linear-sum; achterhaald (`lib.rs:257` doet quadratic). Opschonen.
+- [ ] `integration_test.rs:323-334` slaat per-veld-checks over voor ruimten <1 W → kan teken-/componentfouten verbergen vóór clamp.
+
+### F. Cross-cutting / Vabi-keuzes (hybride: markeren + dubbel testen)
+- [ ] **C1** — `tables/nen8088.rs` infiltratie power-law (Δp=3,14) = Vabi-reproductie, niet ISSO 53 → expliciet markeren in rapport-output.
+- [ ] **C2** — `isso51 lib.rs:218-225` `VabiCompat`-aggregatie sluit Φ_T,iae uit (afwijkend van Form. 3.10). Verifieer tegen §3.5.1; zet ISSO-conforme variant naast de Vabi-variant.
+- [ ] **frost_protection** — orphan in isso53-mapper (stuurt altijd null), wél isso51-relevant → opruimen of wiren.
+
+---
+
 ## 🔍 ISSO 53 warmteverlies — ventilatie + onverwarmd (02-06, Reddingspost Kijkduin, 256 m² utiliteit)
 
 > Context: gebruiker valideerde een ISSO 53-utiliteitsproject (reddingspost, kleedkamers/techniek/berging). 02-06 zijn 10 commits gemaakt (zie `sessions/warmteverlies_latest.md` in de orchestrator). Onderstaande items staan nog open; de oorspronkelijke 4 meldingen van 01-06 zijn opgelost of doorontwikkeld.
