@@ -93,8 +93,19 @@ pub fn calculate_heating_up(
             // Zwaarte gebouw uit c_eff (§4.8.1): c_eff ≤ 70 → l, anders z.
             // ThermalMass-mapping: Licht(15)+Gemiddeld(50) → l, Zwaar(75) → z.
             let weight = BuildingWeight::from_c_eff(c_eff(thermal_mass));
-            // Geen gedefinieerde tabelwaarde → conservatief 0 W/m².
-            specific_supplement(config, weight).unwrap_or(0.0)
+            // Geen gedefinieerde tabelwaarde (verlaging-uren ∉ tabeldomein of
+            // graden ∉ {1..5}) → expliciete fout i.p.v. stille 0 W/m², die
+            // een fout antwoord zonder waarschuwing zou opleveren.
+            specific_supplement(config, weight).ok_or_else(|| {
+                crate::error::Isso53Error::InvalidHeatingUpParameters(format!(
+                    "geen tabelwaarde φ_hu,i (4.13/4.14) voor regime {:?}, \
+                     opwarmtijden dag={} weekend={}, zwaarte {:?}",
+                    config.regime,
+                    config.warmup_hours_weekday,
+                    config.warmup_hours_weekend,
+                    weight
+                ))
+            })?
         }
     };
 
@@ -220,6 +231,58 @@ mod tests {
             (phi_hu - 378.0).abs() < 1.0,
             "Φ_hu,i moet ≈ 378 W zijn (norm-voorbeeld p.66), kreeg {phi_hu}"
         );
+    }
+
+    #[test]
+    fn test_invalid_params_return_err() {
+        // B1-regressie: een verlaging-uren-waarde buiten het tabeldomein
+        // (geldig is {8, 14, 62} voor vrije afkoeling) mag GEEN stille 0
+        // opleveren maar een expliciete fout.
+        let room = create_test_room(25.0);
+        let config = HeatingUpConfig {
+            setback_active: true,
+            p_w_per_m2_override: None,
+            regime: CoolingRegime::Free {
+                setback_hours_weekday: 99, // ∉ {8,14,62} → geen tabelkolom
+                setback_hours_weekend: 99,
+            },
+            air_changes: AirChangeRate::Low,
+            warmup_hours_weekday: 2.0,
+            warmup_hours_weekend: 4.0,
+            mechanical_supply_off: false,
+        };
+
+        let result =
+            calculate_heating_up(&room, &config, ThermalMass::Licht, 0.0, 20.0, -10.0);
+        assert!(
+            matches!(
+                result,
+                Err(crate::error::Isso53Error::InvalidHeatingUpParameters(_))
+            ),
+            "ongeldige opwarmtoeslag-invoer moet een Err geven, kreeg {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_valid_params_still_compute() {
+        // B1-regressie: het VALIDE pad moet exact dezelfde waarde geven als
+        // vóór de fix. Hergebruik de geldige case uit test_heavy_building.
+        let room = create_test_room(10.0);
+        let config = HeatingUpConfig {
+            setback_active: true,
+            regime: CoolingRegime::Free {
+                setback_hours_weekday: 14,
+                setback_hours_weekend: 62,
+            },
+            warmup_hours_weekday: 2.0,
+            warmup_hours_weekend: 12.0,
+            mechanical_supply_off: false,
+            ..Default::default()
+        };
+        let result =
+            calculate_heating_up(&room, &config, ThermalMass::Zwaar, 0.0, 20.0, -10.0).unwrap();
+        // max(18, 31) = 31 W/m² × 10 m² = 310 W.
+        assert!((result - 310.0).abs() < 1e-9, "kreeg {result}");
     }
 
     #[test]

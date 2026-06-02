@@ -5,7 +5,7 @@ use crate::formulas::RHO_CP_AIR;
 use crate::model::{Room, VentilationConfig};
 use crate::tables::ventilation_requirements::{requirement, ventilation_rate_per_person};
 use crate::model::enums::VentilatieBouwfase;
-use crate::tables::temperature::design_indoor_temperature;
+use crate::tables::temperature::resolve_theta_i;
 
 /// Results from ventilation calculation.
 #[derive(Debug, Clone, PartialEq)]
@@ -67,8 +67,7 @@ pub fn calculate_phi_vent(
     ventilation: &VentilationConfig,
     theta_e: f64,
 ) -> Result<f64> {
-    let theta_i = room.custom_temperature
-        .unwrap_or_else(|| design_indoor_temperature(room.gebruiks_functie, room.ruimte_type));
+    let theta_i = resolve_theta_i(room, theta_e);
 
     let result = calculate_ventilation(room, ventilation, theta_i, theta_e)?;
     Ok(result.phi_vent)

@@ -8,7 +8,7 @@ use crate::error::Result;
 use crate::formulas::RHO_CP_AIR;
 use crate::model::{BoundaryType, Building, DesignConditions, Room};
 use crate::tables::infiltration::{q_is_known, BuildingHeightClass, Qv10Class};
-use crate::tables::temperature::design_indoor_temperature;
+use crate::tables::temperature::resolve_theta_i;
 
 /// Infiltration calculation method.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -90,8 +90,7 @@ pub fn calculate_phi_i(
 ) -> Result<f64> {
     let h_i = calculate_h_i(room, building, method)?;
 
-    let theta_i: f64 = room.custom_temperature
-        .unwrap_or_else(|| design_indoor_temperature(room.gebruiks_functie, room.ruimte_type));
+    let theta_i: f64 = resolve_theta_i(room, climate.theta_e);
 
     let phi_i = h_i * (theta_i - climate.theta_e);
 

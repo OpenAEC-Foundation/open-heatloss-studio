@@ -4,7 +4,7 @@ use crate::error::Result;
 use crate::model::{BoundaryType, ConstructionElement, DesignConditions, Room, Building};
 use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
 use crate::tables::adjacent_unheated::f_k;
-use crate::tables::temperature::design_indoor_temperature;
+use crate::tables::temperature::{design_indoor_temperature, resolve_theta_i};
 use super::ground::calculate_h_t_ground;
 
 /// Calculate transmission heat losses for a room.
@@ -33,9 +33,10 @@ pub fn calculate_transmission(
         }
     }
 
-    // Get design temperature θ_i for this room
-    let theta_i: f64 = room.custom_temperature
-        .unwrap_or_else(|| design_indoor_temperature(room.gebruiks_functie, room.ruimte_type));
+    // Get design temperature θ_i for this room.
+    // Vervangt de exterieur-sentinel (garage e.d.) door θ_e, zodat die
+    // nooit als f64::MIN in de verlies-berekening lekt.
+    let theta_i: f64 = resolve_theta_i(room, climate.theta_e);
 
     // Calculate individual H_T components
     let h_t_exterior = calculate_h_t_exterior(&exterior_elements)?;
