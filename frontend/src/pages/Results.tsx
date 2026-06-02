@@ -19,6 +19,7 @@ import { bblMinimumVentilationRate } from "../lib/roomDefaults";
 import { HDD_NL, computeAnnualHeatDemandKWh } from "../lib/annualEnergy";
 import type { Project, ProjectResult } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
+import type { Isso53RoomState } from "../types/projectV2";
 import {
   isso53DonutSegments,
   isso53DonutSummary,
@@ -115,6 +116,7 @@ export function Results() {
       <Isso53Results
         result={result as Isso53ProjectResult}
         project={project}
+        isso53Rooms={isso53Rooms}
         isGenerating={isGenerating}
         onGenerateReport={handleGenerateReport}
         onExport={handleExport}
@@ -469,6 +471,7 @@ function DetailRow({ label, value, description }: { label: React.ReactNode; valu
 function Isso53Results({
   result,
   project,
+  isso53Rooms,
   isGenerating,
   onGenerateReport,
   onExport,
@@ -476,6 +479,7 @@ function Isso53Results({
 }: {
   result: Isso53ProjectResult;
   project: Project;
+  isso53Rooms: Record<string, Isso53RoomState>;
   isGenerating: boolean;
   onGenerateReport: () => void;
   onExport: () => void;
@@ -636,8 +640,9 @@ function Isso53Results({
           <SummaryDonut summary={donutSummary} segments={donutSegments} />
         </ChartZoomModal>
 
-        {/* Verlies per constructietype — norm-onafhankelijk: rekent op
-            project.rooms + θ_e, identiek aan de ISSO 51-tak. */}
+        {/* Verlies per constructietype — ISSO 53-modus: ruimtetemperaturen
+            uit de sidecar-ruimteType (tabel 2.2), onverwarmd als eigen
+            categorie met f_k=0,5 default. Zie deltaT.ts / isso53Temperature.ts. */}
         <Card title="Verlies per constructietype">
           <div
             className="mx-auto max-w-2xl cursor-pointer"
@@ -648,6 +653,8 @@ function Isso53Results({
               rooms={project.rooms}
               thetaE={project.climate.theta_e ?? -10}
               thetaWater={project.climate.theta_water}
+              norm="isso53"
+              isso53Rooms={isso53Rooms}
             />
           </div>
           <p className="mt-1 text-center text-[10px] text-on-surface-muted">
@@ -663,6 +670,8 @@ function Isso53Results({
             rooms={project.rooms}
             thetaE={project.climate.theta_e ?? -10}
             thetaWater={project.climate.theta_water}
+            norm="isso53"
+            isso53Rooms={isso53Rooms}
           />
         </ChartZoomModal>
 

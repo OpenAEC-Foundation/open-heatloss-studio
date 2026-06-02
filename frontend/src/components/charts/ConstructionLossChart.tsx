@@ -8,8 +8,16 @@
 import { useMemo } from "react";
 
 import type { Room, BoundaryType } from "../../types";
+import type {
+  ActiveNorm,
+  Isso53RoomState,
+} from "../../types/projectV2";
 import { CONSTRUCTION_CATEGORY_COLORS } from "../../lib/chartColors";
 import { DEFAULT_THETA_WATER } from "../../lib/constants";
+import {
+  TEMPERATURE_IS_EXTERIOR,
+  design_indoor_temperature,
+} from "../../lib/isso53Temperature";
 import { buildRoomLookup, computeDeltaT } from "./deltaT";
 
 // ---------------------------------------------------------------------------
@@ -54,8 +62,12 @@ const CATEGORIES: CategoryGroup[] = [
     color: CONSTRUCTION_CATEGORY_COLORS.internalWalls,
     matchFn: (ce) =>
       ce.boundary_type === "adjacent_room" ||
-      ce.boundary_type === "adjacent_building" ||
-      ce.boundary_type === "unheated_space",
+      ce.boundary_type === "adjacent_building",
+  },
+  {
+    label: "Onverwarmd",
+    color: CONSTRUCTION_CATEGORY_COLORS.unheated,
+    matchFn: (ce) => ce.boundary_type === "unheated_space",
   },
   {
     label: "Grensvlak water",
@@ -94,6 +106,14 @@ interface ConstructionLossChartProps {
   thetaE: number;
   /** Ontwerp-watertemperatuur (°C). Valt terug op DEFAULT_THETA_WATER. */
   thetaWater?: number;
+  /**
+   * Actieve norm. Bij `"isso53"` worden self- en buurruimte-temperaturen
+   * uit de ISSO 53-sidecar (`ruimteType`) afgeleid i.p.v. de ISSO 51
+   * `room.function`-tabel. Default/undefined → ISSO 51-gedrag (ongewijzigd).
+   */
+  norm?: ActiveNorm;
+  /** ISSO 53 per-vertrek sidecar-state (key = room.id). Alleen relevant bij ISSO 53. */
+  isso53Rooms?: Record<string, Isso53RoomState>;
 }
 
 interface BarData {
@@ -108,6 +128,8 @@ export function ConstructionLossChart({
   rooms,
   thetaE,
   thetaWater,
+  norm,
+  isso53Rooms,
 }: ConstructionLossChartProps) {
   const bars = useMemo(() => {
     const totals = new Map<
@@ -116,14 +138,39 @@ export function ConstructionLossChart({
     >();
     const thetaW = thetaWater ?? DEFAULT_THETA_WATER;
     const roomLookup = buildRoomLookup(rooms);
+    const isIsso53 = norm === "isso53";
+
+    // Norm-aware temperatuur-resolver — alleen actief in ISSO 53-modus.
+    // Leidt de design-θ van een ruimte af uit de sidecar-`ruimteType`
+    // (tabel 2.2) i.p.v. de ISSO 51 room.function-tabel. `garage` → θ_e.
+    // Retourneert null als er geen sidecar is → caller valt terug op ISSO 51.
+    const resolveRoomTemperature = isIsso53
+      ? (r: Room): number | null => {
+          const sidecar = isso53Rooms?.[r.id];
+          if (!sidecar) return null;
+          const t = design_indoor_temperature(
+            sidecar.gebruiksFunctie,
+            sidecar.ruimteType,
+          );
+          return t === TEMPERATURE_IS_EXTERIOR ? thetaE : t;
+        }
+      : undefined;
 
     for (const room of rooms) {
-      const thetaI = room.custom_temperature ?? defaultTemperature(room.function);
+      // Self-θ: ISSO 53 → sidecar-ruimteType; anders ISSO 51 room.function.
+      let thetaI: number;
+      if (room.custom_temperature != null) {
+        thetaI = room.custom_temperature;
+      } else {
+        const resolved = resolveRoomTemperature?.(room);
+        thetaI = resolved ?? defaultTemperature(room.function);
+      }
 
       for (const ce of room.constructions) {
         const dT = computeDeltaT(ce.boundary_type, thetaI, thetaE, ce, {
           rooms: roomLookup,
           thetaWater: thetaW,
+          resolveRoomTemperature,
         });
         const phiT = ce.u_value * ce.area * dT;
         if (phiT <= 0) continue;
@@ -167,7 +214,7 @@ export function ConstructionLossChart({
     }
     result.sort((a, b) => b.value - a.value);
     return result;
-  }, [rooms, thetaE, thetaWater]);
+  }, [rooms, thetaE, thetaWater, norm, isso53Rooms]);
 
   if (bars.length === 0) return null;
 
