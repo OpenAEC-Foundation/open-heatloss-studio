@@ -1,10 +1,15 @@
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { getHeatingSystemLabels, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
-import { isso53BblMinimumDm3s } from "../../lib/isso53Ventilation";
+import {
+  isso53BblMinimumDm3s,
+  isso53BezettingMinimumDm3s,
+} from "../../lib/isso53Ventilation";
 import { bblMinimumVentilationRate } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
 import type { HeatingSystem, Room } from "../../types";
+import { DEFAULT_ISSO53_ROOM } from "../../types/projectV2";
 import { NumberInputBare } from "../ui/NumberInputBare";
 
 /** Effectieve binnentemperatuur θ_i van een kamer (custom override of forfait). */
@@ -25,19 +30,51 @@ interface VentilationRowProps {
  * en door de Rust core automatisch berekend.
  */
 export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
+  const { t } = useTranslation();
+
   // Norm-aware: ISSO 51 woningen vs. ISSO 53 utiliteit.
   const norm = useProjectStore((s) => s.norm);
+  const isIsso53 = norm === "isso53";
 
   // BBL-minimum als placeholder/auto-waarde voor q_v. ISSO 53 hanteert een
   // uniforme verblijfsgebied-eis van 0,9 dm³/s·m²; ISSO 51 de functie-
   // afhankelijke woning-eis uit roomDefaults.
   const bblMinimum = useMemo(
     () =>
-      norm === "isso53"
+      isIsso53
         ? isso53BblMinimumDm3s(room.floor_area)
         : bblMinimumVentilationRate(room.function, room.floor_area),
-    [norm, room.function, room.floor_area],
+    [isIsso53, room.function, room.floor_area],
   );
+
+  // ISSO 53 sidecar (gebruiksFunctie/ruimteType/personen) voor de
+  // referentie-minimums in de onderste balk. Fallback op de default-sidecar
+  // als de ruimte nog geen expliciete state heeft.
+  const isso53Room = useProjectStore((s) => s.isso53Rooms[room.id]);
+
+  // BBL-min (oppervlakte-eis) en bezettings-min (personen × tabel 4.10-tarief),
+  // beide read-only referentiewaarden naast het gekozen q_v-veld. Alleen
+  // relevant in ISSO 53-modus.
+  const isso53BblMin = isIsso53 ? bblMinimum : null;
+  const isso53PersMin = useMemo(() => {
+    if (!isIsso53) {
+      return null;
+    }
+    const sidecar = isso53Room ?? DEFAULT_ISSO53_ROOM;
+    return isso53BezettingMinimumDm3s(
+      sidecar.gebruiksFunctie,
+      sidecar.ruimteType,
+      sidecar.personen,
+    );
+  }, [isIsso53, isso53Room]);
+
+  // =max = hoogste van de beschikbare minimums (null als beide null zijn).
+  const isso53MaxMin = useMemo(() => {
+    const candidates = [isso53BblMin, isso53PersMin].filter(
+      (v): v is number => v != null,
+    );
+    return candidates.length > 0 ? Math.max(...candidates) : null;
+  }, [isso53BblMin, isso53PersMin]);
 
   const heatingLabels = useMemo(
     () => getHeatingSystemLabels(norm === "isso53" ? "isso53" : "isso51"),
@@ -89,6 +126,14 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
       }
       const m3h = Number(raw) || 0;
       onUpdate({ ventilation_rate: m3h / 3.6 });
+    },
+    [onUpdate],
+  );
+
+  // Snelvul: zet de gekozen q_v op een referentie-minimum (dm³/s).
+  const handleSetVentilation = useCallback(
+    (value: number) => {
+      onUpdate({ ventilation_rate: value });
     },
     [onUpdate],
   );
@@ -150,9 +195,60 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
             />
             <span className="text-[10px] text-on-surface-muted">m³/h</span>
             {bblMinimum > 0 && room.ventilation_rate == null && (
-              <span className="text-[10px] text-on-surface-muted">BBL min.</span>
+              <span className="text-[10px] text-on-surface-muted">
+                {t("isso53.room.vent.bblMin")}
+              </span>
             )}
           </label>
+
+          {/* ISSO 53: read-only referentie-minimums + snelvul-knoppen */}
+          {isIsso53 && (
+            <div className="flex items-center gap-3 text-[10px] text-on-surface-muted">
+              <span className="tabular-nums">
+                {t("isso53.room.vent.bblMin")}:{" "}
+                {isso53BblMin != null ? `${isso53BblMin.toFixed(1)} dm³/s` : "—"}
+              </span>
+              <span className="tabular-nums">
+                {t("isso53.room.vent.persMin")}:{" "}
+                {isso53PersMin != null ? `${isso53PersMin.toFixed(1)} dm³/s` : "—"}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={isso53BblMin == null}
+                  onClick={() =>
+                    isso53BblMin != null && handleSetVentilation(isso53BblMin)
+                  }
+                  title={t("isso53.room.vent.setBblTitle")}
+                  className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-on-surface hover:bg-[var(--oaec-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("isso53.room.vent.setBbl")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isso53PersMin == null}
+                  onClick={() =>
+                    isso53PersMin != null && handleSetVentilation(isso53PersMin)
+                  }
+                  title={t("isso53.room.vent.setPersTitle")}
+                  className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-on-surface hover:bg-[var(--oaec-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("isso53.room.vent.setPers")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isso53MaxMin == null}
+                  onClick={() =>
+                    isso53MaxMin != null && handleSetVentilation(isso53MaxMin)
+                  }
+                  title={t("isso53.room.vent.setMaxTitle")}
+                  className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-on-surface hover:bg-[var(--oaec-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("isso53.room.vent.setMax")}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Mech. afvoer */}
           <label className="flex items-center gap-1.5 text-on-surface-muted">
