@@ -130,6 +130,20 @@ export const AGGREGATION_METHOD_LABELS: Record<string, string> = {
 /** Default aggregatiemethode — gelijk aan Rust core `serde(default)`. */
 export const DEFAULT_AGGREGATION_METHOD = "vabi_compat" as const;
 
+/**
+ * Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3. Stuurt de
+ * opwarmtoeslag-tak Φ_hu (per zone → P×A_g, zelflerend → 0, kamerthermostaat
+ * → bestaande-bouw fallback).
+ */
+export const HEATING_CONTROL_TYPE_LABELS: Record<string, string> = {
+  per_zone: "Per zone (verblijfsgebied)",
+  self_learning: "Zelflerend",
+  room_thermostat: "Kamerthermostaat (bestaande bouw)",
+};
+
+/** Default regeltype — gelijk aan Rust core `serde(default)` = `per_zone`. */
+export const DEFAULT_HEATING_CONTROL_TYPE = "per_zone" as const;
+
 /** Heating system labels (NL) voor ISSO 51 (woningen). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",

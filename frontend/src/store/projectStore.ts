@@ -361,7 +361,17 @@ export const useProjectStore = create<ProjectStore>()(
             norm,
             // Sidecars uit de envelope herstellen indien meegegeven, anders
             // resetten naar defaults (huidig gedrag voor oude bestanden).
-            isso53Building: opts?.isso53Building ?? { ...DEFAULT_ISSO53_BUILDING },
+            // Backfill nieuwe velden (bv. `bouwfase`, `simultaneityFactor`)
+            // voor envelopes van vóór ronde 6c — spread defaults eerst.
+            isso53Building: opts?.isso53Building
+              ? {
+                  ...DEFAULT_ISSO53_BUILDING,
+                  ...opts.isso53Building,
+                  heatingUp: normalizeIsso53HeatingUp(
+                    opts.isso53Building.heatingUp,
+                  ),
+                }
+              : { ...DEFAULT_ISSO53_BUILDING },
             isso53Rooms: opts?.isso53Rooms ?? {},
             isDirty: true,
             result: null,
@@ -665,6 +675,9 @@ export const useProjectStore = create<ProjectStore>()(
             ?.isso53Building;
           if (!persistedBuilding) return current.isso53Building;
           return {
+            // Backfill nieuwe velden (bv. `bouwfase`) voor projecten van vóór
+            // ronde 6c — spread defaults eerst, dan de gepersisteerde waarden.
+            ...DEFAULT_ISSO53_BUILDING,
             ...persistedBuilding,
             heatingUp: normalizeIsso53HeatingUp(persistedBuilding.heatingUp),
           };

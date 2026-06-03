@@ -260,6 +260,16 @@ export type Isso53VentilationSystem =
   | "systemE";
 
 /**
+ * Bouwfase voor de minimale ventilatie-eisen volgens het Bouwbesluit
+ * (ISSO 53 tabel 4.10). Spiegel van Rust
+ * `isso53_core::model::enums::VentilatieBouwfase` (serde camelCase):
+ * - `nieuwbouw` — strengere eisen (dm³/s per persoon);
+ * - `bestaand` — bestaande bouw, soepelere eisen.
+ * Voorheen hardcoded op `nieuwbouw` (~+89% Φ_V voor bestaande bouw).
+ */
+export type Isso53VentilatieBouwfase = "nieuwbouw" | "bestaand";
+
+/**
  * ISSO 53 GebruiksFunctie (Bouwbesluit; ISSO 53 tabel 2.2). Spiegel
  * van Rust `isso53_core::model::enums::GebruiksFunctie`.
  */
@@ -344,6 +354,12 @@ export interface Isso53BuildingState {
   windPressureType: Isso53WindPressureType;
   thermalMass: Isso53ThermalMass;
   ventilationSystem: Isso53VentilationSystem;
+  /**
+   * Bouwfase die de minimale ventilatie-eisen bepaalt (ISSO 53 tabel 4.10):
+   * `nieuwbouw` (strenger) vs `bestaand` (soepeler dm³/s·pp). Mapt naar de
+   * Rust `VentilationConfig.bouwfase`. Default = `nieuwbouw` (backward-compat).
+   */
+  bouwfase: Isso53VentilatieBouwfase;
   constructionYear: number | null;
   /** Jaargemiddelde buitentemperatuur θ_me (°C). ISSO 53-default = 9,0. */
   thetaMe: number;
@@ -415,6 +431,15 @@ export interface Isso53HeatingUpState {
    * `null` (leeg) → automatische §4.8-tabel-lookup; een getal overschrijft.
    */
   pWPerM2Override: number | null;
+  /**
+   * Gelijktijdigheidsfactor opwarmtoeslag (ISSO 53 §4.1/§5.1). Bereik 0..1.
+   * `1,0` (default) = 100% gelijktijdigheid — alle opwarmtoeslagen treden
+   * tegelijk op (backward-compatible). `< 1,0` rekent slechts dat deel van
+   * Σ Φ_hu aan Φ_source toe (af te stemmen met de opdrachtgever). Grijpt aan
+   * op Σ Φ_hu in de bron-berekening, niet op per-vertrek Φ_hu of het
+   * rapport-totaal. Mapt naar Rust `HeatingUpConfig.simultaneity_factor`.
+   */
+  simultaneityFactor: number;
 }
 
 export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
@@ -423,6 +448,7 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
   windPressureType: "meerlaagsStandaard",
   thermalMass: "gemiddeld",
   ventilationSystem: "systemD",
+  bouwfase: "nieuwbouw",
   constructionYear: null,
   thetaMe: 9.0,
   qv10KarClass: "From040To060",
@@ -438,6 +464,7 @@ export const DEFAULT_ISSO53_BUILDING: Isso53BuildingState = {
     warmupHoursWeekend: 4,
     mechanicalSupplyOff: false,
     pWPerM2Override: null,
+    simultaneityFactor: 1.0,
   },
 };
 
@@ -488,6 +515,7 @@ export function normalizeIsso53HeatingUp(raw: unknown): Isso53HeatingUpState {
         ? o.mechanicalSupplyOff
         : d.mechanicalSupplyOff,
     pWPerM2Override,
+    simultaneityFactor: num(o.simultaneityFactor, d.simultaneityFactor),
   };
 }
 

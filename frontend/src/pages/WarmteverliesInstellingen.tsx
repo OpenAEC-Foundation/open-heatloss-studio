@@ -17,10 +17,12 @@ import {
   AGGREGATION_METHOD_LABELS,
   BUILDING_TYPE_LABELS,
   DEFAULT_AGGREGATION_METHOD,
+  DEFAULT_HEATING_CONTROL_TYPE,
   DEFAULT_THETA_WATER,
   FROST_PROTECTION_LABELS,
   FROST_PROTECTION_SUPPLY_TEMP,
   getHeatingSystemLabels,
+  HEATING_CONTROL_TYPE_LABELS,
   SECURITY_CLASS_LABELS,
 } from "../lib/constants";
 import type {
@@ -28,6 +30,7 @@ import type {
   Building,
   DesignConditions,
   FrostProtectionType,
+  HeatingControlType,
   HeatingSystem,
   VentilationConfig,
 } from "../types";
@@ -338,6 +341,68 @@ export function WarmteverliesInstellingen() {
                 Norm-strict volgt §3.5.1 letterlijk en geeft ~17% hoger
                 aansluitvermogen.
               </p>
+            </div>
+            <div>
+              <Select
+                id="heating_control_type"
+                label="Regeltype installatie"
+                value={
+                  building.heating_control_type ?? DEFAULT_HEATING_CONTROL_TYPE
+                }
+                options={toOptions(HEATING_CONTROL_TYPE_LABELS)}
+                onChange={(e) =>
+                  updateBuilding({
+                    heating_control_type: e.target.value as HeatingControlType,
+                  })
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                ISSO 51:2023 §4.3 — stuurt de opwarmtoeslag Φ_hu. Per zone →
+                P×A_g, zelflerend → 0.
+              </p>
+            </div>
+            <div>
+              <Input
+                id="c_eff"
+                label="Effectieve warmtecapaciteit c_eff"
+                type="number"
+                unit="Wh/K"
+                value={building.c_eff ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  updateBuilding({
+                    c_eff: raw === "" ? null : numVal(raw),
+                  });
+                }}
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                ISSO 51:2023 Tabel 2.10 — gebouwzwaarte. Leeg laten voor de
+                conservatieve aanname "zwaar".
+              </p>
+            </div>
+            <div className="col-span-3 flex flex-wrap items-center gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={building.built_after_2015 ?? true}
+                  onChange={(e) =>
+                    updateBuilding({ built_after_2015: e.target.checked })
+                  }
+                  className="rounded border-[var(--oaec-border)] accent-primary"
+                />
+                Nieuwbouw (na 2015)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={building.all_floor_heating ?? false}
+                  onChange={(e) =>
+                    updateBuilding({ all_floor_heating: e.target.checked })
+                  }
+                  className="rounded border-[var(--oaec-border)] accent-primary"
+                />
+                Alle vertrekken vloerverwarming
+              </label>
             </div>
           </div>
           )}

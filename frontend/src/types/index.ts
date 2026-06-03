@@ -9,6 +9,7 @@ export type {
   DesignConditions,
   FrostProtectionType,
   GroundParameters,
+  HeatingControlType,
   HeatingSystem,
   HeatingSystemIsso51,
   HeatingSystemIsso53,

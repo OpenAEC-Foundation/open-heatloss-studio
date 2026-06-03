@@ -288,6 +288,7 @@ export function toIsso53LegacyProject(
   const v = project.ventilation;
   const ventilation: Record<string, unknown> = {
     systemType: isso53Building.ventilationSystem,
+    bouwfase: isso53Building.bouwfase,
     hasHeatRecovery: v?.has_heat_recovery ?? false,
     heatRecoveryEfficiency: v?.heat_recovery_efficiency ?? null,
     frostProtection: null,
@@ -324,6 +325,7 @@ export function toIsso53LegacyProject(
     warmupHoursWeekday: hu.warmupHoursWeekday,
     warmupHoursWeekend: hu.warmupHoursWeekend,
     mechanicalSupplyOff: hu.mechanicalSupplyOff,
+    simultaneityFactor: hu.simultaneityFactor,
   };
 
   // InfiltrationMethod::Known — variant-key "known", VELD snake_case

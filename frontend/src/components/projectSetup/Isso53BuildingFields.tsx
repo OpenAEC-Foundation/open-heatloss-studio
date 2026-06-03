@@ -23,6 +23,7 @@ import type {
   Isso53CoolingRegimeType,
   Isso53HeatingUpState,
   Isso53ThermalMass,
+  Isso53VentilatieBouwfase,
   Isso53VentilationSystem,
   Isso53WindPressureType,
   Qv10Class,
@@ -65,6 +66,12 @@ const VENTILATION_SYSTEMS: Isso53VentilationSystem[] = [
 ];
 
 const COOLING_REGIMES: Isso53CoolingRegimeType[] = ["free", "limited"];
+
+/** Bouwfase-opties (ISSO 53 tabel 4.10) met NL-labels. */
+const BOUWFASE_OPTIONS: { value: Isso53VentilatieBouwfase; label: string }[] = [
+  { value: "nieuwbouw", label: "Nieuwbouw" },
+  { value: "bestaand", label: "Bestaande bouw" },
+];
 
 const AIR_CHANGE_RATES: Isso53AirChangeRate[] = ["low", "high"];
 
@@ -179,6 +186,23 @@ export function Isso53BuildingFields() {
             })
           }
         />
+        <div>
+          <Select
+            id="isso53_bouwfase"
+            label="Bouwfase (ventilatie-eis)"
+            value={isso53Building.bouwfase}
+            options={BOUWFASE_OPTIONS}
+            onChange={(e) =>
+              updateIsso53Building({
+                bouwfase: e.target.value as Isso53VentilatieBouwfase,
+              })
+            }
+          />
+          <p className="mt-1 text-xs text-on-surface-muted">
+            ISSO 53 tabel 4.10 — nieuwbouw hanteert strengere ventilatie-eisen
+            (dm³/s·pp) dan bestaande bouw.
+          </p>
+        </div>
         <Input
           id="isso53_construction_year"
           label={t("isso53.building.constructionYear")}
@@ -224,6 +248,24 @@ export function Isso53BuildingFields() {
         <h4 className="mb-3 text-sm font-semibold text-on-surface-secondary">
           {t("isso53.building.heatingUpTitle")}
         </h4>
+        <div className="mb-4 max-w-xs">
+          <Input
+            id="isso53_simultaneity_factor"
+            label="Gelijktijdigheidsfactor opwarmtoeslag"
+            type="number"
+            step="0.05"
+            min="0"
+            max="1"
+            value={isso53Building.heatingUp.simultaneityFactor}
+            onChange={(e) =>
+              updateHeatingUp({ simultaneityFactor: Number(e.target.value) })
+            }
+          />
+          <p className="mt-1 text-xs text-on-surface-muted">
+            ISSO 53 §4.1/§5.1 — aandeel van Σ Φ_hu dat gelijktijdig op het
+            bronvermogen drukt. 1,0 = 100% (af te stemmen met opdrachtgever).
+          </p>
+        </div>
         <label
           htmlFor="isso53_setback_active"
           className="flex items-center gap-2 text-sm text-on-surface"

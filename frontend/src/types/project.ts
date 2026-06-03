@@ -31,6 +31,18 @@ export type BuildingType =
  */
 export type AggregationMethod = "vabi_compat" | "norm_strict";
 
+/**
+ * Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3.
+ *
+ * Bepaalt hoe de opwarmtoeslag `Φ_hu` wordt berekend:
+ * - `per_zone` — §4.3.1 regeling per verblijfsgebied → `Φ_hu,i = P × A_g`
+ *   (Formule 4.15). Default voor nieuwbouw.
+ * - `self_learning` — §4.3.2 zelflerende regeling → `Φ_hu,i = 0` (p.70).
+ * - `room_thermostat` — §4.3.3 kamerthermostaat (bestaande-bouw, buiten de
+ *   huidige nieuwbouw-scope, 5 W/m² fallback).
+ */
+export type HeatingControlType = "per_zone" | "self_learning" | "room_thermostat";
+
 export type SecurityClass = "a" | "b" | "c";
 
 export type RoomFunction =
@@ -271,6 +283,37 @@ export interface Building {
   qv10: number;
   total_floor_area: number;
   security_class: SecurityClass;
+  /**
+   * Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben.
+   * Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag,
+   * nachtverlaging is dan niet zinvol). Default = `false`.
+   */
+  all_floor_heating?: boolean;
+  /**
+   * Of de woning ná 2015 is gebouwd (nieuwbouw). Stuurt de afkoeling-
+   * bepaling: nieuwbouw → 2 K (resp. 1 K bij Ū≤0,5). Default = `true`
+   * (nieuwbouw-scope; bestaande bouw met Afb. 2.7-grafiek is nog niet
+   * geïmplementeerd — zie TODO in `calc/heating_up.rs`).
+   */
+  built_after_2015?: boolean;
+  /**
+   * Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de
+   * gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).
+   *
+   * Optioneel: `null` → conservatieve aanname "zwaar" (`ThermalMass::Heavy`,
+   * hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of
+   * Formule 2.46 (`c_eff = C_eff / A_g`).
+   */
+  c_eff?: number | null;
+  /**
+   * Regeltype van de verwarmingsinstallatie (ISSO 51:2023 §4.3).
+   *
+   * Stuurt de opwarmtoeslag-tak: `per_zone` → `Φ_hu = P × A_g`,
+   * `self_learning` → `Φ_hu = 0`, `room_thermostat` → bestaande-bouw (buiten
+   * scope, 5 W/m² fallback). Default = `per_zone` (nieuwbouw, regeling per
+   * verblijfsgebied — de meest voorkomende nieuwbouw-keuze).
+   */
+  heating_control_type?: HeatingControlType;
   has_night_setback?: boolean;
   warmup_time?: number;
   building_height?: number | null;
