@@ -4,7 +4,7 @@
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
 > **ISSO 53 is voorgetrokken** (blokken A–C) vóór ISSO 51 (D–E).
-> **Voortgang:** ronde 1 (D1, B1, A6) ✅ `f815c1f`. Ronde 2 (D3, B3) ✅ `bb70f7e`. Ronde 3a (A5 Δθ₁ exterior + vide + datalaag Δθ_v) ✅ `ce1ff3e`. **Ronde 3b (A4 grond ΔU_TB + U_equiv-formulefix + A7 Δθ_v in ventilatie/infiltratie) ✅ — zie hieronder, 133 lib-tests groen.** Volgende: Ronde 4 (D2 + D4). Formules in `audit-reports/07-isso53-formules-ref.md`.
+> **Voortgang:** R1 (D1,B1,A6) ✅`f815c1f` · R2 (D3,B3) ✅`bb70f7e` · R3a (A5) ✅`ce1ff3e` · R3b (A4+U_equiv-fix+A7) ✅`42eeeb9` · R4 (D2+D4+review-guards) ✅`fdbf39e` · dual-review 3a+3b ✅ (akkoord) · **R5 (ISSO 51 A1+A2 opwarmtoeslag P×A_g, nieuwbouw-scope) ✅ — 170 isso51-tests groen.** **Rest: Ronde 6 (afronding).** Formules: `audit-reports/07-isso53-formules-ref.md` (ISSO 53) + `08-isso51-opwarmtoeslag-ref.md` (ISSO 51).
 
 ### 🌅 MORGENOCHTEND — START HIER (aanbevolen volgorde)
 
@@ -18,8 +18,8 @@
    - [ ] **A7-vervolg [L]** — Vabi past Δθ_v NIET toe op infiltratie; wij wel (norm leidend). Indien Vabi-reproductie gewenst: f_v=1,0-infiltratie achter expliciet Vabi-compat-pad (hoort bij C1/C2, Ronde 6 F-blok). rc_high-scope = strikt Exterior+Ground; Unheated/AdjacentBuilding meenemen = PDF-verificatie (A3-blok).
 3. ~~**Ronde 4 — D2 + D4 (ISSO 53 common-case) backend-spoor.**~~ ✅ **GEDAAN.** D2: `VentilationConfig::bouwfase` (`model/ventilation.rs`) + `#[serde(default=Nieuwbouw)]` (backward-compat, géén norm-aanbeveling — projectkeuze via UI), `ventilation.rs` leest config → +89% bevestigd (6,5 vs 3,44 dm³/s·pp). D4: z=0-grondvloer was al opgelost door 3b-quotiëntvorm (audit-tekst sloeg op pre-3b machtvorm); e2e-test toegevoegd (z=0/0,5/5 geldig). Review-guards: z=0-**wand** → `Err(InvalidInput)` (n₃<0 → +inf→stille clamp); `R_SE_GROUND=0,0` in `rc_high.rs` (ISO 6946). 139 lib-tests groen (+6), geen golden-shift. **UI-dropdown (bouwfase) verschoven naar Ronde 6 U-blok.**
    - [ ] **Ceiling-grond z=0 edge** (review-twijfel) — `calculate_f_ig_auto` behandelt Ceiling-grondvlak als floor-params; de z=0-wand-guard raakt alleen `VerticalPosition::Wall`, niet Ceiling. Zeldzaam, noteren bij toekomstig Ceiling-grond-modelleren.
-4. **Ronde 5 — ISSO 51 A1 + A2 (opwarmtoeslag 2023-rewrite).** `isso51 heating_up.rs` herschrijven naar `Φ_hu=P×A_g` (Form. 4.15 + Tabel 2.10, zie `00-SAMENVATTING.md`), Δt uit Ū (Afb 2.7, Ū≤0,5→1K), regeltype-branches §4.3.1/4.3.2/4.3.3. Verwijder de fout-codificerende test `test_isso51_example_room1_heating_up`. **+ V1: nieuwe fixture mét nachtverlaging** (anders blijft het ongetest).
-5. **Ronde 6 — afronding.** K2 (gelijktijdigheid bronvermogen), UI-gaten U1-U6 (B-blok) **+ bouwfase-dropdown (D2-UI, frontend-agent — backend al klaar in Ronde 4)**, test-aanscherping (C-blok V2 + split Φ_V/Φ_I), ISSO 51 K3 + vabi_import.rs (D-blok), twijfel-items A3-blok + A4-vervolg `\|a·b\|`-teller PDF-check (PDF-verificatie), Vabi C1/C2-markering (F-blok).
+4. ~~**Ronde 5 — ISSO 51 A1 + A2 (opwarmtoeslag 2023-rewrite).**~~ ✅ **GEDAAN (nieuwbouw-scope).** `Φ_hu=P×A_g` met geverifieerde Tabel 2.10 (`audit-reports/08-isso51-opwarmtoeslag-ref.md`), afkoeling 2K/1K, regeltype §4.3.1/4.3.2, thermostaat→Err. Fout-test weg, V1-tests toegevoegd. 170 groen, Vabi-fixtures onveranderd (Φ_hu=0). Bestaande-bouw afkoeling (Afb 2.7) + §4.3.3 y-methode = follow-up (zie D-blok).
+5. **Ronde 6 — afronding (LAATSTE).** ISSO 53: K2 (gelijktijdigheid bronvermogen), UI-gaten U1-U6 (B-blok) **+ bouwfase-dropdown (D2-UI, backend klaar Ronde 4)**, test-aanscherping (C-blok V2 + split Φ_V/Φ_I), twijfel-items A3 + A4-vervolg `\|a·b\|`-teller PDF-check, Vabi C1/C2-markering (F-blok). ISSO 51: **K3** (Φ_HL,build 3.12 vs verdeler 3.13 split), **vabi_import.rs example-fix** (`[[example]] required-features`), **V3** stale comment, **veld-rename** `f_rh`→P/`accumulating_area`→A_g, **formulas.rs** Tabel-2.10-mislabel, **C2** VabiCompat-aggregatie. UI-gaten ISSO 51 nieuwbouw: regeltype-selector + nieuwbouw-flag + opwarmtijd-veld (backend klaar Ronde 5).
 
 
 ### A. ISSO 53 — calc-conformiteit (urgent eerst)
@@ -63,14 +63,16 @@
 - [ ] Fixture mét nachtverlaging die Φ_hu écht uitvoert.
 
 ### D. ISSO 51 — calc-conformiteit
-- [ ] **A1 [H] GROOTSTE FOUT** — `calc/heating_up.rs:39-52` + `room_load.rs:222-242` gebruiken 2017-model `f_RH × ΣA_metselwerk` i.p.v. 2023 Formule 4.15 `Φ_hu = P × A_g` (vloeroppervlak). `f_RH` bestaat niet in 2023. ✅ PDF-bevestigd (§4.3.1 p.70 + Tabel 2.10 p.45). Rewrite + verwijder de fout-codificerende test `test_isso51_example_room1_heating_up`. Scope A_g (per-vertrek vs gebouwbreed verdeeld) exact uitwerken.
-- [ ] **A2 [M]** — `tables/heating_up.rs:9-16` nacht-afkoeling Δt aan gebouwtype gekoppeld i.p.v. Ū (Afb 2.7 p.44); mist regel Ū≤0,50→1K + zwaarte-as (ZL+L+M/Z) van Tabel 2.10. ✅ PDF-bevestigd.
-- [ ] **A1b [M]** — regeltype-branches ontbreken: §4.3.1 P×A_g / §4.3.2 zelflerend → Φ_hu=0 / §4.3.3 kamerthermostaat → 5 W/m².
+- [x] **A1 [H]** ✅ GEDAAN Ronde 5 (nieuwbouw-scope) — 2017 `f_RH × ΣA_metselwerk` volledig verwijderd; `Φ_hu,i = P × A_g` (Form. 4.15) met **visueel-geverifieerde Tabel 2.10** (50 cellen, `audit-reports/08-isso51-opwarmtoeslag-ref.md`). `A_g = room.floor_area` per-vertrek (§4.3.1). Fout-codificerende test verwijderd. 170 tests groen.
+  - [ ] **A1-vervolg [M]** — schil-context §3.3 (`A_g = grootste verblijfsgebied`): engine heeft geen schil-only rekenpad; hergebruik `building_thermal_mass`+`newbuild_cooling_k` als dat pad komt. + **veld-rename** `HeatingUpResult.f_rh`→P / `accumulating_area`→A_g (nu herbestemd met doc-comment, niet hernoemd om frontend/ifcx niet te breken) = Ronde 6.
+- [x] **A2 [M]** ✅ GEDAAN Ronde 5 — afkoeling: nieuwbouw→2K, **Ū≤0,50→1K** (uit `u_bar`); zwaarte `c_eff≤70→ZL+L+M` else Z; opwarmtijd default 2h (Afb 2.6). Δt-uit-`building_type`-tabel weg.
+- [x] **A1b** ✅ GEDAAN Ronde 5 — §4.3.1 P×A_g / §4.3.2 zelflerend→0 / vloerverw.-overal→0 / geen-nachtverlaging→0. **§4.3.3 kamerthermostaat → harde `InvalidInput`-error** (bestaande-bouw, buiten nieuwbouw-scope; géén stille 5 W/m²-gok).
+  - [ ] **A1b-vervolg [M]** — bestaande-bouw: Afb 2.7-afkoeling-grafiek + §4.3.3 y-procentmethode (Form. 4.16/4.17). Buiten nieuwbouw-scope, gemarkeerd met `// TODO Ronde 5-vervolg`.
 - [ ] **K3 [M]** — `lib.rs:204,218-225,257` `connection_capacity` telt systeemverliezen mee (strijdig met Form. 3.12; horen alleen in 3.13). Alleen bij embedded heating.
 - [ ] **vabi_import.rs [L]** — example compileert niet (`import_vabi_project` alleen onder `#[cfg(feature="vabi-import")]`). Fix: `[[example]]` met `required-features = ["vabi-import"]` in `Cargo.toml` (geen code-wijziging).
 
 ### E. ISSO 51 — testdekking
-- [ ] **V1 KRITIEK** — beide Vabi-fixtures hebben `night_setback=false` → alle `phi_hu=0`; A1/A2 worden NOOIT getest. Voeg fixture mét nachtverlaging toe.
+- [x] **V1** ✅ GEDAAN Ronde 5 — unit-tests mét nachtverlaging die de `P×A_g`-kern écht uitvoeren (2K/Z/2h→P=22, 2K/ZL+L+M/2h→P=13, 1K/ZL+L+M/2h→P=7 tegen Tabel 2.10) + Ū≤0,5→1K-clamp + zelflerend→0 + thermostaat→Err.
 - [ ] **V3** — `integration_test.rs:5-11` comment claimt dat DR moet falen op linear-sum; achterhaald (`lib.rs:257` doet quadratic). Opschonen.
 - [ ] `integration_test.rs:323-334` slaat per-veld-checks over voor ruimten <1 W → kan teken-/componentfouten verbergen vóór clamp.
 

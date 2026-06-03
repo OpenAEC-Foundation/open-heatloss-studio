@@ -237,6 +237,10 @@ mod measured_qv10_tests {
             construction_variant: None,
             construction_year: None,
             aggregation_method: Default::default(),
+            heating_control_type: Default::default(),
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
         };
         let qi = compute_norm_qi(&b, VentilationSystemType::SystemD).unwrap();
         let qi_per_ag = qi / b.total_floor_area;
@@ -295,6 +299,10 @@ mod norm_method_tests {
             construction_variant: Some(ConstructionVariant::Vrijstaand),
             construction_year: Some(2015),
             aggregation_method: Default::default(),
+            heating_control_type: Default::default(),
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
         }
     }
 

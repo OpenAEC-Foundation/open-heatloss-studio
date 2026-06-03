@@ -43,12 +43,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 234.702,
-        "f_rh": 3.4,
-        "accumulating_area": 69.03,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 11.15,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -58,9 +57,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 537.2340078550437,
+      "total_heat_loss": 467.688,
       "basis_heat_loss": 106.42800000000001,
-      "extra_heat_loss": 430.80600785504373
+      "extra_heat_loss": 361.26
     },
     {
       "room_id": "room-1",
@@ -105,12 +104,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 19.992,
-        "f_rh": 3.4,
-        "accumulating_area": 5.88,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 0.69,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -120,9 +118,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 274.19497214458545,
+      "total_heat_loss": 273.40319999999997,
       "basis_heat_loss": 21.4032,
-      "extra_heat_loss": 252.79177214458542
+      "extra_heat_loss": 252.0
     },
     {
       "room_id": "room-2",
@@ -167,12 +165,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 93.6485188,
-        "f_rh": 3.4,
-        "accumulating_area": 27.543682,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 4.48,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -182,9 +179,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 407.89734315739634,
+      "total_heat_loss": 391.05901800000004,
       "basis_heat_loss": 139.059018,
-      "extra_heat_loss": 268.8383251573963
+      "extra_heat_loss": 252.0
     },
     {
       "room_id": "room-3",
@@ -229,12 +226,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 173.842,
-        "f_rh": 3.4,
-        "accumulating_area": 51.13,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 8.0,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -244,9 +240,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 400.1224320452354,
+      "total_heat_loss": 347.22360000000003,
       "basis_heat_loss": 88.02360000000002,
-      "extra_heat_loss": 312.0988320452354
+      "extra_heat_loss": 259.20000000000005
     },
     {
       "room_id": "room-4",
@@ -291,12 +287,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 232.49200000000002,
-        "f_rh": 3.4,
-        "accumulating_area": 68.38000000000001,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 16.1,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -306,9 +301,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 746.8581112588685,
+      "total_heat_loss": 697.3932000000001,
       "basis_heat_loss": 175.75320000000002,
-      "extra_heat_loss": 571.1049112588685
+      "extra_heat_loss": 521.6400000000001
     },
     {
       "room_id": "room-5",
@@ -353,12 +348,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 222.36,
-        "f_rh": 3.4,
-        "accumulating_area": 65.4,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 9.17,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -368,9 +362,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 491.28979129248876,
+      "total_heat_loss": 417.2951999999999,
       "basis_heat_loss": 120.18719999999999,
-      "extra_heat_loss": 371.1025912924888
+      "extra_heat_loss": 297.10799999999995
     },
     {
       "room_id": "room-6",
@@ -415,12 +409,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 185.878,
-        "f_rh": 3.4,
-        "accumulating_area": 54.669999999999995,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 12.0,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -430,9 +423,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 572.0090749036825,
+      "total_heat_loss": 529.8612,
       "basis_heat_loss": 141.06119999999999,
-      "extra_heat_loss": 430.94787490368253
+      "extra_heat_loss": 388.8
     },
     {
       "room_id": "room-7",
@@ -477,12 +470,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 92.548,
-        "f_rh": 3.4,
-        "accumulating_area": 27.220000000000002,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 2.72,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -492,9 +484,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 332.84294683505584,
+      "total_heat_loss": 316.386,
       "basis_heat_loss": 64.38600000000001,
-      "extra_heat_loss": 268.4569468350558
+      "extra_heat_loss": 252.0
     },
     {
       "room_id": "room-8",
@@ -539,12 +531,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 254.252,
-        "f_rh": 3.4,
-        "accumulating_area": 74.78,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 19.09,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -554,9 +545,9 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 793.0379170291071,
+      "total_heat_loss": 742.8191999999999,
       "basis_heat_loss": 124.3032,
-      "extra_heat_loss": 668.7347170291071
+      "extra_heat_loss": 618.516
     },
     {
       "room_id": "room-9",
@@ -601,12 +592,11 @@
         ]
       },
       "heating_up": {
-        "phi_hu": 412.522,
-        "f_rh": 3.4,
-        "accumulating_area": 121.33,
+        "phi_hu": 0.0,
+        "f_rh": 0.0,
+        "accumulating_area": 29.42,
         "norm_refs": [
-          "ISSO_51_2023_parag4_3",
-          "ISSO_51_2023_tabel4_6"
+          "ISSO_51_2023_parag4_3"
         ]
       },
       "system_losses": {
@@ -616,23 +606,23 @@
         "phi_system_total": 0.0,
         "norm_refs": []
       },
-      "total_heat_loss": 1238.092893796287,
+      "total_heat_loss": 1152.6576,
       "basis_heat_loss": 199.4496,
-      "extra_heat_loss": 1038.643293796287
+      "extra_heat_loss": 953.2080000000001
     }
   ],
   "summary": {
     "total_envelope_loss": 631.702218,
     "total_neighbor_loss": 0.0,
     "total_ventilation_loss": 4155.732,
-    "total_heating_up": 1922.2365187999999,
+    "total_heating_up": 0.0,
     "total_system_losses": 0.0,
-    "connection_capacity": 5267.6187371982405,
-    "collective_contribution": 5267.6187371982405,
+    "connection_capacity": 4787.434218,
+    "collective_contribution": 4787.434218,
     "phi_basis_total": 1180.054218,
     "phi_vent_building": 3607.38,
     "phi_t_iabe_building": 0.0,
-    "phi_hu_building": 1922.2365187999999,
-    "phi_extra_quadratic": 4087.5645191982403
+    "phi_hu_building": 0.0,
+    "phi_extra_quadratic": 3607.38
   }
 }

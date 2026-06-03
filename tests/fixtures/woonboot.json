@@ -13,7 +13,10 @@
     "warmup_time": 2.0,
     "num_floors": 1,
     "infiltration_method": "per_exterior_area",
-    "aggregation_method": "vabi_compat"
+    "aggregation_method": "vabi_compat",
+    "heating_control_type": "per_zone",
+    "built_after_2015": true,
+    "all_floor_heating": false
   },
   "climate": {
     "theta_e": -10.0,

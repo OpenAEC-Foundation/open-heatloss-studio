@@ -65,13 +65,14 @@ pub fn calculate_from_json(input_json: &str) -> Result<String> {
 pub fn calculate(project: &Project) -> Result<ProjectResult> {
     validate::validate_project(project)?;
 
-    // Two-pass approach for correct main room selection (ISSO 51 §4.3):
-    // Pass 1: Calculate all rooms as main room (each gets f_RH × A_accumulating).
-    // Pass 2: Identify the room with highest Φ_T + Φ_v as main room,
-    //         then recalculate heating-up for non-main rooms using the percentage method.
+    // Single-pass berekening (ISSO 51:2023 §4.3.1): elk vertrek krijgt
+    // onafhankelijk `Φ_hu,i = P × A_g` (Formule 4.15). Geen hoofdruimte-
+    // afhankelijkheid meer (dat was het 2017 `f_RH × ΣA_metselwerk`-model).
 
-    // Calculate Ū (average U-value of exterior envelope) across all rooms.
-    // Determines Δθ_v selection: delta_v_high (Ū > 0.5) or delta_v_low (Ū ≤ 0.5).
+    // Bereken Ū (oppervlakte-gewogen gemiddelde U-waarde van de schil) over
+    // alle vertrekken. Stuurt twee dingen:
+    //  1. Δθ_v-selectie: delta_v_high (Ū > 0.5) of delta_v_low (Ū ≤ 0.5).
+    //  2. Opwarmtoeslag-afkoeling: 2 K nieuwbouw, resp. 1 K bij Ū ≤ 0.5.
     let (total_a_ext, total_au_ext) = project.rooms.iter().fold((0.0, 0.0), |(a, au), room| {
         room.constructions
             .iter()
@@ -81,9 +82,14 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     let u_bar = if total_a_ext > 0.0 { total_au_ext / total_a_ext } else { 1.0 };
     let use_high_delta_v = u_bar > 0.5;
 
+    // Gebouwbrede opwarmtoeslag-ingangen (Tabel 2.10). Afkoeling uit Ū,
+    // zwaarte uit c_eff. Deze zijn voor alle vertrekken gelijk; alleen A_g
+    // (room.floor_area) varieert per vertrek.
+    let hu_cooling_k = calc::heating_up::newbuild_cooling_k(u_bar);
+    let hu_mass = calc::heating_up::building_thermal_mass(&project.building);
+
     let mut room_results: Vec<result::RoomResult> = Vec::with_capacity(project.rooms.len());
 
-    // Pass 1: calculate all rooms without heating-up percentage
     for room in &project.rooms {
         let room_result = calc::room_load::calculate_room(
             room,
@@ -91,49 +97,11 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
             &project.building,
             &project.climate,
             &project.ventilation,
-            None, // all rooms calculated as potential main room
+            hu_cooling_k,
+            hu_mass,
             use_high_delta_v,
         )?;
         room_results.push(room_result);
-    }
-
-    // Pass 2: if night setback is active, find the main room and fix heating-up
-    if project.building.has_night_setback && project.building.warmup_time > 0.0 {
-        // Find the room with the highest Φ_T + Φ_v
-        let main_idx = room_results
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| {
-                let sum_a = a.transmission.phi_t + a.ventilation.phi_v;
-                let sum_b = b.transmission.phi_t + b.ventilation.phi_v;
-                sum_a.partial_cmp(&sum_b).unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        // Compute the main room's heating-up percentage
-        let main = &room_results[main_idx];
-        let hu_pct = calc::heating_up::main_room_percentage(
-            main.heating_up.phi_hu,
-            main.transmission.phi_t,
-            main.ventilation.phi_v,
-        );
-
-        // Recalculate non-main rooms with the percentage method
-        for (i, room) in project.rooms.iter().enumerate() {
-            if i == main_idx {
-                continue;
-            }
-            room_results[i] = calc::room_load::calculate_room(
-                room,
-                &project.rooms,
-                &project.building,
-                &project.climate,
-                &project.ventilation,
-                Some(hu_pct),
-                use_high_delta_v,
-            )?;
-        }
     }
 
     // Build summary
@@ -350,6 +318,10 @@ mod tests {
                 construction_variant: None,
                 construction_year: None,
                 aggregation_method: AggregationMethod::default(),
+                heating_control_type: HeatingControlType::default(),
+                c_eff: None,
+                built_after_2015: true,
+                all_floor_heating: false,
             },
             // Old ISSO 51 example used θ_b = 15°C (erratum 2023 changed to 17°C)
             climate: DesignConditions {
@@ -736,18 +708,13 @@ mod tests {
             "Ventilation missing formule 3.3 erratum (phi_vent)"
         );
 
-        // Heating-up must reference paragraaf 4.3 and tabel 4.6
+        // Heating-up must reference paragraaf 4.3 (Φ_hu = P × A_g, 2023-model).
+        // Tabel 4.6 (2017 f_RH-model) is verwijderd — zie Ronde 5 A1/A2.
         assert!(
             r1.heating_up
                 .norm_refs
                 .contains(&"ISSO_51_2023_parag4_3"),
             "Heating-up missing parag 4.3"
-        );
-        assert!(
-            r1.heating_up
-                .norm_refs
-                .contains(&"ISSO_51_2023_tabel4_6"),
-            "Heating-up missing tabel 4.6"
         );
 
         // System losses: no embedded heating → empty

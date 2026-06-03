@@ -1,133 +1,231 @@
 //! Heating-up allowance (opwarmtoeslag) calculation.
-//! ISSO 51 §2.5.8, §4.3.
+//! ISSO 51:2023 §2.5.8 (Formule 2.45) + §4.3 (Formule 4.15).
 //!
-//! The heating-up allowance compensates for the extra energy needed
-//! to bring the room back to design temperature after night setback.
+//! De opwarmtoeslag compenseert het extra vermogen dat nodig is om een ruimte
+//! na nachtverlaging weer op ontwerptemperatuur te brengen. De 2023-norm
+//! berekent dit als `Φ_hu = P × A_g` (vloeroppervlak), met `P` [W/m²] uit
+//! Tabel 2.10 — niet meer via het 2017-model `f_RH × ΣA_metselwerk`.
+//!
+//! Scope (Ronde 5): **nieuwbouw**. Afkoeling = 2 K (woning ná 2015), resp.
+//! 1 K bij `Ū ≤ 0,50`. Bestaande-bouw afkoeling (Afb. 2.7-grafiek) en de
+//! kamerthermostaat-y-methode (§4.3.3) zijn gemarkeerde follow-ups.
 
-use crate::model::enums::BuildingType;
+use crate::error::{Isso51Error, Result};
+use crate::model::building::Building;
+use crate::model::enums::{HeatingControlType, ThermalMass};
 use crate::tables::heating_up as table;
 
-/// Calculate the heating-up allowance Φ_hu for a room.
-/// [`ISSO_51_2023_PARAG4_3`](crate::formulas::ISSO_51_2023_PARAG4_3).
+/// Afkoeling [K] na 8 uur nachtverlaging voor een nieuwbouwwoning, gegeven Ū.
 ///
-/// Method: For the main room (with thermostat), calculate f_RH × ΣA_accumulating.
-/// For other rooms, apply the same percentage of (Φ_T + Φ_v).
+/// ISSO 51:2023 Afb. 2.6 + p.44:
+/// - nieuwbouw (woning ná 2015) → **2 K**;
+/// - `Ū ≤ 0,50 W/(m²·K)` → **1 K** (overschrijft; zeer goed geïsoleerd).
 ///
 /// # Arguments
-/// * `building_type` - Type of building (for night cooling lookup)
-/// * `warmup_time` - Desired warm-up time in hours
-/// * `accumulating_area` - Total accumulating (masonry) surface area in m²
-/// * `phi_t` - Transmission heat loss in W
-/// * `phi_v` - Ventilation heat loss in W
-/// * `is_main_room` - Whether this is the main room (first calculation)
-/// * `main_room_percentage` - Percentage from main room calculation (for other rooms)
-///
-/// # Returns
-/// Heating-up allowance Φ_hu in W and the f_RH factor used.
-pub fn calculate_heating_up(
-    building_type: BuildingType,
-    warmup_time: f64,
-    accumulating_area: f64,
-    phi_t: f64,
-    phi_v: f64,
-    is_main_room: bool,
-    main_room_percentage: Option<f64>,
-) -> (f64, f64) {
-    let delta_t = table::night_cooling(building_type);
-    let f_rh = table::heating_up_factor(delta_t, warmup_time);
-
-    if is_main_room {
-        // Main room: Φ_hu = f_RH × ΣA_accumulating
-        let phi_hu = f_rh * accumulating_area;
-        (phi_hu, f_rh)
-    } else if let Some(pct) = main_room_percentage {
-        // Other rooms: Φ_hu = percentage × (Φ_T + Φ_v)
-        let phi_hu = pct * (phi_t + phi_v);
-        // Φ_hu must not be negative
-        (phi_hu.max(0.0), f_rh)
+/// * `u_bar` - Oppervlakte-gewogen gemiddelde U-waarde Ū [W/(m²·K)].
+pub fn newbuild_cooling_k(u_bar: f64) -> f64 {
+    if u_bar <= 0.50 {
+        1.0
     } else {
-        // Fallback: use f_RH × area
-        let phi_hu = f_rh * accumulating_area;
-        (phi_hu, f_rh)
+        2.0
     }
 }
 
-/// Calculate the heating-up percentage for the main room.
-/// This percentage is then applied to other rooms.
+/// Bepaal de gebouwzwaarte voor Tabel 2.10 uit `building.c_eff`.
+///
+/// `c_eff ≤ 70 Wh/K` → `ZL+L+M` ([`ThermalMass::Light`]), anders → `Z`
+/// ([`ThermalMass::Heavy`]). Bij ontbrekende `c_eff` → conservatief `Z`
+/// (default van [`ThermalMass`]).
+pub fn building_thermal_mass(building: &Building) -> ThermalMass {
+    match building.c_eff {
+        Some(c) => ThermalMass::from_c_eff(c),
+        None => ThermalMass::default(),
+    }
+}
+
+/// Bereken de opwarmtoeslag `Φ_hu` voor één vertrek volgens ISSO 51:2023.
+///
+/// Implementeert `Φ_hu,i = P × A_g` (Formule 4.15) met `P` uit Tabel 2.10,
+/// inclusief de regeltype-takken uit §4.3 (nieuwbouw-scope):
+/// - `PerZone` (§4.3.1) → `P × A_g`;
+/// - `SelfLearning` (§4.3.2) → `0`;
+/// - vloerverwarming in alle vertrekken → `0` (p.70);
+/// - `RoomThermostat` (§4.3.3, bestaande bouw, buiten scope) → **harde error**.
+///
+/// De afkoeling (2 K / 1 K) en zwaarte worden door de aanroeper bepaald
+/// (gebouwbreed constant) en hier alleen toegepast op `floor_area`.
 ///
 /// # Arguments
-/// * `phi_hu_main` - Heating-up allowance of the main room in W
-/// * `phi_t_main` - Transmission heat loss of the main room in W
-/// * `phi_v_main` - Ventilation heat loss of the main room in W
+/// * `building` - Gebouw-config (regeltype, opwarmtijd, vloerverwarming-flag).
+/// * `floor_area` - `A_g` voor dit vertrek/verblijfsgebied [m²].
+/// * `cooling_k` - Afkoeling [K] (uit [`newbuild_cooling_k`]).
+/// * `mass` - Gebouwzwaarte (uit [`building_thermal_mass`]).
 ///
 /// # Returns
-/// The percentage as a decimal (e.g., 0.087 for 8.7%).
-pub fn main_room_percentage(phi_hu_main: f64, phi_t_main: f64, phi_v_main: f64) -> f64 {
-    let total = phi_t_main + phi_v_main;
-    if total.abs() < 1e-10 {
-        return 0.0;
+/// `Ok((Φ_hu [W], P [W/m²]))` — `0` als de tak geen toeslag geeft.
+///
+/// # Errors
+/// [`Isso51Error::InvalidInput`] wanneer `heating_control_type` =
+/// [`HeatingControlType::RoomThermostat`]: de y-procentmethode (§4.3.3) is een
+/// bestaande-bouw-methode buiten de nieuwbouw-scope en is niet geïmplementeerd.
+/// Bewust een expliciete error i.p.v. een gegokte fallback — zo krijgt een
+/// third-party client geen stilzwijgend niet-norm-conforme waarde.
+pub fn calculate_heating_up(
+    building: &Building,
+    floor_area: f64,
+    cooling_k: f64,
+    mass: ThermalMass,
+) -> Result<(f64, f64)> {
+    // Geen nachtverlaging → geen opwarmtoeslag (p.69).
+    if !building.has_night_setback || building.warmup_time < 0.01 {
+        return Ok((0.0, 0.0));
     }
-    phi_hu_main / total
+
+    // Vloerverwarming in alle vertrekken → traag systeem, nachtverlaging niet
+    // zinvol → Φ_hu = 0 (p.70).
+    if building.all_floor_heating {
+        return Ok((0.0, 0.0));
+    }
+
+    match building.heating_control_type {
+        // §4.3.1 — regeling per verblijfsgebied: Φ_hu = P × A_g (Formule 4.15).
+        HeatingControlType::PerZone => {
+            let p = table::specific_heating_up_allowance(cooling_k, mass, building.warmup_time);
+            let phi_hu = (p * floor_area).max(0.0);
+            Ok((phi_hu, p))
+        }
+        // §4.3.2 — zelflerende regeling: Φ_hu = 0 (p.70).
+        HeatingControlType::SelfLearning => Ok((0.0, 0.0)),
+        // §4.3.3 — kamerthermostaat (y-procentmethode 4.16/4.17).
+        // TODO Ronde 5-vervolg: §4.3.3 kamerthermostaat y-methode (4.16/4.17,
+        // bestaande bouw). De y-procentmethode verdeelt Φ_hu over de vertrekken
+        // naar rato van een hoofdruimte-percentage en hoort bij de bestaande-
+        // bouw afkoeling (Afb. 2.7). Geen benadering/fallback: expliciete error
+        // zodat een caller die dit regeltype kiest het bewust moet oplossen.
+        HeatingControlType::RoomThermostat => Err(Isso51Error::InvalidInput(
+            "Kamerthermostaat-regeling (ISSO 51 §4.3.3, y-procentmethode) is niet \
+             geïmplementeerd in de nieuwbouw-scope. Kies regeling per verblijfsgebied \
+             (§4.3.1) of zelflerende regeling (§4.3.2)."
+                .to_string(),
+        )),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::building::Building;
+    use crate::model::enums::{
+        AggregationMethod, BuildingType, InfiltrationMethod, SecurityClass,
+    };
 
-    #[test]
-    fn test_isso51_example_room1_heating_up() {
-        // ISSO 51 Example 1, Room 1 (woonkamer):
-        // Building type: Porch (gestapeld), Δt = 1.5K, warmup = 2h
-        // f_RH = 1.7 W/m²
-        // ΣA_accumulating = 7.65 + 27.83 + 74.49 = 109.97 m²
-        // Φ_hu = 109.97 × 1.7 = 186.95 ≈ 187 W
-        // Percentage = 187 / (1247 + 914) = 0.0866 ≈ 8.7%
-
-        let (phi_hu, f_rh) = calculate_heating_up(
-            BuildingType::Porch,
-            2.0,
-            109.97,
-            1247.0,
-            914.0,
-            true,
-            None,
-        );
-
-        assert!((f_rh - 1.7).abs() < 0.01, "f_RH = {f_rh}");
-        assert!((phi_hu - 187.0).abs() < 1.0, "Φ_hu = {phi_hu}");
-
-        let pct = main_room_percentage(phi_hu, 1247.0, 914.0);
-        assert!((pct - 0.087).abs() < 0.002, "percentage = {pct}");
+    /// Minimale nieuwbouw-building met nachtverlaging aan, opwarmtijd 2 h.
+    fn newbuild_building() -> Building {
+        Building {
+            building_type: BuildingType::Terraced,
+            qv10: 100.0,
+            total_floor_area: 100.0,
+            security_class: SecurityClass::B,
+            has_night_setback: true,
+            warmup_time: 2.0,
+            building_height: None,
+            num_floors: 1,
+            infiltration_method: InfiltrationMethod::PerExteriorArea,
+            dwelling_class: None,
+            construction_variant: None,
+            construction_year: None,
+            aggregation_method: AggregationMethod::default(),
+            heating_control_type: HeatingControlType::PerZone,
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
+        }
     }
 
     #[test]
-    fn test_isso51_example_room2_heating_up() {
-        // Room 2 (keuken): Φ_hu = 0.087 × (619 + 43) = 58 W
-        let pct = 0.087;
-        let (phi_hu, _) = calculate_heating_up(
-            BuildingType::Porch,
-            2.0,
-            0.0,
-            619.0,
-            43.0,
-            false,
-            Some(pct),
-        );
-        assert!((phi_hu - 58.0).abs() < 2.0, "Φ_hu = {phi_hu}");
+    fn test_per_a_g_core_2k_heavy() {
+        // Nieuwbouw, afkoeling 2 K, zwaar (default), opwarmtijd 2 h.
+        // P = 22 W/m² (Tabel 2.10, 2K/Z/2h). A_g = 20 m² → Φ_hu = 440 W.
+        let b = newbuild_building();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        assert_eq!(p, 22.0);
+        assert!((phi_hu - 440.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
     }
 
     #[test]
-    fn test_negative_clamped_to_zero() {
-        // Rooms with negative (Φ_T + Φ_v) should get Φ_hu = 0
-        let (phi_hu, _) = calculate_heating_up(
-            BuildingType::Porch,
-            2.0,
-            0.0,
-            -240.0,
-            210.0,
-            false,
-            Some(0.087),
+    fn test_per_a_g_core_2k_light() {
+        // 2K/ZL+L+M/2h → P = 13. A_g = 20 → Φ_hu = 260.
+        let mut b = newbuild_building();
+        b.c_eff = Some(50.0); // ≤ 70 → Light
+        let mass = building_thermal_mass(&b);
+        assert_eq!(mass, ThermalMass::Light);
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, mass).unwrap();
+        assert_eq!(p, 13.0);
+        assert!((phi_hu - 260.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
+    }
+
+    #[test]
+    fn test_u_bar_clamp_to_1k() {
+        // Ū ≤ 0,5 → afkoeling 1 K (overschrijft de 2 K nieuwbouw-default).
+        assert_eq!(newbuild_cooling_k(0.50), 1.0);
+        assert_eq!(newbuild_cooling_k(0.30), 1.0);
+        // Ū > 0,5 → 2 K.
+        assert_eq!(newbuild_cooling_k(0.51), 2.0);
+        assert_eq!(newbuild_cooling_k(1.20), 2.0);
+
+        // 1K/ZL+L+M/2h → P = 7. A_g = 20 → Φ_hu = 140.
+        let mut b = newbuild_building();
+        b.c_eff = Some(50.0);
+        let mass = building_thermal_mass(&b);
+        let cooling = newbuild_cooling_k(0.40);
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, cooling, mass).unwrap();
+        assert_eq!(p, 7.0);
+        assert!((phi_hu - 140.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
+    }
+
+    #[test]
+    fn test_self_learning_is_zero() {
+        // §4.3.2 zelflerende regeling → Φ_hu = 0 ongeacht A_g / P.
+        let mut b = newbuild_building();
+        b.heating_control_type = HeatingControlType::SelfLearning;
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        assert_eq!(phi_hu, 0.0);
+        assert_eq!(p, 0.0);
+    }
+
+    #[test]
+    fn test_no_night_setback_is_zero() {
+        // Geen nachtverlaging → Φ_hu = 0 (golden-fixture-pad).
+        let mut b = newbuild_building();
+        b.has_night_setback = false;
+        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        assert_eq!(phi_hu, 0.0);
+    }
+
+    #[test]
+    fn test_all_floor_heating_is_zero() {
+        // Vloerverwarming in alle vertrekken → Φ_hu = 0 (p.70).
+        let mut b = newbuild_building();
+        b.all_floor_heating = true;
+        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        assert_eq!(phi_hu, 0.0);
+    }
+
+    #[test]
+    fn test_room_thermostat_errors() {
+        // §4.3.3 kamerthermostaat = bestaande bouw, buiten nieuwbouw-scope →
+        // expliciete error, GEEN gegokte fallback (third-party stille-fout-gate).
+        let mut b = newbuild_building();
+        b.heating_control_type = HeatingControlType::RoomThermostat;
+        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap_err();
+        assert!(
+            matches!(err, Isso51Error::InvalidInput(_)),
+            "verwacht InvalidInput, kreeg {err:?}"
         );
-        assert!(phi_hu >= 0.0, "Φ_hu should not be negative, got {phi_hu}");
+        // Boodschap moet de §4.3.3-context + de twee in-scope alternatieven noemen.
+        let msg = err.to_string();
+        assert!(msg.contains("§4.3.3"), "error mist §4.3.3-context: {msg}");
+        assert!(msg.contains("§4.3.1"), "error mist §4.3.1-alternatief: {msg}");
+        assert!(msg.contains("§4.3.2"), "error mist §4.3.2-alternatief: {msg}");
     }
 }

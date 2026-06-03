@@ -211,6 +211,10 @@ pub fn map_building(conn: &Connection) -> Result<Building> {
             construction_variant: None,
             construction_year: None,
             aggregation_method: AggregationMethod::default(),
+            heating_control_type: Default::default(),
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
         })
     } else {
         Err(Isso51Error::VabiImport(
