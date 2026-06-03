@@ -15,7 +15,6 @@ import { useToastStore } from "../../store/toastStore";
 import { useProjectStore } from "../../store/projectStore";
 import { BUILDING_TYPE_LABELS } from "../../lib/constants";
 import { buildingTypeV1ToV2 } from "../../lib/projectV2Migration";
-import { Isso53BuildingFields } from "./Isso53BuildingFields";
 import type {
   BuildingType,
   CoverImage,
@@ -249,44 +248,41 @@ export function AlgemeenTab() {
       </Card>
 
       {norm === "isso53" ? (
-        <>
-          <Isso53BuildingFields />
-          <Card title={t("projectSetup.sections.dimensions", "Afmetingen")}>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                id="total_floor_area_general"
-                label={t(
-                  "projectSetup.fields.gross_floor_area",
-                  "Gebruiksoppervlak A_g",
-                )}
-                type="number"
-                unit="m²"
-                value={building.total_floor_area}
-                onChange={(e) =>
-                  updateProject({
-                    building: {
-                      ...building,
-                      total_floor_area: numVal(e.target.value),
-                    },
-                  })
-                }
-              />
-              <Input
-                id="num_storeys"
-                label={t("projectSetup.fields.num_storeys", "Aantal bouwlagen")}
-                type="number"
-                value={building.num_floors ?? sharedExtra.num_storeys ?? 1}
-                onChange={(e) => {
-                  const v = Math.max(1, numVal(e.target.value));
-                  updateProject({
-                    building: { ...building, num_floors: v },
-                  });
-                  updateSharedExtra({ num_storeys: v });
-                }}
-              />
-            </div>
-          </Card>
-        </>
+        <Card title={t("projectSetup.sections.dimensions", "Afmetingen")}>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              id="total_floor_area_general"
+              label={t(
+                "projectSetup.fields.gross_floor_area",
+                "Gebruiksoppervlak A_g",
+              )}
+              type="number"
+              unit="m²"
+              value={building.total_floor_area}
+              onChange={(e) =>
+                updateProject({
+                  building: {
+                    ...building,
+                    total_floor_area: numVal(e.target.value),
+                  },
+                })
+              }
+            />
+            <Input
+              id="num_storeys"
+              label={t("projectSetup.fields.num_storeys", "Aantal bouwlagen")}
+              type="number"
+              value={building.num_floors ?? sharedExtra.num_storeys ?? 1}
+              onChange={(e) => {
+                const v = Math.max(1, numVal(e.target.value));
+                updateProject({
+                  building: { ...building, num_floors: v },
+                });
+                updateSharedExtra({ num_storeys: v });
+              }}
+            />
+          </div>
+        </Card>
       ) : (
         <Card title={t("projectSetup.sections.buildingType", "Gebouwtype")}>
           <div className="grid grid-cols-2 gap-4">
