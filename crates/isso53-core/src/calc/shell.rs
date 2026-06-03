@@ -5,8 +5,10 @@
 
 use crate::error::Result;
 use crate::model::{Project, BoundaryType, GebruiksFunctie, VentilationSystemType};
+use crate::model::enums::VerticalPosition;
 use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
 use crate::tables::adjacent_unheated::f_k;
+use crate::tables::temperature_stratification::delta_theta_1_corrected;
 use crate::calc::ground::calculate_h_t_ground;
 use crate::formulas::RHO_CP_AIR;
 
@@ -61,7 +63,24 @@ pub fn calculate_shell(project: &Project) -> Result<f64> {
                         0.0
                     }
                 });
-            h_t_exterior += element.area * (element.u_value + delta_u_tb);
+
+            // Gelaagdheid (form. 4.5/4.6): horizontale boven-elementen (vloer
+            // boven buitenlucht / plat dak / plafond) krijgen f_k =
+            // (θ_i + Δθ₁ − θ_e)/(θ_i − θ_e), vide-gecorrigeerd ×(h/4).
+            // Verticale wanden: f_k = 1,0.
+            let delta_t = theta_i_building - theta_e;
+            let is_horizontal = matches!(
+                element.vertical_position,
+                VerticalPosition::Floor | VerticalPosition::Ceiling
+            );
+            let f_k = if is_horizontal && delta_t.abs() > 0.001 {
+                let delta_theta_1 =
+                    delta_theta_1_corrected(project.building.heating_system, room.height);
+                (theta_i_building + delta_theta_1 - theta_e) / delta_t
+            } else {
+                1.0
+            };
+            h_t_exterior += element.area * (element.u_value + delta_u_tb) * f_k;
         }
 
         // Accumulate H_T,iae (unheated)

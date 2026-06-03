@@ -52,7 +52,10 @@ pub use source_fraction::{source_fraction_z, SourceZoneConfig};
 pub use temperature::{
     design_indoor_temperature, design_indoor_temperature_shell, TEMPERATURE_IS_EXTERIOR,
 };
-pub use temperature_stratification::delta_theta_2;
+pub use temperature_stratification::{
+    delta_theta_1, delta_theta_1_corrected, delta_theta_2, delta_theta_v, vide_factor,
+    STRATIFICATION_REFERENCE_HEIGHT_M,
+};
 pub use thermal_bridge::{delta_u_tb, ThermalBridgeSituation, DELTA_U_TB_DEFAULT};
 pub use thermal_mass::c_eff;
 pub use ventilation_requirements::{
