@@ -48,6 +48,18 @@ function fmt2(value: number): string {
   return value.toFixed(2);
 }
 
+/** Leesbaar NL-label voor de aggregatiemethode (ISSO 51:2023 §3.5.1). */
+function aggregationMethodLabel(method: string | undefined): string {
+  switch (method) {
+    case "norm_strict":
+      return "Norm-strikt (§3.5.1)";
+    case "vabi_compat":
+      return "Vabi-compatibel";
+    default:
+      return "—";
+  }
+}
+
 /** ISO date string for today. */
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -590,6 +602,25 @@ function buildGebouwresultatenSection(
           ["Opwarmtoeslag", `${fmtW(summary.total_heating_up)} W`],
           ["Systeemverliezen", `${fmtW(summary.total_system_losses)} W`],
           ["Collectieve bijdrage", `${fmtW(summary.collective_contribution)} W`],
+          ...(summary.phi_hl_build != null
+            ? [
+                [
+                  "Φ_HL,build (schil, excl. systeemverliezen) [W]",
+                  `${fmtW(summary.phi_hl_build)} W`,
+                ],
+              ]
+            : []),
+          ...(summary.phi_hl_verdeler != null
+            ? [
+                [
+                  "Φ_HL,verdeler (incl. systeemverliezen) [W]",
+                  `${fmtW(summary.phi_hl_verdeler)} W`,
+                ],
+              ]
+            : []),
+          ...(summary.aggregation_method != null
+            ? [["Aggregatiemethode", aggregationMethodLabel(summary.aggregation_method)]]
+            : []),
           [
             "Ventilatiedebiet (gebouw)",
             `${totalQv.toFixed(1)} dm³/s (${(totalQv * 3.6).toFixed(0)} m³/h)`,

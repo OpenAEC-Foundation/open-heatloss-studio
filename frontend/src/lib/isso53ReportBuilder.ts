@@ -47,6 +47,27 @@ function fmt2(value: number): string {
   return value.toFixed(2);
 }
 
+/** Format number with 2 decimals using a Dutch decimal comma (bv. "1,00"). */
+function fmt2NL(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
+/** Leesbaar NL-label voor de infiltratie-methode herkomst (ISSO 53 hybride-beleid). */
+function infiltrationMethodOriginLabel(origin: string | undefined): string {
+  switch (origin) {
+    case "isso53Norm":
+      return i18next.t("isso53.report.infiltrationOriginNorm", {
+        defaultValue: "ISSO 53-norm",
+      });
+    case "vabiCompat":
+      return i18next.t("isso53.report.infiltrationOriginVabi", {
+        defaultValue: "Vabi-compatibel",
+      });
+    default:
+      return "—";
+  }
+}
+
 /** ISO date string for today. */
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -522,6 +543,25 @@ function buildGebouwresultatenSection(
               defaultValue: "Infiltratie-reductiefactor z (tabel 5.1)",
             }),
             fmt2(summary.infiltrationReductionFactorZ),
+          ],
+          [
+            i18next.t("isso53.report.heatingUpSimultaneity", {
+              defaultValue: "Gelijktijdigheidsfactor opwarmtoeslag",
+            }),
+            summary.heatingUpSimultaneityFactor >= 0.9995 &&
+            summary.heatingUpSimultaneityFactor <= 1.0005
+              ? i18next.t("isso53.report.heatingUpSimultaneityNone", {
+                  value: fmt2NL(summary.heatingUpSimultaneityFactor),
+                  defaultValue:
+                    "{{value}} (geen reductie — 100% gelijktijdigheid)",
+                })
+              : fmt2NL(summary.heatingUpSimultaneityFactor),
+          ],
+          [
+            i18next.t("isso53.report.infiltrationOrigin", {
+              defaultValue: "Infiltratie-methode herkomst",
+            }),
+            infiltrationMethodOriginLabel(summary.infiltrationMethodOrigin),
           ],
         ],
       },
