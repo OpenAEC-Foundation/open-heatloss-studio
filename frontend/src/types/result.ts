@@ -34,8 +34,10 @@ export interface VentilationResult {
 
 export interface HeatingUpResult {
   phi_hu: number;
-  f_rh: number;
-  accumulating_area: number;
+  /** Specifieke opwarmtoeslag P in W/m² (ISSO 51:2023 Tabel 2.10). */
+  p: number;
+  /** Gebruiksoppervlak A_g in m² waarop Φ_hu is berekend. */
+  a_g: number;
   norm_refs?: string[];
 }
 

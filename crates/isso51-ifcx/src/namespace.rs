@@ -238,8 +238,8 @@ pub struct Isso51CalcVentilation {
 pub struct Isso51CalcReheat {
     /// Φ_RH in W.
     pub phi_rh: f64,
-    /// f_RH factor in W/m².
-    pub f_rh: f64,
+    /// Specifieke opwarmtoeslag P in W/m² (ISSO 51:2023 Tabel 2.10).
+    pub p: f64,
 }
 
 /// Per-space total result.

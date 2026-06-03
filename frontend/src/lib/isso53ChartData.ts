@@ -70,8 +70,8 @@ function isso53RoomToChartRoom(room: Isso53RoomResult): RoomResult {
     },
     heating_up: {
       phi_hu: room.phiHu,
-      f_rh: 0,
-      accumulating_area: 0,
+      p: 0,
+      a_g: 0,
     },
     system_losses: {
       phi_floor_loss: 0,

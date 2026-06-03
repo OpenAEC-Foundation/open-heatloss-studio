@@ -716,11 +716,11 @@ mod tests {
             "u_bar-fallback moet 2 K geven"
         );
         assert!(
-            (r1.heating_up.f_rh - 22.0).abs() < 1e-9,
+            (r1.heating_up.p - 22.0).abs() < 1e-9,
             "P = {} (verwacht 22 via 2 K-fallback)",
-            r1.heating_up.f_rh
+            r1.heating_up.p
         );
-        let expected_phi_hu = 22.0 * r1.heating_up.accumulating_area;
+        let expected_phi_hu = 22.0 * r1.heating_up.a_g;
         assert!(
             r1.heating_up.phi_hu.is_finite()
                 && (r1.heating_up.phi_hu - expected_phi_hu).abs() < 1e-6,

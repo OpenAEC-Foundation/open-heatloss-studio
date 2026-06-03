@@ -2,9 +2,37 @@
   "$id": "https://warmteverlies.open-aec.com/schemas/v1/result.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "AggregationMethod": {
+      "description": "Methode voor aggregatie van transmissieverliezen op gebouwniveau.\n\nISSO 51:2023 §3.5.1 zegt letterlijk: `Φ_basis = Φ_T,ie + Φ_T,iae + Φ_T,ig + Φ_i − Φ_gain`, inclusief verlies via onverwarmde ruimtes (`Φ_T,iae`). De markt-tool Vabi telt `Φ_T,iae` op gebouwniveau echter als 0 (rapporteert het wel per kamer, neemt het niet op in `Φ_basis_gebouw`). Voor projecten die met Vabi-uitvoer vergeleken moeten worden geeft strikte normuitvoering ~17% hogere `connection_capacity`.\n\nDaarom configurable per project, default = `VabiCompat` (markt-conventie).",
+      "oneOf": [
+        {
+          "description": "Φ_T,iae wordt NIET opgenomen in Φ_basis_gebouw (Vabi-conventie, markt-default). Wijkt af van ISSO 51:2023 §3.5.1 letterlijk, maar geeft Vabi-compatible getallen.",
+          "enum": [
+            "vabi_compat"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Φ_T,iae WEL in Φ_basis_gebouw conform ISSO 51:2023 §3.5.1 letterlijk. Geeft ~17% hogere connection_capacity dan VabiCompat. Voor strikte audits.",
+          "enum": [
+            "norm_strict"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "BuildingSummary": {
       "description": "Building-level summary of heat losses.\n\nTotalen op gebouw-niveau. Let op de bewuste weglating van intra-dwelling transmissie (`TransmissionResult::h_t_adjacent_rooms`): warmte die tussen binnenruimten heen-en-weer stroomt is zero-sum over de woning en wordt dus niet opgeteld bij `total_envelope_loss`, `total_neighbor_loss` of `connection_capacity`. Alleen netto transport uit de woning (schil, buren, grond, water, ventilatie) telt mee in het aansluitvermogen — conform ISSO 51 §4.\n\nEN: Building totals. Intra-dwelling room-to-room transmission is deliberately excluded because it sums to zero across the dwelling (conservation of energy). Only net exports (envelope, neighbours, ground, water, ventilation) contribute to the connection capacity.\n\n**Aggregatie-formules op gebouwniveau (erratum 2023):** - `Φ_vent = Φ_v − Φ_i` (formule 3.3): netto ventilatieverlies na aftrek infiltratie. - `Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` (formule 3.11): kwadratische sommatie van niet-simultane bijdragen. - `aansluitvermogen = Φ_basis + Φ_extra` waarbij Φ_basis lineair wordt opgeteld (envelope + buren + grond + water + infiltratie + systeem).",
       "properties": {
+        "aggregation_method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/AggregationMethod"
+            }
+          ],
+          "default": "vabi_compat",
+          "description": "Actieve aggregatiemethode voor Φ_basis op gebouwniveau (C2 §3.5.1).\n\nMaakt expliciet of `phi_basis_total` / `connection_capacity` is berekend met de Vabi-conventie (`Φ_T,iae` uitgesloten, markt-default) of strikt volgens ISSO 51:2023 §3.5.1 (`Φ_T,iae` inbegrepen). Voorkomt dat een gebruiker die \"ISSO 51-conform\" verwacht stilzwijgend de Vabi-variant krijgt zonder dat het resultaat dit aangeeft."
+        },
         "collective_contribution": {
           "description": "Contribution to collective installation in W (if applicable).",
           "format": "double",
@@ -12,6 +40,12 @@
         },
         "connection_capacity": {
           "description": "Connection capacity (aansluitvermogen) of the dwelling in W.\n\nDefinitie (erratum 2023): `Φ_basis_total + Φ_extra_quadratic` waarbij `Φ_extra_quadratic = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)` op gebouwniveau. Dit is een **breaking change** t.o.v. eerdere versies waarin deze waarde een lineaire optelsom van W/K-bijdragen was.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_basis_build": {
+          "default": 0.0,
+          "description": "Schil-`Φ_basis` ZONDER systeemverliezen in W (K3 §3.5.3).\n\n`phi_basis_build = Φ_basis_envelope` (envelope + grond + water + infiltratie), exclusief de systeemverliezen van ingebouwde verwarming. Dit is de Φ_basis-term uit Formule **3.12** (`Φ_HL,build`). Verschilt van `phi_basis_total` (dat de systeemverliezen WÉL bevat, voor Formule 3.13) uitsluitend bij projecten met `has_embedded_heating = true`.",
           "format": "double",
           "type": "number"
         },
@@ -24,6 +58,18 @@
         "phi_extra_quadratic": {
           "default": 0.0,
           "description": "Kwadratische som van niet-simultane bijdragen op gebouwniveau in W.\n\n`√(phi_vent_building² + phi_t_iabe_building² + phi_hu_building²)` conform erratum 2023 formule 3.11. Telt op met `phi_basis_total` tot `connection_capacity`.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_hl_build": {
+          "default": 0.0,
+          "description": "Schilvermogen Φ_HL,build in W — Formule **3.12** (§3.5.3).\n\n`Φ_HL,build = Φ_basis_envelope + Φ_extra` — **ZONDER** systeemverliezen. Dit is het warmteverlies van de schil; gebruik dit voor het dimensioneren van de warmteafgifte per vertrek/woning. Bij projecten zónder ingebouwde verwarming geldt `phi_hl_build == phi_hl_verdeler == connection_capacity`.",
+          "format": "double",
+          "type": "number"
+        },
+        "phi_hl_verdeler": {
+          "default": 0.0,
+          "description": "Verdeler-/opwekkervermogen Φ_HL,verdeler in W — Formule **3.13** (§3.5.3).\n\n`Φ_HL,verdeler = Φ_HL,build + ΣΦ_add,i` — **MÉT** systeemverliezen (`total_system_losses`). Gebruik dit voor het bepalen van het vermogen van de opwekker of de flow door een verdeler. Identiek aan `connection_capacity` (dat om backward-compat-redenen de 3.13-waarde behoudt).",
           "format": "double",
           "type": "number"
         },
@@ -83,15 +129,10 @@
       "type": "object"
     },
     "HeatingUpResult": {
-      "description": "Heating-up allowance result.",
+      "description": "Heating-up allowance result (ISSO 51:2023 §2.5.8 / §4.3).\n\nDe engine berekent de opwarmtoeslag volgens het 2023-model `Φ_hu = P × A_g` (Tabel 2.10).",
       "properties": {
-        "accumulating_area": {
-          "description": "Accumulating surface area in m².",
-          "format": "double",
-          "type": "number"
-        },
-        "f_rh": {
-          "description": "Heating-up factor f_RH in W/m².",
+        "a_g": {
+          "description": "Gebruiksoppervlak A_g in m² waarop Φ_hu is berekend.",
           "format": "double",
           "type": "number"
         },
@@ -104,15 +145,20 @@
           "readOnly": true,
           "type": "array"
         },
+        "p": {
+          "description": "Specifieke opwarmtoeslag P in W/m² (Tabel 2.10).",
+          "format": "double",
+          "type": "number"
+        },
         "phi_hu": {
-          "description": "Heating-up allowance Φ_hu in W.",
+          "description": "Heating-up allowance Φ_hu in W (`P × A_g`).",
           "format": "double",
           "type": "number"
         }
       },
       "required": [
-        "accumulating_area",
-        "f_rh",
+        "a_g",
+        "p",
         "phi_hu"
       ],
       "type": "object"

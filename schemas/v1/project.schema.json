@@ -80,6 +80,11 @@
           "default": "vabi_compat",
           "description": "Aggregatiemethode voor `Φ_basis_gebouw` op gebouwniveau.\n\nDefault = `VabiCompat` (markt-conventie, sluit `Φ_T,iae` uit). Voor strikte ISSO 51:2023 §3.5.1 audits → `NormStrict`. Zie `AggregationMethod` doc voor verschillen (~17% op connection_capacity)."
         },
+        "all_floor_heating": {
+          "default": false,
+          "description": "Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben. Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag, nachtverlaging is dan niet zinvol). Default = `false`.",
+          "type": "boolean"
+        },
         "building_height": {
           "description": "Building height in m (buitenafmetingen).",
           "format": "double",
@@ -95,6 +100,19 @@
             }
           ],
           "description": "Type of building."
+        },
+        "built_after_2015": {
+          "default": true,
+          "description": "Of de woning ná 2015 is gebouwd (nieuwbouw). Stuurt de afkoeling- bepaling: nieuwbouw → 2 K (resp. 1 K bij Ū≤0,5). Default = `true` (nieuwbouw-scope; bestaande bouw met Afb. 2.7-grafiek is nog niet geïmplementeerd — zie TODO in `calc/heating_up.rs`).",
+          "type": "boolean"
+        },
+        "c_eff": {
+          "description": "Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).\n\nOptioneel: `None` → conservatieve aanname \"zwaar\" (`ThermalMass::Heavy`, hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of Formule 2.46 (`c_eff = C_eff / A_g`).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         },
         "construction_variant": {
           "anyOf": [
@@ -131,6 +149,15 @@
           "default": false,
           "description": "Whether night setback / operational reduction is used.",
           "type": "boolean"
+        },
+        "heating_control_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/HeatingControlType"
+            }
+          ],
+          "default": "per_zone",
+          "description": "Regeltype van de verwarmingsinstallatie (ISSO 51:2023 §4.3).\n\nStuurt de opwarmtoeslag-tak: `PerZone` → `Φ_hu = P × A_g`, `SelfLearning` → `Φ_hu = 0`, `RoomThermostat` → bestaande-bouw (buiten scope, 5 W/m² fallback). Default = `PerZone` (nieuwbouw, regeling per verblijfsgebied — de meest voorkomende nieuwbouw-keuze)."
         },
         "infiltration_method": {
           "allOf": [
@@ -543,6 +570,32 @@
       ],
       "type": "object"
     },
+    "HeatingControlType": {
+      "description": "Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3.\n\nBepaalt hoe de opwarmtoeslag `Φ_hu` wordt berekend. De opmerking-box op p.70 stelt: *\"Bij nieuwbouw wordt altijd uitgegaan van regeling per verblijfsruimte of een zelflerende regeling.\"* — dus de nieuwbouw-scope kent exact de eerste twee takken. De kamerthermostaat (§4.3.3) is een bestaande-bouw-methode en valt buiten de huidige nieuwbouw-scope.",
+      "oneOf": [
+        {
+          "description": "§4.3.1 — regeling per verblijfsgebied (thermostatische afsluiters / stooklijn). `Φ_hu,i = P × A_g` (Formule 4.15). Default voor nieuwbouw.",
+          "enum": [
+            "per_zone"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "§4.3.2 — zelflerende regeling (buitentemperatuur / opwarm- karakteristiek stuurt de inschakeltijd). `Φ_hu,i = 0` (p.70).",
+          "enum": [
+            "self_learning"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "§4.3.3 — kamerthermostaat (y-procentmethode, Formule 4.16/4.17).\n\n**BESTAANDE BOUW — BUITEN de huidige nieuwbouw-scope (Ronde 5).** De y-procentmethode is nog niet geïmplementeerd; zie de TODO-marker in `calc/heating_up.rs`. Een berekening met dit regeltype levert een **harde [`crate::error::Isso51Error::InvalidInput`]** op (géén gegokte fallback) — zo krijgt een third-party client geen stilzwijgend niet-norm-conforme waarde. Kies §4.3.1 of §4.3.2 in de nieuwbouw-scope.",
+          "enum": [
+            "room_thermostat"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "HeatingSystem": {
       "description": "Type of heating system installed. Affects Δθ values (Table 2.12) and system losses (§2.9).",
       "oneOf": [
@@ -763,6 +816,13 @@
     "Room": {
       "description": "A single room (vertrek) in the dwelling. ISSO 51 Chapter 4 — per-room heat loss calculation.",
       "properties": {
+        "air_source_room_id": {
+          "description": "Source room ID where ventilation air originates from (overstroom). `None` = gevelrooster/buitenlucht (default systeem-gedrag). `Some(id)` = lucht komt uit een andere kamer; UI resolveert deze naar `supply_air_temperature` op basis van bron-kamer's θ_i.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "clamp_positive": {
           "default": true,
           "description": "Whether this room is part of a heated zone that should not have negative heat loss (i.e., minimum Φ = 0).",
