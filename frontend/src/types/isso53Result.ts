@@ -47,6 +47,16 @@ export interface Isso53RoomResult {
   hI: number;
 }
 
+/**
+ * Herkomst van de gebruikte infiltratie-rekenmethode (ISSO 53 hybride-beleid).
+ * Spiegelt `isso53_core::result::InfiltrationMethodOrigin`
+ * (`#[serde(rename_all = "camelCase")]`).
+ * - `isso53Norm`: ISSO 53-norm-pad (tabel 4.5 / formule 4.31), norm-puur.
+ * - `vabiCompat`: Vabi-compat power-law (NEN 8088-1, NTA 8800, Δp ≈ 3,14 Pa),
+ *   bewust geen ISSO 53-norm; rapport markeert dit expliciet.
+ */
+export type InfiltrationMethodOrigin = "isso53Norm" | "vabiCompat";
+
 /** Gebouw-totaal samenvatting (ISSO 53 — simpele optelling, geen kwadratische sommatie). */
 export interface Isso53BuildingSummary {
   /** Totaal transmissie Φ_T,build in W. */
@@ -71,6 +81,18 @@ export interface Isso53BuildingSummary {
   shellHeatLoss: number;
   /** Toegepaste infiltratie-reductiefactor z (tabel 5.1). */
   infiltrationReductionFactorZ: number;
+  /**
+   * Gelijktijdigheidsfactor (K2) toegepast op Σ Φ_hu in het aansluitvermogen
+   * (ISSO 53 §4.1/§5.1). `1,0` = 100% gelijktijdigheid (default, engine-aanname,
+   * geen reductie). Maakt expliciet welke gelijktijdigheid is aangenomen.
+   */
+  heatingUpSimultaneityFactor: number;
+  /**
+   * Herkomst van de gebruikte infiltratie-rekenmethode (ISSO 53 hybride-beleid):
+   * `isso53Norm` (norm-puur) of `vabiCompat` (Vabi-compat power-law). Toont
+   * transparant welke conventie voor Δp is gebruikt.
+   */
+  infiltrationMethodOrigin: InfiltrationMethodOrigin;
 }
 
 /** Volledig ISSO 53 project-resultaat. */
