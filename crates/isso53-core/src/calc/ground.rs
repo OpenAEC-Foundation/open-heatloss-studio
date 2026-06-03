@@ -6,6 +6,23 @@ use crate::tables::ground_params::{
     ground_params, GroundSurfaceKind, B_PRIME_MIN, B_PRIME_MAX, U_EQUIV_MIN, Z_DEPTH_MAX,
 };
 use crate::tables::delta_theta_2;
+use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
+
+/// Resolveer de thermische-brug-toeslag ΔU_TB voor een grondelement.
+///
+/// Voorkeursvolgorde identiek aan `calc/transmission.rs`/`calc/shell.rs`
+/// (A6-fix, commit f815c1f): een expliciete `custom_delta_u_tb` wint altijd
+/// over de forfaitaire vlag; de forfaitaire default geldt alleen als de vlag
+/// aanstaat én er geen custom-waarde is; anders 0.
+fn resolve_delta_u_tb(element: &ConstructionElement) -> f64 {
+    element.custom_delta_u_tb.unwrap_or_else(|| {
+        if element.use_forfaitaire_thermal_bridge {
+            DELTA_U_TB_DEFAULT
+        } else {
+            0.0
+        }
+    })
+}
 
 /// Ground water factor correction for U_equiv calculation.
 /// ISSO 53 §4.6: 1.0 if groundwater ≥1m below floor, 1.15 otherwise.
@@ -41,11 +58,16 @@ pub fn calculate_h_t_ground(
                     // Determine if wall or floor from vertical position
                     let is_wall = matches!(element.vertical_position, crate::model::enums::VerticalPosition::Wall);
 
+                    // Form. 4.24 vereist (U_k + ΔU_TB) als construction-U, niet de
+                    // rauwe element.u_value. Zelfde forfaitair/custom-prioriteit als
+                    // de A6-fix in transmission.rs/shell.rs.
+                    let u_k = element.u_value + resolve_delta_u_tb(element);
+
                     calculate_u_equivalent(
                         element.area,
                         perimeter,
                         depth,
-                        element.u_value,
+                        u_k,
                         is_wall
                     )?
                 } else {
@@ -80,15 +102,26 @@ pub fn calculate_h_t_ground(
 
 /// Calculate equivalent U-value for ground element using ISSO 53 formule 4.24.
 ///
-/// Based on parameters from tabel 4.3 (PDF p.44) and the formula structure
-/// reconstructed from the norm. The exact formula 4.24 from PDF p.44 is:
+/// Geverifieerde vorm (ref-doc `audit-reports/07-isso53-formules-ref.md` §A4,
+/// gerenderd uit ISSO 53 PDF p.44 + worked example p.65):
 ///
-/// U_equiv,k = a × (c1 × (B')^n1 + c2 × (U_k + ΔU_TB)^n2 + c3 × (z + d)^n3)^b
+/// ```text
+/// U_equiv,k = a · b / ( c₁·(B')^n₁ + c₂·(U_k + ΔU_TB)^n₂ + c₃·z^n₃ + d )
+/// ```
+///
+/// Het is een **quotiëntvorm** (niet de eerdere `a·(…)^b`-machtvorm, die door
+/// de negatieve `b = −7,455` altijd ≈0 opleverde en stilzwijgend op de
+/// U_EQUIV_MIN-clamp landde — een latente bug, want geen enkele fixture raakt
+/// dit pad: alle leveren `uEquivalent` expliciet aan). De tabel-`b` is negatief
+/// en `a·b` dus eveneens; de norm levert echter een positieve U_equiv, dus
+/// nemen we de absolute waarde van de teller. Worked-example check (Vloer,
+/// U_k=2,43, B'≈4,1) → U_equiv ≈ 0,177 W/(m²·K), conform p.65.
 ///
 /// Where:
 /// - B' = 2 × A_vl / O (geometric factor), clamped [2, 50]
 /// - z = depth below ground level [0, 5] m
-/// - U_k = construction U-value + thermal bridge correction ΔU_TB
+/// - U_k = construction U-value **inclusief** thermal bridge correction ΔU_TB
+///   (de caller telt ΔU_TB al op vóór deze functie — zie A4-fix)
 /// - Parameters a, b, c1-c3, n1-n3, d from tabel 4.3 for floor/wall
 ///
 /// Result is clamped to minimum U_equiv ≥ 0.1 W/(m²·K).
@@ -129,7 +162,8 @@ pub fn calculate_u_equivalent(
     // Calculate B' geometric factor: B' = 2 × A_vl / O
     let b_prime = (2.0 * area / perimeter).clamp(B_PRIME_MIN, B_PRIME_MAX);
 
-    // Clamp depth
+    // Clamp depth (0 ≤ z ≤ 5). z = 0 is een normale maaiveld-grondvloer:
+    // 0^n₃ = 0 (n₃ > 0), dus de z-term valt netjes weg, geen guard nodig.
     let z_clamped = depth.clamp(0.0, Z_DEPTH_MAX);
 
     // Get parameters for floor or wall
@@ -140,24 +174,21 @@ pub fn calculate_u_equivalent(
     };
     let params = ground_params(kind);
 
-    // Guard against negative base for power function (z + d must be > 0)
-    let depth_sum = z_clamped + params.d;
-    if depth_sum <= 0.0 {
-        return Err(crate::error::Isso53Error::InvalidInput(
-            format!("invalid depth z={} for {:?}: z + d = {} must be > 0",
-                depth, kind, depth_sum)
-        ));
+    // Form. 4.24 (quotiëntvorm): teller a·b, noemer c₁·B'^n₁ + c₂·U_k^n₂ + c₃·z^n₃ + d.
+    let term1 = params.c1 * b_prime.powf(params.n1); // wanden: c₁=0 → 0 (B' vervalt)
+    let term2 = params.c2 * u_construction.powf(params.n2);
+    let term3 = params.c3 * z_clamped.powf(params.n3);
+
+    let denom = term1 + term2 + term3 + params.d;
+    if denom.abs() < 1e-9 {
+        // Degeneraat: noemer ~0 → val terug op de norm-ondergrens.
+        return Ok(U_EQUIV_MIN);
     }
 
-    // Apply formule 4.24: U_equiv,k = a × (c1 × (B')^n1 + c2 × (U_k)^n2 + c3 × (z + d)^n3)^b
-    let term1 = params.c1 * b_prime.powf(params.n1);
-    let term2 = params.c2 * u_construction.powf(params.n2);
-    let term3 = params.c3 * depth_sum.powf(params.n3);
+    // a·b is negatief (b < 0); de norm levert een positieve U_equiv → |a·b|.
+    let u_equiv = (params.a * params.b).abs() / denom;
 
-    let inner_sum = term1 + term2 + term3;
-    let u_equiv = params.a * inner_sum.powf(params.b);
-
-    // Apply minimum constraint
+    // Apply minimum constraint (en negatieve noemer-uitkomsten defensief).
     Ok(u_equiv.max(U_EQUIV_MIN))
 }
 
@@ -203,34 +234,102 @@ fn calculate_f_ig_auto(
 mod tests {
     use super::*;
 
+    /// A4: de geverifieerde 4.24 quotiëntvorm heeft GEEN z+d-guard meer.
+    /// Een ondiepe wand (z=0,5) levert nu een geldige, positieve U_equiv.
+    /// (De oude `(z+d)^n₃`-machtvorm crashte hier op een negatieve basis.)
     #[test]
-    fn test_ground_depth_guard_wall() {
-        // Test wall with z=0.5 — should fail because z + d_wall = 0.5 + (-1.074) = -0.574 < 0
+    fn test_ground_shallow_wall_no_longer_errors() {
         let result = calculate_u_equivalent(100.0, 40.0, 0.5, 0.4, true);
-        assert!(result.is_err());
+        assert!(result.is_ok(), "ondiepe wand mag geen error meer geven: {result:?}");
+        assert!(result.unwrap() >= U_EQUIV_MIN);
     }
 
+    /// A4: een normale maaiveld-grondvloer (z=0) is een geldige invoer.
+    /// 0^n₃ = 0 (n₃ > 0) → z-term valt weg, geen guard, geen error.
+    /// (D4 = de z=0-weigering in de ground.rs-callsite hierboven blijft Ronde 4.)
     #[test]
-    fn test_ground_depth_guard_floor() {
-        // Test floor with z=0 — should fail because z + d_floor = 0 + (-0.0203) = -0.0203 < 0
+    fn test_ground_floor_z_zero_ok() {
         let result = calculate_u_equivalent(100.0, 40.0, 0.0, 0.4, false);
-        assert!(result.is_err());
+        assert!(result.is_ok(), "z=0 grondvloer moet geldig zijn: {result:?}");
+        let u = result.unwrap();
+        // z=0 vs z=1 verschilt alleen via de kleine c₃·z^n₃-term (~0,026).
+        assert!((u - 0.2266).abs() < 0.002, "z=0 floor U_equiv ≈ 0,2266, got {u}");
     }
 
+    /// A4 worked example (ref-doc §A4 / ISSO 53 p.65): Vloer, U_k = 2,43,
+    /// geometrie zo dat B' ≈ 4,08 → U_equiv ≈ 0,177 W/(m²·K).
+    /// A=200, O=98 → B' = 2·200/98 = 4,0816.
+    #[test]
+    fn test_u_equivalent_worked_example_p65() {
+        let u_equiv = calculate_u_equivalent(200.0, 98.0, 0.0, 2.43, false).unwrap();
+        assert!(
+            (u_equiv - 0.177).abs() < 0.005,
+            "worked example p.65 verwacht U_equiv ≈ 0,177, kreeg {u_equiv}"
+        );
+    }
+
+    /// A4: smoke — vloer levert een fysisch plausibele U_equiv in [0,1; 1,0].
     #[test]
     fn test_u_equivalent_calculation_smoke() {
-        // Hand-calculated: A=100, perimeter=40, B'=5 (clamped), z=1, U=0.4, floor
-        // Floor params: a=0.9671, b=-7.455, c1=10.76, c2=9.773, c3=0.0265, n1=0.5532, n2=0.6027, n3=-0.9296, d=-0.0203
-        // term1 = 10.76 * 5^0.5532 ≈ 10.76 * 2.43 ≈ 26.1
-        // term2 = 9.773 * 0.4^0.6027 ≈ 9.773 * 0.53 ≈ 5.2
-        // term3 = 0.0265 * (1-0.0203)^(-0.9296) ≈ 0.0265 * 0.98^(-0.9296) ≈ 0.027
-        // inner = 26.1 + 5.2 + 0.027 ≈ 31.3
-        // u_equiv = 0.9671 * 31.3^(-7.455) ≈ very small, but clamped to 0.1
-        let result = calculate_u_equivalent(100.0, 40.0, 1.0, 0.4, false);
-        assert!(result.is_ok());
-        let u_equiv = result.unwrap();
-        assert!(u_equiv >= 0.1, "Should be at least minimum value");
-        assert!(u_equiv < 1.0, "Should be reasonable");
+        // A=100, O=40 → B'=5 (clamped); z=1; U=0,4; vloer.
+        let u_equiv = calculate_u_equivalent(100.0, 40.0, 1.0, 0.4, false).unwrap();
+        assert!(u_equiv >= U_EQUIV_MIN, "≥ ondergrens, kreeg {u_equiv}");
+        assert!(u_equiv < 1.0, "fysisch plausibel, kreeg {u_equiv}");
+        assert!((u_equiv - 0.2264).abs() < 0.002, "verwacht ≈ 0,2264, kreeg {u_equiv}");
+    }
+
+    /// A4: ΔU_TB verhoogt U_k → verlaagt U_equiv (hogere noemer). Borgt dat de
+    /// thermische-brug-toeslag daadwerkelijk in de 4.24-keten meegaat en de
+    /// forfaitair/custom-prioriteit (A6) hetzelfde is als in transmission.rs.
+    #[test]
+    fn test_ground_delta_u_tb_priority_in_u_equiv() {
+        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition, DesignConditions, enums::HeatingSystem};
+        use crate::model::construction::GroundParameters;
+
+        let climate = DesignConditions { theta_e: -10.0, theta_me: 9.0, theta_b_adjacent_building: 15.0 };
+
+        let base = ConstructionElement {
+            id: "vloer".into(),
+            description: "Grondvloer".into(),
+            area: 100.0,
+            u_value: 0.4,
+            boundary_type: BoundaryType::Ground,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: Some(GroundParameters {
+                u_equivalent: 0.0, // forceer auto-berekening via form. 4.24
+                ground_water_factor: 1.0,
+                f_ig: Some(1.0),
+                perimeter: Some(40.0),
+                depth: Some(1.0),
+            }),
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+
+        // Geen ΔU_TB (vlag uit, geen custom).
+        let h_none = calculate_h_t_ground(&[&base], 20.0, &climate, HeatingSystem::default()).unwrap();
+
+        // Custom ΔU_TB = 0,05 → U_k = 0,45.
+        let mut e_custom = base.clone();
+        e_custom.custom_delta_u_tb = Some(0.05);
+        let h_custom = calculate_h_t_ground(&[&e_custom], 20.0, &climate, HeatingSystem::default()).unwrap();
+
+        // Custom wint over forfaitaire vlag (A6-prioriteit): vlag AAN + custom 0,05
+        // moet identiek zijn aan custom 0,05 met vlag UIT.
+        let mut e_both = base.clone();
+        e_both.use_forfaitaire_thermal_bridge = true;
+        e_both.custom_delta_u_tb = Some(0.05);
+        let h_both = calculate_h_t_ground(&[&e_both], 20.0, &climate, HeatingSystem::default()).unwrap();
+
+        assert!((h_custom - h_both).abs() < 1e-9, "custom moet forfaitaire vlag overrulen: {h_custom} vs {h_both}");
+        // Hogere U_k → lagere U_equiv → lagere H_T,ig.
+        assert!(h_custom < h_none, "ΔU_TB moet U_equiv verlagen: {h_custom} !< {h_none}");
     }
 
     #[test]

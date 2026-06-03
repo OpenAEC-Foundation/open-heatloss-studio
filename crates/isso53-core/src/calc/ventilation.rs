@@ -3,9 +3,11 @@
 use crate::error::Result;
 use crate::formulas::RHO_CP_AIR;
 use crate::model::{Room, VentilationConfig};
+use crate::model::enums::{HeatingSystem, VentilatieBouwfase};
 use crate::tables::ventilation_requirements::{requirement, ventilation_rate_per_person};
-use crate::model::enums::VentilatieBouwfase;
 use crate::tables::temperature::resolve_theta_i;
+use crate::tables::temperature_stratification::delta_theta_v;
+use crate::calc::rc_high::room_rc_high;
 
 /// Fallback-bezettingsdichtheid in personen/m² wanneer noch de ruimte-bezetting
 /// (`personen_per_m2_default`) noch de tabel 4.10-eis (`req.personen_per_m2`)
@@ -36,17 +38,27 @@ pub struct VentilationResult {
 
 /// Calculate ventilation heat loss for a room.
 /// ISSO 53 formules 4.35-4.39, PDF p.47-50.
+///
+/// `heating_system` bepaalt — samen met de R_c-kolomkeuze uit de uitwendige
+/// scheidingsconstructies van de ruimte — de gelaagdheidscorrectie Δθ_v
+/// (tabel 2.3) die in de f_v-berekening (form. 4.39) ingaat.
 pub fn calculate_ventilation(
     room: &Room,
     config: &VentilationConfig,
     theta_i: f64,
     theta_e: f64,
+    heating_system: HeatingSystem,
 ) -> Result<VentilationResult> {
     // Calculate ventilation flow rate q_v in m³/s
     let q_v = calculate_ventilation_flow_rate(room)?;
 
+    // Δθ_v-kolomkeuze: oppervlakte-gewogen R_c van de uitwendige
+    // scheidingsconstructies (tabel 2.3 voetnoot 4).
+    let rc_high = room_rc_high(room);
+    let delta_theta_v_value = delta_theta_v(heating_system, rc_high);
+
     // Calculate temperature reduction factor f_v
-    let f_v = calculate_f_v(config, theta_i, theta_e)?;
+    let f_v = calculate_f_v(config, theta_i, theta_e, delta_theta_v_value)?;
 
     // Calculate H_v: formule 4.37 - H_v = q_v × 1200 × f_v
     let h_v = q_v * RHO_CP_AIR * f_v;
@@ -69,8 +81,9 @@ pub fn calculate_h_v(
     ventilation: &VentilationConfig,
     theta_i: f64,
     theta_e: f64,
+    heating_system: HeatingSystem,
 ) -> Result<f64> {
-    let result = calculate_ventilation(room, ventilation, theta_i, theta_e)?;
+    let result = calculate_ventilation(room, ventilation, theta_i, theta_e, heating_system)?;
     Ok(result.h_v)
 }
 
@@ -80,10 +93,11 @@ pub fn calculate_phi_vent(
     room: &Room,
     ventilation: &VentilationConfig,
     theta_e: f64,
+    heating_system: HeatingSystem,
 ) -> Result<f64> {
     let theta_i = resolve_theta_i(room, theta_e);
 
-    let result = calculate_ventilation(room, ventilation, theta_i, theta_e)?;
+    let result = calculate_ventilation(room, ventilation, theta_i, theta_e, heating_system)?;
     Ok(result.phi_vent)
 }
 
@@ -137,14 +151,28 @@ fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
 
 /// Calculate temperature reduction factor f_v.
 /// ISSO 53 formules 4.38-4.39, PDF p.47-48.
-fn calculate_f_v(config: &VentilationConfig, theta_i: f64, theta_e: f64) -> Result<f64> {
-    if (theta_i - theta_e).abs() < 0.001 {
+///
+/// `delta_theta_v` is de gelaagdheidscorrectie Δθ_v uit tabel 2.3 (0 voor de
+/// meeste systemen; −1 of −0,5 K bij wand-/vloer-lt-/betonkern-verwarming).
+fn calculate_f_v(
+    config: &VentilationConfig,
+    theta_i: f64,
+    theta_e: f64,
+    delta_theta_v: f64,
+) -> Result<f64> {
+    let delta_t = theta_i - theta_e;
+    if delta_t.abs() < 0.001 {
         return Ok(0.0); // Avoid division by zero
     }
 
     if config.has_heat_recovery {
         // WTW: formule 4.38 — f_v is het deel van Δθ dat nog opgewarmd moet
         // worden ná WTW. Fysisch: f_v · (θ_i − θ_e) = (θ_i − θ_t).
+        // TODO A7: form. 4.38 met Δθ_v (f_v = (θ_i + Δθ_v − θ_t)/(θ_i − θ_e))
+        // zodra θ_t echt uit een toevoertemperatuur-/voorverwarming-model komt
+        // (U5). Nu is θ_t hier de gemodelleerde ná-WTW-toevoertemperatuur en is
+        // de Δθ_v-stratificatie van de toevoerlucht al impliciet; we laten Δθ_v
+        // bewust buiten deze tak om geen dubbeltelling te introduceren.
         let theta_t = if let Some(supply_temp) = config.supply_temperature {
             supply_temp
         } else {
@@ -152,21 +180,26 @@ fn calculate_f_v(config: &VentilationConfig, theta_i: f64, theta_e: f64) -> Resu
             theta_e + efficiency * (theta_i - theta_e)
         };
 
-        let f_v = (theta_i - theta_t) / (theta_i - theta_e);
+        let f_v = (theta_i - theta_t) / delta_t;
         Ok(f_v.clamp(0.0, 1.0))
     } else if config.has_preheating {
         // Voorverwarming: formule 4.38 geldt ook (zelfde definitie θ_t = toevoertemp).
         // Bij luchtverwarming (θ_t > θ_i) → f_v = 0 per norm.
+        // TODO A7: idem 4.38-Δθ_v-tak (zie WTW hierboven, U5).
         let theta_t = config.preheating_temperature.unwrap_or(theta_i);
         if theta_t > theta_i {
             Ok(0.0)
         } else {
-            let f_v = (theta_i - theta_t) / (theta_i - theta_e);
+            let f_v = (theta_i - theta_t) / delta_t;
             Ok(f_v.clamp(0.0, 1.0))
         }
     } else {
-        // Natural ventilation - f_v = 1.0
-        Ok(1.0)
+        // Natuurlijke toevoer / mechanische toevoer zonder voorverwarming.
+        // Formule 4.39: f_v = (θ_i + Δθ_v − θ_e) / (θ_i − θ_e).
+        // Δθ_v = 0 → f_v = 1,0 (ongewijzigd t.o.v. de oude hardcode). Bij
+        // wand-/vloer-lt-/betonkern-verwarming verlaagt Δθ_v (−1/−0,5) de f_v.
+        let f_v = (theta_i + delta_theta_v - theta_e) / delta_t;
+        Ok(f_v.clamp(0.0, 1.0))
     }
 }
 
@@ -208,8 +241,8 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let no_wtw = calculate_ventilation(&room, &config_no_wtw, 20.0, -10.0).unwrap();
-        let with_wtw = calculate_ventilation(&room, &config_with_wtw, 20.0, -10.0).unwrap();
+        let no_wtw = calculate_ventilation(&room, &config_no_wtw, 20.0, -10.0, HeatingSystem::default()).unwrap();
+        let with_wtw = calculate_ventilation(&room, &config_with_wtw, 20.0, -10.0, HeatingSystem::default()).unwrap();
 
         // With η=0.85, expected f_v ≈ 0.15 (1 - η)
         assert!(
@@ -247,7 +280,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+        let result = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default());
         assert!(result.is_ok());
 
         let ventilation = result.unwrap();
@@ -270,7 +303,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+        let result = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default());
         assert!(result.is_ok());
 
         let ventilation = result.unwrap();
@@ -301,7 +334,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+        let result = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default());
         assert!(result.is_ok());
         let ventilation = result.unwrap();
         assert!((ventilation.h_v - 9.75).abs() < 0.1, "Expected ~9.75, got {}", ventilation.h_v);
@@ -329,7 +362,7 @@ mod tests {
         let mut room_explicit_high = create_test_room();
         room_explicit_high.floor_area = 25.0;
         room_explicit_high.bezetting.personen = Some(10.0);
-        let r = calculate_ventilation(&room_explicit_high, &config, 20.0, -10.0).unwrap();
+        let r = calculate_ventilation(&room_explicit_high, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert!((r.h_v - 10.0 * 7.8).abs() < 0.1, "explicit>area: expected H_v {}, got {}", 10.0 * 7.8, r.h_v);
 
         // 2) explicit < area_based → gebruikt area_based (1,25). NIEUW gedrag:
@@ -337,14 +370,14 @@ mod tests {
         let mut room_explicit_low = create_test_room();
         room_explicit_low.floor_area = 25.0;
         room_explicit_low.bezetting.personen = Some(0.5);
-        let r = calculate_ventilation(&room_explicit_low, &config, 20.0, -10.0).unwrap();
+        let r = calculate_ventilation(&room_explicit_low, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert!((r.h_v - 1.25 * 7.8).abs() < 0.1, "explicit<area: expected area-based H_v {}, got {}", 1.25 * 7.8, r.h_v);
 
         // 3) personen = None → gebruikt area_based (1,25).
         let mut room_none = create_test_room();
         room_none.floor_area = 25.0;
         room_none.bezetting.personen = None;
-        let r = calculate_ventilation(&room_none, &config, 20.0, -10.0).unwrap();
+        let r = calculate_ventilation(&room_none, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert!((r.h_v - 1.25 * 7.8).abs() < 0.1, "none: expected area-based H_v {}, got {}", 1.25 * 7.8, r.h_v);
     }
 
@@ -362,7 +395,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+        let result = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default());
         assert!(result.is_ok());
 
         let ventilation = result.unwrap();
@@ -389,7 +422,7 @@ mod tests {
             let mut room = create_test_room();
             room.ruimte_type = ruimte;
 
-            let result = calculate_ventilation(&room, &config, 20.0, -10.0);
+            let result = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default());
             assert!(
                 result.is_ok(),
                 "{:?} zonder eis moet Ok teruggeven, kreeg {:?}",
@@ -421,7 +454,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert!((v.h_v - 9.75).abs() < 0.1, "Expected ~9.75, got {}", v.h_v);
         assert!(v.q_v > 0.0, "kantoor moet q_v > 0 hebben");
     }
@@ -444,7 +477,7 @@ mod tests {
             preheating_temperature: None,
         };
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(v.q_v, 0.0, "geen toevoer → q_v moet 0 zijn");
         assert_eq!(v.phi_vent, 0.0, "geen toevoer → phi_vent moet 0 zijn");
         assert_eq!(v.h_v, 0.0, "geen toevoer → h_v moet 0 zijn");
@@ -467,14 +500,14 @@ mod tests {
         let mut room_supply = create_test_room();
         room_supply.bezetting.personen = Some(10.0);
         room_supply.has_mechanical_supply = Some(true);
-        let v_supply = calculate_ventilation(&room_supply, &config, 20.0, -10.0).unwrap();
+        let v_supply = calculate_ventilation(&room_supply, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert!(v_supply.q_v > 0.0, "met toevoer (Some(true)) moet q_v > 0 zijn");
 
         // backward-compat: None geeft exact hetzelfde resultaat als Some(true).
         let mut room_none = create_test_room();
         room_none.bezetting.personen = Some(10.0);
         room_none.has_mechanical_supply = None;
-        let v_none = calculate_ventilation(&room_none, &config, 20.0, -10.0).unwrap();
+        let v_none = calculate_ventilation(&room_none, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(
             v_supply.q_v, v_none.q_v,
             "Some(true) en None moeten identieke q_v geven"
@@ -503,7 +536,7 @@ mod tests {
         room.bezetting.personen = Some(10.0); // zou normaal hoge q_v geven
         room.ventilation_q_v_established = Some(0.05);
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(v.q_v, 0.05, "vastgestelde q_v moet direct gebruikt worden");
     }
 
@@ -524,7 +557,7 @@ mod tests {
         room.has_mechanical_supply = Some(false);
         room.ventilation_q_v_established = Some(0.03);
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(
             v.q_v, 0.03,
             "vastgestelde q_v moet de supply-gate overrulen"
@@ -548,7 +581,7 @@ mod tests {
         room.bezetting.personen = Some(10.0);
         room.ventilation_q_v_established = Some(0.0);
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(v.q_v, 0.0, "Some(0.0) → q_v moet 0 zijn");
         assert_eq!(v.phi_vent, 0.0, "Some(0.0) → phi_vent moet 0 zijn");
     }
@@ -569,7 +602,7 @@ mod tests {
         let mut room = create_test_room();
         room.ventilation_q_v_established = Some(-0.02);
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         assert_eq!(v.q_v, 0.0, "negatieve vastgestelde q_v moet op 0 clampen");
     }
 
@@ -590,9 +623,101 @@ mod tests {
         room.bezetting.personen = Some(1.0);
         room.ventilation_q_v_established = None;
 
-        let v = calculate_ventilation(&room, &config, 20.0, -10.0).unwrap();
+        let v = calculate_ventilation(&room, &config, 20.0, -10.0, HeatingSystem::default()).unwrap();
         // Kantoor 25 m² → area-based 1,25 pers → H_v = 9,75 W/K.
         assert!((v.h_v - 9.75).abs() < 0.1, "None: verwacht ~9.75, kreeg {}", v.h_v);
+    }
+
+    /// A7: bij wandverwarming met R_c < 3,5 (default-room wand U=0,28 → R_c≈3,40)
+    /// geldt Δθ_v = −1 K → form. 4.39 f_v = (20 − 1 + 10)/30 = 29/30 ≈ 0,9667,
+    /// en het ventilatieverlies daalt ~3,3% t.o.v. f_v = 1,0.
+    #[test]
+    fn test_a7_wandverwarming_rc_low_reduces_f_v() {
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(5.0);
+
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        // Referentie: radiatoren-ht → Δθ_v = 0 → f_v = 1,0.
+        let radi = calculate_ventilation(
+            &room, &config, 20.0, -10.0,
+            HeatingSystem::RadiatorenConvHtEnLuchtverwarming,
+        ).unwrap();
+        assert!((radi.f_v - 1.0).abs() < 1e-9, "radi → f_v=1,0, kreeg {}", radi.f_v);
+
+        // Wandverwarming, R_c < 3,5 → Δθ_v = −1 → f_v = 29/30.
+        let wand = calculate_ventilation(
+            &room, &config, 20.0, -10.0, HeatingSystem::Wandverwarming,
+        ).unwrap();
+        let expected_fv = 29.0 / 30.0;
+        assert!((wand.f_v - expected_fv).abs() < 1e-9, "wand f_v verwacht {expected_fv}, kreeg {}", wand.f_v);
+
+        // ~3,3% lager ventilatieverlies (q_v identiek).
+        let reduction = 1.0 - wand.phi_vent / radi.phi_vent;
+        assert!((reduction - (1.0 - expected_fv)).abs() < 1e-9);
+        assert!(reduction > 0.03 && reduction < 0.035, "verlies ~3,3% lager, kreeg {:.4}", reduction);
+    }
+
+    /// A7-regressie: een systeem met Δθ_v = 0 (radiatoren) houdt exact f_v = 1,0,
+    /// ongeacht de R_c-kolom. Borgt dat de 4.39-tak voor de meeste systemen
+    /// bit-identiek is aan de oude hardcode.
+    #[test]
+    fn test_a7_zero_delta_v_keeps_f_v_one() {
+        let room = create_test_room();
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        for sys in [
+            HeatingSystem::RadiatorenConvHtEnLuchtverwarming,
+            HeatingSystem::LokaleVerwarming,
+            HeatingSystem::Plafondverwarming,
+            HeatingSystem::VloerverwarmingPlusHtRadi,
+        ] {
+            let v = calculate_ventilation(&room, &config, 20.0, -10.0, sys).unwrap();
+            assert!((v.f_v - 1.0).abs() < 1e-9, "{sys:?} → f_v moet 1,0 zijn, kreeg {}", v.f_v);
+        }
+    }
+
+    /// A7: R_c-kolomkeuze. Een goed geïsoleerde gevel (U=0,15 → R_c≈6,5 ≥ 3,5)
+    /// kiest de −0,5 K-kolom → f_v = 29,5/30; een slechte gevel de −1 K-kolom.
+    #[test]
+    fn test_a7_rc_high_picks_half_kelvin_column() {
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room_high = create_test_room();
+        room_high.constructions[0].u_value = 0.15; // R_c ≈ 6,5 ≥ 3,5
+        room_high.bezetting.personen = Some(5.0);
+        let v_high = calculate_ventilation(&room_high, &config, 20.0, -10.0, HeatingSystem::Vloerverwarming).unwrap();
+        assert!((v_high.f_v - 29.5 / 30.0).abs() < 1e-9, "R_c≥3,5 → f_v=29,5/30, kreeg {}", v_high.f_v);
+
+        let mut room_low = create_test_room();
+        room_low.constructions[0].u_value = 0.40; // R_c ≈ 2,33 < 3,5
+        room_low.bezetting.personen = Some(5.0);
+        let v_low = calculate_ventilation(&room_low, &config, 20.0, -10.0, HeatingSystem::Vloerverwarming).unwrap();
+        assert!((v_low.f_v - 29.0 / 30.0).abs() < 1e-9, "R_c<3,5 → f_v=29/30, kreeg {}", v_low.f_v);
     }
 
     fn create_test_room() -> Room {

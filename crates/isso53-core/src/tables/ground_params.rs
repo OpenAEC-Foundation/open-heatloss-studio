@@ -62,10 +62,13 @@ pub const GROUND_PARAMS_FLOOR: GroundParams = GroundParams {
     b: -7.455,
     c1: 10.76,
     c2: 9.773,
-    c3: 0.0265,
+    c3: 0.0266,
     n1: 0.5532,
     n2: 0.6027,
-    n3: -0.9296,
+    // n₃ is POSITIEF voor vloeren (ref-doc §A4 Tabel 4.3). De eerdere −0,9296
+    // hoorde bij de afgeschreven (z+d)^n₃-machtvorm; de geverifieerde 4.24
+    // quotiëntvorm gebruikt c₃·z^n₃ met n₃ > 0.
+    n3: 0.9296,
     d: -0.0203,
 };
 
@@ -122,10 +125,10 @@ mod tests {
         assert_eq!(p.b, -7.455);
         assert_eq!(p.c1, 10.76);
         assert_eq!(p.c2, 9.773);
-        assert_eq!(p.c3, 0.0265);
+        assert_eq!(p.c3, 0.0266);
         assert_eq!(p.n1, 0.5532);
         assert_eq!(p.n2, 0.6027);
-        assert_eq!(p.n3, -0.9296);
+        assert_eq!(p.n3, 0.9296);
         assert_eq!(p.d, -0.0203);
     }
 
