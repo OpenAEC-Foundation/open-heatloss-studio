@@ -91,8 +91,16 @@ pub const ISSO_51_2023_FORMULE3_3_ERRATUM: &str = "ISSO_51_2023_formule3_3_errat
 /// Tabel 2.8: DeltaU_TB per materiaaltype.
 pub const ISSO_51_2023_TABEL2_8: &str = "ISSO_51_2023_tabel2_8";
 
-/// Veiligheidsfactoren c_z per beveiligingsklasse.
-/// Tabel 2.10: c_z waarden.
+/// Specifieke opwarmtoeslag P [W/m²] (opwarmtoeslag-tabel).
+/// Tabel 2.10: P als functie van afkoeling (1 K / 2 K), gebouwzwaarte
+/// (ZL+L+M / Z) en toegestane opwarmtijd. Gebruikt in `Φ_hu = P × A_g`
+/// (zie `calc/heating_up.rs` + §4.3 Formule 4.15).
+///
+/// LET OP: dit is NIET de c_z-veiligheidsfactortabel. De c_z-factoren voor
+/// transmissie naar aangrenzende woningen (Formule 4.14) staan in **Tabel
+/// 2.16** (zie `calc/transmission.rs`), niet in Tabel 2.10. Een eerdere
+/// doc-comment labelde deze constante abusievelijk als "Veiligheidsfactoren
+/// c_z" — gecorrigeerd.
 pub const ISSO_51_2023_TABEL2_10: &str = "ISSO_51_2023_tabel2_10";
 
 /// Temperatuurcorrecties Delta_1, Delta_2, Delta_v (erratum).

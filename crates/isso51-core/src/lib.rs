@@ -182,21 +182,30 @@ fn build_summary(
     // --- Gedecomposeerde gebouwsom conform erratum 2023 ---
 
     // Φ_basis omvat alle continue, simultane verliezen op gebouwniveau:
-    // envelope + grond + water + infiltratie + systeemverliezen.
-    // Intra-woning transmissie (`h_t_adjacent_rooms`) is bewust uitgesloten —
-    // zero-sum over de woning, zie doc-comment op
-    // `TransmissionResult::h_t_adjacent_rooms`.
+    // envelope + grond + water + infiltratie. Intra-woning transmissie
+    // (`h_t_adjacent_rooms`) is bewust uitgesloten — zero-sum over de woning,
+    // zie doc-comment op `TransmissionResult::h_t_adjacent_rooms`.
     //
     // Φ_T,iae (h_t_unheated × Δθ) wordt al-dan-niet meegenomen afhankelijk
     // van `aggregation_method`. Zie `AggregationMethod` doc.
-    let phi_basis_total = match aggregation_method {
-        AggregationMethod::VabiCompat => {
-            total_envelope_no_iae + total_infiltration_loss + total_system_losses
-        }
-        AggregationMethod::NormStrict => {
-            total_envelope_loss + total_infiltration_loss + total_system_losses
-        }
+    //
+    // K3 (§3.5.3): de systeemverliezen (`total_system_losses`) horen volgens
+    // Formule 3.12 NIET in het schilvermogen Φ_HL,build. Ze tellen ALLEEN mee
+    // voor het verdeler-/opwekkervermogen Φ_HL,verdeler (Formule 3.13). Daarom
+    // berekenen we hier het schil-`Φ_basis` (zónder systeemverliezen) en voegen
+    // de systeemverliezen pas in de 3.13-tak toe. Alleen relevant bij
+    // `has_embedded_heating = true` (anders is `total_system_losses == 0`).
+    let phi_basis_envelope = match aggregation_method {
+        AggregationMethod::VabiCompat => total_envelope_no_iae + total_infiltration_loss,
+        AggregationMethod::NormStrict => total_envelope_loss + total_infiltration_loss,
     };
+
+    // Backward-compat: `phi_basis_total` is historisch INCLUSIEF
+    // systeemverliezen (en `connection_capacity` werd daaruit afgeleid). Om de
+    // bestaande veldsemantiek + golden-fixtures niet te breken behoudt
+    // `phi_basis_total` de 3.13-definitie (mét systeemverliezen). Het nieuwe
+    // schil-only getal staat in `phi_basis_build` (zie BuildingSummary).
+    let phi_basis_total = phi_basis_envelope + total_system_losses;
 
     // Φ_vent op gebouwniveau — formule 3.3 vs 3.4 afhankelijk van systeem.
     // Natuurlijke toevoer (A/C): infiltratie is onderdeel van toevoerlucht →
@@ -228,13 +237,25 @@ fn build_summary(
         phi_hu_building,
     );
 
-    let connection_capacity = phi_basis_total + phi_extra_quadratic;
+    // K3 §3.5.3 — twee verschillende grootheden:
+    //   Φ_HL,build  (Form. 3.12) = Φ_basis_envelope + Φ_extra        ← schilvermogen, ZONDER systeemverliezen
+    //   Φ_HL,verdeler (Form. 3.13) = Φ_HL,build + ΣΦ_add,i (= sys.)   ← verdeler-/opwekkervermogen, MÉT systeemverliezen
+    // De systeemverliezen (`total_system_losses`) zijn de ΣΦ_add,i-term.
+    let phi_hl_build = phi_basis_envelope + phi_extra_quadratic;
+    let phi_hl_verdeler = phi_hl_build + total_system_losses;
+
+    // Backward-compat: `connection_capacity` blijft de 3.13-waarde (= verdeler,
+    // mét systeemverliezen). Identiek aan `phi_basis_total + phi_extra` zoals
+    // vóór de K3-split, zodat golden-fixtures (zonder embedded heating →
+    // systeemverliezen = 0 → 3.12 == 3.13) ongewijzigd blijven.
+    let connection_capacity = phi_hl_verdeler;
 
     // Collectieve bijdrage sluit naburige gebouwen (woningscheidende wanden)
     // uit: bij collectieve installatie zit de buurwoning op vergelijkbare
     // θ_i, dus geen netto transport. Behoudt erratum-conforme kwadratische
     // sommatie voor de overige niet-simultane componenten. Gebruikt dezelfde
-    // `phi_basis_total` keuze (Vabi/NormStrict) als de individuele variant.
+    // `phi_basis_total` keuze (Vabi/NormStrict) als de individuele variant
+    // (inclusief systeemverliezen, want collectief == verdeler-context).
     let phi_extra_collective =
         calc::quadratic_sum::quadratic_sum(phi_vent_building, 0.0, phi_hu_building);
     let collective_contribution = phi_basis_total + phi_extra_collective;
@@ -252,6 +273,12 @@ fn build_summary(
         phi_t_iabe_building,
         phi_hu_building,
         phi_extra_quadratic,
+        // K3 §3.5.3 split.
+        phi_basis_build: phi_basis_envelope,
+        phi_hl_build,
+        phi_hl_verdeler,
+        // C2 §3.5.1 — herkomst van de Φ_basis-aggregatie expliciet maken.
+        aggregation_method,
     }
 }
 
@@ -700,6 +727,132 @@ mod tests {
             "Φ_hu = {} moet eindig zijn en gelijk aan 22 × A_g = {}",
             r1.heating_up.phi_hu,
             expected_phi_hu
+        );
+    }
+
+    /// K3 §3.5.3 — zónder ingebouwde verwarming zijn Formule 3.12
+    /// (`phi_hl_build`) en 3.13 (`phi_hl_verdeler`) identiek, en gelijk aan
+    /// `connection_capacity`. Geen systeemverliezen → ΣΦ_add,i = 0.
+    #[test]
+    fn test_k3_build_equals_verdeler_without_embedded_heating() {
+        let project = create_portiekwoning();
+        let s = calculate(&project).unwrap().summary;
+
+        assert_eq!(
+            s.total_system_losses, 0.0,
+            "portiekwoning heeft geen embedded heating → systeemverliezen 0"
+        );
+        assert!(
+            (s.phi_hl_build - s.phi_hl_verdeler).abs() < 1e-9,
+            "3.12 ({}) en 3.13 ({}) moeten gelijk zijn zonder systeemverliezen",
+            s.phi_hl_build,
+            s.phi_hl_verdeler
+        );
+        assert!(
+            (s.phi_hl_verdeler - s.connection_capacity).abs() < 1e-9,
+            "connection_capacity moet de 3.13-waarde (verdeler) zijn"
+        );
+        // Φ_HL,build = Φ_basis_build + Φ_extra.
+        assert!(
+            (s.phi_hl_build - (s.phi_basis_build + s.phi_extra_quadratic)).abs() < 1e-9,
+            "phi_hl_build moet phi_basis_build + phi_extra_quadratic zijn"
+        );
+        // Zonder systeemverliezen valt phi_basis_build samen met phi_basis_total.
+        assert!(
+            (s.phi_basis_build - s.phi_basis_total).abs() < 1e-9,
+            "zonder systeemverliezen: phi_basis_build == phi_basis_total"
+        );
+    }
+
+    /// K3 §3.5.3 — MÉT ingebouwde verwarming (vloerverwarming op een
+    /// exterior-vloer met systeemverliezen) moet `phi_hl_verdeler` (3.13)
+    /// strikt groter zijn dan `phi_hl_build` (3.12): het verschil is exact
+    /// `total_system_losses` (ΣΦ_add,i). Het schilvermogen 3.12 bevat ze NIET.
+    #[test]
+    fn test_k3_verdeler_exceeds_build_with_embedded_heating() {
+        use crate::model::enums::*;
+
+        let mut project = create_portiekwoning();
+        // Geef de woonkamer een geïsoleerde exterior-vloer mét vloerverwarming,
+        // zodat de systeemverlies-tak (room_load.rs) Φ_add,i > 0 produceert.
+        let room = &mut project.rooms[0];
+        room.constructions.push(construction::ConstructionElement {
+            id: "fh1".to_string(),
+            description: "Vloer met vloerverwarming naar buiten".to_string(),
+            area: 28.2,
+            u_value: 0.2, // R_c ≈ 1/0.2 − 0.17 − 0.04 ≈ 4.8 → fractie 0.10
+            boundary_type: BoundaryType::Exterior,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: true,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: true,
+            catalog_ref: None,
+            uw_breakdown: None,
+        });
+
+        let s = calculate(&project).unwrap().summary;
+
+        assert!(
+            s.total_system_losses > 0.0,
+            "embedded floor heating moet systeemverliezen > 0 geven, kreeg {}",
+            s.total_system_losses
+        );
+        // 3.13 = 3.12 + ΣΦ_add,i.
+        assert!(
+            s.phi_hl_verdeler > s.phi_hl_build,
+            "verdeler ({}) moet > build ({}) zijn met systeemverliezen",
+            s.phi_hl_verdeler,
+            s.phi_hl_build
+        );
+        assert!(
+            (s.phi_hl_verdeler - (s.phi_hl_build + s.total_system_losses)).abs() < 1e-6,
+            "verschil tussen 3.13 en 3.12 moet exact total_system_losses zijn: \
+             verdeler={}, build={}, sys={}",
+            s.phi_hl_verdeler,
+            s.phi_hl_build,
+            s.total_system_losses
+        );
+        // connection_capacity blijft de 3.13-waarde (backward-compat).
+        assert!(
+            (s.connection_capacity - s.phi_hl_verdeler).abs() < 1e-9,
+            "connection_capacity moet gelijk blijven aan phi_hl_verdeler (3.13)"
+        );
+        // Schilvermogen 3.12 = schil-basis + extra, ZONDER systeemverliezen.
+        assert!(
+            (s.phi_hl_build - (s.phi_basis_build + s.phi_extra_quadratic)).abs() < 1e-6,
+            "phi_hl_build moet phi_basis_build + phi_extra_quadratic zijn (zonder sys)"
+        );
+    }
+
+    /// C2 §3.5.1 — de actieve aggregatiemethode moet expliciet in het resultaat
+    /// staan, zodat een consument niet stilzwijgend de Vabi-variant aanziet voor
+    /// strikt-norm-conform. Default = VabiCompat.
+    #[test]
+    fn test_c2_aggregation_method_surfaced_in_result() {
+        use crate::model::enums::AggregationMethod;
+
+        // Default (VabiCompat).
+        let project = create_portiekwoning();
+        let s = calculate(&project).unwrap().summary;
+        assert_eq!(
+            s.aggregation_method,
+            AggregationMethod::VabiCompat,
+            "default-aggregatie moet als VabiCompat in het resultaat staan"
+        );
+
+        // Expliciet NormStrict moet doorwerken naar het resultaatveld.
+        let mut strict = create_portiekwoning();
+        strict.building.aggregation_method = AggregationMethod::NormStrict;
+        let s2 = calculate(&strict).unwrap().summary;
+        assert_eq!(
+            s2.aggregation_method,
+            AggregationMethod::NormStrict,
+            "NormStrict moet als zodanig in het resultaat staan"
         );
     }
 

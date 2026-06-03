@@ -1,11 +1,14 @@
 //! Integration tests: drive every fixture pair through `calculate_from_json`
 //! and compare numerically against the recorded `*_(result|expected).json`.
 //!
-//! Background (2026-05-12 audit):
-//! - `build_summary` in `lib.rs` uses a linear sum at building level instead
-//!   of the erratum-2023 quadratic sum (formule 3.11). The DR Engineering
-//!   fixture is expected to FAIL at `connection_capacity` (~6700 W expected
-//!   vs ~8121 W engine output). Do NOT widen the tolerance to mask this.
+//! Building-level aggregatie (status 2026-06-03): `build_summary` in `lib.rs`
+//! gebruikt de erratum-2023 **kwadratische** som (formule 3.11) op gebouwniveau
+//! — `connection_capacity = Φ_basis_total + √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)`.
+//! De DR Engineering-fixture (`fixture_dr_engineering_woningbouw`) **slaagt**
+//! hiermee binnen tolerantie (~6700 W). Een eerdere comment beschreef een
+//! lineaire-som-bug (engine ~8121 W) die de DR-test zou laten falen; die bug is
+//! gefixt en de comment is verwijderd om te voorkomen dat een toekomstige lezer
+//! een echte regressie wegredeneert als "verwacht falen".
 //!
 //! Expected fixture formats differ per source — see `extract_expected_room`
 //! and `extract_expected_connection_capacity`.
