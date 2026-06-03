@@ -302,6 +302,72 @@ pub enum ConstructionVariant {
     Vrijstaand,
 }
 
+/// Gebouwzwaarte (thermische massa) voor de opwarmtoeslag — ISSO 51:2023
+/// Afb. 2.6 / Tabel 2.10.
+///
+/// De norm onderscheidt twee zwaarte-categorieën als ingang voor Tabel 2.10:
+/// `ZL+L+M` (zeer licht / licht / middelzwaar) en `Z` (zwaar). De grens ligt
+/// bij de effectieve warmtecapaciteit per m² vloeroppervlak:
+/// `c_eff ≤ 70 Wh/K` → `ZL+L+M`, anders → `Z` (p.44).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ThermalMass {
+    /// `ZL+L+M` — zeer licht / licht / middelzwaar (`c_eff ≤ 70 Wh/K`).
+    /// Lagere kolom in Tabel 2.10 (snellere opwarming, lagere toeslag).
+    Light,
+    /// `Z` — zwaar (`c_eff > 70 Wh/K`). Hogere kolom in Tabel 2.10.
+    ///
+    /// Default-variant: bij onbekende `c_eff` is "zwaar" de conservatieve
+    /// (hoogste-toeslag) aanname, consistent met de overige veilige defaults.
+    #[default]
+    Heavy,
+}
+
+impl ThermalMass {
+    /// Effectieve-warmtecapaciteit-grens [Wh/K per m²] tussen `ZL+L+M` en `Z`.
+    /// ISSO 51:2023 p.44.
+    pub const C_EFF_THRESHOLD_WH_PER_K: f64 = 70.0;
+
+    /// Bepaal de gebouwzwaarte uit de effectieve warmtecapaciteit `c_eff`
+    /// [Wh/K]. `c_eff ≤ 70` → [`ThermalMass::Light`] (`ZL+L+M`), anders
+    /// [`ThermalMass::Heavy`] (`Z`). ISSO 51:2023 Afb. 2.6 (p.44).
+    pub fn from_c_eff(c_eff: f64) -> Self {
+        if c_eff <= Self::C_EFF_THRESHOLD_WH_PER_K {
+            Self::Light
+        } else {
+            Self::Heavy
+        }
+    }
+}
+
+/// Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3.
+///
+/// Bepaalt hoe de opwarmtoeslag `Φ_hu` wordt berekend. De opmerking-box op
+/// p.70 stelt: *"Bij nieuwbouw wordt altijd uitgegaan van regeling per
+/// verblijfsruimte of een zelflerende regeling."* — dus de nieuwbouw-scope
+/// kent exact de eerste twee takken. De kamerthermostaat (§4.3.3) is een
+/// bestaande-bouw-methode en valt buiten de huidige nieuwbouw-scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HeatingControlType {
+    /// §4.3.1 — regeling per verblijfsgebied (thermostatische afsluiters /
+    /// stooklijn). `Φ_hu,i = P × A_g` (Formule 4.15). Default voor nieuwbouw.
+    #[default]
+    PerZone,
+    /// §4.3.2 — zelflerende regeling (buitentemperatuur / opwarm-
+    /// karakteristiek stuurt de inschakeltijd). `Φ_hu,i = 0` (p.70).
+    SelfLearning,
+    /// §4.3.3 — kamerthermostaat (y-procentmethode, Formule 4.16/4.17).
+    ///
+    /// **BESTAANDE BOUW — BUITEN de huidige nieuwbouw-scope (Ronde 5).** De
+    /// y-procentmethode is nog niet geïmplementeerd; zie de TODO-marker in
+    /// `calc/heating_up.rs`. Een berekening met dit regeltype levert een
+    /// **harde [`crate::error::Isso51Error::InvalidInput`]** op (géén gegokte
+    /// fallback) — zo krijgt een third-party client geen stilzwijgend
+    /// niet-norm-conforme waarde. Kies §4.3.1 of §4.3.2 in de nieuwbouw-scope.
+    RoomThermostat,
+}
+
 /// Methode voor aggregatie van transmissieverliezen op gebouwniveau.
 ///
 /// ISSO 51:2023 §3.5.1 zegt letterlijk: `Φ_basis = Φ_T,ie + Φ_T,iae + Φ_T,ig + Φ_i − Φ_gain`,

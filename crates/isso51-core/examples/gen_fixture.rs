@@ -44,6 +44,10 @@ fn create_portiekwoning() -> Project {
             construction_variant: None,
             construction_year: None,
             aggregation_method: Default::default(),
+            heating_control_type: Default::default(),
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
         },
         climate: DesignConditions {
             theta_b_residential: 15.0,

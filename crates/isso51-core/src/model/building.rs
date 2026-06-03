@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use super::climate::DesignConditions;
 use super::enums::{
-    AggregationMethod, BuildingType, ConstructionVariant, DwellingClass, InfiltrationMethod,
-    SecurityClass,
+    AggregationMethod, BuildingType, ConstructionVariant, DwellingClass, HeatingControlType,
+    InfiltrationMethod, SecurityClass,
 };
 use super::room::Room;
 use super::ventilation::VentilationConfig;
@@ -132,6 +132,43 @@ pub struct Building {
     /// `AggregationMethod` doc voor verschillen (~17% op connection_capacity).
     #[serde(default)]
     pub aggregation_method: AggregationMethod,
+
+    // -------------------------------------------------------------------
+    // Opwarmtoeslag (Φ_hu) — ISSO 51:2023 §2.5.8 / §4.3 (Ronde 5, A1+A2).
+    // Alle velden hebben serde-defaults zodat bestaande project-JSONs en de
+    // Vabi-fixtures (die `has_night_setback=false` hebben → Φ_hu=0) ongewijzigd
+    // blijven werken.
+    // -------------------------------------------------------------------
+    /// Regeltype van de verwarmingsinstallatie (ISSO 51:2023 §4.3).
+    ///
+    /// Stuurt de opwarmtoeslag-tak: `PerZone` → `Φ_hu = P × A_g`,
+    /// `SelfLearning` → `Φ_hu = 0`, `RoomThermostat` → bestaande-bouw
+    /// (buiten scope, 5 W/m² fallback). Default = `PerZone` (nieuwbouw,
+    /// regeling per verblijfsgebied — de meest voorkomende nieuwbouw-keuze).
+    #[serde(default)]
+    pub heating_control_type: HeatingControlType,
+
+    /// Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de
+    /// gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).
+    ///
+    /// Optioneel: `None` → conservatieve aanname "zwaar" (`ThermalMass::Heavy`,
+    /// hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of
+    /// Formule 2.46 (`c_eff = C_eff / A_g`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub c_eff: Option<f64>,
+
+    /// Of de woning ná 2015 is gebouwd (nieuwbouw). Stuurt de afkoeling-
+    /// bepaling: nieuwbouw → 2 K (resp. 1 K bij Ū≤0,5). Default = `true`
+    /// (nieuwbouw-scope; bestaande bouw met Afb. 2.7-grafiek is nog niet
+    /// geïmplementeerd — zie TODO in `calc/heating_up.rs`).
+    #[serde(default = "default_true")]
+    pub built_after_2015: bool,
+
+    /// Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben.
+    /// Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag,
+    /// nachtverlaging is dan niet zinvol). Default = `false`.
+    #[serde(default)]
+    pub all_floor_heating: bool,
 }
 
 fn default_warmup_time() -> f64 {
@@ -140,4 +177,8 @@ fn default_warmup_time() -> f64 {
 
 fn default_floors() -> u32 {
     1
+}
+
+fn default_true() -> bool {
+    true
 }

@@ -78,6 +78,10 @@ mod tests {
                 construction_variant: None,
                 construction_year: None,
                 aggregation_method: Default::default(),
+                heating_control_type: Default::default(),
+                c_eff: None,
+                built_after_2015: true,
+                all_floor_heating: false,
             },
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {

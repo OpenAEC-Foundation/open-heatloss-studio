@@ -151,16 +151,28 @@ pub struct VentilationResult {
     pub norm_refs: Vec<&'static str>,
 }
 
-/// Heating-up allowance result.
+/// Heating-up allowance result (ISSO 51:2023 §2.5.8 / §4.3).
+///
+/// **Veldnamen herbestemd (Ronde 5, A1/A2):** de engine berekent de
+/// opwarmtoeslag nu volgens het 2023-model `Φ_hu = P × A_g` i.p.v. het oude
+/// 2017-model `f_RH × ΣA_metselwerk`. Om frontend/IFCX-consumers niet te breken
+/// zijn de bestaande veldnamen behouden maar van betekenis veranderd:
+/// - `f_rh` draagt nu **P** [W/m²] uit Tabel 2.10 (niet meer f_RH);
+/// - `accumulating_area` draagt nu **A_g** [m²] vloeroppervlak (niet meer Σ
+///   metselwerk-oppervlak).
+///
+/// Een echte rename (`f_rh` → `p`, `accumulating_area` → `floor_area`) inclusief
+/// frontend/schema is een Ronde-6 follow-up.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct HeatingUpResult {
-    /// Heating-up allowance Φ_hu in W.
+    /// Heating-up allowance Φ_hu in W (`P × A_g`).
     pub phi_hu: f64,
 
-    /// Heating-up factor f_RH in W/m².
+    /// Specifieke toeslag P in W/m² (Tabel 2.10). Was: f_RH (2017).
     pub f_rh: f64,
 
-    /// Accumulating surface area in m².
+    /// Gebruiksoppervlak A_g in m² waarop Φ_hu is berekend. Was: Σ
+    /// metselwerk-oppervlak (2017).
     pub accumulating_area: f64,
 
     /// ISSO 51 normreferenties gebruikt bij deze berekening.

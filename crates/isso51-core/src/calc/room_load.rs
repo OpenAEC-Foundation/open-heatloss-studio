@@ -4,7 +4,7 @@
 use crate::error::Result;
 use crate::model::building::Building;
 use crate::model::climate::DesignConditions;
-use crate::model::enums::{BoundaryType, InfiltrationMethod, VerticalPosition};
+use crate::model::enums::{BoundaryType, InfiltrationMethod, ThermalMass, VerticalPosition};
 use crate::model::room::Room;
 use crate::model::ventilation::VentilationConfig;
 use crate::result::{
@@ -52,7 +52,10 @@ fn height_factor(height_m: f64) -> f64 {
 /// * `building` - Building-level properties
 /// * `climate` - Design conditions (temperatures)
 /// * `vent_config` - Ventilation system configuration
-/// * `main_room_hu_pct` - Heating-up percentage from main room (None for main room)
+/// * `hu_cooling_k` - Afkoeling [K] voor de opwarmtoeslag (gebouwbreed; 2 K
+///   nieuwbouw resp. 1 K bij Ū≤0,5). Zie [`heating_up::newbuild_cooling_k`].
+/// * `hu_mass` - Gebouwzwaarte voor Tabel 2.10 (gebouwbreed). Zie
+///   [`heating_up::building_thermal_mass`].
 /// * `use_high_delta_v` - Whether Ū > 0.5 (true) or Ū ≤ 0.5 (false) for Δθ_v selection
 ///
 /// # Returns
@@ -64,7 +67,8 @@ pub fn calculate_room(
     building: &Building,
     climate: &DesignConditions,
     vent_config: &VentilationConfig,
-    main_room_hu_pct: Option<f64>,
+    hu_cooling_k: f64,
+    hu_mass: ThermalMass,
     use_high_delta_v: bool,
 ) -> Result<RoomResult> {
     let theta_i = room.design_temperature();
@@ -217,29 +221,15 @@ pub fn calculate_room(
     // because mechanical ventilation and infiltration are non-simultaneous events.
     let phi_vent = phi_v.max(0.0);
 
-    // --- Heating-up allowance ---
-    let is_main_room = main_room_hu_pct.is_none();
-    let accumulating_area: f64 = room
-        .constructions
-        .iter()
-        .filter(|c| {
-            matches!(
-                c.material_type,
-                crate::model::enums::MaterialType::Masonry
-            )
-        })
-        .map(|c| c.area)
-        .sum();
-
-    let (phi_hu, f_rh) = heating_up::calculate_heating_up(
-        building.building_type,
-        building.warmup_time,
-        accumulating_area,
-        phi_t,
-        phi_v,
-        is_main_room,
-        main_room_hu_pct,
-    );
+    // --- Heating-up allowance (ISSO 51:2023 §2.5.8 / §4.3, Formule 4.15) ---
+    // Φ_hu,i = P × A_g, met A_g = room.floor_area (per verblijfsruimte, §4.3.1)
+    // en P uit Tabel 2.10 (afkoeling × zwaarte × opwarmtijd). Vervangt het
+    // 2017-model `f_RH × ΣA_metselwerk`. `p_specific` [W/m²] en `a_g` [m²]
+    // worden in `HeatingUpResult` doorgegeven (zie veld-doc voor herbestemming
+    // van `f_rh` → P en `accumulating_area` → A_g).
+    let a_g = room.floor_area;
+    let (phi_hu, p_specific) =
+        heating_up::calculate_heating_up(building, a_g, hu_cooling_k, hu_mass)?;
 
     // --- System losses (ISSO 51 §2.9) ---
     // Scan for embedded heating elements facing exterior/ground/adjacent building.
@@ -362,12 +352,16 @@ pub fn calculate_room(
         },
         heating_up: HeatingUpResult {
             phi_hu,
-            f_rh,
-            accumulating_area,
-            norm_refs: vec![
-                formulas::ISSO_51_2023_PARAG4_3,
-                formulas::ISSO_51_2023_TABEL4_6,
-            ],
+            // `f_rh` draagt nu P [W/m²] (Tabel 2.10), `accumulating_area` draagt
+            // A_g [m²]. Velden bewust niet hernoemd om frontend/IFCX-consumers
+            // niet te breken — rename is een Ronde-6 follow-up.
+            f_rh: p_specific,
+            accumulating_area: a_g,
+            // §4.3 = opwarmtoeslag-berekening (Φ_hu = P × A_g, Formule 4.15).
+            // De Tabel-2.10-referentie is bewust niet als losse constante
+            // toegevoegd: `formulas::ISSO_51_2023_TABEL2_10` is daar (mis)gelabeld
+            // als c_z-tabel — opschonen is een Ronde-6 follow-up.
+            norm_refs: vec![formulas::ISSO_51_2023_PARAG4_3],
         },
         system_losses: SystemLossResult {
             phi_floor_loss,
