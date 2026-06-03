@@ -65,20 +65,41 @@ pub fn building_thermal_mass(building: &Building) -> ThermalMass {
 /// `Ok((Φ_hu [W], P [W/m²]))` — `0` als de tak geen toeslag geeft.
 ///
 /// # Errors
-/// [`Isso51Error::InvalidInput`] wanneer `heating_control_type` =
-/// [`HeatingControlType::RoomThermostat`]: de y-procentmethode (§4.3.3) is een
-/// bestaande-bouw-methode buiten de nieuwbouw-scope en is niet geïmplementeerd.
-/// Bewust een expliciete error i.p.v. een gegokte fallback — zo krijgt een
-/// third-party client geen stilzwijgend niet-norm-conforme waarde.
+/// [`Isso51Error::InvalidInput`] in twee gevallen — beide bewust een expliciete
+/// error i.p.v. een gegokte fallback, zodat een third-party client geen
+/// stilzwijgend niet-norm-conforme waarde krijgt:
+/// 1. `built_after_2015 == false`: de bestaande-bouw afkoeling (Afb. 2.7) is
+///    niet geïmplementeerd; de nieuwbouw-P-waarden (2 K/1 K) zouden anders
+///    onterecht worden toegepast. Wordt **niet** geraakt als Φ_hu sowieso 0 is
+///    (geen nachtverlaging) — de guard staat ná de night-setback-short-circuit.
+/// 2. `heating_control_type == RoomThermostat`: de y-procentmethode (§4.3.3) is
+///    een bestaande-bouw-methode buiten de nieuwbouw-scope en is niet
+///    geïmplementeerd.
 pub fn calculate_heating_up(
     building: &Building,
     floor_area: f64,
     cooling_k: f64,
     mass: ThermalMass,
 ) -> Result<(f64, f64)> {
-    // Geen nachtverlaging → geen opwarmtoeslag (p.69).
+    // Geen nachtverlaging → geen opwarmtoeslag (p.69). MOET vóór de
+    // bestaande-bouw-guard: een project zonder nachtverlaging heeft Φ_hu = 0
+    // ongeacht bouwjaar, dus daar hoort géén error (Vabi-fixtures hebben
+    // night_setback=false en zouden anders breken).
     if !building.has_night_setback || building.warmup_time < 0.01 {
         return Ok((0.0, 0.0));
+    }
+
+    // Bestaande bouw (woning vóór 2015) valt buiten de nieuwbouw-scope: de
+    // afkoeling komt dan uit de Afb. 2.7-grafiek (nog niet geïmplementeerd),
+    // niet uit de vaste 2 K/1 K. Harde error i.p.v. stilzwijgend een
+    // nieuwbouw-P toepassen. Zie newbuild_cooling_k + Ronde 5-scope.
+    if !building.built_after_2015 {
+        return Err(Isso51Error::InvalidInput(
+            "Bestaande-bouw afkoeling (ISSO 51 Afb. 2.7) is niet geïmplementeerd in de \
+             nieuwbouw-scope. Zet built_after_2015=true (regeling per verblijfsgebied/zelflerend) \
+             of wacht op de bestaande-bouw follow-up (§4.3.3 + Afb 2.7)."
+                .to_string(),
+        ));
     }
 
     // Vloerverwarming in alle vertrekken → traag systeem, nachtverlaging niet
@@ -209,6 +230,39 @@ mod tests {
         b.all_floor_heating = true;
         let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
         assert_eq!(phi_hu, 0.0);
+    }
+
+    #[test]
+    fn test_existing_building_with_setback_errors() {
+        // Bestaande bouw (vóór 2015) + nachtverlaging aan → expliciete error:
+        // de Afb. 2.7-afkoeling is niet geïmplementeerd, dus geen stilzwijgende
+        // nieuwbouw-P. (FIX A — stille-fout-gate.)
+        let mut b = newbuild_building();
+        b.built_after_2015 = false;
+        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap_err();
+        assert!(
+            matches!(err, Isso51Error::InvalidInput(_)),
+            "verwacht InvalidInput, kreeg {err:?}"
+        );
+        let msg = err.to_string();
+        assert!(msg.contains("Afb. 2.7"), "error mist Afb. 2.7-context: {msg}");
+        assert!(
+            msg.contains("built_after_2015"),
+            "error mist veld-hint built_after_2015: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_existing_building_without_setback_is_ok_zero() {
+        // Bestaande bouw ZONDER nachtverlaging → Φ_hu = 0, GÉÉN error. De
+        // night-setback-short-circuit staat vóór de bestaande-bouw-guard, zodat
+        // de Vabi-fixtures (night_setback=false) niet breken.
+        let mut b = newbuild_building();
+        b.built_after_2015 = false;
+        b.has_night_setback = false;
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        assert_eq!(phi_hu, 0.0);
+        assert_eq!(p, 0.0);
     }
 
     #[test]

@@ -72,7 +72,8 @@ fn nearest_index(axis: &[f64], value: f64) -> usize {
 ///   Buiten bereik wordt geklemd op de dichtstbijzijnde tabelkolom.
 /// * `mass` - Gebouwzwaarte (ZL+L+M of Z), bepaald uit `c_eff`.
 /// * `warmup_time_h` - Toegestane opwarmtijd [h] (0,5 / 1 / 2 / 3 / 4).
-///   Bij `< 0,01` (geen nachtverlaging) wordt 0 teruggegeven.
+///   Bij `< 0,01` (geen nachtverlaging) wordt 0 teruggegeven. Positieve waarden
+///   buiten het tabelbereik worden eerst geklemd op `[0,5; 4,0]` h (zie hieronder).
 ///
 /// # Returns
 /// P [W/m² vloeroppervlak].
@@ -82,7 +83,21 @@ pub fn specific_heating_up_allowance(cooling_k: f64, mass: ThermalMass, warmup_t
         return 0.0;
     }
 
-    let warmup_idx = nearest_index(&WARMUP_TIMES_H, warmup_time_h);
+    // Defensieve clamp (FIX B): bij standalone-aanroep zou een waarde in
+    // (0,01; 0,5) via `nearest_index` toevallig op de 0,5h-rij (hoogste P)
+    // landen, en > 4 h op de 4h-rij. Dat is het gewenste gedrag, maar maak het
+    // expliciet i.p.v. impliciet-uit-afronding. Het calc-pad
+    // (`calculate_heating_up`) levert sowieso alleen tabel-getrouwe waarden
+    // (default 2 h) aan, dus dit is géén gedragswijziging daar.
+    let warmup_min = WARMUP_TIMES_H[0]; // 0,5 h
+    let warmup_max = WARMUP_TIMES_H[WARMUP_TIMES_H.len() - 1]; // 4,0 h
+    let warmup_clamped = warmup_time_h.clamp(warmup_min, warmup_max);
+    debug_assert!(
+        warmup_clamped.is_finite(),
+        "warmup_time_h moet eindig zijn na clamp"
+    );
+
+    let warmup_idx = nearest_index(&WARMUP_TIMES_H, warmup_clamped);
     let cooling_idx = nearest_index(&COOLING_LEVELS_K, cooling_k);
     let mass_idx = match mass {
         ThermalMass::Light => 0,
@@ -143,6 +158,31 @@ mod tests {
         assert_eq!(
             specific_heating_up_allowance(2.0, ThermalMass::Heavy, 0.0),
             0.0
+        );
+    }
+
+    #[test]
+    fn test_warmup_clamp_below_and_above_range() {
+        // FIX B — standalone-robuustheid: een positieve opwarmtijd onder de
+        // kleinste tabelwaarde (0,5 h) klemt expliciet op de 0,5h-rij; boven
+        // de grootste (4 h) klemt op de 4h-rij. Géén paniek/out-of-bounds.
+        // 0,2 h → 0,5h-rij: 2K/Z/0,5h = 35.
+        assert_eq!(
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 0.2),
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 0.5)
+        );
+        assert_eq!(
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 0.2),
+            35.0
+        );
+        // 10 h → 4h-rij: 2K/Z/4h = 17.
+        assert_eq!(
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 10.0),
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 4.0)
+        );
+        assert_eq!(
+            specific_heating_up_allowance(2.0, ThermalMass::Heavy, 10.0),
+            17.0
         );
     }
 
