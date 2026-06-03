@@ -23,6 +23,12 @@ const R_SI: f64 = 0.13;
 /// buitenlucht (ISSO 53 / NTA 8800, m²K/W).
 const R_SE: f64 = 0.04;
 
+/// Buiten-overgangsweerstand R_se voor grondcontactvlakken (ISO 6946, m²K/W).
+/// Anders dan buitenlucht is er geen buitenconvectie/-straling aan een
+/// grondvlak → R_se = 0,00. Klein effect op de R_c-drempelkeuze, maar
+/// technisch correct.
+const R_SE_GROUND: f64 = 0.0;
+
 /// R_c-drempel uit ISSO 53 tabel 2.3 voetnoot 4 (m²K/W).
 pub const RC_THRESHOLD: f64 = 3.5;
 
@@ -64,11 +70,18 @@ fn is_external_envelope(element: &ConstructionElement) -> bool {
 
 /// Construction-R_c afgeleid uit de U-waarde: `R_c = 1/U − R_si − R_se`,
 /// geclampt op ≥ 0. Bij U ≤ 0 (degeneraat) → R_c = 0.
+///
+/// R_se is boundary-afhankelijk: 0,04 voor buitenlucht (Exterior), 0,00 voor
+/// grondcontact (Ground) — een grondvlak kent geen buitenconvectie (ISO 6946).
 fn element_rc(element: &ConstructionElement) -> f64 {
     if element.u_value <= 0.0 {
         return 0.0;
     }
-    (1.0 / element.u_value - R_SI - R_SE).max(0.0)
+    let r_se = match element.boundary_type {
+        BoundaryType::Ground => R_SE_GROUND,
+        _ => R_SE,
+    };
+    (1.0 / element.u_value - R_SI - r_se).max(0.0)
 }
 
 #[cfg(test)]
@@ -145,6 +158,33 @@ mod tests {
     fn ground_counts_as_envelope() {
         let room = room_with(vec![ext_element(20.0, 0.15, BoundaryType::Ground)]);
         assert!(room_rc_high(&room)); // R_c ≈ 6,5 ≥ 3,5
+    }
+
+    #[test]
+    fn ground_uses_zero_r_se() {
+        // R_c-drempel R_c = 3,5. Exterior: 1/U − R_si − 0,04 = 3,5 → U = 0,2725.
+        // Ground:   1/U − R_si − 0,00 = 3,5 → U = 0,27548.
+        // Een U = 0,274 ligt ertussenin: als Ground (R_se=0) → R_c ≈ 3,519 ≥ 3,5;
+        // als Exterior (R_se=0,04) zou R_c ≈ 3,479 < 3,5 zijn. De Ground-tak moet
+        // dus de boven-drempel-uitkomst geven dankzij R_se = 0.
+        let u = 0.274;
+        let rc_ground = 1.0 / u - 0.13 - 0.0; // ≈ 3,519
+        let rc_exterior = 1.0 / u - 0.13 - 0.04; // ≈ 3,479
+        assert!(rc_ground >= RC_THRESHOLD, "sanity: ground R_c moet ≥ drempel zijn");
+        assert!(rc_exterior < RC_THRESHOLD, "sanity: exterior R_c moet < drempel zijn");
+
+        let room_ground = room_with(vec![ext_element(20.0, u, BoundaryType::Ground)]);
+        assert!(
+            room_rc_high(&room_ground),
+            "Ground met R_se=0 moet boven de drempel uitkomen voor U={u}"
+        );
+
+        // Tegenproef: dezelfde U als Exterior (R_se=0,04) valt onder de drempel.
+        let room_ext = room_with(vec![ext_element(20.0, u, BoundaryType::Exterior)]);
+        assert!(
+            !room_rc_high(&room_ext),
+            "Exterior met R_se=0,04 moet onder de drempel vallen voor U={u}"
+        );
     }
 
     #[test]

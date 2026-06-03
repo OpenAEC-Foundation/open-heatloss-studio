@@ -162,8 +162,22 @@ pub fn calculate_u_equivalent(
     // Calculate B' geometric factor: B' = 2 × A_vl / O
     let b_prime = (2.0 * area / perimeter).clamp(B_PRIME_MIN, B_PRIME_MAX);
 
-    // Clamp depth (0 ≤ z ≤ 5). z = 0 is een normale maaiveld-grondvloer:
-    // 0^n₃ = 0 (n₃ > 0), dus de z-term valt netjes weg, geen guard nodig.
+    // Clamp depth (0 ≤ z ≤ 5).
+    //
+    // Vloer vs wand verschillen fundamenteel in de z-term:
+    // - Vloer: n₃ = +0,9296 (> 0) → z = 0 geeft 0^n₃ = 0, de z-term valt netjes
+    //   weg. z = 0 is een normale maaiveld-grondvloer → geldig, geen guard.
+    // - Wand: n₃ = −0,1406 (< 0) → z = 0 geeft 0^n₃ = +∞ → denom = ∞ →
+    //   U_equiv = 0 → stille clamp op 0,1. Misleidend: een grondwand heeft per
+    //   definitie z > 0 (hij steekt in de grond). z ≤ 0 voor een wand is dus
+    //   degenerate geometrie → expliciete Err i.p.v. een stil-fout 0,1.
+    if is_wall && depth <= 0.0 {
+        return Err(crate::error::Isso53Error::InvalidInput(format!(
+            "grondwand vereist z > 0 (diepte onder maaiveld); kreeg z = {depth}. \
+             Een wand met z ≤ 0 is degenerate geometrie — voor een maaiveld-\
+             grondvloer gebruik je vertical_position = Floor, niet Wall."
+        )));
+    }
     let z_clamped = depth.clamp(0.0, Z_DEPTH_MAX);
 
     // Get parameters for floor or wall
@@ -254,6 +268,90 @@ mod tests {
         let u = result.unwrap();
         // z=0 vs z=1 verschilt alleen via de kleine c₃·z^n₃-term (~0,026).
         assert!((u - 0.2266).abs() < 0.002, "z=0 floor U_equiv ≈ 0,2266, got {u}");
+    }
+
+    /// Review-item 2: een grondWAND met z = 0 mag NIET stilzwijgend 0,1
+    /// teruggeven. Voor wanden is n₃ = −0,1406 → 0^n₃ = +∞ → denom = ∞ →
+    /// U_equiv = 0 → clamp 0,1 (misleidend). De z=0-wand-guard moet i.p.v.
+    /// daarvan een Err geven (degenerate geometrie).
+    #[test]
+    fn test_ground_wall_z_zero_errors_not_silent_clamp() {
+        let result = calculate_u_equivalent(100.0, 40.0, 0.0, 0.4, true);
+        assert!(
+            result.is_err(),
+            "z=0 grondwand moet een Err geven, geen stille clamp; kreeg {result:?}"
+        );
+        // Borg dat het oude stille-fout-gedrag (Ok(0,1)) niet terugkomt.
+        if let Ok(u) = result {
+            panic!("z=0 wand gaf stilzwijgend U_equiv = {u} i.p.v. een error");
+        }
+    }
+
+    /// Review-item 2 (tegenproef): een wand met z > 0 blijft een geldige,
+    /// positieve U_equiv geven — de guard raakt alleen z ≤ 0.
+    #[test]
+    fn test_ground_wall_positive_z_still_ok() {
+        let result = calculate_u_equivalent(100.0, 40.0, 1.5, 0.4, true);
+        assert!(result.is_ok(), "wand met z>0 moet geldig blijven: {result:?}");
+        assert!(result.unwrap() >= U_EQUIV_MIN);
+    }
+
+    /// D4 (end-to-end): een z=0 maaiveld-grondvloer met auto-U_equiv (perimeter
+    /// + depth gezet, u_equivalent = 0,0) levert via `calculate_h_t_ground` een
+    /// geldig, positief H_T,ig — geen weigering op de callsite. Verifieert het
+    /// volledige pad form. 4.21 → 4.24 met z = 0.
+    #[test]
+    fn test_d4_ground_floor_z_zero_end_to_end() {
+        use crate::model::{ConstructionElement, BoundaryType, MaterialType, VerticalPosition, DesignConditions, enums::HeatingSystem};
+        use crate::model::construction::GroundParameters;
+
+        let climate = DesignConditions { theta_e: -10.0, theta_me: 9.0, theta_b_adjacent_building: 15.0 };
+
+        let mk = |z: f64| ConstructionElement {
+            id: "vloer".into(),
+            description: "Maaiveld-grondvloer".into(),
+            area: 100.0,
+            u_value: 0.4,
+            boundary_type: BoundaryType::Ground,
+            material_type: MaterialType::NonMasonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Floor,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: Some(GroundParameters {
+                u_equivalent: 0.0, // forceer auto-berekening via form. 4.24
+                ground_water_factor: 1.0,
+                f_ig: Some(1.0),
+                perimeter: Some(40.0),
+                depth: Some(z),
+            }),
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+
+        // z = 0 (maaiveld) moet gewoon werken — geen Err, positief verlies.
+        let floor_z0 = mk(0.0);
+        let h_z0 = calculate_h_t_ground(&[&floor_z0], 20.0, &climate, HeatingSystem::default());
+        assert!(h_z0.is_ok(), "z=0 grondvloer moet via callsite geldig zijn: {h_z0:?}");
+        assert!(h_z0.unwrap() > 0.0, "z=0 grondvloer moet positief H_T,ig geven");
+
+        // Norm-voorbeelden z = 0 / 0,5 / 5 zijn alle geldig en positief.
+        // In de 4.24-quotiëntvorm zit z in de NOEMER (c₃·z^n₃, n₃>0): grotere z
+        // → grotere noemer → licht láger U_equiv → licht láger H_T,ig. Het
+        // effect is klein (c₃ = 0,0266). We borgen geldigheid + de juiste
+        // (licht dalende) richting, geen weigering op enige z in [0, 5].
+        let h0 = calculate_h_t_ground(&[&floor_z0], 20.0, &climate, HeatingSystem::default()).unwrap();
+        let h_half = calculate_h_t_ground(&[&mk(0.5)], 20.0, &climate, HeatingSystem::default()).unwrap();
+        let h_five = calculate_h_t_ground(&[&mk(5.0)], 20.0, &climate, HeatingSystem::default()).unwrap();
+        for (z, h) in [(0.0, h0), (0.5, h_half), (5.0, h_five)] {
+            assert!(h > 0.0, "z={z} grondvloer moet positief H_T,ig geven, kreeg {h}");
+        }
+        assert!(
+            h_half <= h0 && h_five <= h_half,
+            "H_T,ig daalt licht met z (z in noemer): z0={h0}, z0.5={h_half}, z5={h_five}"
+        );
     }
 
     /// A4 worked example (ref-doc §A4 / ISSO 53 p.65): Vloer, U_k = 2,43,

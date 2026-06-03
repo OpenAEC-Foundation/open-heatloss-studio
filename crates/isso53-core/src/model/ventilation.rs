@@ -3,7 +3,21 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::enums::VentilationSystemType;
+use super::enums::{VentilationSystemType, VentilatieBouwfase};
+
+/// Backward-compatibele serde-default voor [`VentilationConfig::bouwfase`].
+///
+/// Kiest **Nieuwbouw** zodat bestaande opgeslagen projecten en third-party
+/// JSON zonder `bouwfase`-veld exact het oude gedrag behouden (de ventilatie-
+/// debieten waren vóór D2 hardcoded op `VentilatieBouwfase::Nieuwbouw`). Een
+/// stille `Default::default()` zou hier niet bestaan — de enum heeft bewust
+/// géén `Default`-impl, omdat de norm-correcte keuze projectafhankelijk is
+/// (bestaande bouw mag de soepelere tabel 4.10-eisen gebruiken). Die keuze
+/// hoort via de UI gemaakt te worden; deze default is puur compat, geen
+/// norm-aanbeveling.
+fn default_ventilatie_bouwfase() -> VentilatieBouwfase {
+    VentilatieBouwfase::Nieuwbouw
+}
 
 /// Ventilation system configuration.
 /// ISSO 53 supports systems A/B/C/D/E (E is new for ISSO 53).
@@ -12,6 +26,14 @@ use super::enums::VentilationSystemType;
 pub struct VentilationConfig {
     /// Ventilatiesysteemtype (A/B/C/D/E).
     pub system_type: VentilationSystemType,
+
+    /// Bouwfase die de minimale ventilatie-eisen bepaalt (ISSO 53 tabel 4.10):
+    /// `Nieuwbouw` (strenger) vs `Bestaand` (soepeler dm³/s·pp). Voorheen
+    /// hardcoded op `Nieuwbouw` (D2-bevinding: ~+89% Φ_V voor bestaande bouw).
+    /// Serde-default = `Nieuwbouw` voor backward-compat (zie
+    /// [`default_ventilatie_bouwfase`]).
+    #[serde(default = "default_ventilatie_bouwfase")]
+    pub bouwfase: VentilatieBouwfase,
 
     /// Whether the system has heat recovery (WTW).
     #[serde(default)]
