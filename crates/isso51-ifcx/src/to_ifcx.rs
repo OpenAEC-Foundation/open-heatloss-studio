@@ -281,7 +281,7 @@ pub fn result_to_ifcx(
             ns::CALC_REHEAT,
             &Isso51CalcReheat {
                 phi_rh: room_result.heating_up.phi_hu,
-                f_rh: room_result.heating_up.f_rh,
+                p: room_result.heating_up.p,
             },
         );
 

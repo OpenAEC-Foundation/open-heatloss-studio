@@ -251,8 +251,8 @@ fn build_report_data(project: &Project, result: &ProjectResult) -> schema::Repor
                     title: Some("Opwarmtoeslag & systeemverliezen".into()),
                     headers: vec!["Component".into(), "Waarde".into()],
                     rows: vec![
-                        vec!["f_RH".into(), format!("{:.2}", room.heating_up.f_rh)],
-                        vec!["A_acc".into(), format!("{:.2} m²", room.heating_up.accumulating_area)],
+                        vec!["P".into(), format!("{:.2}", room.heating_up.p)],
+                        vec!["A_g".into(), format!("{:.2} m²", room.heating_up.a_g)],
                         vec!["Φ_hu".into(), format!("{:.0} W", room.heating_up.phi_hu)],
                         vec!["Φ_sys (totaal)".into(), format!("{:.0} W", room.system_losses.phi_system_total)],
                     ],

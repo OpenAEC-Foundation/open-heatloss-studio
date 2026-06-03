@@ -445,8 +445,8 @@ function buildRoomDetailSection(
         title: "Opwarmtoeslag & systeemverliezen",
         headers: ["Component", "Waarde"],
         rows: [
-          ["f_RH", fmt2(room.heating_up.f_rh)],
-          ["A_acc", `${fmt2(room.heating_up.accumulating_area)} m²`],
+          ["P", fmt2(room.heating_up.p)],
+          ["A_g", `${fmt2(room.heating_up.a_g)} m²`],
           ["\u03A6_hu", `${fmtW(room.heating_up.phi_hu)} W`],
           ["\u03A6_sys (totaal)", `${fmtW(room.system_losses.phi_system_total)} W`],
         ],

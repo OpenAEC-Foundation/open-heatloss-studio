@@ -225,8 +225,7 @@ pub fn calculate_room(
     // Φ_hu,i = P × A_g, met A_g = room.floor_area (per verblijfsruimte, §4.3.1)
     // en P uit Tabel 2.10 (afkoeling × zwaarte × opwarmtijd). Vervangt het
     // 2017-model `f_RH × ΣA_metselwerk`. `p_specific` [W/m²] en `a_g` [m²]
-    // worden in `HeatingUpResult` doorgegeven (zie veld-doc voor herbestemming
-    // van `f_rh` → P en `accumulating_area` → A_g).
+    // worden in `HeatingUpResult` doorgegeven als `p` resp. `a_g`.
     let a_g = room.floor_area;
     let (phi_hu, p_specific) =
         heating_up::calculate_heating_up(building, a_g, hu_cooling_k, hu_mass)?;
@@ -352,11 +351,9 @@ pub fn calculate_room(
         },
         heating_up: HeatingUpResult {
             phi_hu,
-            // `f_rh` draagt nu P [W/m²] (Tabel 2.10), `accumulating_area` draagt
-            // A_g [m²]. Velden bewust niet hernoemd om frontend/IFCX-consumers
-            // niet te breken — rename is een Ronde-6 follow-up.
-            f_rh: p_specific,
-            accumulating_area: a_g,
+            // `p` = specifieke opwarmtoeslag [W/m²] (Tabel 2.10), `a_g` = A_g [m²].
+            p: p_specific,
+            a_g,
             // §4.3 = opwarmtoeslag-berekening (Φ_hu = P × A_g, Formule 4.15).
             // `formulas::ISSO_51_2023_TABEL2_10` is de P-tabel (W/m²) en hoort
             // hier conceptueel bij; bewust niet toegevoegd om de bestaande
