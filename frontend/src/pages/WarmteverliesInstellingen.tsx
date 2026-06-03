@@ -9,6 +9,7 @@ import { Select } from "../components/ui/Select";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useNormSwitch } from "../components/layout/NormSwitchContext";
 import { VentilationPanel } from "../components/projectSetup/VentilationPanel";
+import { Isso53BuildingFields } from "../components/projectSetup/Isso53BuildingFields";
 import { useProjectStore } from "../store/projectStore";
 import { formatArea, formatDecimals } from "../lib/formatNumber";
 import { useRunCalculation } from "../hooks/useRunCalculation";
@@ -150,6 +151,8 @@ export function WarmteverliesInstellingen() {
           </div>
         </Card>
 
+        {isIsso53 && <Isso53BuildingFields />}
+
         {/* Building */}
         <Card title="Gebouw">
           <div className="grid grid-cols-3 gap-4">
@@ -172,8 +175,9 @@ export function WarmteverliesInstellingen() {
               value={building.total_floor_area}
               onChange={(e) => updateBuilding({ total_floor_area: numVal(e.target.value) })}
             />
-            {/* qv10 voor ISSO 53 verborgen: de luchtdichtheidsklasse op de
-                Project-tab (Isso53BuildingFields) is daar leidend. */}
+            {/* qv10 voor ISSO 53 verborgen: de luchtdichtheidsklasse in de
+                ISSO 53-instellingen hierboven (Isso53BuildingFields) is daar
+                leidend. */}
             {!isIsso53 && (
               <>
                 <Input
