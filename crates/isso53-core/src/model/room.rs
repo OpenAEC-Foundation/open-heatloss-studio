@@ -55,7 +55,7 @@ pub struct Room {
     /// Indien `Some` gebruikt de ventilatieberekening deze waarde direct en
     /// negeert de BBL/bezetting-afleiding én de has_mechanical_supply-gate.
     /// `None` (oudere fixtures) → reguliere afleiding.
-    #[serde(default)]
+    #[serde(default, alias = "ventilationQvEstablished")]
     pub ventilation_q_v_established: Option<f64>,
 }
 

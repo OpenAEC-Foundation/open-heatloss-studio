@@ -224,7 +224,7 @@ function mapRoom(
     // (Rust `ventilation_q_v_established: Option<f64>`). Leeg q_v → BBL-
     // placeholder (ISSO 53 verblijfsgebied: 0,9 dm³/s·m²). De kern gebruikt
     // altijd deze waarde.
-    ventilationQvEstablished:
+    ventilationQVEstablished:
       (room.ventilation_rate ?? 0.9 * room.floor_area) / 1000,
   };
 }
