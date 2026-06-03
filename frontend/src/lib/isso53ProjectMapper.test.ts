@@ -236,10 +236,10 @@ describe("toIsso53LegacyProject", () => {
     // Geen ventilation_rate op de room → BBL-placeholder 0,9 × 25 m² = 22.5
     // dm³/s → 0.0225 m³/s (key matcht Rust `ventilation_q_v_established` via
     // rename_all=camelCase).
-    expect(r.ventilationQvEstablished).toBeCloseTo(0.0225, 12);
+    expect(r.ventilationQVEstablished).toBeCloseTo(0.0225, 12);
   });
 
-  it("leidt ventilationQvEstablished af uit room.ventilation_rate (dm³/s → m³/s)", () => {
+  it("leidt ventilationQVEstablished af uit room.ventilation_rate (dm³/s → m³/s)", () => {
     // Ingevuld q_v op de room → die waarde /1000, BBL-placeholder genegeerd.
     const base = makeProject();
     const projWithQv: Project = {
@@ -248,7 +248,7 @@ describe("toIsso53LegacyProject", () => {
     };
     const outQv = toIsso53LegacyProject(projWithQv, building53, rooms53);
     expect(
-      (outQv.rooms as Array<Record<string, unknown>>)[0].ventilationQvEstablished,
+      (outQv.rooms as Array<Record<string, unknown>>)[0].ventilationQVEstablished,
     ).toBeCloseTo(0.05, 12);
 
     // Leeg/undefined q_v → BBL-placeholder 0,9 × floor_area (25 m²) = 22.5
@@ -256,7 +256,7 @@ describe("toIsso53LegacyProject", () => {
     const outEmpty = toIsso53LegacyProject(makeProject(), building53, rooms53);
     expect(
       (outEmpty.rooms as Array<Record<string, unknown>>)[0]
-        .ventilationQvEstablished,
+        .ventilationQVEstablished,
     ).toBeCloseTo(0.0225, 12);
 
     // ventilation_rate expliciet null → ook BBL-placeholder.
@@ -267,7 +267,7 @@ describe("toIsso53LegacyProject", () => {
     const outNull = toIsso53LegacyProject(projNull, building53, rooms53);
     expect(
       (outNull.rooms as Array<Record<string, unknown>>)[0]
-        .ventilationQvEstablished,
+        .ventilationQVEstablished,
     ).toBeCloseTo(0.0225, 12);
   });
 
@@ -564,7 +564,7 @@ describe("toIsso53LegacyProject", () => {
     expect(r.bezetting).toEqual({ personen: null, personenPerM2Default: null });
     expect(r.infiltrationReductionZ).toBe(1.0);
     // Geen ventilation_rate → BBL-placeholder 0,9 × 25 m² = 0.0225 m³/s.
-    expect(r.ventilationQvEstablished).toBeCloseTo(0.0225, 12);
+    expect(r.ventilationQVEstablished).toBeCloseTo(0.0225, 12);
   });
 });
 
