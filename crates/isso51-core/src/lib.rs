@@ -79,6 +79,12 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
             .filter(|c| c.boundary_type == model::enums::BoundaryType::Exterior)
             .fold((a, au), |(a, au), c| (a + c.area, au + c.area * c.u_value))
     });
+    // Fallback bij een lege externe schil (total_a_ext == 0.0 — bv. een puur
+    // intern vertrek of een ontaarde test-input): geen division-by-zero, maar
+    // Ū = 1.0. Dat is een conservatieve keuze — Ū = 1.0 > 0.5 → afkoeling 2 K
+    // (hoogste nieuwbouw-P) en delta_v_high — i.p.v. stilzwijgend de
+    // best-geïsoleerde 1 K-tak te kiezen voor een gebouw waarvan de isolatie
+    // onbekend is.
     let u_bar = if total_a_ext > 0.0 { total_au_ext / total_a_ext } else { 1.0 };
     let use_high_delta_v = u_bar > 0.5;
 
@@ -646,6 +652,54 @@ mod tests {
         assert!(
             r1.total_heat_loss > 0.0,
             "Total heat loss should be positive"
+        );
+    }
+
+    /// FIX C — lege externe schil (`total_a_ext == 0.0`) mag niet paniekken of
+    /// NaN produceren; de `u_bar`-fallback van 1.0 moet de conservatieve 2 K-tak
+    /// kiezen (P uit de 2 K-kolom van Tabel 2.10), niet de 1 K-tak.
+    #[test]
+    fn test_u_bar_fallback_empty_envelope_uses_2k() {
+        let mut project = create_portiekwoning();
+        // Strip alle Exterior-constructies → total_a_ext == 0.0 in `calculate`.
+        for room in &mut project.rooms {
+            room.constructions
+                .retain(|c| c.boundary_type != BoundaryType::Exterior);
+        }
+        // Sanity: er is daadwerkelijk geen exterior-oppervlak meer.
+        let total_a_ext: f64 = project
+            .rooms
+            .iter()
+            .flat_map(|r| &r.constructions)
+            .filter(|c| c.boundary_type == BoundaryType::Exterior)
+            .map(|c| c.area)
+            .sum();
+        assert_eq!(total_a_ext, 0.0, "test-precondititie: geen exterior-vlak");
+
+        // Night setback staat aan in de fixture → Φ_hu wordt écht berekend.
+        let result = calculate(&project).expect("mag niet paniekken bij lege schil");
+        let r1 = &result.rooms[0];
+
+        // u_bar-fallback = 1.0 → afkoeling 2 K → 2K/Z/2h = P = 22 W/m²
+        // (geen c_eff → Heavy default). Bevestigt dat de fallback de 2 K-kolom
+        // pakt en geen NaN/0 oplevert.
+        assert_eq!(
+            calc::heating_up::newbuild_cooling_k(1.0),
+            2.0,
+            "u_bar-fallback moet 2 K geven"
+        );
+        assert!(
+            (r1.heating_up.f_rh - 22.0).abs() < 1e-9,
+            "P = {} (verwacht 22 via 2 K-fallback)",
+            r1.heating_up.f_rh
+        );
+        let expected_phi_hu = 22.0 * r1.heating_up.accumulating_area;
+        assert!(
+            r1.heating_up.phi_hu.is_finite()
+                && (r1.heating_up.phi_hu - expected_phi_hu).abs() < 1e-6,
+            "Φ_hu = {} moet eindig zijn en gelijk aan 22 × A_g = {}",
+            r1.heating_up.phi_hu,
+            expected_phi_hu
         );
     }
 
