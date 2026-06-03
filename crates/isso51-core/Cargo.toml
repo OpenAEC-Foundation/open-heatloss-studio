@@ -22,3 +22,16 @@ vabi-import = ["dep:rusqlite", "dep:zip", "dep:tempfile"]
 
 [dev-dependencies]
 approx = "0.5"
+
+# Het `vabi_import` example gebruikt `import::import_vabi_project`, dat alleen
+# achter de `vabi-import` feature wordt ge-re-export (zie `import/mod.rs`).
+# Zonder deze sectie probeert Cargo het example onder default-features te
+# compileren → `E0432 unresolved import`. Met `required-features` slaat
+# `cargo build --examples` (zonder feature) het over en compileert
+# `cargo build --examples --features vabi-import` het wél.
+# (De overige examples — calc_from_file, dr_diff, eval_external, gen_fixture,
+# gen_schemas, gen_woonboot_expected — gebruiken alleen niet-gated API en
+# hebben geen `[[example]]`-sectie nodig.)
+[[example]]
+name = "vabi_import"
+required-features = ["vabi-import"]

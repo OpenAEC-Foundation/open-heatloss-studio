@@ -293,4 +293,43 @@ pub struct BuildingSummary {
     /// tot `connection_capacity`.
     #[serde(default)]
     pub phi_extra_quadratic: f64,
+
+    /// Schil-`Φ_basis` ZONDER systeemverliezen in W (K3 §3.5.3).
+    ///
+    /// `phi_basis_build = Φ_basis_envelope` (envelope + grond + water +
+    /// infiltratie), exclusief de systeemverliezen van ingebouwde verwarming.
+    /// Dit is de Φ_basis-term uit Formule **3.12** (`Φ_HL,build`). Verschilt van
+    /// `phi_basis_total` (dat de systeemverliezen WÉL bevat, voor Formule 3.13)
+    /// uitsluitend bij projecten met `has_embedded_heating = true`.
+    #[serde(default)]
+    pub phi_basis_build: f64,
+
+    /// Schilvermogen Φ_HL,build in W — Formule **3.12** (§3.5.3).
+    ///
+    /// `Φ_HL,build = Φ_basis_envelope + Φ_extra` — **ZONDER** systeemverliezen.
+    /// Dit is het warmteverlies van de schil; gebruik dit voor het dimensioneren
+    /// van de warmteafgifte per vertrek/woning. Bij projecten zónder ingebouwde
+    /// verwarming geldt `phi_hl_build == phi_hl_verdeler == connection_capacity`.
+    #[serde(default)]
+    pub phi_hl_build: f64,
+
+    /// Verdeler-/opwekkervermogen Φ_HL,verdeler in W — Formule **3.13** (§3.5.3).
+    ///
+    /// `Φ_HL,verdeler = Φ_HL,build + ΣΦ_add,i` — **MÉT** systeemverliezen
+    /// (`total_system_losses`). Gebruik dit voor het bepalen van het vermogen
+    /// van de opwekker of de flow door een verdeler. Identiek aan
+    /// `connection_capacity` (dat om backward-compat-redenen de 3.13-waarde
+    /// behoudt).
+    #[serde(default)]
+    pub phi_hl_verdeler: f64,
+
+    /// Actieve aggregatiemethode voor Φ_basis op gebouwniveau (C2 §3.5.1).
+    ///
+    /// Maakt expliciet of `phi_basis_total` / `connection_capacity` is berekend
+    /// met de Vabi-conventie (`Φ_T,iae` uitgesloten, markt-default) of strikt
+    /// volgens ISSO 51:2023 §3.5.1 (`Φ_T,iae` inbegrepen). Voorkomt dat een
+    /// gebruiker die "ISSO 51-conform" verwacht stilzwijgend de Vabi-variant
+    /// krijgt zonder dat het resultaat dit aangeeft.
+    #[serde(default)]
+    pub aggregation_method: crate::model::enums::AggregationMethod,
 }

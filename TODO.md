@@ -4,7 +4,7 @@
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
 > **ISSO 53 is voorgetrokken** (blokken A–C) vóór ISSO 51 (D–E).
-> **Voortgang:** R1 (D1,B1,A6) ✅`f815c1f` · R2 (D3,B3) ✅`bb70f7e` · R3a (A5) ✅`ce1ff3e` · R3b (A4+U_equiv-fix+A7) ✅`42eeeb9` · R4 (D2+D4+review-guards) ✅`fdbf39e` · dual-review 3a+3b ✅ (akkoord) · **R5 (ISSO 51 A1+A2 opwarmtoeslag P×A_g, nieuwbouw-scope) ✅ — 170 isso51-tests groen.** **Rest: Ronde 6 (afronding).** Formules: `audit-reports/07-isso53-formules-ref.md` (ISSO 53) + `08-isso51-opwarmtoeslag-ref.md` (ISSO 51).
+> **Voortgang:** R1 ✅`f815c1f` · R2 ✅`bb70f7e` · R3a ✅`ce1ff3e` · R3b ✅`42eeeb9` · R4 ✅`fdbf39e` · review 3a+3b ✅ · R5 (ISSO 51 P×A_g) ✅`b65de61` + review-fixes ✅`3ffd13f` · review R5 ✅ (Ollama+coördinator; Codex kon niet — ChatGPT-account) · **R6 backend ✅ — 6a ISSO 53 (K2+V2+C1) 141 groen + 6b ISSO 51 (K3+C2+quick-wins) 177 groen.** **Rest: Ronde 6c — UI (frontend).** Formules: `audit-reports/07-...md` + `08-...md`.
 
 ### 🌅 MORGENOCHTEND — START HIER (aanbevolen volgorde)
 
@@ -19,7 +19,11 @@
 3. ~~**Ronde 4 — D2 + D4 (ISSO 53 common-case) backend-spoor.**~~ ✅ **GEDAAN.** D2: `VentilationConfig::bouwfase` (`model/ventilation.rs`) + `#[serde(default=Nieuwbouw)]` (backward-compat, géén norm-aanbeveling — projectkeuze via UI), `ventilation.rs` leest config → +89% bevestigd (6,5 vs 3,44 dm³/s·pp). D4: z=0-grondvloer was al opgelost door 3b-quotiëntvorm (audit-tekst sloeg op pre-3b machtvorm); e2e-test toegevoegd (z=0/0,5/5 geldig). Review-guards: z=0-**wand** → `Err(InvalidInput)` (n₃<0 → +inf→stille clamp); `R_SE_GROUND=0,0` in `rc_high.rs` (ISO 6946). 139 lib-tests groen (+6), geen golden-shift. **UI-dropdown (bouwfase) verschoven naar Ronde 6 U-blok.**
    - [ ] **Ceiling-grond z=0 edge** (review-twijfel) — `calculate_f_ig_auto` behandelt Ceiling-grondvlak als floor-params; de z=0-wand-guard raakt alleen `VerticalPosition::Wall`, niet Ceiling. Zeldzaam, noteren bij toekomstig Ceiling-grond-modelleren.
 4. ~~**Ronde 5 — ISSO 51 A1 + A2 (opwarmtoeslag 2023-rewrite).**~~ ✅ **GEDAAN (nieuwbouw-scope).** `Φ_hu=P×A_g` met geverifieerde Tabel 2.10 (`audit-reports/08-isso51-opwarmtoeslag-ref.md`), afkoeling 2K/1K, regeltype §4.3.1/4.3.2, thermostaat→Err. Fout-test weg, V1-tests toegevoegd. 170 groen, Vabi-fixtures onveranderd (Φ_hu=0). Bestaande-bouw afkoeling (Afb 2.7) + §4.3.3 y-methode = follow-up (zie D-blok).
-5. **Ronde 6 — afronding (LAATSTE).** ISSO 53: K2 (gelijktijdigheid bronvermogen), UI-gaten U1-U6 (B-blok) **+ bouwfase-dropdown (D2-UI, backend klaar Ronde 4)**, test-aanscherping (C-blok V2 + split Φ_V/Φ_I), twijfel-items A3 + A4-vervolg `\|a·b\|`-teller PDF-check, Vabi C1/C2-markering (F-blok). ISSO 51: **K3** (Φ_HL,build 3.12 vs verdeler 3.13 split), **vabi_import.rs example-fix** (`[[example]] required-features`), **V3** stale comment, **veld-rename** `f_rh`→P/`accumulating_area`→A_g, **formulas.rs** Tabel-2.10-mislabel, **C2** VabiCompat-aggregatie. UI-gaten ISSO 51 nieuwbouw: regeltype-selector + nieuwbouw-flag + opwarmtijd-veld (backend klaar Ronde 5).
+5. **Ronde 6 — afronding (LAATSTE).**
+   - ✅ **6a ISSO 53 backend (GEDAAN):** K2 gelijktijdigheidsfactor (`simultaneity_factor`, default 1,0, grijpt aan op Φ_source 5.1/5.9) · V2 Φ_V/Φ_I-check gesplitst + toleranties verstrakt (DR Φ_T 10→4%, 3floors totaal 5→2,5%; geen expected-W gewijzigd) · C1 `infiltration_method_origin` (Isso53Norm/VabiCompat) in result.
+   - ✅ **6b ISSO 51 backend (GEDAAN):** K3 split `phi_hl_build` (3.12) / `phi_hl_verdeler` (3.13); `connection_capacity` blijft 3.13 (= aansluit-/opwekkervermogen) · C2 `aggregation_method` in result · example-fix (`[[example]] required-features`) · V3 stale comment · formulas.rs doc-mislabel.
+   - ⬜ **6c UI (frontend, REST):** U-blok U1-U6 (ISSO 53) · bouwfase-dropdown (D2, backend klaar R4) · ISSO 51 nieuwbouw-flag + regeltype-selector + opwarmtijd-veld (backend klaar R5) · gelijktijdigheidsfactor-veld (backend klaar 6a) · **veld-rename** `f_rh`→P / `accumulating_area`→A_g (raakt frontend+ifcx) · rapport-weergave van `infiltration_method_origin` + `aggregation_method` + `phi_hl_build`/`verdeler`.
+   - ⬜ **Resterende laag-prio backend (latere sessie):** A3-twijfelitems + A4-vervolg `\|a·b\|`-teller PDF-check (ISSO 53) · bestaande-bouw afkoeling Afb 2.7 + §4.3.3 y-methode (ISSO 51) · A5-vervolg tweezijdige adjacent-stratificatie.
 
 
 ### A. ISSO 53 — calc-conformiteit (urgent eerst)
@@ -31,7 +35,7 @@
 - [x] **A4 [M]** ✅ GEDAAN Ronde 3b — ΔU_TB in U_k + U_equiv machtvorm→quotiëntvorm gecorrigeerd (was stille clamp 0,1) + 2 Tabel-4.3-fouten. Worked-example p.65 reproduceert. PDF-dubbelcheck `a·b`-teller = A4-vervolg.
 - [x] **A7 [M]** ✅ GEDAAN Ronde 3b — form. 4.39 in ventilatie + infiltratie (4.30) via `delta_theta_v` (datalaag 3a) + nieuwe `calc/rc_high.rs` voor kolomkeuze. WTW-4.38-tak geparkeerd tot U5. Vabi-divergentie op infiltratie = A7-vervolg.
 - [ ] **A3 [M]** — `calc/heating_up.rs:106-110` §4.8.3-reductie `−H_v·Δθ` wordt via project-brede vlag óók op natuurlijk geventileerde ruimten toegepast → Φ_hu te laag/0.
-- [ ] **K2 [M]** — `lib.rs:93` / `calc/source_capacity.rs:38,79` sommeren Σ Φ_hu onvoorwaardelijk; geen gelijktijdigheids-selectie (§4.1/§5.1) → overdimensionering Φ_source.
+- [x] **K2 [M]** ✅ GEDAAN Ronde 6a — `HeatingUpConfig.simultaneity_factor` (serde-default 1,0) grijpt aan op Φ_source (5.1+5.9); per-vertrek φ_hu + rapporttotaal ongereduceerd. + `BuildingSummary.heating_up_simultaneity_factor` voor transparantie.
 - [x] **A5 [H]** ✅ GEDAAN Ronde 3a (Δθ₁ exterior + vide-datalaag + Δθ_v-datalaag; adjacent geparkeerd) — PDF-bevestigd (tab 2.3 p.21-22 + voetnoot 2) — `tables/temperature_stratification.rs` had alléén Δθ₂ (1 call-site `ground.rs:189`, correct). Ontbreekt: **Δθ₁** (+4/+3/+2/+1/0/0,5 per systeem; nodig in form. 3.4/3.5, 4.5/4.6, 4.11/4.12, 4.15/4.16, 4.19/4.20 → ~+10% op dak/vloer-boven-buitenlucht), **Δθ_v** (=A7), Δθ_a1/Δθ_a2, en vide-correctie **Δθ₁×(h/4)** bij h>4m (voetnoot 2). Volledige tabel in `audit-reports/00-SAMENVATTING.md`. Mogelijk verklaart dit de verborgen +5,0% op dak-zwaar vertrek 3.10a.
 - [ ] **D5 [H]** — `calc/shell.rs:88-94` voorontwerp-schil grove vaste aannames (0,5 ach + 0,00001 m³/s·m²) = niet norm-conform hfst 3. Fix: hfst 3 implementeren of API als niet-normatief labelen.
 
@@ -55,8 +59,8 @@
 - [ ] **U6** — vide/vertrekhoogte >4m: per-vertrek-calc leest `room.height` niet (raakt A5).
 
 ### C. ISSO 53 — testdekking
-- [ ] **V2** — toleranties aanscherpen: `vabi_houtfabriek_3floors_golden.rs:48,54` (6% laat 3.10a +5% door); `vabi_dr_golden.rs:77,92` (10%, expected 3059 W vs snapshot 3165 W = +3,5%, nog ~190 W slack).
-- [ ] Split `vabi_golden.rs:37` gecombineerde Φ_V+Φ_I-check → aparte Φ_V, Φ_I, q_v, H_v, q_i, H_i (fouten compenseren nu).
+- [x] **V2** ✅ GEDAAN Ronde 6a — toleranties verstrakt tot net boven de werkelijke afwijking (DR Φ_T 10→4%, DR Φ_I 5→2,5%, 3floors totaal 5→2,5%, Φ_I eigen 4%), geen expected-W gewijzigd.
+- [x] Split `vabi_golden.rs:37` ✅ GEDAAN Ronde 6a — Φ_V (=0, WTW) + Φ_I apart i.p.v. gecombineerd.
 - [ ] Test bestaande-bouw ventilatiefase (dekt D2) + afzuig-only toilet/bad/keuken-eisen.
 - [ ] End-to-end fixture met `source_fraction_z` (bronvermogen 5.1/5.9 heeft alleen synthetische units).
 - [ ] Guard/test voor vertrekhoogte >4m (scope-grens, raakt A5).
@@ -68,17 +72,17 @@
 - [x] **A2 [M]** ✅ GEDAAN Ronde 5 — afkoeling: nieuwbouw→2K, **Ū≤0,50→1K** (uit `u_bar`); zwaarte `c_eff≤70→ZL+L+M` else Z; opwarmtijd default 2h (Afb 2.6). Δt-uit-`building_type`-tabel weg.
 - [x] **A1b** ✅ GEDAAN Ronde 5 — §4.3.1 P×A_g / §4.3.2 zelflerend→0 / vloerverw.-overal→0 / geen-nachtverlaging→0. **§4.3.3 kamerthermostaat → harde `InvalidInput`-error** (bestaande-bouw, buiten nieuwbouw-scope; géén stille 5 W/m²-gok).
   - [ ] **A1b-vervolg [M]** — bestaande-bouw: Afb 2.7-afkoeling-grafiek + §4.3.3 y-procentmethode (Form. 4.16/4.17). Buiten nieuwbouw-scope, gemarkeerd met `// TODO Ronde 5-vervolg`.
-- [ ] **K3 [M]** — `lib.rs:204,218-225,257` `connection_capacity` telt systeemverliezen mee (strijdig met Form. 3.12; horen alleen in 3.13). Alleen bij embedded heating.
-- [ ] **vabi_import.rs [L]** — example compileert niet (`import_vabi_project` alleen onder `#[cfg(feature="vabi-import")]`). Fix: `[[example]]` met `required-features = ["vabi-import"]` in `Cargo.toml` (geen code-wijziging).
+- [x] **K3 [M]** ✅ GEDAAN Ronde 6b — split `phi_hl_build` (3.12, zonder sys.verliezen) / `phi_hl_verdeler` (3.13, met). `connection_capacity` blijft 3.13 (=aansluit-/opwekkervermogen, minste breuk). Additieve velden, golden onveranderd (sys=0 → 3.12==3.13).
+- [x] **vabi_import.rs [L]** ✅ GEDAAN Ronde 6b — `[[example]] required-features=["vabi-import"]` in Cargo.toml; alleen `vabi_import` had het nodig.
 
 ### E. ISSO 51 — testdekking
 - [x] **V1** ✅ GEDAAN Ronde 5 — unit-tests mét nachtverlaging die de `P×A_g`-kern écht uitvoeren (2K/Z/2h→P=22, 2K/ZL+L+M/2h→P=13, 1K/ZL+L+M/2h→P=7 tegen Tabel 2.10) + Ū≤0,5→1K-clamp + zelflerend→0 + thermostaat→Err.
-- [ ] **V3** — `integration_test.rs:5-11` comment claimt dat DR moet falen op linear-sum; achterhaald (`lib.rs:257` doet quadratic). Opschonen.
+- [x] **V3** ✅ GEDAAN Ronde 6b — header herschreven naar actuele kwadratische-som-staat (DR slaagt ~6700 W); achterhaalde "moet falen"-claim weg.
 - [ ] `integration_test.rs:323-334` slaat per-veld-checks over voor ruimten <1 W → kan teken-/componentfouten verbergen vóór clamp.
 
 ### F. Cross-cutting / Vabi-keuzes (hybride: markeren + dubbel testen)
-- [ ] **C1** — `tables/nen8088.rs` infiltratie power-law (Δp=3,14) = Vabi-reproductie, niet ISSO 53 → expliciet markeren in rapport-output.
-- [ ] **C2** — `isso51 lib.rs:218-225` `VabiCompat`-aggregatie sluit Φ_T,iae uit (afwijkend van Form. 3.10). Verifieer tegen §3.5.1; zet ISSO-conforme variant naast de Vabi-variant.
+- [x] **C1** ✅ GEDAAN Ronde 6a — `result::InfiltrationMethodOrigin{Isso53Norm,VabiCompat}` + `BuildingSummary.infiltration_method_origin` (Δp=3,14 = VabiCompat expliciet in result).
+- [x] **C2** ✅ GEDAAN Ronde 6b — `BuildingSummary.aggregation_method` surfaced in result (VabiCompat-default niet omgegooid; NormStrict §3.5.1 ongewijzigd geverifieerd). formulas.rs Tabel-2.10 doc-mislabel ook gecorrigeerd.
 - [ ] **frost_protection** — orphan in isso53-mapper (stuurt altijd null), wél isso51-relevant → opruimen of wiren.
 
 ---

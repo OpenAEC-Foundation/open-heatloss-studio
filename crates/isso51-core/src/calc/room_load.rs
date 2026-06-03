@@ -358,9 +358,9 @@ pub fn calculate_room(
             f_rh: p_specific,
             accumulating_area: a_g,
             // §4.3 = opwarmtoeslag-berekening (Φ_hu = P × A_g, Formule 4.15).
-            // De Tabel-2.10-referentie is bewust niet als losse constante
-            // toegevoegd: `formulas::ISSO_51_2023_TABEL2_10` is daar (mis)gelabeld
-            // als c_z-tabel — opschonen is een Ronde-6 follow-up.
+            // `formulas::ISSO_51_2023_TABEL2_10` is de P-tabel (W/m²) en hoort
+            // hier conceptueel bij; bewust niet toegevoegd om de bestaande
+            // norm_refs-output stabiel te houden voor frontend/IFCX-consumers.
             norm_refs: vec![formulas::ISSO_51_2023_PARAG4_3],
         },
         system_losses: SystemLossResult {
