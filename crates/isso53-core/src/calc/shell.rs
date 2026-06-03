@@ -238,6 +238,7 @@ mod tests {
             climate: DesignConditions::default(),
             ventilation: VentilationConfig {
                 system_type: VentilationSystemType::SystemB,
+                bouwfase: VentilatieBouwfase::Nieuwbouw,
                 has_heat_recovery: false,
                 heat_recovery_efficiency: None,
                 frost_protection: None,

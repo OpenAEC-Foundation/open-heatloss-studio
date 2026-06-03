@@ -50,7 +50,7 @@ pub fn calculate_ventilation(
     heating_system: HeatingSystem,
 ) -> Result<VentilationResult> {
     // Calculate ventilation flow rate q_v in m³/s
-    let q_v = calculate_ventilation_flow_rate(room)?;
+    let q_v = calculate_ventilation_flow_rate(room, config.bouwfase)?;
 
     // Δθ_v-kolomkeuze: oppervlakte-gewogen R_c van de uitwendige
     // scheidingsconstructies (tabel 2.3 voetnoot 4).
@@ -102,7 +102,11 @@ pub fn calculate_phi_vent(
 }
 
 /// Calculate ventilation flow rate q_v in m³/s based on room occupancy and requirements.
-fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
+///
+/// `bouwfase` (tabel 4.10) bepaalt het ventilatiedebiet per persoon:
+/// `Nieuwbouw` (strenger) vs `Bestaand` (soepeler). Vóór D2 stond dit
+/// hardcoded op `Nieuwbouw`, wat bestaande-bouw-projecten ~+89% Φ_V gaf.
+fn calculate_ventilation_flow_rate(room: &Room, bouwfase: VentilatieBouwfase) -> Result<f64> {
     // Fase 3 (uitvoering): een vastgestelde toevoer-q_v overrulet alles.
     // Wordt direct als q_v gebruikt; negeert de has_mechanical_supply-gate,
     // de requirement-lookup én de personen-/bezetting-afleiding.
@@ -139,8 +143,8 @@ fn calculate_ventilation_flow_rate(room: &Room) -> Result<f64> {
         None => area_based,
     };
 
-    // Get ventilation rate per person in dm³/s
-    let dm3_s_per_person = ventilation_rate_per_person(req, VentilatieBouwfase::Nieuwbouw)
+    // Get ventilation rate per person in dm³/s (bouwfase-afhankelijk, D2).
+    let dm3_s_per_person = ventilation_rate_per_person(req, bouwfase)
         .unwrap_or(DEFAULT_VENTILATION_RATE_DM3_S_PP);
 
     // Convert to m³/s: q_v = (people × dm³/s per person) / 1000
@@ -223,6 +227,7 @@ mod tests {
 
         let config_no_wtw = VentilationConfig {
             system_type: VentilationSystemType::SystemD,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -233,6 +238,7 @@ mod tests {
 
         let config_with_wtw = VentilationConfig {
             system_type: VentilationSystemType::SystemD,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: true,
             heat_recovery_efficiency: Some(0.85),
             frost_protection: None,
@@ -272,6 +278,7 @@ mod tests {
         let room = create_test_room();
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -295,6 +302,7 @@ mod tests {
         let room = create_test_room();
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemD,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: true,
             heat_recovery_efficiency: Some(0.8),
             frost_protection: None,
@@ -326,6 +334,7 @@ mod tests {
 
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -348,6 +357,7 @@ mod tests {
         // q_v = people × 6,5/1000  →  H_v = people × 6,5 × 1,2 = people × 7,8.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -387,6 +397,7 @@ mod tests {
         let room = create_test_room();
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemD,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: true,
             heat_recovery_efficiency: Some(0.85),
             frost_protection: None,
@@ -410,6 +421,7 @@ mod tests {
         // de hele projectberekening blokkeerde).
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -446,6 +458,7 @@ mod tests {
 
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -469,6 +482,7 @@ mod tests {
 
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -489,6 +503,7 @@ mod tests {
         // de gate grijpt niet in, q_v > 0.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -524,6 +539,7 @@ mod tests {
         // functie, bezetting of supply-gate.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -545,6 +561,7 @@ mod tests {
         // Vastgestelde q_v overrulet de has_mechanical_supply==Some(false)-gate.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -569,6 +586,7 @@ mod tests {
         // Some(0.0) → q_v == 0 (expliciet geen toevoer).
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -591,6 +609,7 @@ mod tests {
         // Defensief: negatieve waarde wordt geclamped op 0.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -611,6 +630,7 @@ mod tests {
         // None → reguliere afleiding ongewijzigd; identiek aan de smoke-test.
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -638,6 +658,7 @@ mod tests {
 
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -674,6 +695,7 @@ mod tests {
         let room = create_test_room();
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -699,6 +721,7 @@ mod tests {
     fn test_a7_rc_high_picks_half_kelvin_column() {
         let config = VentilationConfig {
             system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
             has_heat_recovery: false,
             heat_recovery_efficiency: None,
             frost_protection: None,
@@ -718,6 +741,61 @@ mod tests {
         room_low.bezetting.personen = Some(5.0);
         let v_low = calculate_ventilation(&room_low, &config, 20.0, -10.0, HeatingSystem::Vloerverwarming).unwrap();
         assert!((v_low.f_v - 29.0 / 30.0).abs() < 1e-9, "R_c<3,5 → f_v=29/30, kreeg {}", v_low.f_v);
+    }
+
+    /// D2: bouwfase ontkoppeld van de hardcoded `Nieuwbouw`. Voor Kantoorruimte
+    /// is het tabel-4.10-debiet 6,5 dm³/s·pp nieuwbouw vs 3,44 dm³/s·pp bestaand
+    /// → nieuwbouw geeft 6,5/3,44 ≈ 1,890× = +89% Φ_V t.o.v. bestaande bouw.
+    /// Vóór D2 kreeg elke bestaande-bouw-ruimte stilzwijgend het nieuwbouw-debiet.
+    #[test]
+    fn test_d2_bouwfase_decouples_ventilation_rate() {
+        let mut room = create_test_room();
+        room.bezetting.personen = Some(5.0); // forceer personen-gedreven debiet
+
+        let base = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let config_nieuw = VentilationConfig { bouwfase: VentilatieBouwfase::Nieuwbouw, ..base.clone() };
+        let config_bestaand = VentilationConfig { bouwfase: VentilatieBouwfase::Bestaand, ..base };
+
+        let nieuw = calculate_ventilation(&room, &config_nieuw, 20.0, -10.0, HeatingSystem::default()).unwrap();
+        let bestaand = calculate_ventilation(&room, &config_bestaand, 20.0, -10.0, HeatingSystem::default()).unwrap();
+
+        // f_v identiek (1,0) voor beide → ratio zit volledig in q_v.
+        assert!((nieuw.f_v - 1.0).abs() < 1e-9);
+        assert!((bestaand.f_v - 1.0).abs() < 1e-9);
+
+        // q_v-ratio = 6,5 / 3,44 ≈ 1,8895.
+        let ratio = nieuw.phi_vent / bestaand.phi_vent;
+        let expected = 6.5 / 3.44;
+        assert!(
+            (ratio - expected).abs() < 1e-6,
+            "nieuwbouw/bestaand Φ_V-ratio verwacht {expected:.4} (≈+89%), kreeg {ratio:.4}"
+        );
+        // Sanity: +89% afwijking, niet bit-identiek.
+        assert!((ratio - 1.89).abs() < 0.01, "ratio moet ~1,89 zijn, kreeg {ratio}");
+    }
+
+    /// D2-regressie: de serde-default voor `bouwfase` is `Nieuwbouw`, dus een
+    /// project zonder expliciet veld behoudt exact het oude (pre-D2) gedrag.
+    #[test]
+    fn test_d2_serde_default_is_nieuwbouw_backward_compat() {
+        // JSON zonder bouwfase-veld → moet als Nieuwbouw deserialiseren.
+        let json = r#"{"systemType":"systemB","hasHeatRecovery":false,"hasPreheating":false}"#;
+        let config: VentilationConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            config.bouwfase,
+            VentilatieBouwfase::Nieuwbouw,
+            "ontbrekend bouwfase-veld moet op Nieuwbouw defaulten (backward-compat)"
+        );
     }
 
     fn create_test_room() -> Room {
