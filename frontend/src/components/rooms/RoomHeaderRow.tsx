@@ -17,6 +17,8 @@ interface RoomHeaderRowProps {
   onRemove: () => void;
   ventOpen?: boolean;
   onToggleVent?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 /**
@@ -29,6 +31,8 @@ export function RoomHeaderCells({
   onRemove,
   ventOpen,
   onToggleVent,
+  collapsed,
+  onToggleCollapse,
 }: RoomHeaderRowProps) {
   const norm = useProjectStore((s) => s.norm);
   const thetaI =
@@ -60,6 +64,25 @@ export function RoomHeaderCells({
     <>
       <td className="border-r border-[var(--oaec-border-subtle)] px-2 py-1 font-medium">
         <div className="flex items-center justify-between gap-1">
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="shrink-0 rounded p-0.5 text-on-surface-muted hover:text-on-surface"
+              title={collapsed ? "Grensvlakken tonen" : "Grensvlakken verbergen"}
+            >
+              <svg
+                className={`h-3.5 w-3.5 transition-transform ${collapsed ? "" : "rotate-90"}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          )}
           <EditableCell
             value={room.name}
             onChange={(v) => onUpdate({ name: v })}

@@ -20,6 +20,7 @@ function roomInternalTemp(room: Room): number {
 interface VentilationRowProps {
   room: Room;
   onUpdate: (partial: Partial<Room>) => void;
+  heavyBottomBorder?: boolean;
 }
 
 /**
@@ -29,7 +30,11 @@ interface VentilationRowProps {
  * Als q_v leeg is, wordt het BBL minimum als placeholder getoond
  * en door de Rust core automatisch berekend.
  */
-export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
+export function VentilationRow({
+  room,
+  onUpdate,
+  heavyBottomBorder,
+}: VentilationRowProps) {
   const { t } = useTranslation();
 
   // Norm-aware: ISSO 51 woningen vs. ISSO 53 utiliteit.
@@ -167,7 +172,9 @@ export function VentilationRow({ room, onUpdate }: VentilationRowProps) {
   );
 
   return (
-    <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-accent-soft)]">
+    <tr
+      className={`${heavyBottomBorder ? "border-b-2 border-[var(--oaec-border)]" : "border-b border-[var(--oaec-border-subtle)]"} bg-[var(--oaec-accent-soft)]`}
+    >
       <td colSpan={11} className="px-3 py-2">
         <div className="flex items-center gap-6 text-xs">
           {/* q_v in dm³/s + m³/h naast elkaar — beide editable, syncen via 1 dm³/s = 3,6 m³/h */}
