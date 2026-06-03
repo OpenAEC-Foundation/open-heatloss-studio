@@ -204,6 +204,7 @@ mod tests {
             warmup_hours_weekday: 2.0,
             warmup_hours_weekend: 4.0,
             mechanical_supply_off: true, // ventilatie uit → a = 1
+            simultaneity_factor: 1.0,
         };
 
         let h_v = 6.672;
@@ -250,6 +251,7 @@ mod tests {
             warmup_hours_weekday: 2.0,
             warmup_hours_weekend: 4.0,
             mechanical_supply_off: false,
+            simultaneity_factor: 1.0,
         };
 
         let result =

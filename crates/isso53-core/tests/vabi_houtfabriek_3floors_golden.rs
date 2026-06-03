@@ -45,7 +45,9 @@ fn load_result() -> (serde_json::Value, serde_json::Value) {
 /// - 2.10a: 1498W vs Vabi 1494W = +0,3% ✅ (ongewijzigd)
 /// - 3.10a: 1776W vs Vabi 1691W = +5,0% (ongewijzigd — Vabi dak f=1,138 anomaly, norm-strikt 1,000)
 ///
-/// Tolerantie verruimd naar 6% voor 3.10a's structurele Vabi-anomaly (zie expected.json notes).
+/// V2: tolerantie verstrakt van 6% naar **5,5%** — net boven 3.10a's werkelijke
+/// +5,03% (structurele Vabi dak-anomaly, zie expected.json notes). Verdere
+/// aanscherping zou 3.10a doen falen; Vabi-`expected` blijft ongewijzigd.
 #[test]
 fn vabi_3floors_phi_t_matches() {
     let (result, expected) = load_result();
@@ -66,13 +68,19 @@ fn vabi_3floors_phi_t_matches() {
     }
 }
 
-/// Φ_I infiltratie test - verwacht divergentie voor room 3.10a (kleinere gevel door dak).
+/// Φ_I infiltratie test — verwacht divergentie voor room 3.10a (kleinere gevel door dak).
+///
+/// V2: gebruikt nu een **eigen** `phi_i_tolerance_pct` (4,0%) i.p.v. de gedeelde
+/// `total_tolerance_pct`, zodat een infiltratiefout niet langer schuilgaat in de
+/// totaal-marge. Werkelijke afwijking (norm-conforme A7 Δθ_v): 1.10a −3,5%,
+/// 2.10a −3,4%, 3.10a −1,6% → tolerantie verstrakt van 5,0% naar 4,0%, net boven
+/// de worst-case. Vabi-`expected`-waarden ONGEWIJZIGD.
 #[test]
 fn vabi_3floors_phi_i_matches() {
     let (result, expected) = load_result();
     let result_rooms = result["rooms"].as_array().unwrap();
     let expected_rooms = expected["rooms"].as_array().unwrap();
-    let tol = expected["total_tolerance_pct"].as_f64().unwrap();
+    let tol = expected["phi_i_tolerance_pct"].as_f64().unwrap();
 
     for exp_room in expected_rooms {
         let id = exp_room["roomId"].as_str().unwrap();

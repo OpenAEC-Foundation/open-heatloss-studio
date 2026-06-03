@@ -34,18 +34,38 @@ fn load_result() -> (serde_json::Value, serde_json::Value) {
     (result, expected)
 }
 
-/// Φ_V + Φ_I matcht Vabi binnen 10% na fixes:
+/// V2: Φ_V apart getoetst (was samengevoegd met Φ_I — fouten konden elkaar
+/// maskeren). In deze Vabi-fixture reduceert de WTW de ventilatie tot 0
+/// (luchtverwarming supplyTemperature=21°C → f_v=0, formule 4.38), zodat de
+/// gerapporteerde `phiV_plus_phiI = 3080` volledig infiltratie is (zie
+/// expected.json note 2). Φ_V moet dus exact 0 zijn — afzonderlijk geborgd
+/// zodat een per ongeluk niet-nul ventilatieterm niet langer door een te lage
+/// infiltratie wordt gemaskeerd.
+#[test]
+fn vabi_bedrijfsruimte4_phi_v_zero() {
+    let (result, _) = load_result();
+    let room = &result["rooms"][0];
+    // Vabi Φ_V = 0 (WTW reduceert ventilatie tot nul). Absolute 1 W-tolerantie.
+    close("phiV", room["phiV"].as_f64().unwrap(), 0.0, 1.0);
+}
+
+/// V2: Φ_I apart getoetst tegen de Vabi-referentie. Omdat Vabi's Φ_V = 0 is
+/// (zie `vabi_bedrijfsruimte4_phi_v_zero`), is de gerapporteerde
+/// `phiV_plus_phiI = 3080` één-op-één Vabi's infiltratie. Onze calc geeft 3134
+/// = +1,75% — tolerantie aangescherpt van de oude 10% (gecombineerd) naar 3%,
+/// net boven de werkelijke afwijking. Vabi-`expected`-waarde ONGEWIJZIGD.
+///
+/// Fixes die deze match dragen:
 /// - §4.6 embedded heating (sessie 1)
 /// - Formule 4.38 WTW f_v omkering (sessie 2)
 /// - A_u/A_g omdraai in formule 4.28/4.29 (sessie 2 vervolg)
 /// - Building.building_height-veld voor q_is-lookup (sessie 2 vervolg)
-/// - Fixture: supplyTemperature=21°C (luchtverwarming) + buildingHeight=10,9 m
 #[test]
-fn vabi_bedrijfsruimte4_phi_vi_combined_matches() {
+fn vabi_bedrijfsruimte4_phi_i_matches() {
     let (result, _) = load_result();
     let room = &result["rooms"][0];
-    let phi_vi = room["phiV"].as_f64().unwrap() + room["phiI"].as_f64().unwrap();
-    close("phiV+phiI", phi_vi, 3080.0, 10.0);
+    // Vabi Φ_V=0 → phiV_plus_phiI (3080) is Vabi's infiltratie.
+    close("phiI", room["phiI"].as_f64().unwrap(), 3080.0, 3.0);
 }
 
 /// Verifieert dat opwarmtoeslag binnen 5% blijft.

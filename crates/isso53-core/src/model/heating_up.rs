@@ -122,6 +122,36 @@ pub struct HeatingUpConfig {
     /// toevoer aanwezig) is `a = 0` → Φ_hu,i = Φ_op.
     #[serde(default)]
     pub mechanical_supply_off: bool,
+
+    /// Gelijktijdigheidsfactor voor de opwarmtoeslag Σ Φ_hu in het
+    /// **aansluitvermogen** Φ_source (ISSO 53 §4.1/§5.1, PDF p.38/55).
+    ///
+    /// De norm eist: *"Om overdimensionering te voorkomen moeten alleen die
+    /// toeslagen voor bedrijfsbeperking in rekening gebracht worden die
+    /// gelijktijdig optreden. Het is van belang hierover met de opdrachtgever
+    /// afspraken te maken."* Wanneer niet alle zones tegelijk opwarmen (bv.
+    /// gefaseerde opstart per vleugel) mag het bronvermogen niet de volle
+    /// Σ Φ_hu meenemen.
+    ///
+    /// Deze engine doet **géén** automatische zone-detectie. De factor is een
+    /// bewuste, met de opdrachtgever af te stemmen keuze:
+    /// - `1,0` (default) = **100% gelijktijdigheid** — alle opwarmtoeslagen
+    ///   treden tegelijk op (backward-compatible met het oude gedrag);
+    /// - `< 1,0` = slechts dat deel van Σ Φ_hu wordt aan Φ_source toegerekend
+    ///   (bv. `0,5` = halve gelijktijdigheid).
+    ///
+    /// De factor grijpt aan op Σ Φ_hu in `calc/source_capacity.rs` (formule
+    /// 5.1/5.9), **niet** op de per-vertrek Φ_hu of het rapport-totaal
+    /// `total_heating_up` — die blijven de ongereduceerde grootheden tonen.
+    #[serde(default = "default_heating_up_simultaneity")]
+    pub simultaneity_factor: f64,
+}
+
+/// Default gelijktijdigheidsfactor: 1,0 = 100% gelijktijdigheid (huidig gedrag,
+/// backward-compatible). De gebruiker stelt dit bewust met de opdrachtgever af
+/// (ISSO 53 §4.1/§5.1).
+fn default_heating_up_simultaneity() -> f64 {
+    1.0
 }
 
 fn default_warmup_weekday() -> f64 {
@@ -142,6 +172,7 @@ impl Default for HeatingUpConfig {
             warmup_hours_weekday: default_warmup_weekday(),
             warmup_hours_weekend: default_warmup_weekend(),
             mechanical_supply_off: false,
+            simultaneity_factor: default_heating_up_simultaneity(),
         }
     }
 }
@@ -242,6 +273,32 @@ mod tests {
         assert_eq!(config.warmup_hours_weekday, 2.0);
         assert_eq!(config.warmup_hours_weekend, 4.0);
         assert!(!config.mechanical_supply_off);
+        // K2: ontbrekend `simultaneityFactor` → serde-default 1,0 (backward-compat).
+        assert_eq!(config.simultaneity_factor, 1.0);
+    }
+
+    /// K2: een expliciete `simultaneityFactor` in het mapper-blok wordt
+    /// overgenomen; ontbreekt hij dan valt serde terug op 1,0.
+    #[test]
+    fn heating_up_config_simultaneity_factor_roundtrip() {
+        // Expliciete waarde wordt gelezen.
+        let json = r#"{
+            "setbackActive": true,
+            "regime": { "type": "free", "setbackHoursWeekday": 14, "setbackHoursWeekend": 62 },
+            "simultaneityFactor": 0.5
+        }"#;
+        let config: HeatingUpConfig =
+            serde_json::from_str(json).expect("deserialize with simultaneityFactor");
+        assert_eq!(config.simultaneity_factor, 0.5);
+
+        // Ontbrekend veld → default 1,0.
+        let json_default = r#"{
+            "setbackActive": true,
+            "regime": { "type": "free", "setbackHoursWeekday": 14, "setbackHoursWeekend": 62 }
+        }"#;
+        let config_default: HeatingUpConfig =
+            serde_json::from_str(json_default).expect("deserialize without simultaneityFactor");
+        assert_eq!(config_default.simultaneity_factor, 1.0);
     }
 
     /// Idem maar met de beperkte-afkoeling-variant en een override-waarde.
