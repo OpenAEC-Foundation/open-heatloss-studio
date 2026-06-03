@@ -30,7 +30,20 @@ pub mod validate;
 
 use error::Result;
 use model::Project;
-use result::{BuildingSummary, ProjectResult};
+use result::{BuildingSummary, InfiltrationMethodOrigin, ProjectResult};
+
+/// Bepaal de herkomst (norm-puur vs Vabi-compat) van een infiltratiemethode (C1).
+fn infiltration_method_origin(
+    method: &crate::calc::infiltration::InfiltrationMethod,
+) -> InfiltrationMethodOrigin {
+    use crate::calc::infiltration::InfiltrationMethod;
+    match method {
+        InfiltrationMethod::Known { .. } | InfiltrationMethod::Unknown { .. } => {
+            InfiltrationMethodOrigin::Isso53Norm
+        }
+        InfiltrationMethod::UnknownVabiCompat { .. } => InfiltrationMethodOrigin::VabiCompat,
+    }
+}
 
 /// Calculate heat losses for an entire project from JSON input.
 ///
@@ -73,8 +86,10 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     }
 
     let z = crate::tables::source_fraction_z(project.building.source_zone_config);
-    let phi_source_individual = calc::source_capacity::calculate_individual(&room_results, z, project.climate.theta_e)?;
-    let phi_source_collective = calc::source_capacity::calculate_collective(&room_results, z, project.climate.theta_e)?;
+    // K2 (§4.1/§5.1): gelijktijdigheidsfactor op Σ Φ_hu in het aansluitvermogen.
+    let g_hu = project.heating_up.simultaneity_factor;
+    let phi_source_individual = calc::source_capacity::calculate_individual(&room_results, z, project.climate.theta_e, g_hu)?;
+    let phi_source_collective = calc::source_capacity::calculate_collective(&room_results, z, project.climate.theta_e, g_hu)?;
     let phi_shell = calc::shell::calculate_shell(project)?;
 
     // Calculate building-level summaries
@@ -110,6 +125,8 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
             connection_capacity_collective: phi_source_collective,
             shell_heat_loss: phi_shell,
             infiltration_reduction_factor_z: z,
+            heating_up_simultaneity_factor: g_hu,
+            infiltration_method_origin: infiltration_method_origin(&project.infiltration_method),
         },
     })
 }

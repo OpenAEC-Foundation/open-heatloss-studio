@@ -11,9 +11,19 @@ use crate::error::Result;
 use crate::result::RoomResult;
 
 /// Calculate the individual connection capacity Φ_source.
-/// ISSO 53 formule 5.1: Φ_source = Σ(Φ_T,ie + Φ_T,iae + Φ_T,iaBE + Φ_T,ig) + Φ_Ven + Σ Φ_hu - Σ Φ_gain
-/// where Φ_Ven = z·Σ(H_i)·Δθ + Σ(H_v)·Δθ (formule 5.2)
-pub fn calculate_individual(rooms: &[RoomResult], z_fraction: f64, theta_e: f64) -> Result<f64> {
+/// ISSO 53 formule 5.1: Φ_source = Σ(Φ_T,ie + Φ_T,iae + Φ_T,iaBE + Φ_T,ig) + Φ_Ven + g·Σ Φ_hu - Σ Φ_gain
+/// where Φ_Ven = z·Σ(H_i)·Δθ + Σ(H_v)·Δθ (formule 5.2).
+///
+/// `phi_hu_simultaneity` (`g`, ISSO 53 §4.1/§5.1) reduceert Σ Φ_hu naar het
+/// gelijktijdig optredende deel om overdimensionering te voorkomen. Default
+/// 1,0 = 100% gelijktijdigheid (ongewijzigd gedrag); de engine doet geen
+/// automatische zone-detectie — de factor is een bewuste keuze van de gebruiker.
+pub fn calculate_individual(
+    rooms: &[RoomResult],
+    z_fraction: f64,
+    theta_e: f64,
+    phi_hu_simultaneity: f64,
+) -> Result<f64> {
     let mut phi_t_ie_total = 0.0;     // Σ(Φ_T,ie) - exterior transmission
     let mut phi_t_iae_total = 0.0;    // Σ(Φ_T,iae) - unheated transmission
     let mut phi_t_iabe_total = 0.0;   // Σ(Φ_T,iaBE) - adjacent building transmission
@@ -46,9 +56,13 @@ pub fn calculate_individual(rooms: &[RoomResult], z_fraction: f64, theta_e: f64)
     // Apply infiltration reduction factor z (formule 5.2)
     let phi_ven = z_fraction * h_i_delta_theta_total + h_v_delta_theta_total;
 
+    // Gelijktijdigheidsfactor op Σ Φ_hu (§4.1/§5.1) — voorkomt overdimensionering
+    // bij niet-gelijktijdig opwarmende zones. Default 1,0 = ongewijzigd.
+    let phi_hu_simultaneous = phi_hu_simultaneity * phi_hu_total;
+
     // Total connection capacity (formule 5.1)
     let phi_source = phi_t_ie_total + phi_t_iae_total + phi_t_iabe_total + phi_t_ig_total
-        + phi_ven + phi_hu_total - phi_gain_total;
+        + phi_ven + phi_hu_simultaneous - phi_gain_total;
 
     Ok(phi_source)
 }
@@ -56,7 +70,14 @@ pub fn calculate_individual(rooms: &[RoomResult], z_fraction: f64, theta_e: f64)
 /// Calculate the collective connection capacity Φ_source.
 /// ISSO 53 formule 5.9: Same as individual BUT Φ_T,iaBE term is excluded
 /// (adjacent buildings carry their own heating load in collective systems).
-pub fn calculate_collective(rooms: &[RoomResult], z_fraction: f64, theta_e: f64) -> Result<f64> {
+///
+/// `phi_hu_simultaneity` werkt identiek aan [`calculate_individual`].
+pub fn calculate_collective(
+    rooms: &[RoomResult],
+    z_fraction: f64,
+    theta_e: f64,
+    phi_hu_simultaneity: f64,
+) -> Result<f64> {
     let mut phi_t_ie_total = 0.0;     // Σ(Φ_T,ie) - exterior transmission
     let mut phi_t_iae_total = 0.0;    // Σ(Φ_T,iae) - unheated transmission
     // phi_t_iabe_total omitted - that's the key difference from individual
@@ -87,9 +108,12 @@ pub fn calculate_collective(rooms: &[RoomResult], z_fraction: f64, theta_e: f64)
     // Apply infiltration reduction factor z (formule 5.2)
     let phi_ven = z_fraction * h_i_delta_theta_total + h_v_delta_theta_total;
 
+    // Gelijktijdigheidsfactor op Σ Φ_hu (§4.1/§5.1) — zie calculate_individual.
+    let phi_hu_simultaneous = phi_hu_simultaneity * phi_hu_total;
+
     // Total connection capacity (formule 5.9 - no Φ_T,iaBE)
     let phi_source = phi_t_ie_total + phi_t_iae_total + phi_t_ig_total
-        + phi_ven + phi_hu_total - phi_gain_total;
+        + phi_ven + phi_hu_simultaneous - phi_gain_total;
 
     Ok(phi_source)
 }
@@ -104,8 +128,8 @@ mod tests {
         let rooms = vec![create_test_room_with_adjacent_building()];
         let z_fraction = 0.5;
 
-        let individual = calculate_individual(&rooms, z_fraction, -10.0).unwrap();
-        let collective = calculate_collective(&rooms, z_fraction, -10.0).unwrap();
+        let individual = calculate_individual(&rooms, z_fraction, -10.0, 1.0).unwrap();
+        let collective = calculate_collective(&rooms, z_fraction, -10.0, 1.0).unwrap();
 
         // Individual should be higher due to including adjacent building transmission
         assert!(individual > collective,
@@ -123,12 +147,53 @@ mod tests {
     fn test_z_fraction_reduces_infiltration() {
         let rooms = vec![create_test_room_with_infiltration()];
 
-        let no_reduction = calculate_individual(&rooms, 1.0, -10.0).unwrap();
-        let with_reduction = calculate_individual(&rooms, 0.5, -10.0).unwrap();
+        let no_reduction = calculate_individual(&rooms, 1.0, -10.0, 1.0).unwrap();
+        let with_reduction = calculate_individual(&rooms, 0.5, -10.0, 1.0).unwrap();
 
         assert!(no_reduction > with_reduction,
             "No reduction ({}) should be higher than with reduction ({})",
             no_reduction, with_reduction);
+    }
+
+    /// K2 (§4.1/§5.1): de gelijktijdigheidsfactor `g` grijpt aan op Σ Φ_hu in
+    /// Φ_source. `g=0,5` moet exact de halve Φ_hu-bijdrage opleveren t.o.v.
+    /// `g=1,0`; het verschil = 0,5·Σ Φ_hu. `g=1,0` = ongewijzigd gedrag.
+    #[test]
+    fn test_heating_up_simultaneity_factor() {
+        let rooms = vec![create_test_room_with_infiltration()]; // phi_hu = 100.0
+        let z = 1.0;
+        let theta_e = -10.0;
+
+        let full = calculate_individual(&rooms, z, theta_e, 1.0).unwrap();
+        let half = calculate_individual(&rooms, z, theta_e, 0.5).unwrap();
+
+        let phi_hu_total: f64 = rooms.iter().map(|r| r.phi_hu).sum();
+        assert!(phi_hu_total > 0.0, "fixture moet Φ_hu > 0 hebben");
+
+        // g=0,5 trekt exact 0,5·Σ Φ_hu van Φ_source af t.o.v. g=1,0.
+        let expected_diff = 0.5 * phi_hu_total;
+        let actual_diff = full - half;
+        assert!(
+            (actual_diff - expected_diff).abs() < 1e-9,
+            "g=0,5 moet 0,5·Σ Φ_hu ({}) schelen, kreeg {}",
+            expected_diff, actual_diff
+        );
+
+        // g=1,0 is identiek aan het oude gedrag (volledige Σ Φ_hu).
+        // Reconstrueer Φ_source zonder Φ_hu en tel die handmatig op.
+        let base_without_hu = full - phi_hu_total;
+        assert!(
+            (full - (base_without_hu + 1.0 * phi_hu_total)).abs() < 1e-9,
+            "g=1,0 moet de volledige Σ Φ_hu meenemen"
+        );
+
+        // Idem voor de collectieve variant.
+        let full_c = calculate_collective(&rooms, z, theta_e, 1.0).unwrap();
+        let half_c = calculate_collective(&rooms, z, theta_e, 0.5).unwrap();
+        assert!(
+            ((full_c - half_c) - expected_diff).abs() < 1e-9,
+            "collectief: g=0,5 moet 0,5·Σ Φ_hu schelen"
+        );
     }
 
     fn create_test_room_with_adjacent_building() -> RoomResult {

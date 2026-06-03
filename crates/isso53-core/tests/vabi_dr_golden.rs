@@ -86,6 +86,10 @@ fn vabi_dr_kantoorwest_snapshot() {
 /// wrapper te schrappen en lookup-pad te migreren naar transmission.rs (single source of truth)
 /// verdwijnt de dubbeltelling. Fixture U=2,91 voor plafond-tussenvloer (Rc=0,14) is correct —
 /// bevestigd in DR Engineering bron `tests/references/dr-engineering-samenvatting.md` r121.
+///
+/// V2: tolerantie verstrakt van 10% naar **4%** — werkelijke afwijking is +3,46%
+/// (3165 vs 3059). De oude 10%-marge liet ~190 W stille regressie toe (Codex-bevinding,
+/// 00-SAMENVATTING.md §1b). Vabi-`expected`-waarde ONGEWIJZIGD.
 #[test]
 fn vabi_dr_kantoorwest_phi_t_matches() {
     let (room, expected) = load_room_0_03();
@@ -93,13 +97,16 @@ fn vabi_dr_kantoorwest_phi_t_matches() {
         "phiT",
         room["phiT"].as_f64().unwrap(),
         expected["phiT"].as_f64().unwrap(),
-        10.0,
+        4.0,
     );
 }
 
-/// Cross-validatie Φ_I — nu binnen 5% tolerantie door UnknownVabiCompat.
+/// Cross-validatie Φ_I — via UnknownVabiCompat-pad (Vabi-compat, niet norm-puur).
 /// Gebruikt NEN 8088-1 (f_type=0,9, f_inf=1,10) + NTA 8800 (f_jaar=0,7) + power-law (Δp/10)^0.67.
-/// Vabi: 681 W, verwacht: ~693 W (+1,8%).
+/// Vabi: 681 W, verwacht: ~693 W (+1,76%).
+///
+/// V2: tolerantie verstrakt van 5% naar **2,5%** — net boven de werkelijke +1,76%.
+/// Vabi-`expected`-waarde ONGEWIJZIGD.
 #[test]
 fn vabi_dr_kantoorwest_phi_i_matches() {
     let (room, expected) = load_room_0_03();
@@ -107,6 +114,6 @@ fn vabi_dr_kantoorwest_phi_i_matches() {
         "phiI",
         room["phiI"].as_f64().unwrap(),
         expected["phiI"].as_f64().unwrap(),
-        5.0,
+        2.5,
     );
 }

@@ -1,7 +1,8 @@
 {
   "source": "Vabi Elements 3.11.2.23, rapport TR02 Houtfabriek p.38-40 (1.10a), p.82-84 (2.10a), p.131-133 (3.10a)",
-  "phi_t_tolerance_pct": 6.0,
-  "total_tolerance_pct": 5.0,
+  "phi_t_tolerance_pct": 5.5,
+  "phi_i_tolerance_pct": 4.0,
+  "total_tolerance_pct": 2.5,
   "rooms": [
     {
       "roomId": "1.10a",

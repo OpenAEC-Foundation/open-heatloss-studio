@@ -70,6 +70,24 @@ pub struct RoomResult {
     pub h_i: f64,
 }
 
+/// Herkomst van de actieve infiltratie-rekenmethode (hybride-beleid, C1).
+///
+/// Onder het hybride conform-beleid (norm leidend; Vabi-compat alleen achter een
+/// expliciet gemarkeerd pad) moet het rapport transparant kunnen tonen of de
+/// infiltratie volgens de ISSO 53-norm óf via de Vabi-compat power-law
+/// (NEN 8088-1, NTA 8800, Δp-power-law) is berekend. Deze flag draagt die
+/// herkomst naar de resultaat-output zodat de rapportagelaag het kan markeren.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum InfiltrationMethodOrigin {
+    /// ISSO 53-norm-pad: tabel 4.5 (Known) of formule 4.31 (Unknown). Norm-puur.
+    Isso53Norm,
+    /// Vabi-compat-pad: NEN 8088-1 (f_type/f_inf) + NTA 8800 (f_jaar) met
+    /// power-law drukconversie (Δp ≈ 3,14 Pa). **Geen ISSO 53-norm** — bewust
+    /// gekozen voor Vabi-reproductie; rapport markeert dit expliciet.
+    VabiCompat,
+}
+
 /// Building-level summary results.
 /// ISSO 53 uses simple addition, not quadratic summation like ISSO 51.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -107,4 +125,16 @@ pub struct BuildingSummary {
 
     /// Infiltration reduction factor z applied at building level (tabel 5.1).
     pub infiltration_reduction_factor_z: f64,
+
+    /// Gelijktijdigheidsfactor `g` toegepast op Σ Φ_hu in het aansluitvermogen
+    /// (ISSO 53 §4.1/§5.1). `1,0` = 100% gelijktijdigheid (default, engine-aanname).
+    /// Het rapport kan hiermee tonen welke gelijktijdigheid is aangenomen en dat
+    /// dit met de opdrachtgever moet worden afgestemd.
+    pub heating_up_simultaneity_factor: f64,
+
+    /// Herkomst van de gebruikte infiltratie-rekenmethode (C1, hybride-beleid):
+    /// `isso53Norm` of `vabiCompat`. Maakt expliciet of de infiltratie norm-puur
+    /// of via de Vabi-compat power-law is berekend, zodat het rapport het
+    /// transparant kan markeren.
+    pub infiltration_method_origin: InfiltrationMethodOrigin,
 }
