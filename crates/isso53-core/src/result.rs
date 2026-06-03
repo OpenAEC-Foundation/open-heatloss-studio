@@ -68,6 +68,9 @@ pub struct RoomResult {
 
     /// Infiltration coefficient H_i in W/K.
     pub h_i: f64,
+
+    /// Ventilation flow rate q_v in dm³/s (= m³/s × 1000).
+    pub q_v: f64,
 }
 
 /// Herkomst van de actieve infiltratie-rekenmethode (hybride-beleid, C1).
@@ -98,6 +101,9 @@ pub struct BuildingSummary {
 
     /// Total ventilation heat loss Φ_V,build in W.
     pub total_ventilation_loss: f64,
+
+    /// Total building ventilation flow Σ q_v in dm³/s.
+    pub total_ventilation_flow: f64,
 
     /// Total infiltration heat loss Φ_I,build in W.
     pub total_infiltration_loss: f64,
@@ -137,4 +143,92 @@ pub struct BuildingSummary {
     /// of via de Vabi-compat power-law is berekend, zodat het rapport het
     /// transparant kan markeren.
     pub infiltration_method_origin: InfiltrationMethodOrigin,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_room() -> RoomResult {
+        RoomResult {
+            room_id: "r1".to_string(),
+            room_name: "Woonkamer".to_string(),
+            theta_i: 20.0,
+            phi_t: 1000.0,
+            phi_v: 500.0,
+            phi_i: 200.0,
+            phi_hu: 100.0,
+            phi_system: 0.0,
+            phi_gain: 0.0,
+            total_heat_loss: 1800.0,
+            h_t_exterior: 25.0,
+            h_t_adjacent_rooms: 0.0,
+            h_t_unheated: 10.0,
+            h_t_adjacent_buildings: 0.0,
+            h_t_ground: 5.0,
+            h_v: 15.0,
+            h_i: 8.0,
+            q_v: 50.0,
+        }
+    }
+
+    fn sample_summary() -> BuildingSummary {
+        BuildingSummary {
+            total_transmission_loss: 1000.0,
+            total_ventilation_loss: 500.0,
+            total_ventilation_flow: 50.0,
+            total_infiltration_loss: 200.0,
+            total_heating_up: 100.0,
+            total_system_losses: 0.0,
+            total_internal_gains: 0.0,
+            total_building_heat_loss: 1800.0,
+            connection_capacity_individual: 1900.0,
+            connection_capacity_collective: 1850.0,
+            shell_heat_loss: 1700.0,
+            infiltration_reduction_factor_z: 1.0,
+            heating_up_simultaneity_factor: 1.0,
+            infiltration_method_origin: InfiltrationMethodOrigin::Isso53Norm,
+        }
+    }
+
+    /// Borgt dat het q_v-veld als JSON-key `qV` serialiseert (serde
+    /// single-letter camelCase-landmijn) en dat de roundtrip identiek blijft.
+    #[test]
+    fn room_result_serializes_qv_key_and_roundtrips() {
+        let room = sample_room();
+        let value = serde_json::to_value(&room).expect("serialize room");
+        assert!(
+            value.get("qV").is_some(),
+            "RoomResult moet JSON-key `qV` bevatten, kreeg: {value}"
+        );
+        assert_eq!(value.get("qV").and_then(|v| v.as_f64()), Some(50.0));
+
+        let back: RoomResult =
+            serde_json::from_value(value).expect("deserialize room");
+        assert_eq!(back.q_v, room.q_v);
+        assert_eq!(back.room_id, room.room_id);
+    }
+
+    /// Borgt dat het total_ventilation_flow-veld als JSON-key
+    /// `totalVentilationFlow` serialiseert en de roundtrip identiek blijft.
+    #[test]
+    fn building_summary_serializes_total_ventilation_flow_key_and_roundtrips() {
+        let summary = sample_summary();
+        let value = serde_json::to_value(&summary).expect("serialize summary");
+        assert!(
+            value.get("totalVentilationFlow").is_some(),
+            "BuildingSummary moet JSON-key `totalVentilationFlow` bevatten, kreeg: {value}"
+        );
+        assert_eq!(
+            value
+                .get("totalVentilationFlow")
+                .and_then(|v| v.as_f64()),
+            Some(50.0)
+        );
+
+        let back: BuildingSummary =
+            serde_json::from_value(value).expect("deserialize summary");
+        assert_eq!(back.total_ventilation_flow, summary.total_ventilation_flow);
+        assert_eq!(back.total_ventilation_loss, summary.total_ventilation_loss);
+    }
 }

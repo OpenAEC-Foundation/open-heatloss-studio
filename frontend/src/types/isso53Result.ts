@@ -45,6 +45,8 @@ export interface Isso53RoomResult {
   hV: number;
   /** H_i infiltratie-coëfficiënt in W/K. */
   hI: number;
+  /** Ventilatiedebiet q_v in dm³/s. */
+  qV: number;
 }
 
 /**
@@ -63,6 +65,8 @@ export interface Isso53BuildingSummary {
   totalTransmissionLoss: number;
   /** Totaal ventilatie Φ_V,build in W. */
   totalVentilationLoss: number;
+  /** Totaal gebouw-ventilatiedebiet Σ q_v in dm³/s. */
+  totalVentilationFlow: number;
   /** Totaal infiltratie Φ_I,build in W (apart van ventilatie). */
   totalInfiltrationLoss: number;
   /** Totaal opwarmtoeslag Φ_hu,build in W. */
