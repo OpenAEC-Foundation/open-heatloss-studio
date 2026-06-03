@@ -128,12 +128,19 @@ function RoomGroup({
 }: RoomGroupProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [collapsed, setCollapsed] = useState(
+    () => room.constructions.length !== 0,
+  );
   const addBtnRef = useRef<HTMLTableCellElement>(null);
   const ensureProjectConstruction = useModellerStore(
     (s) => s.ensureProjectConstruction,
   );
   const { constructions } = room;
-  const firstConstruction = constructions[0];
+  const constructionCount = constructions.length;
+  const summaryLabel =
+    constructionCount === 0
+      ? "Geen grensvlakken"
+      : `${constructionCount} ${constructionCount === 1 ? "grensvlak" : "grensvlakken"}`;
 
   const handleOpenPicker = useCallback(() => {
     if (addBtnRef.current) {
@@ -190,59 +197,63 @@ function RoomGroup({
     setPickerOpen(false);
   }, [onAddConstruction]);
 
+  const toggleCollapse = useCallback(() => setCollapsed((prev) => !prev), []);
+
   return (
     <>
-      {/* First row: room info + first construction (or empty) */}
+      {/* First row: room info + grensvlak-samenvatting/toggle */}
       <tr className="border-b border-[var(--oaec-border-subtle)] bg-[var(--oaec-hover)]">
         <RoomHeaderCells
           room={room}
           onUpdate={onUpdateRoom}
           onRemove={onRemoveRoom}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapse}
         />
-        {firstConstruction ? (
-          <ConstructionCells
-            construction={firstConstruction}
-            onUpdate={(partial) => onUpdateConstruction(firstConstruction.id, partial)}
-            onRemove={() => onRemoveConstruction(firstConstruction.id)}
-            ownerRoomId={room.id}
-          />
-        ) : (
-          <>
-            <td colSpan={5} className="px-2 py-1 text-xs text-on-surface-muted">
-              Geen grensvlakken
-            </td>
-            <td />
-          </>
-        )}
-      </tr>
-
-      {/* Additional construction rows (index 1+) */}
-      {constructions.slice(1).map((c) => (
-        <tr key={c.id} className="border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]">
-          {EMPTY_ROOM_CELLS}
-          <ConstructionCells
-            construction={c}
-            onUpdate={(partial) => onUpdateConstruction(c.id, partial)}
-            onRemove={() => onRemoveConstruction(c.id)}
-            ownerRoomId={room.id}
-          />
-        </tr>
-      ))}
-
-      {/* Ventilation settings — persistant zichtbaar per vertrek */}
-      <VentilationRow room={room} onUpdate={onUpdateRoom} />
-
-      {/* Add construction ghost row */}
-      <tr
-        onClick={handleOpenPicker}
-        className="cursor-pointer border-b-2 border-[var(--oaec-border)] text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
-      >
-        {EMPTY_ROOM_CELLS}
-        <td ref={addBtnRef} colSpan={5} className="px-3 py-1 text-xs font-medium">
-          + grensvlak toevoegen
+        <td
+          colSpan={5}
+          onClick={toggleCollapse}
+          className="cursor-pointer px-2 py-1 text-xs text-on-surface-muted"
+        >
+          {summaryLabel}
         </td>
         <td />
       </tr>
+
+      {/* All construction rows — verborgen bij ingeklapt */}
+      {!collapsed &&
+        constructions.map((c) => (
+          <tr key={c.id} className="border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]">
+            {EMPTY_ROOM_CELLS}
+            <ConstructionCells
+              construction={c}
+              onUpdate={(partial) => onUpdateConstruction(c.id, partial)}
+              onRemove={() => onRemoveConstruction(c.id)}
+              ownerRoomId={room.id}
+            />
+          </tr>
+        ))}
+
+      {/* Ventilation settings — persistant zichtbaar per vertrek */}
+      <VentilationRow
+        room={room}
+        onUpdate={onUpdateRoom}
+        heavyBottomBorder={collapsed}
+      />
+
+      {/* Add construction ghost row — alleen bij uitgeklapt (picker anchor) */}
+      {!collapsed && (
+        <tr
+          onClick={handleOpenPicker}
+          className="cursor-pointer border-b-2 border-[var(--oaec-border)] text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface"
+        >
+          {EMPTY_ROOM_CELLS}
+          <td ref={addBtnRef} colSpan={5} className="px-3 py-1 text-xs font-medium">
+            + grensvlak toevoegen
+          </td>
+          <td />
+        </tr>
+      )}
 
       {pickerOpen && (
         <ConstructionPicker
