@@ -34,12 +34,12 @@ pub fn calculate_room(
         room, building, climate, infiltration_method
     )?;
     let h_i = infiltration::calculate_h_i(
-        room, building, infiltration_method
+        room, building, climate, infiltration_method
     )?;
 
     // Calculate ventilation heat loss
     let ventilation_result = ventilation::calculate_ventilation(
-        room, ventilation, theta_i, climate.theta_e
+        room, ventilation, theta_i, climate.theta_e, building.heating_system
     )?;
 
     // Calculate heating-up supplement (§4.8). H_v, θ_i en θ_e zijn nodig voor

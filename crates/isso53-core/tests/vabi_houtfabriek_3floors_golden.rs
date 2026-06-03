@@ -180,14 +180,23 @@ fn vabi_3floors_snapshot() {
     // (15°C voor onverwarmd-plafond +62W, 21°C voor basement-gradient -26W) → 1516 W ≈ Vabi 1514.
     // 2.10a/3.10a fixtures ongewijzigd (waren al binnen tolerantie).
     close("phiT 1.10a snapshot", phi_t_1, 1516.0, 1.0);
-    close("phiI 1.10a snapshot", phi_i_1, 1337.0, 1.0);
+    // A7 (form. 4.30/4.39): deze fixture draait op `vloerverwarming` → Δθ_v = −1 K
+    // (R_c < 3,5) → infiltratie-f_v = 29/30 i.p.v. de oude hardcode 1,0. phiI is
+    // daardoor ~3,5% gedaald (1337→1290). NORM-CONFORME afwijking: Vabi past Δθ_v
+    // NIET toe op infiltratie en blijft op 1337 (zie expected.json, nog binnen de
+    // 5% total_tolerance_pct van phi_i_matches). Snapshot bijgesteld naar de
+    // norm-conforme waarde; Vabi-`expected` bewust ONGEWIJZIGD. PM-besluit nodig
+    // of er een Vabi-compat-pad (f_v=1,0 voor infiltratie) achter een vlag moet.
+    close("phiI 1.10a snapshot", phi_i_1, 1290.0, 1.0);
     close("phiV 1.10a snapshot", phi_v_1, 0.0, 1.0);
 
     close("phiT 2.10a snapshot", phi_t_2, 1498.0, 1.0);
-    close("phiI 2.10a snapshot", phi_i_2, 1338.0, 1.0);
+    // A7 norm-conforme afwijking (vloerverwarming, Δθ_v=−1): 1338→1292.
+    close("phiI 2.10a snapshot", phi_i_2, 1292.0, 1.0);
     close("phiV 2.10a snapshot", phi_v_2, 0.0, 1.0);
 
     close("phiT 3.10a snapshot", phi_t_3, 1776.0, 1.0);
-    close("phiI 3.10a snapshot", phi_i_3, 1218.0, 1.0);
+    // A7 norm-conforme afwijking (vloerverwarming, Δθ_v=−1): 1218→1197.
+    close("phiI 3.10a snapshot", phi_i_3, 1197.0, 1.0);
     close("phiV 3.10a snapshot", phi_v_3, 0.0, 1.0);
 }

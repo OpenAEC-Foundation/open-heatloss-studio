@@ -9,6 +9,8 @@ use crate::formulas::RHO_CP_AIR;
 use crate::model::{BoundaryType, Building, DesignConditions, Room};
 use crate::tables::infiltration::{q_is_known, BuildingHeightClass, Qv10Class};
 use crate::tables::temperature::resolve_theta_i;
+use crate::tables::temperature_stratification::delta_theta_v;
+use crate::calc::rc_high::room_rc_high;
 
 /// Laatste-redmiddel-gebouwhoogte (m) voor f_wind/q_is wanneer noch de
 /// infiltratiemethode noch het [`Building`] een bruikbare hoogte levert.
@@ -46,11 +48,16 @@ pub enum InfiltrationMethod {
 
 /// Calculate the specific infiltration heat loss H_i for a room.
 /// ISSO 53 formule 4.27, PDF p.44: H_i = z × q_i × 1200 × f_v
-/// where f_v = 1.0 for infiltration (no preheating).
+///
+/// f_v (form. 4.30) gebruikt dezelfde Δθ_v-gelaagdheidscorrectie als de
+/// ventilatie-tak (form. 4.39): f_v = (θ_i + Δθ_v − θ_e)/(θ_i − θ_e). Voor de
+/// meeste systemen is Δθ_v = 0 → f_v = 1,0 (ongewijzigd). Bij wand-/vloer-lt-/
+/// betonkern-verwarming verlaagt Δθ_v (−1 of −0,5 K) de f_v.
 pub fn calculate_h_i(
     room: &Room,
     building: &Building,
-    method: &InfiltrationMethod
+    climate: &DesignConditions,
+    method: &InfiltrationMethod,
 ) -> Result<f64> {
     // Calculate q_i based on method (different area calculations)
     let q_is = calculate_q_is(building, method)?;
@@ -78,8 +85,17 @@ pub fn calculate_h_i(
     // Apply reduction factor z from room infiltration_reduction_z
     let z = room.infiltration_reduction_z;
 
-    // f_v = 1.0 for infiltration (no WTW or preheating)
-    let f_v = 1.0;
+    // f_v (form. 4.30): zelfde Δθ_v-correctie als ventilatie (form. 4.39).
+    let theta_i = resolve_theta_i(room, climate.theta_e);
+    let theta_e = climate.theta_e;
+    let delta_t = theta_i - theta_e;
+    let f_v = if delta_t.abs() < 0.001 {
+        0.0
+    } else {
+        let rc_high = room_rc_high(room);
+        let dtheta_v = delta_theta_v(building.heating_system, rc_high);
+        ((theta_i + dtheta_v - theta_e) / delta_t).clamp(0.0, 1.0)
+    };
 
     // H_i = z × q_i × ρ × c_p × f_v
     let h_i = z * q_i * RHO_CP_AIR * f_v;
@@ -95,7 +111,7 @@ pub fn calculate_phi_i(
     climate: &DesignConditions,
     method: &InfiltrationMethod,
 ) -> Result<f64> {
-    let h_i = calculate_h_i(room, building, method)?;
+    let h_i = calculate_h_i(room, building, climate, method)?;
 
     let theta_i: f64 = resolve_theta_i(room, climate.theta_e);
 
@@ -273,7 +289,7 @@ mod tests {
             qv10_kar_class: Qv10Class::From040To060,
         };
 
-        let result = calculate_h_i(&room, &building, &method);
+        let result = calculate_h_i(&room, &building, &test_climate(), &method);
         assert!(result.is_ok());
         assert!(result.unwrap() >= 0.0);
     }
@@ -298,12 +314,12 @@ mod tests {
             building_height: 3.0,
         };
 
-        let h_i_systemd = calculate_h_i(&room, &building, &method).unwrap();
+        let h_i_systemd = calculate_h_i(&room, &building, &test_climate(), &method).unwrap();
 
         // Compare with SystemA
         let mut building_natural = building.clone();
         building_natural.ventilation_system = VentilationSystemType::SystemA;
-        let h_i_systema = calculate_h_i(&room, &building_natural, &method).unwrap();
+        let h_i_systema = calculate_h_i(&room, &building_natural, &test_climate(), &method).unwrap();
 
         // ISSO 53 norm verification: f_inf(SystemD) = 1.15, f_inf(SystemA) = 0.80
         // Expected ratio: 1.15 / 0.80 = 1.4375
@@ -341,7 +357,7 @@ mod tests {
             building_height: 3.0,
         };
 
-        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        let h_i = calculate_h_i(&room, &building, &test_climate(), &method).unwrap();
         assert!(h_i > 0.0, "Unknown-pad moet positieve H_i geven, kreeg {}", h_i);
     }
 
@@ -393,8 +409,8 @@ mod tests {
             building_height: 0.0,
         };
 
-        let h_i_dims = calculate_h_i(&room, &building_empty, &method_with_dims).unwrap();
-        let h_i_fallback = calculate_h_i(&room, &building_empty, &method_fallback).unwrap();
+        let h_i_dims = calculate_h_i(&room, &building_empty, &test_climate(), &method_with_dims).unwrap();
+        let h_i_fallback = calculate_h_i(&room, &building_empty, &test_climate(), &method_fallback).unwrap();
 
         // De methode-afmetingen leveren een meetbaar HOGERE infiltratie dan de
         // 0,0,3-fallback (f_wind 50×30×20 ≈ 1,29 > 1,0).
@@ -440,7 +456,7 @@ mod tests {
             building_height: 0.0,
         };
 
-        let h_i_building = calculate_h_i(&room, &building, &method_no_dims).unwrap();
+        let h_i_building = calculate_h_i(&room, &building, &test_climate(), &method_no_dims).unwrap();
 
         // Zelfde verwachte f_wind als wanneer de dims op de methode hadden gestaan.
         let building_empty = create_test_building();
@@ -450,7 +466,7 @@ mod tests {
             building_width: 30.0,
             building_height: 20.0,
         };
-        let h_i_method = calculate_h_i(&room, &building_empty, &method_with_dims).unwrap();
+        let h_i_method = calculate_h_i(&room, &building_empty, &test_climate(), &method_with_dims).unwrap();
 
         assert!(
             (h_i_building - h_i_method).abs() < 1e-9,
@@ -481,7 +497,7 @@ mod tests {
             qv10_kar_class: Qv10Class::From040To060,
         };
 
-        let result = calculate_h_i(&room, &building, &method);
+        let result = calculate_h_i(&room, &building, &test_climate(), &method);
         assert!(result.is_ok());
         let h_i = result.unwrap();
         assert!((h_i - 23.04).abs() < 0.1, "Expected ~23.04, got {}", h_i);
@@ -500,7 +516,7 @@ mod tests {
             qv10_kar_class: Qv10Class::From040To060,
         };
 
-        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        let h_i = calculate_h_i(&room, &building, &test_climate(), &method).unwrap();
         // 1 × 0.00103 × 30 × 1200 = 37.08 W/K
         assert!((h_i - 37.08).abs() < 0.1, "Expected ~37.08, got {}", h_i);
     }
@@ -559,8 +575,8 @@ mod tests {
             unheated_space: None,
         });
 
-        let h_i_grounded = calculate_h_i(&room_grounded, &building, &method).unwrap();
-        let h_i_floating = calculate_h_i(&room_floating, &building, &method).unwrap();
+        let h_i_grounded = calculate_h_i(&room_grounded, &building, &test_climate(), &method).unwrap();
+        let h_i_floating = calculate_h_i(&room_floating, &building, &test_climate(), &method).unwrap();
 
         assert!(
             (h_i_grounded - h_i_floating).abs() < 1e-9,
@@ -607,7 +623,7 @@ mod tests {
             unheated_space: None,
         });
 
-        let h_i = calculate_h_i(&room, &building, &method).unwrap();
+        let h_i = calculate_h_i(&room, &building, &test_climate(), &method).unwrap();
         // A_u blijft 30 m² gevel → 23.04 W/K, dak telt niet mee.
         assert!(
             (h_i - 23.04).abs() < 0.1,
@@ -668,7 +684,7 @@ mod tests {
             delta_p_pa: Some(-5.0), // Negative pressure should error
         };
 
-        let result = calculate_h_i(&room, &building, &method);
+        let result = calculate_h_i(&room, &building, &test_climate(), &method);
         assert!(result.is_err(), "Negative delta_p should return error");
 
         let error = result.unwrap_err();
@@ -687,7 +703,7 @@ mod tests {
             delta_p_pa: Some(5.0), // Positive pressure should work
         };
 
-        let result = calculate_h_i(&room, &building, &method);
+        let result = calculate_h_i(&room, &building, &test_climate(), &method);
         assert!(result.is_ok(), "Positive delta_p should work");
         let h_i = result.unwrap();
         assert!(h_i > 0.0, "H_i should be positive");
@@ -707,5 +723,53 @@ mod tests {
             heating_system: Default::default(),
             source_zone_config: Default::default(),
         }
+    }
+
+    fn test_climate() -> DesignConditions {
+        DesignConditions {
+            theta_e: -10.0,
+            theta_me: 9.0,
+            theta_b_adjacent_building: 15.0,
+        }
+    }
+
+    /// A7: infiltratie-f_v gebruikt dezelfde Δθ_v als ventilatie (form. 4.30).
+    /// Wandverwarming + R_c < 3,5 → Δθ_v = −1 → f_v = 29/30 → H_i ~3,3% lager;
+    /// radiatoren (Δθ_v = 0) → f_v = 1,0 (regressie, ongewijzigd).
+    #[test]
+    fn test_a7_infiltration_delta_v_applied() {
+        let room = create_test_room(); // exterior wand U=0,28 → R_c≈3,40 < 3,5
+        let method = InfiltrationMethod::Known { qv10_kar_class: Qv10Class::From040To060 };
+
+        let mut building_radi = create_test_building();
+        building_radi.heating_system = crate::model::enums::HeatingSystem::RadiatorenConvHtEnLuchtverwarming;
+        let h_radi = calculate_h_i(&room, &building_radi, &test_climate(), &method).unwrap();
+
+        let mut building_wand = create_test_building();
+        building_wand.heating_system = crate::model::enums::HeatingSystem::Wandverwarming;
+        let h_wand = calculate_h_i(&room, &building_wand, &test_climate(), &method).unwrap();
+
+        // θ_i kantoor/verblijf = 20 (resolve), θ_e = −10. f_v = 29/30 vs 1,0.
+        let expected_ratio = (29.0 / 30.0) / 1.0;
+        assert!(
+            (h_wand / h_radi - expected_ratio).abs() < 1e-6,
+            "H_i-verhouding wand/radi {} moet {} zijn",
+            h_wand / h_radi, expected_ratio
+        );
+        let reduction = 1.0 - h_wand / h_radi;
+        assert!(reduction > 0.03 && reduction < 0.035, "~3,3% lager, kreeg {:.4}", reduction);
+    }
+
+    /// A7-regressie: radiatoren-systeem (Δθ_v = 0) houdt infiltratie-f_v = 1,0,
+    /// dus de bestaande smoke-waarde (23,04 W/K) blijft exact gelden.
+    #[test]
+    fn test_a7_infiltration_zero_delta_unchanged() {
+        let mut room = create_test_room();
+        room.infiltration_reduction_z = 1.0;
+        let building = create_test_building(); // heating_system = default (radi-ht)
+        let method = InfiltrationMethod::Known { qv10_kar_class: Qv10Class::From040To060 };
+
+        let h_i = calculate_h_i(&room, &building, &test_climate(), &method).unwrap();
+        assert!((h_i - 23.04).abs() < 0.1, "radi-ht → f_v=1,0 → H_i=23,04, kreeg {}", h_i);
     }
 }
