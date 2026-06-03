@@ -79,6 +79,7 @@ pub fn calculate_room(
         h_t_ground: transmission_result.h_t_ground,
         h_v: ventilation_result.h_v,
         h_i,
+        q_v: ventilation_result.q_v * 1000.0, // m³/s → dm³/s
     })
 }
 

@@ -215,6 +215,7 @@ mod tests {
             h_t_ground: 5.0,
             h_v: 15.0,
             h_i: 8.0,
+            q_v: 50.0,
         }
     }
 
@@ -237,6 +238,7 @@ mod tests {
             h_t_ground: 5.0,
             h_v: 15.0,
             h_i: 10.0, // Significant infiltration for z-factor testing
+            q_v: 50.0,
         }
     }
 }

@@ -95,6 +95,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     // Calculate building-level summaries
     let mut total_transmission_loss = 0.0;
     let mut total_ventilation_loss = 0.0;
+    let mut total_ventilation_flow = 0.0;
     let mut total_infiltration_loss = 0.0;
     let mut total_heating_up = 0.0;
     let mut total_system_losses = 0.0;
@@ -104,6 +105,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     for room_result in &room_results {
         total_transmission_loss += room_result.phi_t;
         total_ventilation_loss += room_result.phi_v;
+        total_ventilation_flow += room_result.q_v;
         total_infiltration_loss += room_result.phi_i;
         total_heating_up += room_result.phi_hu;
         total_system_losses += room_result.phi_system;
@@ -116,6 +118,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
         summary: BuildingSummary {
             total_transmission_loss,
             total_ventilation_loss,
+            total_ventilation_flow,
             total_infiltration_loss,
             total_heating_up,
             total_system_losses,

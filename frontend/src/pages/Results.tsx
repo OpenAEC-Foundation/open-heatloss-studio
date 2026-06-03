@@ -558,6 +558,12 @@ function Isso53Results({
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.totalVentilationLoss)}</div>
             <div className="metric-card-label">{t("isso53.results.totalVentilationLoss")}</div>
+            <div className="mt-0.5 text-[10px] leading-tight tabular-nums text-on-surface-muted">
+              {summary.totalVentilationFlow.toFixed(1)} dm³/s
+            </div>
+            <div className="text-[10px] leading-tight tabular-nums text-on-surface-muted">
+              {(summary.totalVentilationFlow * 3.6).toFixed(0)} m³/h
+            </div>
           </div>
           <div className="metric-card">
             <div className="metric-card-value">{fmtW(summary.totalInfiltrationLoss)}</div>
@@ -748,8 +754,8 @@ function Isso53Results({
         </Card>
 
         {/* Per-vertrek detail — transmissie + ventilatie/infiltratie
-            breakdown. ISSO 53 levert geen f_v/q_v per vertrek; die rijen
-            (anders dan in de ISSO 51-tak) zijn daarom weggelaten. */}
+            breakdown. ISSO 53 levert geen f_v per vertrek; die rij blijft weg.
+            q_v wordt nu wél getoond. */}
         {rooms.map((room) => (
           <Card key={room.roomId} title={`${room.roomName} (${room.roomId})`}>
             <div className="grid grid-cols-2 gap-6">
@@ -774,6 +780,7 @@ function Isso53Results({
                   Ventilatie &amp; infiltratie
                 </h4>
                 <dl className="space-y-1 text-sm">
+                  <DetailRow label="q_v" value={`${fmt2(room.qV)} dm³/s (${(room.qV * 3.6).toFixed(0)} m³/h)`} description="Ventilatiedebiet" />
                   <DetailRow label="H_v" value={`${fmt2(room.hV)} W/K`} description="Warmteoverdrachtscoëfficiënt ventilatie" />
                   <DetailRow label={<strong>&Phi;_v</strong>} value={<strong>{fmtW(room.phiV)}</strong>} description="Totaal ventilatieverlies" />
                   <DetailRow label="H_i" value={`${fmt2(room.hI)} W/K`} description="Warmteoverdrachtscoëfficiënt infiltratie" />
