@@ -56,6 +56,10 @@ fn vabi_dr_kantoorwest_phi_v_zero() {
 /// Φ_I = ~693 (Vabi-compat via UnknownVabiCompat variant).
 ///
 /// Snapshot-waardes komen uit `_calc_snapshot` in expected.json (engine output, niet Vabi truth).
+///
+/// A5-stratificatie raakt deze fixture NIET: de Δθ₁-correctie wordt per PM-besluit
+/// alleen toegepast op exterieur-horizontaal (θ_e heeft geen eigen gelaagdheid);
+/// de adjacent-room/-building tak blijft Δθ-loos tot tweezijdige Δθ₁/Δθ_a1 er is.
 #[test]
 fn vabi_dr_kantoorwest_snapshot() {
     let (room, expected) = load_room_0_03();
