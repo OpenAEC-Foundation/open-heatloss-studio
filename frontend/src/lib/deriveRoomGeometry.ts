@@ -147,15 +147,33 @@ export function deriveRoomGeometry(room: Room): DerivedRoomGeometry {
 }
 
 /**
- * Rotate a 2D polygon (in meters) by `deg` degrees about the origin.
+ * Rotate a 2D point (in meters) by `deg` degrees about the origin.
  *
- * Used to apply the model's true-north correction to imported geometry before
- * grid placement. When `deg` is undefined, 0, or non-finite the input is
- * returned unchanged (identity) so non-rotated/v1.0 imports never shift.
+ * --- ROTATION SIGN (single source of truth) ---------------------------------
+ * Positive `deg` rotates the raw Revit XY coordinates counter-clockwise to
+ * align the footprint north-up. If the rendered plan turns out MIRRORED in the
+ * true-north direction, flip the sign of `rad` on the line below (one-line
+ * change) — this is the only place rotation is computed.
+ * ----------------------------------------------------------------------------
  *
- * Convention: positive `deg` rotates the raw Revit coordinates
- * counter-clockwise in the XY plane to align the footprint north-up.
+ * When `deg` is undefined, 0, or non-finite the input is returned unchanged
+ * (identity) so non-rotated / v1.0 imports never shift.
  */
+function rotatePoint2D(
+  x: number,
+  y: number,
+  deg: number | undefined,
+): [number, number] {
+  if (deg === undefined || !Number.isFinite(deg) || deg === 0) {
+    return [x, y];
+  }
+  const rad = (deg * Math.PI) / 180; // ← flip to `-(deg * Math.PI) / 180` if mirrored
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return [x * cos - y * sin, x * sin + y * cos];
+}
+
+/** Rotate a whole 2D polygon (meters) about the origin. */
 export function rotatePolygon2D(
   polygonM: [number, number][],
   deg?: number,
@@ -163,39 +181,59 @@ export function rotatePolygon2D(
   if (deg === undefined || !Number.isFinite(deg) || deg === 0) {
     return polygonM;
   }
-  const rad = (deg * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return polygonM.map(([x, y]) => [x * cos - y * sin, x * sin + y * cos]);
+  return polygonM.map(([x, y]) => rotatePoint2D(x, y, deg));
+}
+
+/** Shared 2D transform applied to every imported surface: a true-north
+ * rotation about the origin followed by a single global offset (in meters).
+ * Keeping one transform object guarantees rooms, walls, and surface vertices
+ * all land in the same coordinate frame, preserving their real relative
+ * positions. */
+export interface ImportTransform {
+  /** True-north rotation in degrees (about the world origin). */
+  trueNorthDeg?: number;
+  /** Global offset (meters) subtracted after rotation, so the whole building
+   * sits in the positive quadrant. */
+  originXM: number;
+  originYM: number;
+}
+
+/** Apply the shared import transform to a single point (meters → meters). */
+export function applyImportTransform(
+  x: number,
+  y: number,
+  t: ImportTransform,
+): [number, number] {
+  const [rx, ry] = rotatePoint2D(x, y, t.trueNorthDeg);
+  return [rx - t.originXM, ry - t.originYM];
 }
 
 /**
- * Build geometry for a room from a real imported boundary polygon (meters).
+ * Build geometry for a room from a real imported boundary polygon (meters),
+ * using the SHARED import transform (global rotation + global origin) so the
+ * room keeps its true position relative to every other imported room. No
+ * per-room normalization — that would discard the inter-room layout.
  *
- * The polygon is converted to mm and translated so its bounding-box min corner
- * sits at the local origin (0,0); the grid layout then positions it just like a
- * derived rectangle. `widthMm`/`depthMm` are the bbox dimensions, used only for
- * grid spacing. Returns `null` when the polygon is degenerate (< 3 points) so
- * the caller can fall back to the derived rectangle.
+ * Returns absolute mm coordinates in the shared building frame (already
+ * positioned; the caller does NOT grid-place these). `widthMm`/`depthMm` are
+ * the bbox dimensions, kept for API compatibility. Returns `null` when the
+ * polygon is degenerate (< 3 points) so the caller can fall back to the
+ * derived rectangle.
  */
 export function geometryFromImportPolygon(
   polygonM: [number, number][],
-  trueNorthDeg?: number,
+  transform: ImportTransform,
 ): DerivedRoomGeometry | null {
   if (!Array.isArray(polygonM) || polygonM.length < 3) return null;
-
-  // True-north rotation. The imported polygon is in RAW Revit project
-  // coordinates; rotating by `true_north_deg` aligns the footprint to
-  // north-up. 0 / undefined → identity (no regression for v1.0 imports or
-  // exports without true-north). Rotation is applied BEFORE bbox-normalization
-  // so each room footprint is north-aligned within its own grid cell.
-  const rotated = rotatePolygon2D(polygonM, trueNorthDeg);
 
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const [x, y] of rotated) {
+  const polygon: Point2D[] = [];
+  for (const [px, py] of polygonM) {
+    const [x, y] = applyImportTransform(px, py, transform);
+    polygon.push({ x: x * MM, y: y * MM });
     if (x < minX) minX = x;
     if (y < minY) minY = y;
     if (x > maxX) maxX = x;
@@ -203,21 +241,45 @@ export function geometryFromImportPolygon(
   }
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
 
-  // Translate to local origin and convert m → mm.
-  const polygon: Point2D[] = rotated.map(([x, y]) => ({
-    x: (x - minX) * MM,
-    y: (y - minY) * MM,
-  }));
-
   const widthMm = (maxX - minX) * MM;
   const depthMm = (maxY - minY) * MM;
 
   // The real polygon has one edge per vertex; we have no per-edge construction
-  // mapping for imported polygons (that linking is step 3b), so walls are left
+  // mapping for imported polygons (that linking is fase 4), so walls are left
   // unassigned. The 2D canvas tolerates a null-filled walls array.
   const walls: Array<ConstructionElement | null> = polygon.map(() => null);
 
   return { polygon, walls, widthMm, depthMm };
+}
+
+/**
+ * Compute the shared import transform for a set of imported room polygons.
+ *
+ * Step 1: rotate every polygon by `trueNorthDeg` about the world origin.
+ * Step 2: take the global bbox-min over ALL rotated polygons as the shared
+ *         origin, so the whole building shifts into the positive quadrant
+ *         while every inter-room distance is preserved exactly.
+ *
+ * Returns `null` when there are no usable polygons (callers fall back to grid).
+ */
+export function computeImportTransform(
+  polygons: [number, number][][],
+  trueNorthDeg?: number,
+): ImportTransform | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let any = false;
+  for (const poly of polygons) {
+    if (!Array.isArray(poly) || poly.length < 3) continue;
+    for (const [px, py] of poly) {
+      const [x, y] = rotatePoint2D(px, py, trueNorthDeg);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      any = true;
+    }
+  }
+  if (!any || !Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+  return { trueNorthDeg, originXM: minX, originYM: minY };
 }
 
 // ---------------------------------------------------------------------------
@@ -298,30 +360,91 @@ export function deriveModelRooms(
     polygonByRoom.set(rp.roomId, rp);
   }
 
-  // Group by floor.
-  const byFloor = new Map<number, Array<{ room: Room; geom: DerivedRoomGeometry }>>();
+  // Shared import transform: one global true-north rotation + one global
+  // origin over ALL imported polygons. This keeps every imported room on its
+  // real position relative to the rest of the building (no per-room normalize,
+  // no grid). Rooms without a boundary keep using the schematic grid.
+  const importPolys: [number, number][][] = [];
+  for (const room of project.rooms) {
+    const ip = polygonByRoom.get(room.id);
+    if (ip) importPolys.push(ip.polygon);
+  }
+  const transform = importPolys.length
+    ? computeImportTransform(importPolys, trueNorthDeg)
+    : null;
+
+  // Split rooms into "imported" (real absolute geometry) and "grid" (fallback).
+  const imported: Array<{ room: Room; geom: DerivedRoomGeometry; floor: number }> = [];
+  const gridByFloor = new Map<number, Array<{ room: Room; geom: DerivedRoomGeometry }>>();
+
   for (const room of project.rooms) {
     const floor = parseFloorFromName(room.name);
-    // Prefer the real imported boundary when present; otherwise fall back to
-    // the perimeter+area derived rectangle. A degenerate import polygon
-    // (< 3 points) also falls back, so nothing crashes on bad geometry.
-    const imported = polygonByRoom.get(room.id);
-    const geom =
-      (imported && geometryFromImportPolygon(imported.polygon, trueNorthDeg)) ||
-      deriveRoomGeometry(room);
-    const list = byFloor.get(floor) ?? [];
-    list.push({ room, geom });
-    byFloor.set(floor, list);
+    const ip = polygonByRoom.get(room.id);
+    const importedGeom =
+      ip && transform ? geometryFromImportPolygon(ip.polygon, transform) : null;
+    if (importedGeom) {
+      imported.push({ room, geom: importedGeom, floor });
+    } else {
+      // No real boundary (pseudo-room, missing polygon, degenerate): keep the
+      // perimeter+area derived rectangle in the schematic grid.
+      const list = gridByFloor.get(floor) ?? [];
+      list.push({ room, geom: deriveRoomGeometry(room) });
+      gridByFloor.set(floor, list);
+    }
   }
 
   const out: ModelRoom[] = [];
-  // Sort floors low-to-high so kelder (-1) is at top of canvas, attic at bottom
-  // (or pick a different convention — for now: low floor = small Y).
-  const sortedFloors = [...byFloor.keys()].sort((a, b) => a - b);
 
+  // ── Imported rooms: real absolute XY, floors separated along the Y axis ──
+  // Every imported polygon already shares one frame (positive quadrant). To
+  // avoid stacked floors overlapping in the top-down plan, shift each floor's
+  // rooms by a per-floor Y offset based on the global building depth; XY within
+  // a floor stays exactly real.
+  if (imported.length) {
+    // Global building span (mm) in the shared frame, to size the floor gap.
+    let buildingMaxY = 0;
+    for (const { geom } of imported) {
+      for (const p of geom.polygon) {
+        if (p.y > buildingMaxY) buildingMaxY = p.y;
+      }
+    }
+    const floorPitchMm = buildingMaxY + floorGapMm;
+
+    const importedFloors = [...new Set(imported.map((r) => r.floor))].sort(
+      (a, b) => a - b,
+    );
+    const floorRank = new Map<number, number>();
+    importedFloors.forEach((f, i) => floorRank.set(f, i));
+
+    for (const { room, geom, floor } of imported) {
+      const yShift = (floorRank.get(floor) ?? 0) * floorPitchMm;
+      const polygon = geom.polygon.map((p) => ({ x: p.x, y: p.y + yShift }));
+      out.push({
+        id: room.id,
+        name: room.name,
+        function: String(room.function),
+        polygon,
+        floor,
+        height: (room.height ?? DEFAULT_HEIGHT_M) * MM,
+      });
+    }
+  }
+
+  // ── Grid rooms (fallback): schematic layout, parked clear of the imported
+  // block so the two never overlap. ──
   let floorYOffset = 0;
-  for (const floor of sortedFloors) {
-    const rooms = byFloor.get(floor)!;
+  if (imported.length) {
+    for (const r of out) {
+      for (const p of r.polygon) {
+        if (p.y > floorYOffset) floorYOffset = p.y;
+      }
+    }
+    if (floorYOffset > 0) floorYOffset += floorGapMm;
+  }
+
+  const sortedGridFloors = [...gridByFloor.keys()].sort((a, b) => a - b);
+  for (const floor of sortedGridFloors) {
+    const rooms = gridByFloor.get(floor)!;
     let rowHeight = 0;
     let rowYStart = floorYOffset;
     let cursorX = 0;
