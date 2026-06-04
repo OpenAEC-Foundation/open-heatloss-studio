@@ -82,6 +82,9 @@ const BOUNDARY_CONDITION_COLORS: Record<ImportedBoundary["boundaryCondition"], n
   adjacent: 0x666666,
 };
 const BOUNDARY_OPACITY = 0.3;
+// Real construction faces (v1.1 vertices): a touch more opaque + depth-written
+// so near-coplanar interior-partition sides read as solid and don't flicker.
+const REAL_SURFACE_OPACITY = 0.55;
 const BOUNDARY_EDGE_COLOR = 0x333333;
 
 // ---------------------------------------------------------------------------
@@ -205,6 +208,23 @@ export function FloorCanvas3D({
     for (const rp of importGeometry?.roomPolygons ?? []) s.add(rp.roomId);
     return s;
   }, [importGeometry]);
+
+  // Per-room: does a REAL floor- resp. ceiling/roof construction surface exist
+  // (a boundary of that orientation whose construction.id has vertices)? When
+  // it does, the schematic room-body floor/ceiling is not rendered (it would
+  // sit on top of the real surface → z-fighting / horizontal double layer).
+  const realHorizontalByRoom = useMemo(() => {
+    const floors = new Set<string>();
+    const ceilings = new Set<string>();
+    for (const b of importedBoundaries) {
+      if (!constructionGeomById.has(b.id)) continue;
+      if (b.orientation === "floor") floors.add(b.roomId);
+      else if (b.orientation === "ceiling" || b.orientation === "roof") {
+        ceilings.add(b.roomId);
+      }
+    }
+    return { floors, ceilings };
+  }, [importedBoundaries, constructionGeomById]);
 
   // Derive selectedRoomId from selection
   const selectedRoomId = selection?.type === "room" ? selection.roomId
@@ -366,16 +386,25 @@ export function FloorCanvas3D({
       const baseColor = FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!;
       // Imported rooms get their walls from the real construction surfaces
       // (boundary group). Suppress the schematic edge-walls / panes / box
-      // wireframe here so walls are not drawn twice. Floor + ceiling room-body
-      // surfaces and the label are kept (room identity + selection).
+      // wireframe here so walls are not drawn twice. The room-body floor/ceiling
+      // is also suppressed when a REAL floor/ceiling construction surface
+      // exists (else two horizontal planes overlap → z-fighting). Such hidden
+      // meshes stay in the selection map as invisible raycast targets so room
+      // selection + label keep working.
       const isImported = importedRoomIds.has(room.id);
+      const hideFloorBody = isImported && realHorizontalByRoom.floors.has(room.id);
+      const hideCeilBody = isImported && realHorizontalByRoom.ceilings.has(room.id);
 
       // --- Floor surface ---
+      // When hidden (real construction floor present) the mesh is rendered fully
+      // transparent (opacity 0) rather than `visible=false`, so it stays a
+      // raycast target for room selection while showing no double layer.
       const floorColor = getSurfaceColor(renderMode, false, baseColor, floorConstructions[room.id], catalogueUValues);
       const floorGeom = createPolygonGeometry(poly);
       const floorMat = new THREE.MeshStandardMaterial({
         color: floorColor, side: THREE.DoubleSide, transparent: true,
-        opacity: SURFACE_OPACITY, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+        opacity: hideFloorBody ? 0 : SURFACE_OPACITY,
+        polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
       floorMesh.position.y = floorY + 0.005;
@@ -386,7 +415,8 @@ export function FloorCanvas3D({
       const ceilColor = getSurfaceColor(renderMode, false, baseColor, roofConstructions[room.id], catalogueUValues);
       const ceilGeom = createPolygonGeometry(poly);
       const ceilMat = new THREE.MeshStandardMaterial({
-        color: ceilColor, side: THREE.DoubleSide, transparent: true, opacity: SURFACE_OPACITY,
+        color: ceilColor, side: THREE.DoubleSide, transparent: true,
+        opacity: hideCeilBody ? 0 : SURFACE_OPACITY,
       });
       const ceilMesh = new THREE.Mesh(ceilGeom, ceilMat);
       ceilMesh.position.y = floorY + h;
@@ -508,7 +538,7 @@ export function FloorCanvas3D({
       sprite.scale.set(2, 1, 1);
       group.add(sprite);
     }
-  }, [rooms, windows, doors, selectedRoomId, selectedWallIndex, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues, importedRoomIds]);
+  }, [rooms, windows, doors, selectedRoomId, selectedWallIndex, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues, importedRoomIds, realHorizontalByRoom]);
 
   // -----------------------------------------------------------------------
   // Build imported boundary meshes
@@ -562,12 +592,21 @@ export function FloorCanvas3D({
       if (realVerts && realVerts.length >= 3 && importTransform) {
         const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
         if (surfGeom) {
+          // Real construction faces: interior partitions are correctly exported
+          // as TWO sides ~6 cm apart (each its own construction.id — kept for
+          // the φ_T heatmap, NOT deduplicated). To stop those near-coplanar
+          // sides flickering: write depth (so the front side occludes the back),
+          // give each face a polygonOffset depth bias, and render a bit more
+          // opaque so they read as solid rather than see-through.
           const mat = new THREE.MeshStandardMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: BOUNDARY_OPACITY,
-            depthWrite: false,
+            opacity: REAL_SURFACE_OPACITY,
+            depthWrite: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
           });
           const mesh = new THREE.Mesh(surfGeom, mat);
           mesh.renderOrder = 3;
