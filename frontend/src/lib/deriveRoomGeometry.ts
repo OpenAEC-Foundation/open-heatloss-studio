@@ -28,6 +28,7 @@
 
 import type { ConstructionElement, Project, Room } from "../types";
 import type {
+  ImportRoomPolygon,
   ModelDoor,
   ModelRoom,
   ModelWindow,
@@ -145,6 +146,80 @@ export function deriveRoomGeometry(room: Room): DerivedRoomGeometry {
   return { polygon, walls: sides, widthMm, depthMm };
 }
 
+/**
+ * Rotate a 2D polygon (in meters) by `deg` degrees about the origin.
+ *
+ * Used to apply the model's true-north correction to imported geometry before
+ * grid placement. When `deg` is undefined, 0, or non-finite the input is
+ * returned unchanged (identity) so non-rotated/v1.0 imports never shift.
+ *
+ * Convention: positive `deg` rotates the raw Revit coordinates
+ * counter-clockwise in the XY plane to align the footprint north-up.
+ */
+export function rotatePolygon2D(
+  polygonM: [number, number][],
+  deg?: number,
+): [number, number][] {
+  if (deg === undefined || !Number.isFinite(deg) || deg === 0) {
+    return polygonM;
+  }
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return polygonM.map(([x, y]) => [x * cos - y * sin, x * sin + y * cos]);
+}
+
+/**
+ * Build geometry for a room from a real imported boundary polygon (meters).
+ *
+ * The polygon is converted to mm and translated so its bounding-box min corner
+ * sits at the local origin (0,0); the grid layout then positions it just like a
+ * derived rectangle. `widthMm`/`depthMm` are the bbox dimensions, used only for
+ * grid spacing. Returns `null` when the polygon is degenerate (< 3 points) so
+ * the caller can fall back to the derived rectangle.
+ */
+export function geometryFromImportPolygon(
+  polygonM: [number, number][],
+  trueNorthDeg?: number,
+): DerivedRoomGeometry | null {
+  if (!Array.isArray(polygonM) || polygonM.length < 3) return null;
+
+  // True-north rotation. The imported polygon is in RAW Revit project
+  // coordinates; rotating by `true_north_deg` aligns the footprint to
+  // north-up. 0 / undefined → identity (no regression for v1.0 imports or
+  // exports without true-north). Rotation is applied BEFORE bbox-normalization
+  // so each room footprint is north-aligned within its own grid cell.
+  const rotated = rotatePolygon2D(polygonM, trueNorthDeg);
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of rotated) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+
+  // Translate to local origin and convert m → mm.
+  const polygon: Point2D[] = rotated.map(([x, y]) => ({
+    x: (x - minX) * MM,
+    y: (y - minY) * MM,
+  }));
+
+  const widthMm = (maxX - minX) * MM;
+  const depthMm = (maxY - minY) * MM;
+
+  // The real polygon has one edge per vertex; we have no per-edge construction
+  // mapping for imported polygons (that linking is step 3b), so walls are left
+  // unassigned. The 2D canvas tolerates a null-filled walls array.
+  const walls: Array<ConstructionElement | null> = polygon.map(() => null);
+
+  return { polygon, walls, widthMm, depthMm };
+}
+
 // ---------------------------------------------------------------------------
 // Floor parsing
 // ---------------------------------------------------------------------------
@@ -194,17 +269,46 @@ export function parseFloorFromName(name: string): number {
  */
 export function deriveModelRooms(
   project: Project,
-  options?: { cols?: number; gapMm?: number; floorGapMm?: number },
+  options?: {
+    cols?: number;
+    gapMm?: number;
+    floorGapMm?: number;
+    /**
+     * Real imported boundary polygons (meters), keyed by Room.id. When a room
+     * has an entry here its actual boundary is used instead of the derived
+     * rectangle. Rooms without an entry fall back to `deriveRoomGeometry`.
+     */
+    roomPolygons?: ImportRoomPolygon[];
+    /**
+     * Model true-north rotation in degrees (from the v1.1 import). Applied to
+     * every imported room polygon so footprints render north-up. Undefined/0 →
+     * no rotation (no regression for non-imported / v1.0 projects).
+     */
+    trueNorthDeg?: number;
+  },
 ): ModelRoom[] {
   const cols = options?.cols ?? 4;
   const gapMm = options?.gapMm ?? ROOM_GAP_MM;
   const floorGapMm = options?.floorGapMm ?? 5000;
+  const trueNorthDeg = options?.trueNorthDeg;
+
+  // Index imported polygons by room id for O(1) lookup.
+  const polygonByRoom = new Map<string, ImportRoomPolygon>();
+  for (const rp of options?.roomPolygons ?? []) {
+    polygonByRoom.set(rp.roomId, rp);
+  }
 
   // Group by floor.
   const byFloor = new Map<number, Array<{ room: Room; geom: DerivedRoomGeometry }>>();
   for (const room of project.rooms) {
     const floor = parseFloorFromName(room.name);
-    const geom = deriveRoomGeometry(room);
+    // Prefer the real imported boundary when present; otherwise fall back to
+    // the perimeter+area derived rectangle. A degenerate import polygon
+    // (< 3 points) also falls back, so nothing crashes on bad geometry.
+    const imported = polygonByRoom.get(room.id);
+    const geom =
+      (imported && geometryFromImportPolygon(imported.polygon, trueNorthDeg)) ||
+      deriveRoomGeometry(room);
     const list = byFloor.get(floor) ?? [];
     list.push({ room, geom });
     byFloor.set(floor, list);

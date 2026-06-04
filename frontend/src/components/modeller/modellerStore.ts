@@ -7,7 +7,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType, ProjectConstruction, ImportedBoundary } from "./types";
+import type { ModelRoom, ModelWindow, ModelDoor, WallBoundaryType, ProjectConstruction, ImportedBoundary, ImportGeometry } from "./types";
 import { buildLayerName, type CatalogueEntry } from "../../lib/constructionCatalogue";
 import { normalizeProjectConstructionUValue } from "./projectConstructionUtils";
 import { EXAMPLE_ROOMS, EXAMPLE_WINDOWS } from "./exampleData";
@@ -130,6 +130,15 @@ interface ModellerStore {
   // Imported thermal boundaries (from Revit thermal import)
   importedBoundaries: ImportedBoundary[];
 
+  /**
+   * Real 3D geometry from a thermal import (v1.1): true room polygons,
+   * true-north, and per-surface vertices. Consumed by `deriveModelRooms`
+   * (real boundary instead of derived rectangle) and reserved for step 3b
+   * (true-north rotation, north arrow, heatmap). `null` when no import has
+   * supplied geometry. All coordinates are in METERS.
+   */
+  importGeometry: ImportGeometry | null;
+
   // History (not persisted)
   _past: Snapshot[];
   _future: Snapshot[];
@@ -163,6 +172,10 @@ interface ModellerStore {
   // Imported boundaries
   setImportedBoundaries: (boundaries: ImportedBoundary[]) => void;
   clearImportedBoundaries: () => void;
+
+  // Imported real geometry (v1.1)
+  setImportGeometry: (geometry: ImportGeometry | null) => void;
+  clearImportGeometry: () => void;
 
   // Project construction CRUD
   addProjectConstruction: (construction: Omit<ProjectConstruction, "id">) => string;
@@ -251,6 +264,7 @@ export const useModellerStore = create<ModellerStore>()(
       roofConstructions: {},
       wallBoundaryTypes: {},
       importedBoundaries: [],
+      importGeometry: null,
       _past: [],
       _future: [],
 
@@ -382,6 +396,10 @@ export const useModellerStore = create<ModellerStore>()(
       // -- Imported boundaries --
       setImportedBoundaries: (boundaries) => set({ importedBoundaries: boundaries }),
       clearImportedBoundaries: () => set({ importedBoundaries: [] }),
+
+      // -- Imported real geometry (v1.1) --
+      setImportGeometry: (geometry) => set({ importGeometry: geometry }),
+      clearImportGeometry: () => set({ importGeometry: null }),
 
       // -- Project construction CRUD --
       addProjectConstruction: (construction) => {
@@ -576,6 +594,7 @@ export const useModellerStore = create<ModellerStore>()(
           roofConstructions: {},
           wallBoundaryTypes: {},
           importedBoundaries: [],
+          importGeometry: null,
           _past: [],
           _future: [],
         }),
@@ -594,6 +613,7 @@ export const useModellerStore = create<ModellerStore>()(
         roofConstructions: state.roofConstructions,
         wallBoundaryTypes: state.wallBoundaryTypes,
         importedBoundaries: state.importedBoundaries,
+        importGeometry: state.importGeometry,
       }),
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>;

@@ -64,6 +64,7 @@ export function ThermalImportWizard() {
   const navigate = useNavigate();
   const setProject = useProjectStore((s) => s.setProject);
   const setImportedBoundaries = useModellerStore((s) => s.setImportedBoundaries);
+  const setImportGeometry = useModellerStore((s) => s.setImportGeometry);
   const ensureProjectConstruction = useModellerStore((s) => s.ensureProjectConstruction);
 
   // Wizard state
@@ -197,9 +198,33 @@ export function ThermalImportWizard() {
     const boundaries = toImportedBoundaries(importFile.constructions, editedRooms);
     setImportedBoundaries(boundaries);
 
+    // 5b. Store the real v1.1 geometry (true room polygons, true-north,
+    //     per-surface vertices) so the 3D viewer renders the actual boundary
+    //     instead of the derived rectangle. true_north rotation + north arrow
+    //     + heatmap are step 3b — here we only carry the data through. All
+    //     coordinates stay in meters, as returned by the backend.
+    setImportGeometry({
+      roomPolygons: importResult.room_polygons.map((rp) => ({
+        roomId: rp.room_id,
+        polygon: rp.polygon,
+        name: rp.name,
+        level: rp.level,
+        heightM: rp.height_m,
+      })),
+      trueNorthDeg: importResult.true_north_deg,
+      constructionGeometries: (importResult.construction_geometries ?? []).map((g) => ({
+        id: g.id,
+        vertices: g.vertices,
+      })),
+      openingGeometries: (importResult.opening_geometries ?? []).map((g) => ({
+        id: g.id,
+        vertices: g.vertices,
+      })),
+    });
+
     // 6. Navigate to modeller
     navigate("/modeller");
-  }, [importResult, importFile, editedRooms, editedOpenings, catalogUValues, ensureProjectConstruction, setProject, setImportedBoundaries, navigate]);
+  }, [importResult, importFile, editedRooms, editedOpenings, catalogUValues, ensureProjectConstruction, setProject, setImportedBoundaries, setImportGeometry, navigate]);
 
   // LayerEditor U-value callback — keyed by CatalogEntry.id
   const handleConstructionUValue = useCallback((catalogId: string, uValue: number) => {

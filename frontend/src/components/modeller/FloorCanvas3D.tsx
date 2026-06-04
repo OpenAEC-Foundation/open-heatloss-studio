@@ -144,10 +144,30 @@ export function FloorCanvas3D({
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const surfaceMeshMapRef = useRef(new Map<THREE.Mesh, SurfaceId>());
+  const northGroupRef = useRef<THREE.Group>(new THREE.Group());
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
-  // Read imported boundaries from store
+  // Heatmap preparation (fase 4): lookup from a thermal source id
+  // (construction.id / opening.id) to the meshes rendered for that surface.
+  // Populated when imported boundaries / openings are built so a later phase
+  // can colour the right faces via `surface_id → φ_T ÷ area → kleur`. No
+  // colours are computed here.
+  const surfaceIdMeshMapRef = useRef(new Map<string, THREE.Mesh[]>());
+
+  // Read imported boundaries + real geometry from store
   const importedBoundaries = useModellerStore((s) => s.importedBoundaries);
+  const importGeometry = useModellerStore((s) => s.importGeometry);
+
+  // Set of construction/opening ids that carry real 3D vertices in the import,
+  // so the heatmap-prep hooks only fire for surfaces with known geometry.
+  const surfaceGeometryIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const g of importGeometry?.constructionGeometries ?? []) ids.add(g.id);
+    for (const g of importGeometry?.openingGeometries ?? []) ids.add(g.id);
+    return ids;
+  }, [importGeometry]);
+
+  const trueNorthDeg = importGeometry?.trueNorthDeg;
 
   // Derive selectedRoomId from selection
   const selectedRoomId = selection?.type === "room" ? selection.roomId
@@ -260,11 +280,13 @@ export function FloorCanvas3D({
     scene.add(modelGroupRef.current);
     scene.add(wireframeGroupRef.current);
     scene.add(boundaryGroupRef.current);
+    scene.add(northGroupRef.current);
 
     return () => {
       modelGroupRef.current.removeFromParent();
       wireframeGroupRef.current.removeFromParent();
       boundaryGroupRef.current.removeFromParent();
+      northGroupRef.current.removeFromParent();
       components.dispose();
       componentsRef.current = null;
       rendererRef.current = null;
@@ -446,6 +468,8 @@ export function FloorCanvas3D({
   useEffect(() => {
     const bGroup = boundaryGroupRef.current;
     clearGroup(bGroup);
+    // Reset the heatmap-prep lookup; it is rebuilt from the boundary meshes.
+    surfaceIdMeshMapRef.current.clear();
 
     if (importedBoundaries.length === 0) return;
 
@@ -454,6 +478,20 @@ export function FloorCanvas3D({
     for (const room of rooms) {
       roomMap.set(room.id, room);
     }
+
+    // Register a rendered boundary mesh under its source construction/opening
+    // id (heatmap preparation, fase 4). `boundary.id` === source construction
+    // id (see toImportedBoundaries). `userData.surfaceId` lets a raycast hit or
+    // a later φ_T-colouring pass find the originating thermal surface. The
+    // `hasGeometry` flag records whether the import carried real 3D vertices
+    // for this id (vliesgevels / pseudo-room surfaces may not).
+    const registerSurface = (mesh: THREE.Mesh, surfaceId: string) => {
+      mesh.userData.surfaceId = surfaceId;
+      mesh.userData.hasGeometry = surfaceGeometryIds.has(surfaceId);
+      const list = surfaceIdMeshMapRef.current.get(surfaceId);
+      if (list) list.push(mesh);
+      else surfaceIdMeshMapRef.current.set(surfaceId, [mesh]);
+    };
 
     for (const boundary of importedBoundaries) {
       const room = roomMap.get(boundary.roomId);
@@ -478,6 +516,7 @@ export function FloorCanvas3D({
         const mesh = new THREE.Mesh(geom, mat);
         mesh.position.y = floorY + 0.002;
         mesh.renderOrder = 3;
+        registerSurface(mesh, boundary.id);
         bGroup.add(mesh);
 
         // Wireframe edge for the floor polygon
@@ -507,6 +546,7 @@ export function FloorCanvas3D({
         const mesh = new THREE.Mesh(geom, mat);
         mesh.position.y = floorY + h + 0.002;
         mesh.renderOrder = 3;
+        registerSurface(mesh, boundary.id);
         bGroup.add(mesh);
 
         // Wireframe edge for the ceiling polygon
@@ -574,6 +614,7 @@ export function FloorCanvas3D({
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.y = floorY;
           mesh.renderOrder = 3;
+          registerSurface(mesh, boundary.id);
           bGroup.add(mesh);
 
           // Wireframe edge for the wall quad
@@ -590,7 +631,49 @@ export function FloorCanvas3D({
         }
       }
     }
-  }, [importedBoundaries, rooms]);
+  }, [importedBoundaries, rooms, surfaceGeometryIds]);
+
+  // -----------------------------------------------------------------------
+  // North arrow indicator
+  // -----------------------------------------------------------------------
+  // Only shown when the import supplied a true-north angle. Because imported
+  // room footprints are rotated north-up in the derive layer, the model's
+  // north is a FIXED world direction: polygon +Y maps to world -Z (see
+  // createPolygonGeometry), so true north points toward -Z. The arrow sits in
+  // a corner of the model bounds on the ground plane and never moves with the
+  // camera.
+  useEffect(() => {
+    const nGroup = northGroupRef.current;
+    clearGroup(nGroup);
+
+    if (trueNorthDeg === undefined || !Number.isFinite(trueNorthDeg)) return;
+    if (rooms.length === 0) return;
+
+    // Place near the +X / +Z (south-east) corner of the model footprint.
+    const cornerX = bounds.maxX + 0.5;
+    const cornerZ = bounds.maxZ + 0.5;
+    const baseY = 0.02;
+    const len = 2.0; // m
+
+    // Arrow shaft + head pointing to -Z (true north).
+    const arrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, -1),
+      new THREE.Vector3(cornerX, baseY, cornerZ),
+      len,
+      0xdc2626,
+      0.6,
+      0.35,
+    );
+    arrow.renderOrder = 20;
+    nGroup.add(arrow);
+
+    // "N" label at the arrow tip.
+    const label = createNorthLabel();
+    label.position.set(cornerX, baseY + 0.1, cornerZ - len - 0.5);
+    label.scale.set(1.2, 1.2, 1.2);
+    label.renderOrder = 21;
+    nGroup.add(label);
+  }, [trueNorthDeg, rooms, bounds]);
 
   // -----------------------------------------------------------------------
   // Click handler (room selection)
@@ -820,7 +903,35 @@ function clearGroup(group: THREE.Group): void {
       child.material.map?.dispose();
       child.material.dispose();
     }
+    if (child instanceof THREE.ArrowHelper) {
+      child.dispose();
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// North arrow label sprite
+// ---------------------------------------------------------------------------
+
+function createNorthLabel(): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.fillStyle = "#dc2626";
+  ctx.font = "bold 48px Inter, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("N", 32, 34);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+  });
+  return new THREE.Sprite(mat);
 }
 
 // ---------------------------------------------------------------------------

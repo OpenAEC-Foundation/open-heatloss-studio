@@ -54,7 +54,20 @@ export function Modeller() {
   // useModellerStore.rooms/windows/doors blijven bestaan voor backwards-compat
   // maar worden niet meer gerenderd. Wanneer de viewer weer editable wordt,
   // mutateren de handlers `project` (via useProjectStore) i.p.v. de modellerStore.
-  const rooms = useMemo(() => deriveModelRooms(project), [project]);
+  // Real imported geometry (v1.1 thermal import): true room polygons, true-north
+  // and per-surface vertices. When present, rooms render from the actual
+  // boundary (3a) rotated north-up via true_north_deg (3b). The north arrow and
+  // per-surface heatmap (fase 4) also consume `importGeometry`.
+  const importGeometry = useModellerStore((s) => s.importGeometry);
+
+  const rooms = useMemo(
+    () =>
+      deriveModelRooms(project, {
+        roomPolygons: importGeometry?.roomPolygons,
+        trueNorthDeg: importGeometry?.trueNorthDeg,
+      }),
+    [project, importGeometry],
+  );
   const windows = useMemo(() => deriveModelWindows(project), [project]);
   const doors = useMemo(() => deriveModelDoors(project), [project]);
 
