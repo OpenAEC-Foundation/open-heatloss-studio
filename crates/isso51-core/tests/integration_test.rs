@@ -476,3 +476,82 @@ fn fixture_woonboot() {
         extract: extract_native_format,
     });
 }
+
+#[test]
+fn thermal_import_v11_geometry() {
+    use isso51_core::import::{map_thermal_import, ThermalImport};
+
+    let fixture_path = require_fixture("thermal-import-v11-geometry.json");
+    let json_content = read_to_string(&fixture_path);
+
+    let import: ThermalImport = serde_json::from_str(&json_content)
+        .expect("Failed to deserialize v1.1 thermal import fixture");
+
+    // Verify v1.1 contract basics
+    assert_eq!(import.version, "1.1");
+    assert!(import.true_north_deg.is_some());
+    let true_north = import.true_north_deg.unwrap();
+    assert!((true_north - 46.0).abs() < 0.1, "true_north_deg should be ~46.0, got {}", true_north);
+
+    // Verify majority of constructions have vertices
+    let constructions_with_vertices = import
+        .constructions
+        .iter()
+        .filter(|c| c.vertices.is_some())
+        .count();
+    assert!(
+        constructions_with_vertices >= 140,
+        "Expected ≥140 constructions with vertices, got {}",
+        constructions_with_vertices
+    );
+
+    // Verify majority of rooms have boundary_polygon
+    let rooms_with_polygon = import
+        .rooms
+        .iter()
+        .filter(|r| r.boundary_polygon.is_some())
+        .count();
+    assert!(
+        rooms_with_polygon >= 21,
+        "Expected ≥21 rooms with boundary_polygon, got {}",
+        rooms_with_polygon
+    );
+
+    // Map to ISSO 51 project and verify geometry survives the mapping
+    let result = map_thermal_import(import);
+
+    // Verify geometry made it through the result mapping
+    assert!(
+        result.construction_geometries.len() >= 140,
+        "Expected ≥140 construction geometries in result, got {}",
+        result.construction_geometries.len()
+    );
+
+    // Verify some opening geometries exist (but may be fewer due to curtain wall missing vertices)
+    assert!(
+        !result.opening_geometries.is_empty(),
+        "Expected at least some opening geometries in result"
+    );
+
+    // Verify true_north_deg made it through
+    assert_eq!(result.true_north_deg, Some(46.0));
+
+    // Verify backward compatibility: project should be valid ISSO 51 project
+    assert!(!result.project.rooms.is_empty(), "Project should have rooms");
+    assert!(!result.construction_catalog.is_empty(), "Project should have construction catalog");
+
+    // Verify no catastrophic warning explosion (import should be mostly clean).
+    //
+    // This is a real 21-room building fixture with 152 constructions, so the
+    // bulk of these warnings are *informational* merge notices ("grensvlakken
+    // samengevoegd") plus a handful of empty-layer/zero-area notices — they
+    // scale with model size and are by design, not errors. The ceiling is a
+    // sanity guard against a true explosion (e.g. opening-explosie regressie),
+    // not a "zero merge-info" requirement; tuned for this fixture's volume.
+    let warning_count = result.warnings.len();
+    assert!(
+        warning_count < 100,
+        "Too many warnings ({}), import may have serious issues",
+        warning_count
+    );
+}
