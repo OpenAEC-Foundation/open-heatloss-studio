@@ -52,6 +52,8 @@ pub struct ThermalImport {
     pub openings: Vec<ThermalOpening>,
     #[serde(default)]
     pub open_connections: Vec<ThermalOpenConnection>,
+    #[serde(default)]
+    pub true_north_deg: Option<f64>,
 }
 
 /// A room from the thermal export.
@@ -102,6 +104,8 @@ pub struct ThermalConstruction {
     pub revit_type_name: Option<String>,
     #[serde(default)]
     pub layers: Vec<ThermalLayer>,
+    #[serde(default)]
+    pub vertices: Option<Vec<[f64; 3]>>,
 }
 
 /// Orientation of a construction element.
@@ -157,6 +161,8 @@ pub struct ThermalOpening {
     pub revit_element_id: Option<i64>,
     #[serde(default)]
     pub revit_type_name: Option<String>,
+    #[serde(default)]
+    pub vertices: Option<Vec<[f64; 3]>>,
 }
 
 /// Opening type classification.
@@ -190,6 +196,25 @@ pub struct ThermalImportResult {
     pub construction_catalog: Vec<CatalogEntry>,
     /// Room polygons for 3D viewer rendering.
     pub room_polygons: Vec<RoomPolygon>,
+    /// True-north rotation of the model in degrees (v1.1), if present in the export.
+    pub true_north_deg: Option<f64>,
+    /// Per-construction 3D vertices (v1.1) for real 3D box rendering. Only
+    /// constructions that carry `vertices` in the export are included; the
+    /// `id` matches the source `construction.id` for later linking.
+    pub construction_geometries: Vec<SurfaceGeometry>,
+    /// Per-opening 3D vertices (v1.1). Same contract as `construction_geometries`;
+    /// `id` matches the source `opening.id`.
+    pub opening_geometries: Vec<SurfaceGeometry>,
+}
+
+/// 3D geometry for a single surface (construction or opening), v1.1.
+///
+/// `id` corresponds to the source `construction.id` / `opening.id` so the
+/// frontend can later link the rendered box back to the calculated element.
+#[derive(Debug, Clone, Serialize)]
+pub struct SurfaceGeometry {
+    pub id: String,
+    pub vertices: Vec<[f64; 3]>,
 }
 
 /// One unique construction (layer composition) in the catalog.
@@ -887,6 +912,35 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         .map(|r| r.floor_area)
         .sum();
 
+    // ─── v1.1: collect 3D geometry (vertices) for constructions + openings ───
+    //
+    // Only surfaces that actually carry `vertices` in the export are included;
+    // vliesgevels/pseudo-surfaces missen terecht geometrie en worden gewoon
+    // overgeslagen (geen warning-spam). De `id` matcht de source-id zodat de
+    // frontend (stap 3) de gerenderde doos aan het berekende element kan koppelen.
+    // Bewust vóór de `Project`-constructie verzameld, want die move't velden uit `input`.
+    let true_north_deg = input.true_north_deg;
+    let construction_geometries: Vec<SurfaceGeometry> = input
+        .constructions
+        .iter()
+        .filter_map(|c| {
+            c.vertices.as_ref().map(|v| SurfaceGeometry {
+                id: c.id.clone(),
+                vertices: v.clone(),
+            })
+        })
+        .collect();
+    let opening_geometries: Vec<SurfaceGeometry> = input
+        .openings
+        .iter()
+        .filter_map(|o| {
+            o.vertices.as_ref().map(|v| SurfaceGeometry {
+                id: o.id.clone(),
+                vertices: v.clone(),
+            })
+        })
+        .collect();
+
     let project = Project {
         info: ProjectInfo {
             name: input
@@ -936,6 +990,9 @@ pub fn map_thermal_import(input: ThermalImport) -> ThermalImportResult {
         warnings,
         construction_catalog,
         room_polygons,
+        true_north_deg,
+        construction_geometries,
+        opening_geometries,
     }
 }
 
@@ -1427,7 +1484,8 @@ mod tests {
                     area_m2: 9.9,
                 },
             ],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
 
@@ -1568,7 +1626,8 @@ mod tests {
                     revit_element_id: None,
                     revit_type_name: Some("Wand met pui".to_string()),
                     layers: vec![],
-                },
+                                    vertices: None,
+},
                 // Normal construction with area.
                 ThermalConstruction {
                     id: "c-normal".to_string(),
@@ -1580,7 +1639,8 @@ mod tests {
                     revit_element_id: None,
                     revit_type_name: Some("Spouwmuur".to_string()),
                     layers: vec![],
-                },
+                                    vertices: None,
+},
             ],
             openings: vec![
                 // Opening consumes all area of c-zero.
@@ -1594,10 +1654,12 @@ mod tests {
                     u_value: Some(1.6),
                     revit_element_id: None,
                     revit_type_name: Some("Pui".to_string()),
-                },
+                                    vertices: None,
+},
             ],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = &result.project.rooms[0];
@@ -1698,7 +1760,8 @@ mod tests {
                             lambda: Some(0.9),
                         },
                     ],
-                },
+                                    vertices: None,
+},
                 ThermalConstruction {
                     id: "c2".to_string(),
                     room_a: "r1".to_string(),
@@ -1738,7 +1801,8 @@ mod tests {
                             lambda: Some(0.9),
                         },
                     ],
-                },
+                                    vertices: None,
+},
                 ThermalConstruction {
                     id: "c3".to_string(),
                     room_a: "r1".to_string(),
@@ -1778,11 +1842,13 @@ mod tests {
                             lambda: Some(0.9),
                         },
                     ],
-                },
+                                    vertices: None,
+},
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = &result.project.rooms[0];
@@ -1961,7 +2027,8 @@ mod tests {
                         layer_type: ThermalLayerType::Solid,
                         lambda: Some(1.0),
                     }],
-                },
+                                    vertices: None,
+},
                 ThermalConstruction {
                     id: "c2".to_string(),
                     room_a: "r1".to_string(),
@@ -1978,7 +2045,8 @@ mod tests {
                         layer_type: ThermalLayerType::Solid,
                         lambda: Some(1.0),
                     }],
-                },
+                                    vertices: None,
+},
                 // Different layer fingerprint (different material), same boundary_type → should NOT group.
                 ThermalConstruction {
                     id: "c3".to_string(),
@@ -1996,11 +2064,13 @@ mod tests {
                         layer_type: ThermalLayerType::Solid,
                         lambda: Some(0.25),
                     }],
-                },
+                                    vertices: None,
+},
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = &result.project.rooms[0];
@@ -2060,7 +2130,8 @@ mod tests {
             constructions,
             openings: vec![],
             open_connections: vec![],
-        }
+                    true_north_deg: None,
+}
     }
 
     /// Helper: quickly create a peer room with a specific room type.
@@ -2095,7 +2166,8 @@ mod tests {
             revit_element_id: None,
             revit_type_name: Some(revit_type.to_string()),
             layers: vec![],
-        }
+                    vertices: None,
+}
     }
 
     #[test]
@@ -2384,7 +2456,8 @@ mod tests {
             revit_element_id: None,
             revit_type_name: None,
             layers,
-        }
+                    vertices: None,
+}
     }
 
     #[test]
@@ -2438,7 +2511,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = result
@@ -2544,7 +2618,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = result
@@ -2681,7 +2756,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
 
@@ -2748,7 +2824,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
 
@@ -2816,7 +2893,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
 
@@ -2871,7 +2949,8 @@ mod tests {
             ],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
 
@@ -2929,9 +3008,11 @@ mod tests {
                 u_value: Some(1.4),
                 revit_element_id: None,
                 revit_type_name: Some("Raam standaard".to_string()),
-            }],
+                            vertices: None,
+}],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let room = &result.project.rooms[0];
@@ -3356,10 +3437,12 @@ mod tests {
                     layer_type: ThermalLayerType::Solid,
                     lambda: Some(2.5),
                 }],
-            }],
+                            vertices: None,
+}],
             openings: vec![],
             open_connections: vec![],
-        };
+                    true_north_deg: None,
+};
 
         let result = map_thermal_import(input);
         let r1 = result

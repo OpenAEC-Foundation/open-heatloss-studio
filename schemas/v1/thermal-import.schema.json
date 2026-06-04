@@ -8,7 +8,7 @@
   "properties": {
     "version": {
       "type": "string",
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "source": {
       "type": "string",
@@ -39,6 +39,10 @@
       "type": "array",
       "items": { "$ref": "#/definitions/OpenConnection" },
       "default": []
+    },
+    "true_north_deg": {
+      "type": "number",
+      "description": "True north orientation in degrees for geometry rotation"
     }
   },
   "definitions": {
@@ -130,6 +134,16 @@
           "type": "array",
           "items": { "$ref": "#/definitions/ConstructionLayer" },
           "description": "Layer build-up from interior to exterior"
+        },
+        "vertices": {
+          "type": "array",
+          "description": "3D vertices as [[x,y,z], ...] in meters",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          }
         }
       }
     },
@@ -199,6 +213,16 @@
         },
         "revit_type_name": {
           "type": "string"
+        },
+        "vertices": {
+          "type": "array",
+          "description": "3D vertices as [[x,y,z], ...] in meters",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          }
         }
       }
     },

@@ -19,9 +19,9 @@ pub async fn thermal_import_handler(body: String) -> impl IntoResponse {
     let result = tokio::task::spawn_blocking(move || -> Result<String, String> {
         let import: ThermalImport =
             serde_json::from_str(&body).map_err(|e| format!("JSON parse error: {e}"))?;
-        if import.version != "1.0" {
+        if !matches!(import.version.as_str(), "1.0" | "1.1") {
             return Err(format!(
-                "Unsupported version: {}. Expected 1.0",
+                "Unsupported version: {}. Expected 1.0 or 1.1",
                 import.version
             ));
         }
