@@ -134,6 +134,41 @@ export interface ImportedBoundary {
   compass?: string;
 }
 
+/**
+ * Real 3D geometry carried over from a thermal import (v1.1), kept so the 3D
+ * viewer can render the actual room boundaries (instead of the derived
+ * rectangle) and — in a later step — apply true-north rotation and a north
+ * arrow. All coordinates are stored in METERS, exactly as the backend returns
+ * them; consumers convert to the modeller's mm coordinate space where needed.
+ */
+export interface ImportSurfaceGeometry {
+  /** Matches the source construction.id / opening.id. */
+  id: string;
+  /** 3D vertices in meters. */
+  vertices: [number, number, number][];
+}
+
+export interface ImportRoomPolygon {
+  /** Matches the calc Room.id. */
+  roomId: string;
+  /** 2D boundary polygon in meters. */
+  polygon: [number, number][];
+  name?: string;
+  level?: string;
+  heightM?: number;
+}
+
+export interface ImportGeometry {
+  /** Per-room real 2D boundary polygons (meters). */
+  roomPolygons: ImportRoomPolygon[];
+  /** True-north rotation in degrees, if present in the export. Step 3b applies it. */
+  trueNorthDeg?: number;
+  /** Per-construction 3D vertices (meters). For step 3b heatmap/box rendering. */
+  constructionGeometries: ImportSurfaceGeometry[];
+  /** Per-opening 3D vertices (meters). For step 3b. */
+  openingGeometries: ImportSurfaceGeometry[];
+}
+
 export type ViewMode = "2d" | "3d";
 
 // ---------------------------------------------------------------------------

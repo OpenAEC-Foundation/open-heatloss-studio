@@ -50,6 +50,8 @@ export interface ThermalConstruction {
   revit_element_id?: number;
   revit_type_name?: string;
   layers?: ThermalConstructionLayer[];
+  /** 3D surface vertices in meters (v1.1, additive). */
+  vertices?: [number, number, number][];
 }
 
 export type ThermalOpeningType = "window" | "door" | "curtain_wall";
@@ -64,6 +66,8 @@ export interface ThermalOpening {
   u_value?: number;
   revit_element_id?: number;
   revit_type_name?: string;
+  /** 3D surface vertices in meters (v1.1, additive). */
+  vertices?: [number, number, number][];
 }
 
 export interface ThermalOpenConnection {
@@ -81,6 +85,12 @@ export interface ThermalImportFile {
   constructions: ThermalConstruction[];
   openings?: ThermalOpening[];
   open_connections?: ThermalOpenConnection[];
+  /**
+   * True-north rotation of the model in degrees (v1.1, additive), relative to
+   * the raw Revit project coordinates. Carried through to the result for the
+   * 3D viewer; rotation is applied in a later step.
+   */
+  true_north_deg?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +133,24 @@ export interface CatalogEntry {
 
 export interface ThermalImportRoomPolygon {
   room_id: string;
+  /** 2D boundary polygon in meters. */
   polygon: [number, number][];
+  /** Room name (matches Rust `RoomPolygon.name`, v1.1). */
+  name?: string;
+  /** Source level/floor label (matches Rust `RoomPolygon.level`, v1.1). */
+  level?: string;
+  /** Room height in meters (matches Rust `RoomPolygon.height_m`, v1.1). */
+  height_m?: number;
+}
+
+/**
+ * 3D geometry for a single surface (construction or opening), v1.1.
+ * `id` matches the source `construction.id` / `opening.id` so the viewer can
+ * link the rendered box back to the calculated element. Vertices are in meters.
+ */
+export interface SurfaceGeometry {
+  id: string;
+  vertices: [number, number, number][];
 }
 
 export interface ThermalImportResult {
@@ -132,6 +159,12 @@ export interface ThermalImportResult {
   /** Unique constructions, one entry per layer fingerprint. */
   construction_catalog: CatalogEntry[];
   room_polygons: ThermalImportRoomPolygon[];
+  /** True-north rotation in degrees (v1.1), if present in the export. */
+  true_north_deg?: number;
+  /** Per-construction 3D vertices in meters (v1.1). `id` matches construction.id. */
+  construction_geometries?: SurfaceGeometry[];
+  /** Per-opening 3D vertices in meters (v1.1). `id` matches opening.id. */
+  opening_geometries?: SurfaceGeometry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -156,8 +189,8 @@ export function parseThermalImportFile(jsonString: string): ThermalImportFile {
 
   const obj = data as Record<string, unknown>;
 
-  if (obj.version !== "1.0") {
-    throw new Error(`Onbekende versie: ${String(obj.version)}. Verwacht: 1.0`);
+  if (obj.version !== "1.0" && obj.version !== "1.1") {
+    throw new Error(`Onbekende versie: ${String(obj.version)}. Verwacht: 1.0 of 1.1`);
   }
 
   if (!Array.isArray(obj.rooms) || obj.rooms.length === 0) {
