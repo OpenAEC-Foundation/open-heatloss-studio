@@ -184,21 +184,29 @@ export function rotatePolygon2D(
   return polygonM.map(([x, y]) => rotatePoint2D(x, y, deg));
 }
 
-/** Shared 2D transform applied to every imported surface: a true-north
- * rotation about the origin followed by a single global offset (in meters).
+/** Shared transform applied to every imported surface: a true-north rotation
+ * about the vertical axis followed by a single global offset (in meters).
  * Keeping one transform object guarantees rooms, walls, and surface vertices
- * all land in the same coordinate frame, preserving their real relative
- * positions. */
+ * (fase 4) all land in the same coordinate frame, preserving their real
+ * relative positions in X, Y AND Z.
+ *
+ * The true-north rotation is about the vertical (Z) axis, so it only affects
+ * X/Y — Z (floor elevation) is rotation-invariant and shares the same raw
+ * frame. `originZM` is the lowest floor elevation, subtracted so the bottom
+ * floor sits at Z = 0 (positive quadrant in Z too). */
 export interface ImportTransform {
-  /** True-north rotation in degrees (about the world origin). */
+  /** True-north rotation in degrees (about the vertical axis). */
   trueNorthDeg?: number;
   /** Global offset (meters) subtracted after rotation, so the whole building
    * sits in the positive quadrant. */
   originXM: number;
   originYM: number;
+  /** Global Z offset (meters): the lowest floor elevation. Subtracted from
+   * every floorZ / surface vertex Z so the bottom floor is at Z = 0. */
+  originZM: number;
 }
 
-/** Apply the shared import transform to a single point (meters → meters). */
+/** Apply the shared import transform to a single 2D point (meters → meters). */
 export function applyImportTransform(
   x: number,
   y: number,
@@ -206,6 +214,25 @@ export function applyImportTransform(
 ): [number, number] {
   const [rx, ry] = rotatePoint2D(x, y, t.trueNorthDeg);
   return [rx - t.originXM, ry - t.originYM];
+}
+
+/** Apply the shared import transform to a single 3D point (meters → meters).
+ * X/Y are rotated + offset; Z is only offset (rotation about the vertical
+ * axis leaves Z unchanged). Use this for fase-4 surface vertices so they move
+ * identically to the room footprints. */
+export function applyImportTransform3D(
+  x: number,
+  y: number,
+  z: number,
+  t: ImportTransform,
+): [number, number, number] {
+  const [tx, ty] = applyImportTransform(x, y, t);
+  return [tx, ty, z - t.originZM];
+}
+
+/** Map a raw floor elevation (meters) into the shared frame. */
+export function floorZInTransform(floorZM: number, t: ImportTransform): number {
+  return floorZM - t.originZM;
 }
 
 /**
@@ -255,16 +282,21 @@ export function geometryFromImportPolygon(
 /**
  * Compute the shared import transform for a set of imported room polygons.
  *
- * Step 1: rotate every polygon by `trueNorthDeg` about the world origin.
+ * Step 1: rotate every polygon by `trueNorthDeg` about the vertical axis.
  * Step 2: take the global bbox-min over ALL rotated polygons as the shared
- *         origin, so the whole building shifts into the positive quadrant
+ *         X/Y origin, so the whole building shifts into the positive quadrant
  *         while every inter-room distance is preserved exactly.
+ * Step 3: take the lowest floor elevation as the Z origin, so the bottom floor
+ *         sits at Z = 0. `floorZs` are raw Revit elevations (meters);
+ *         undefined / non-finite entries are ignored, and when none are usable
+ *         `originZM` is 0 (bottom floor stays at raw Z, harmless).
  *
  * Returns `null` when there are no usable polygons (callers fall back to grid).
  */
 export function computeImportTransform(
   polygons: [number, number][][],
   trueNorthDeg?: number,
+  floorZs?: Array<number | undefined>,
 ): ImportTransform | null {
   let minX = Infinity;
   let minY = Infinity;
@@ -279,7 +311,14 @@ export function computeImportTransform(
     }
   }
   if (!any || !Number.isFinite(minX) || !Number.isFinite(minY)) return null;
-  return { trueNorthDeg, originXM: minX, originYM: minY };
+
+  let minZ = Infinity;
+  for (const z of floorZs ?? []) {
+    if (typeof z === "number" && Number.isFinite(z) && z < minZ) minZ = z;
+  }
+  const originZM = Number.isFinite(minZ) ? minZ : 0;
+
+  return { trueNorthDeg, originXM: minX, originYM: minY, originZM };
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +347,68 @@ export function parseFloorFromName(name: string): number {
   // [1], [2] without V suffix
   const numOnly = parseInt(tag, 10);
   return Number.isFinite(numOnly) ? numOnly : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Floor elevation fallback (no real floorZ)
+// ---------------------------------------------------------------------------
+
+/** Grouping key for the level-name fallback. Empty/missing level → "" so all
+ * ungrouped rooms share one stack level. */
+function levelKey(ip: ImportRoomPolygon): string {
+  return ip.level ?? "";
+}
+
+/**
+ * Compute fallback floor elevations (mm) per level name, for imported rooms
+ * that have no real `floorZ`. Levels are ordered by their average real floorZ
+ * where any room on that level has one (so the fallback stacks in the same
+ * order as the measured floors); levels with no measured Z are appended in
+ * first-seen order. Each level sits at the cumulative sum of the previous
+ * levels' representative heights (max `height_m` on that level, default
+ * `DEFAULT_HEIGHT_M`).
+ */
+function computeLevelFallbackElevations(
+  imported: Array<{ ip: ImportRoomPolygon }>,
+  transform: ImportTransform,
+): Map<string, number> {
+  // Collect per-level: representative height + known floorZ samples + order.
+  const levels = new Map<
+    string,
+    { heightM: number; zSum: number; zCount: number; order: number }
+  >();
+  let seen = 0;
+  for (const { ip } of imported) {
+    const key = levelKey(ip);
+    let entry = levels.get(key);
+    if (!entry) {
+      entry = { heightM: 0, zSum: 0, zCount: 0, order: seen++ };
+      levels.set(key, entry);
+    }
+    const hM = typeof ip.heightM === "number" && ip.heightM > 0 ? ip.heightM : DEFAULT_HEIGHT_M;
+    if (hM > entry.heightM) entry.heightM = hM;
+    if (typeof ip.floorZ === "number" && Number.isFinite(ip.floorZ)) {
+      entry.zSum += floorZInTransform(ip.floorZ, transform);
+      entry.zCount += 1;
+    }
+  }
+
+  // Order: by average measured Z when known, else by first-seen order (after
+  // all measured ones).
+  const ordered = [...levels.entries()].sort(([, a], [, b]) => {
+    const az = a.zCount > 0 ? a.zSum / a.zCount : Infinity;
+    const bz = b.zCount > 0 ? b.zSum / b.zCount : Infinity;
+    if (az !== bz) return az - bz;
+    return a.order - b.order;
+  });
+
+  const out = new Map<string, number>();
+  let cumulativeMm = 0;
+  for (const [key, entry] of ordered) {
+    out.set(key, cumulativeMm);
+    cumulativeMm += entry.heightM * MM;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -361,20 +462,30 @@ export function deriveModelRooms(
   }
 
   // Shared import transform: one global true-north rotation + one global
-  // origin over ALL imported polygons. This keeps every imported room on its
-  // real position relative to the rest of the building (no per-room normalize,
-  // no grid). Rooms without a boundary keep using the schematic grid.
+  // X/Y/Z origin over ALL imported polygons. This keeps every imported room on
+  // its real position relative to the rest of the building (no per-room
+  // normalize, no grid). Rooms without a boundary keep using the schematic
+  // grid.
   const importPolys: [number, number][][] = [];
+  const importFloorZs: Array<number | undefined> = [];
   for (const room of project.rooms) {
     const ip = polygonByRoom.get(room.id);
-    if (ip) importPolys.push(ip.polygon);
+    if (ip) {
+      importPolys.push(ip.polygon);
+      importFloorZs.push(ip.floorZ);
+    }
   }
   const transform = importPolys.length
-    ? computeImportTransform(importPolys, trueNorthDeg)
+    ? computeImportTransform(importPolys, trueNorthDeg, importFloorZs)
     : null;
 
   // Split rooms into "imported" (real absolute geometry) and "grid" (fallback).
-  const imported: Array<{ room: Room; geom: DerivedRoomGeometry; floor: number }> = [];
+  const imported: Array<{
+    room: Room;
+    geom: DerivedRoomGeometry;
+    floor: number;
+    ip: ImportRoomPolygon;
+  }> = [];
   const gridByFloor = new Map<number, Array<{ room: Room; geom: DerivedRoomGeometry }>>();
 
   for (const room of project.rooms) {
@@ -382,8 +493,8 @@ export function deriveModelRooms(
     const ip = polygonByRoom.get(room.id);
     const importedGeom =
       ip && transform ? geometryFromImportPolygon(ip.polygon, transform) : null;
-    if (importedGeom) {
-      imported.push({ room, geom: importedGeom, floor });
+    if (ip && importedGeom) {
+      imported.push({ room, geom: importedGeom, floor, ip });
     } else {
       // No real boundary (pseudo-room, missing polygon, degenerate): keep the
       // perimeter+area derived rectangle in the schematic grid.
@@ -395,37 +506,33 @@ export function deriveModelRooms(
 
   const out: ModelRoom[] = [];
 
-  // ── Imported rooms: real absolute XY, floors separated along the Y axis ──
-  // Every imported polygon already shares one frame (positive quadrant). To
-  // avoid stacked floors overlapping in the top-down plan, shift each floor's
-  // rooms by a per-floor Y offset based on the global building depth; XY within
-  // a floor stays exactly real.
-  if (imported.length) {
-    // Global building span (mm) in the shared frame, to size the floor gap.
-    let buildingMaxY = 0;
-    for (const { geom } of imported) {
-      for (const p of geom.polygon) {
-        if (p.y > buildingMaxY) buildingMaxY = p.y;
+  // ── Imported rooms: real absolute XY, stacked in Z at their true floor
+  // elevation. No Y-pitch — floors overlap correctly in the top-down plan and
+  // separate in height. ──
+  if (imported.length && transform) {
+    // Level-name fallback elevations (mm), used only for rooms that lack a real
+    // floorZ. Group by `level` name, order by the average floorZ where known
+    // (else by first appearance), and stack cumulatively by height_m.
+    const fallbackElevByLevel = computeLevelFallbackElevations(imported, transform);
+
+    for (const { room, geom, ip } of imported) {
+      let elevationMm: number;
+      if (typeof ip.floorZ === "number" && Number.isFinite(ip.floorZ)) {
+        // Real floor elevation in the shared frame.
+        elevationMm = floorZInTransform(ip.floorZ, transform) * MM;
+      } else {
+        // Fallback: cumulative stack by level name.
+        elevationMm = fallbackElevByLevel.get(levelKey(ip)) ?? 0;
       }
-    }
-    const floorPitchMm = buildingMaxY + floorGapMm;
 
-    const importedFloors = [...new Set(imported.map((r) => r.floor))].sort(
-      (a, b) => a - b,
-    );
-    const floorRank = new Map<number, number>();
-    importedFloors.forEach((f, i) => floorRank.set(f, i));
-
-    for (const { room, geom, floor } of imported) {
-      const yShift = (floorRank.get(floor) ?? 0) * floorPitchMm;
-      const polygon = geom.polygon.map((p) => ({ x: p.x, y: p.y + yShift }));
       out.push({
         id: room.id,
         name: room.name,
         function: String(room.function),
-        polygon,
-        floor,
+        polygon: geom.polygon,
+        floor: parseFloorFromName(room.name),
         height: (room.height ?? DEFAULT_HEIGHT_M) * MM,
+        elevation: elevationMm,
       });
     }
   }

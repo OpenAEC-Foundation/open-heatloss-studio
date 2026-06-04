@@ -200,9 +200,35 @@ export function ThermalImportWizard() {
 
     // 5b. Store the real v1.1 geometry (true room polygons, true-north,
     //     per-surface vertices) so the 3D viewer renders the actual boundary
-    //     instead of the derived rectangle. true_north rotation + north arrow
-    //     + heatmap are step 3b — here we only carry the data through. All
-    //     coordinates stay in meters, as returned by the backend.
+    //     instead of the derived rectangle. All coordinates stay in meters, as
+    //     returned by the backend.
+    //
+    //     Derive a real floor elevation (floorZ) per room so the viewer stacks
+    //     floors in Z at their true height. Chain:
+    //       constructions[room_a === room.id && orientation === "floor"].id
+    //       → construction_geometries[id].vertices → min-Z (raw Revit Z, m).
+    //     A room can have several floor surfaces (e.g. split levels); we take
+    //     the lowest. Rooms without a floor construction get no floorZ and the
+    //     viewer falls back to level-name grouping.
+    const geomById = new Map<string, [number, number, number][]>();
+    for (const g of importResult.construction_geometries ?? []) {
+      geomById.set(g.id, g.vertices);
+    }
+    const floorZByRoom = new Map<string, number>();
+    for (const c of importFile.constructions) {
+      if (c.orientation !== "floor") continue;
+      const verts = geomById.get(c.id);
+      if (!verts || verts.length === 0) continue;
+      let minZ = Infinity;
+      for (const v of verts) {
+        const z = v[2];
+        if (typeof z === "number" && z < minZ) minZ = z;
+      }
+      if (!Number.isFinite(minZ)) continue;
+      const prev = floorZByRoom.get(c.room_a);
+      if (prev === undefined || minZ < prev) floorZByRoom.set(c.room_a, minZ);
+    }
+
     setImportGeometry({
       roomPolygons: importResult.room_polygons.map((rp) => ({
         roomId: rp.room_id,
@@ -210,6 +236,7 @@ export function ThermalImportWizard() {
         name: rp.name,
         level: rp.level,
         heightM: rp.height_m,
+        floorZ: floorZByRoom.get(rp.room_id),
       })),
       trueNorthDeg: importResult.true_north_deg,
       constructionGeometries: (importResult.construction_geometries ?? []).map((g) => ({

@@ -616,17 +616,6 @@ export function Modeller() {
             />
           )}
 
-          {/* FROZEN banner — full-width overlay zodat duidelijk is dat de modeller WIP is */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500/95 to-blue-500/95 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-md backdrop-blur-sm">
-            <span aria-hidden="true">❄️</span>
-            <span>Modeller — Frozen · Work in progress</span>
-            <span aria-hidden="true">❄️</span>
-          </div>
-
-          {/* Frozen-overlay over het canvas zodat interacties duidelijk read-only voelen */}
-          <div className="pointer-events-none absolute inset-0 z-10 bg-cyan-50/15 backdrop-blur-[1px]" />
-
-
           {/* IFC import loading overlay */}
           {isImporting && (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-surface/80 backdrop-blur-sm">

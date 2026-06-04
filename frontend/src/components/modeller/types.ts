@@ -156,6 +156,14 @@ export interface ImportRoomPolygon {
   name?: string;
   level?: string;
   heightM?: number;
+  /**
+   * Real floor elevation in meters (raw Revit Z), derived from the room's
+   * floor-construction vertices (min-Z). When present, the 3D viewer stacks
+   * this room at its true height instead of along a Y-pitch. Undefined when no
+   * floor construction / geometry was available — viewer falls back to
+   * level-name grouping + cumulative height.
+   */
+  floorZ?: number;
 }
 
 export interface ImportGeometry {
