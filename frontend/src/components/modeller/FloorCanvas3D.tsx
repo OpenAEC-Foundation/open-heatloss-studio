@@ -18,6 +18,11 @@ import * as OBC from "@thatopen/components";
 import type { ModelRoom, ModelWindow, ModelDoor, Selection, ImportedBoundary } from "./types";
 import { polygonCenter, getSharedEdges } from "./geometry";
 import { useModellerStore } from "./modellerStore";
+import {
+  computeImportTransform,
+  applyImportTransform3D,
+  type ImportTransform,
+} from "../../lib/deriveRoomGeometry";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -168,6 +173,38 @@ export function FloorCanvas3D({
   }, [importGeometry]);
 
   const trueNorthDeg = importGeometry?.trueNorthDeg;
+
+  // Per-construction 3D vertices (raw Revit meters), keyed by construction id.
+  const constructionGeomById = useMemo(() => {
+    const m = new Map<string, [number, number, number][]>();
+    for (const g of importGeometry?.constructionGeometries ?? []) {
+      m.set(g.id, g.vertices);
+    }
+    return m;
+  }, [importGeometry]);
+
+  // Shared import transform — recomputed here from the SAME inputs as
+  // deriveModelRooms (room polygons + true-north + floorZ), so construction
+  // surfaces land in the exact same world frame as the room boxes. Identical
+  // function, identical inputs → identical mirror/rotation/offset.
+  const importTransform = useMemo<ImportTransform | null>(() => {
+    const rps = importGeometry?.roomPolygons;
+    if (!rps || rps.length === 0) return null;
+    return computeImportTransform(
+      rps.map((rp) => rp.polygon),
+      importGeometry?.trueNorthDeg,
+      rps.map((rp) => rp.floorZ),
+    );
+  }, [importGeometry]);
+
+  // Room ids that came from a thermal import. Their walls are rendered from the
+  // real construction surfaces (boundary group), so the schematic edge-walls in
+  // the room-box pass are suppressed to avoid double walls.
+  const importedRoomIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const rp of importGeometry?.roomPolygons ?? []) s.add(rp.roomId);
+    return s;
+  }, [importGeometry]);
 
   // Derive selectedRoomId from selection
   const selectedRoomId = selection?.type === "room" ? selection.roomId
@@ -327,6 +364,11 @@ export function FloorCanvas3D({
       const poly = room.polygon;
       const n = poly.length;
       const baseColor = FUNCTION_COLORS[room.function] ?? FUNCTION_COLORS.custom!;
+      // Imported rooms get their walls from the real construction surfaces
+      // (boundary group). Suppress the schematic edge-walls / panes / box
+      // wireframe here so walls are not drawn twice. Floor + ceiling room-body
+      // surfaces and the label are kept (room identity + selection).
+      const isImported = importedRoomIds.has(room.id);
 
       // --- Floor surface ---
       const floorColor = getSurfaceColor(renderMode, false, baseColor, floorConstructions[room.id], catalogueUValues);
@@ -352,10 +394,12 @@ export function FloorCanvas3D({
       surfaceMeshMapRef.current.set(ceilMesh, { roomId: room.id, type: "ceiling" });
 
       // --- Wall surfaces (one per polygon edge) ---
+      // Skipped for imported rooms: their walls come from real construction
+      // surfaces in the boundary group.
       const roomWindows = windows.filter((w) => w.roomId === room.id);
       const roomDoors = doors.filter((d) => d.roomId === room.id);
 
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; !isImported && i < n; i++) {
         const ni = (i + 1) % n;
         const a = poly[i]!;
         const b = poly[ni]!;
@@ -430,6 +474,8 @@ export function FloorCanvas3D({
       }
 
       // --- Wireframe edges ---
+      // Imported rooms: only the floor footprint outline (top + vertical edges
+      // come from the real construction surfaces' own outlines → no doubling).
       const edgePositions: number[] = [];
       for (let i = 0; i < n; i++) {
         const ni = (i + 1) % n;
@@ -440,10 +486,12 @@ export function FloorCanvas3D({
 
         // Bottom edge
         edgePositions.push(ax, floorY, az, bx, floorY, bz);
-        // Top edge
-        edgePositions.push(ax, floorY + h, az, bx, floorY + h, bz);
-        // Vertical edge at each vertex
-        edgePositions.push(ax, floorY, az, ax, floorY + h, az);
+        if (!isImported) {
+          // Top edge
+          edgePositions.push(ax, floorY + h, az, bx, floorY + h, bz);
+          // Vertical edge at each vertex
+          edgePositions.push(ax, floorY, az, ax, floorY + h, az);
+        }
       }
 
       const edgeGeom = new THREE.BufferGeometry();
@@ -460,7 +508,7 @@ export function FloorCanvas3D({
       sprite.scale.set(2, 1, 1);
       group.add(sprite);
     }
-  }, [rooms, windows, doors, selectedRoomId, selectedWallIndex, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues]);
+  }, [rooms, windows, doors, selectedRoomId, selectedWallIndex, renderMode, wallConstructions, floorConstructions, roofConstructions, catalogueUValues, importedRoomIds]);
 
   // -----------------------------------------------------------------------
   // Build imported boundary meshes
@@ -502,6 +550,36 @@ export function FloorCanvas3D({
       const h = room.height / 1000;
       const poly = room.polygon;
       const n = poly.length;
+
+      // --- Real construction surface (v1.1 geometry) ---------------------
+      // When the import carried exact vertices for this construction, render
+      // ONE real planar face from those vertices instead of the estimated
+      // footprint projection. Uses the SAME ImportTransform as the room boxes
+      // so the surface lands exactly on the room. Applies to every orientation
+      // (wall/floor/ceiling/roof). Vliesgevels / surfaces without vertices fall
+      // through to the estimated render below.
+      const realVerts = importTransform ? constructionGeomById.get(boundary.id) : undefined;
+      if (realVerts && realVerts.length >= 3 && importTransform) {
+        const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
+        if (surfGeom) {
+          const mat = new THREE.MeshStandardMaterial({
+            color,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: BOUNDARY_OPACITY,
+            depthWrite: false,
+          });
+          const mesh = new THREE.Mesh(surfGeom, mat);
+          mesh.renderOrder = 3;
+          registerSurface(mesh, boundary.id);
+          bGroup.add(mesh);
+
+          // Outline of the real surface boundary.
+          const outline = createSurfaceOutline(realVerts, importTransform);
+          if (outline) bGroup.add(outline);
+          continue;
+        }
+      }
 
       if (boundary.orientation === 'floor') {
         // Floor boundary: render at floor level using room polygon
@@ -631,7 +709,7 @@ export function FloorCanvas3D({
         }
       }
     }
-  }, [importedBoundaries, rooms, surfaceGeometryIds]);
+  }, [importedBoundaries, rooms, surfaceGeometryIds, constructionGeomById, importTransform]);
 
   // -----------------------------------------------------------------------
   // North arrow indicator
@@ -1049,6 +1127,116 @@ function createPolygonGeometry(polygon: { x: number; y: number }[]): THREE.Buffe
   const geom = new THREE.ShapeGeometry(shape);
   geom.rotateX(-Math.PI / 2);
   return geom;
+}
+
+// ---------------------------------------------------------------------------
+// Real construction surface (v1.1 vertices → planar 3D face)
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a raw Revit vertex (meters) through the shared ImportTransform into the
+ * scene world frame.
+ *
+ * The transform yields `(tx, ty, tz)` in the shared meters frame (tx/ty =
+ * mirrored+rotated+offset horizontal, tz = elevation − originZM). The scene
+ * maps the horizontal Y to world Z (see createPolygonGeometry: polygon-Y →
+ * world +Z) and the elevation to world Y. So: worldX = tx, worldY = tz,
+ * worldZ = ty. This is the EXACT same mapping the room boxes use, so surfaces
+ * land on the rooms.
+ */
+function worldFromVertex(
+  v: [number, number, number],
+  t: ImportTransform,
+): THREE.Vector3 {
+  const [tx, ty, tz] = applyImportTransform3D(v[0], v[1], v[2], t);
+  return new THREE.Vector3(tx, tz, ty);
+}
+
+/**
+ * Build one mesh geometry for a planar (or near-planar) 3D construction face
+ * from its raw vertices.
+ *
+ * Triangulation: the face can be a non-axis-aligned polygon. We (1) compute a
+ * robust polygon normal via Newell's method, (2) build an orthonormal basis on
+ * the plane, (3) project all vertices to 2D in that basis, (4) triangulate with
+ * THREE.ShapeUtils.triangulateShape (earcut — handles concave polygons), and
+ * (5) emit the original 3D positions with those triangle indices.
+ * `computeVertexNormals` finishes the lighting. Returns `null` for degenerate
+ * input so the caller can fall back.
+ */
+function createSurfaceGeomFromVertices(
+  vertices: [number, number, number][],
+  t: ImportTransform,
+): THREE.BufferGeometry | null {
+  if (vertices.length < 3) return null;
+
+  const pts = vertices.map((v) => worldFromVertex(v, t));
+
+  // Newell's method → plane normal (robust for non-planar / arbitrary winding).
+  const normal = new THREE.Vector3();
+  for (let i = 0; i < pts.length; i++) {
+    const cur = pts[i]!;
+    const nxt = pts[(i + 1) % pts.length]!;
+    normal.x += (cur.y - nxt.y) * (cur.z + nxt.z);
+    normal.y += (cur.z - nxt.z) * (cur.x + nxt.x);
+    normal.z += (cur.x - nxt.x) * (cur.y + nxt.y);
+  }
+  if (normal.lengthSq() < 1e-12) return null; // collinear / zero-area
+  normal.normalize();
+
+  // Orthonormal in-plane basis (u, w).
+  const ref =
+    Math.abs(normal.x) < 0.9
+      ? new THREE.Vector3(1, 0, 0)
+      : new THREE.Vector3(0, 1, 0);
+  const u = new THREE.Vector3().crossVectors(ref, normal).normalize();
+  const w = new THREE.Vector3().crossVectors(normal, u).normalize();
+  const origin = pts[0]!;
+
+  const proj2d = pts.map((p) => {
+    const d = new THREE.Vector3().subVectors(p, origin);
+    return new THREE.Vector2(d.dot(u), d.dot(w));
+  });
+
+  const tris = THREE.ShapeUtils.triangulateShape(proj2d, []);
+  if (tris.length === 0) return null;
+
+  const positions: number[] = [];
+  for (const p of pts) positions.push(p.x, p.y, p.z);
+  const indices: number[] = [];
+  for (const tri of tris) {
+    const [i0, i1, i2] = tri;
+    if (i0 === undefined || i1 === undefined || i2 === undefined) continue;
+    indices.push(i0, i1, i2);
+  }
+  if (indices.length === 0) return null;
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+/** Closed-loop outline (LineSegments) of a real construction surface. */
+function createSurfaceOutline(
+  vertices: [number, number, number][],
+  t: ImportTransform,
+): THREE.LineSegments | null {
+  if (vertices.length < 2) return null;
+  const pts = vertices.map((v) => worldFromVertex(v, t));
+  const positions: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  const mat = new THREE.LineBasicMaterial({ color: BOUNDARY_EDGE_COLOR, linewidth: 1 });
+  const lines = new THREE.LineSegments(geom, mat);
+  lines.renderOrder = 4;
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
