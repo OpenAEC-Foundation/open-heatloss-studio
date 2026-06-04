@@ -147,40 +147,65 @@ export function deriveRoomGeometry(room: Room): DerivedRoomGeometry {
 }
 
 /**
- * Rotate a 2D point (in meters) by `deg` degrees about the origin.
+ * --- MIRROR AXIS (single source of truth) -----------------------------------
+ * The 3D scene projects an imported point `(px, py)` to world `(X = px,
+ * Z = +py)` (see createPolygonGeometry / wall / north paths). That projection
+ * is handed (Revit-Y maps to scene-Z without sign change), so the top-down plan
+ * comes out MIRRORED versus the Revit drawing. We correct this by mirroring one
+ * horizontal axis of the imported coordinates BEFORE rotation, inside the
+ * shared transform — so rooms and (fase-4) surface vertices mirror identically.
  *
- * --- ROTATION SIGN (single source of truth) ---------------------------------
- * Positive `deg` rotates the raw Revit XY coordinates counter-clockwise to
- * align the footprint north-up. If the rendered plan turns out MIRRORED in the
- * true-north direction, flip the sign of `rad` on the line below (one-line
- * change) — this is the only place rotation is computed.
+ * Default: mirror Revit-Y (`MIRROR_X = 1`, `MIRROR_Y = -1`). If the plan still
+ * looks mirrored, switch to mirroring X instead — flip the two constants to
+ * `MIRROR_X = -1`, `MIRROR_Y = 1` (one-line change). Never set both to -1 (that
+ * is a 180° rotation, not a mirror) nor both to 1 (no mirror).
+ * ----------------------------------------------------------------------------
+ */
+const MIRROR_X = 1;
+const MIRROR_Y = -1;
+
+/**
+ * Mirror + rotate a 2D point (in meters) about the origin.
+ *
+ * The mirror (above) is applied first so the determinant of the combined
+ * mirror·rotation is -1 (a true reflection): this un-mirrors the handed
+ * scene projection. The rotation aligns the footprint north-up.
+ *
+ * --- ROTATION SIGN ----------------------------------------------------------
+ * If the building ends up rotated the wrong way (but NOT mirrored), flip the
+ * sign of `rad` on the marked line below — that is the only place rotation is
+ * computed. (A reflection cannot fix a rotation-direction error and vice
+ * versa, so the two knobs are independent.)
  * ----------------------------------------------------------------------------
  *
- * When `deg` is undefined, 0, or non-finite the input is returned unchanged
- * (identity) so non-rotated / v1.0 imports never shift.
+ * When `deg` is undefined / 0 / non-finite, only the mirror is applied (the
+ * mirror is needed regardless of rotation; v1.0 imports without true-north
+ * still render un-mirrored).
  */
 function rotatePoint2D(
   x: number,
   y: number,
   deg: number | undefined,
 ): [number, number] {
+  // Mirror first (un-mirror the handed scene projection).
+  const mx = x * MIRROR_X;
+  const my = y * MIRROR_Y;
+
   if (deg === undefined || !Number.isFinite(deg) || deg === 0) {
-    return [x, y];
+    return [mx, my];
   }
-  const rad = (deg * Math.PI) / 180; // ← flip to `-(deg * Math.PI) / 180` if mirrored
+  const rad = (deg * Math.PI) / 180; // ← flip to `-(deg * Math.PI) / 180` if rotated the wrong way
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
-  return [x * cos - y * sin, x * sin + y * cos];
+  return [mx * cos - my * sin, mx * sin + my * cos];
 }
 
-/** Rotate a whole 2D polygon (meters) about the origin. */
+/** Mirror + rotate a whole 2D polygon (meters) about the origin. Routes through
+ * `rotatePoint2D`, so the mirror is always applied (even when `deg` is 0). */
 export function rotatePolygon2D(
   polygonM: [number, number][],
   deg?: number,
 ): [number, number][] {
-  if (deg === undefined || !Number.isFinite(deg) || deg === 0) {
-    return polygonM;
-  }
   return polygonM.map(([x, y]) => rotatePoint2D(x, y, deg));
 }
 
@@ -282,10 +307,12 @@ export function geometryFromImportPolygon(
 /**
  * Compute the shared import transform for a set of imported room polygons.
  *
- * Step 1: rotate every polygon by `trueNorthDeg` about the vertical axis.
- * Step 2: take the global bbox-min over ALL rotated polygons as the shared
+ * Step 1: mirror (un-mirror the handed scene projection) + rotate every polygon
+ *         by `trueNorthDeg` about the vertical axis (both via rotatePoint2D).
+ * Step 2: take the global bbox-min over ALL transformed polygons as the shared
  *         X/Y origin, so the whole building shifts into the positive quadrant
- *         while every inter-room distance is preserved exactly.
+ *         while every inter-room distance is preserved exactly (a reflection is
+ *         distance-preserving).
  * Step 3: take the lowest floor elevation as the Z origin, so the bottom floor
  *         sits at Z = 0. `floorZs` are raw Revit elevations (meters);
  *         undefined / non-finite entries are ignored, and when none are usable
