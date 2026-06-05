@@ -57,6 +57,10 @@ fn height_factor(height_m: f64) -> f64 {
 /// * `hu_mass` - Gebouwzwaarte voor Tabel 2.10 (gebouwbreed). Zie
 ///   [`heating_up::building_thermal_mass`].
 /// * `use_high_delta_v` - Whether Ū > 0.5 (true) or Ū ≤ 0.5 (false) for Δθ_v selection
+/// * `all_floor_heating` - Of ELK vertrek een vloerverwarming-variant heeft
+///   (gebouwbreed afgeleid uit `room.heating_system` in [`crate::calculate`]).
+///   Zo ja → `Φ_hu = 0` (ISSO 51:2023 §4.3 p.70). Vervangt het gedeprecateerde
+///   `building.all_floor_heating`-vlag.
 ///
 /// # Returns
 /// Complete RoomResult with all heat loss components.
@@ -70,6 +74,7 @@ pub fn calculate_room(
     hu_cooling_k: f64,
     hu_mass: ThermalMass,
     use_high_delta_v: bool,
+    all_floor_heating: bool,
 ) -> Result<RoomResult> {
     let theta_i = room.design_temperature();
     let theta_e = climate.theta_e;
@@ -228,7 +233,7 @@ pub fn calculate_room(
     // worden in `HeatingUpResult` doorgegeven als `p` resp. `a_g`.
     let a_g = room.floor_area;
     let (phi_hu, p_specific) =
-        heating_up::calculate_heating_up(building, a_g, hu_cooling_k, hu_mass)?;
+        heating_up::calculate_heating_up(building, a_g, hu_cooling_k, hu_mass, all_floor_heating)?;
 
     // --- System losses (ISSO 51 §2.9) ---
     // Scan for embedded heating elements facing exterior/ground/adjacent building.

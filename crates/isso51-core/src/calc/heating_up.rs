@@ -49,17 +49,22 @@ pub fn building_thermal_mass(building: &Building) -> ThermalMass {
 /// inclusief de regeltype-takken uit §4.3 (nieuwbouw-scope):
 /// - `PerZone` (§4.3.1) → `P × A_g`;
 /// - `SelfLearning` (§4.3.2) → `0`;
-/// - vloerverwarming in alle vertrekken → `0` (p.70);
+/// - vloerverwarming in alle vertrekken (`all_floor_heating == true`) → `0`
+///   (p.70). Wordt door de aanroeper afgeleid uit `room.heating_system`;
+///   `building.all_floor_heating` is hiervoor gedeprecateerd en genegeerd;
 /// - `RoomThermostat` (§4.3.3, bestaande bouw, buiten scope) → **harde error**.
 ///
 /// De afkoeling (2 K / 1 K) en zwaarte worden door de aanroeper bepaald
 /// (gebouwbreed constant) en hier alleen toegepast op `floor_area`.
 ///
 /// # Arguments
-/// * `building` - Gebouw-config (regeltype, opwarmtijd, vloerverwarming-flag).
+/// * `building` - Gebouw-config (regeltype, opwarmtijd, nachtverlaging).
 /// * `floor_area` - `A_g` voor dit vertrek/verblijfsgebied [m²].
 /// * `cooling_k` - Afkoeling [K] (uit [`newbuild_cooling_k`]).
 /// * `mass` - Gebouwzwaarte (uit [`building_thermal_mass`]).
+/// * `all_floor_heating` - Of ELK vertrek vloerverwarming heeft (gebouwbreed
+///   afgeleid uit `room.heating_system`). Zo ja → `Φ_hu = 0` (p.70). Vervangt
+///   het gedeprecateerde `building.all_floor_heating`-vlag.
 ///
 /// # Returns
 /// `Ok((Φ_hu [W], P [W/m²]))` — `0` als de tak geen toeslag geeft.
@@ -80,6 +85,7 @@ pub fn calculate_heating_up(
     floor_area: f64,
     cooling_k: f64,
     mass: ThermalMass,
+    all_floor_heating: bool,
 ) -> Result<(f64, f64)> {
     // Geen nachtverlaging → geen opwarmtoeslag (p.69). MOET vóór de
     // bestaande-bouw-guard: een project zonder nachtverlaging heeft Φ_hu = 0
@@ -103,8 +109,9 @@ pub fn calculate_heating_up(
     }
 
     // Vloerverwarming in alle vertrekken → traag systeem, nachtverlaging niet
-    // zinvol → Φ_hu = 0 (p.70).
-    if building.all_floor_heating {
+    // zinvol → Φ_hu = 0 (p.70). Afgeleid uit `room.heating_system` door de
+    // aanroeper; `building.all_floor_heating` is hiervoor gedeprecateerd.
+    if all_floor_heating {
         return Ok((0.0, 0.0));
     }
 
@@ -168,7 +175,7 @@ mod tests {
         // Nieuwbouw, afkoeling 2 K, zwaar (default), opwarmtijd 2 h.
         // P = 22 W/m² (Tabel 2.10, 2K/Z/2h). A_g = 20 m² → Φ_hu = 440 W.
         let b = newbuild_building();
-        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
         assert_eq!(p, 22.0);
         assert!((phi_hu - 440.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
     }
@@ -180,7 +187,7 @@ mod tests {
         b.c_eff = Some(50.0); // ≤ 70 → Light
         let mass = building_thermal_mass(&b);
         assert_eq!(mass, ThermalMass::Light);
-        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, mass).unwrap();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, mass, false).unwrap();
         assert_eq!(p, 13.0);
         assert!((phi_hu - 260.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
     }
@@ -199,7 +206,7 @@ mod tests {
         b.c_eff = Some(50.0);
         let mass = building_thermal_mass(&b);
         let cooling = newbuild_cooling_k(0.40);
-        let (phi_hu, p) = calculate_heating_up(&b, 20.0, cooling, mass).unwrap();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, cooling, mass, false).unwrap();
         assert_eq!(p, 7.0);
         assert!((phi_hu - 140.0).abs() < 1e-9, "Φ_hu = {phi_hu}");
     }
@@ -209,7 +216,7 @@ mod tests {
         // §4.3.2 zelflerende regeling → Φ_hu = 0 ongeacht A_g / P.
         let mut b = newbuild_building();
         b.heating_control_type = HeatingControlType::SelfLearning;
-        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
         assert_eq!(phi_hu, 0.0);
         assert_eq!(p, 0.0);
     }
@@ -219,17 +226,38 @@ mod tests {
         // Geen nachtverlaging → Φ_hu = 0 (golden-fixture-pad).
         let mut b = newbuild_building();
         b.has_night_setback = false;
-        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
         assert_eq!(phi_hu, 0.0);
     }
 
     #[test]
     fn test_all_floor_heating_is_zero() {
-        // Vloerverwarming in alle vertrekken → Φ_hu = 0 (p.70).
-        let mut b = newbuild_building();
-        b.all_floor_heating = true;
-        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        // Vloerverwarming in alle vertrekken (all_floor_heating=true, afgeleid
+        // uit room.heating_system) → Φ_hu = 0 (p.70). Het gedeprecateerde
+        // building.all_floor_heating-vlag speelt geen rol meer.
+        let b = newbuild_building();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, true).unwrap();
         assert_eq!(phi_hu, 0.0);
+        assert_eq!(p, 0.0);
+
+        // Tegenproef: zelfde building, all_floor_heating=false → Φ_hu > 0.
+        let (phi_hu_nonzero, _) =
+            calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
+        assert!(phi_hu_nonzero > 0.0, "Φ_hu moet > 0 zonder all_floor_heating");
+    }
+
+    #[test]
+    fn test_legacy_building_flag_is_ignored() {
+        // Het gedeprecateerde building.all_floor_heating-vlag mag de berekening
+        // NIET meer beïnvloeden: ook met building.all_floor_heating=true blijft
+        // Φ_hu > 0 zolang het afgeleide all_floor_heating-argument false is.
+        let mut b = newbuild_building();
+        b.all_floor_heating = true; // legacy vlag — moet genegeerd worden
+        let (phi_hu, _) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
+        assert!(
+            phi_hu > 0.0,
+            "legacy building.all_floor_heating mag Φ_hu niet meer op 0 forceren"
+        );
     }
 
     #[test]
@@ -239,7 +267,7 @@ mod tests {
         // nieuwbouw-P. (FIX A — stille-fout-gate.)
         let mut b = newbuild_building();
         b.built_after_2015 = false;
-        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap_err();
+        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap_err();
         assert!(
             matches!(err, Isso51Error::InvalidInput(_)),
             "verwacht InvalidInput, kreeg {err:?}"
@@ -260,7 +288,7 @@ mod tests {
         let mut b = newbuild_building();
         b.built_after_2015 = false;
         b.has_night_setback = false;
-        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap();
+        let (phi_hu, p) = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap();
         assert_eq!(phi_hu, 0.0);
         assert_eq!(p, 0.0);
     }
@@ -271,7 +299,7 @@ mod tests {
         // expliciete error, GEEN gegokte fallback (third-party stille-fout-gate).
         let mut b = newbuild_building();
         b.heating_control_type = HeatingControlType::RoomThermostat;
-        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy).unwrap_err();
+        let err = calculate_heating_up(&b, 20.0, 2.0, ThermalMass::Heavy, false).unwrap_err();
         assert!(
             matches!(err, Isso51Error::InvalidInput(_)),
             "verwacht InvalidInput, kreeg {err:?}"

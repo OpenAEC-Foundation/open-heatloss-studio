@@ -305,12 +305,6 @@ export interface Building {
   total_floor_area: number;
   security_class: SecurityClass;
   /**
-   * Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben.
-   * Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag,
-   * nachtverlaging is dan niet zinvol). Default = `false`.
-   */
-  all_floor_heating?: boolean;
-  /**
    * Of de woning ná 2015 is gebouwd (nieuwbouw). Stuurt de afkoeling-
    * bepaling: nieuwbouw → 2 K (resp. 1 K bij Ū≤0,5). Default = `true`
    * (nieuwbouw-scope; bestaande bouw met Afb. 2.7-grafiek is nog niet
