@@ -200,11 +200,9 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
       { to: "/rc", labelKey: "sidebar.rcValue", Icon: IconLayers },
       { to: "/uw", labelKey: "sidebar.uwValue", Icon: IconLayers },
       {
-        to: "",
+        to: "/rc-compare",
         labelKey: "sidebar.rcCompare",
         Icon: IconLayers,
-        disabled: true,
-        disabledTitleKey: "sidebar.tojuli.comingSoon",
       },
     ],
   },
