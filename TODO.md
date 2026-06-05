@@ -1,5 +1,35 @@
 # TODO
 
+## 🌦️ KNMI-klimaatlaag + Rc-vergelijk / "WUFI light" (scope 05-06, korte termijn)
+
+> Vervang de hardcoded forfaitaire klimaatwaarden in de vocht/Glaser-keten door een kiesbare KNMI-datalaag, en bouw daarop de geplande "Rc vergelijk"-tool (nu disabled placeholder `Sidebar.tsx:202-208`, `to:""`). 3 work-packages, volgorde WP1→WP2→WP3. Plan-detail WP1: zie sessie-handoff orchestrator + onderstaande beslissingen.
+>
+> **Vastgestelde beslissingen (user, 05-06):**
+> - Databron = **gebundelde** KNMI-datasets (offline, geen live API) + herhaalbaar genereer-script.
+> - "Per jaar" = **beide** kiesbaar: historisch kalenderjaar én NEN 5060-referentiejaar.
+> - Reikwijdte = **alleen** vocht/Glaser-keten. Warmteverlies-θ_e blijft **norm-vast -10°C** (leeft apart in `constants.ts`/isso51-53, NIET aanraken).
+> - **Glaser steady-state winterconditie blijft norm-vast -10°C** → `getGlaserWinterCondition` uit het plan VERVALT; klimaatlaag voedt enkel de jáárbalans.
+> - **Default-selectie = `"1991-2020"` normaal** (geen stille resultaatwijziging; seed = huidige 12 waarden bit-gelijk).
+
+### WP1 — KNMI-klimaatdatalaag (fundament)
+- [ ] **Data-schema + `_meta`** [M] — `frontend/src/data/climate/knmiClimate.json`, exact het `productCatalog.json`-patroon (typed cast over `resolveJsonModule`, `_meta` met KNMI-bron/downloaddatum/licentie + NEN 5060-herkomst). Records per (station, selectie) met `kind: normal|reference|historical` + 12 maanden `{month, thetaE, rhE, days, coverage?}`.
+- [ ] **Generator** [M] — `scripts/generate_climate_bundle.py` (Python, conform bestaande `scripts/`): KNMI `etmgeg_<STN>.txt` (velden `TG`+`UG`) + NEN 5060-maandtabel → bundel. Dag→maand-aggregatie (schrikkeljaar-aware), koudste-maand-afleiding, `coverage`-flag. Reproduceerbaar.
+- [ ] **Seed-bundel** [L] — De Bilt 1991-2020 normaal = **exacte huidige waarden** uit `yearlyMoistureCalculation.ts:24-35` (backward-compat) + De Bilt NEN5060 + MVP-stations (Schiphol 240 / Eelde 280 / Maastricht 380 / Den Helder 235) met enkele historische jaren. `Station`-records dragen lat/lon voor latere postcode-auto-mapping.
+- [ ] **`frontend/src/lib/climateData.ts`** [M] — API: `listStations()`, `listAvailableYears(stationId)`, `getMonthlyClimate(stationId, selection: number|"NEN5060"|"1991-2020") -> MonthlyClimate[12]|null`. `MonthlyClimate` = superset van bestaand `{thetaE,rhE,days}` → valt schoon in `yearlyMoistureCalculation.ts`. (Geen `getGlaserWinterCondition` — winter blijft -10.)
+- [ ] **Scope-guard** — `climateData.ts` alleen importeren in de Glaser/vocht-keten + RcCalculator; NOOIT in de warmteverlies-θ_e-keten.
+
+### WP2 — RcCalculator-upgrade (klimaatkiezer)
+- [ ] **Klimaatkiezer-UI** [M] in `RcCalculator.tsx:84-88` — station + selectie (1991-2020 / NEN5060 / jaar). Voedt `calculateYearlyMoisture`.
+- [ ] **`yearlyMoistureCalculation.ts`** [L] — optionele param `climate?: MonthlyClimate[]`; vervang `MONTHLY_CLIMATE_NL`-refs (regels 161, 201, 225, 269) door meegegeven array, default = huidige `MONTHLY_CLIMATE_NL`.
+- [ ] **`glaserCalculation.ts`** — ONGEMOEID (winter blijft -10 via `GLASER_DEFAULTS`).
+- [ ] **State-locatie** [M] — start component-state; promoveer naar `SharedExtra.glaser_climate?: {stationId, selection}` (`projectV2.ts:599`) zodra Glaser-rapport projectbreed reproduceerbaar moet zijn (analoog sidecar-V2; let op persist-keten die net gefixt is, `8ccff9f`).
+
+### WP3 — Rc-vergelijk-pagina (de "WUFI light")
+- [ ] **Nieuwe pagina** [H] `pages/RcCompare.tsx` + route `/rc-compare`; activeer `Sidebar.tsx:202` (verwijder `disabled`/`to:""`). ≥2 constructies naast elkaar: Rc/U-waarde + condensatie (Glaser) + jaarlijkse vochtbalans, zelfde klimaatlaag (WP1). Hergebruikt `calculateRc`/`calculateGlaser`/`calculateYearlyMoisture` + `GlaserDiagram`/`MoistureYearTable`.
+- [ ] **Intentie bevestigd:** placeholder stond als "coming soon" naast `/rc` + `/uw` in sidebar-groep "Rc-waarde" → vergelijk-tool was altijd het doel.
+
+---
+
 ## 🧪 Norm-conformiteit audit (02-06) — VOLLEDIGE LIJST
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
