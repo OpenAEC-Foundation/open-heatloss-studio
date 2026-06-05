@@ -318,12 +318,12 @@ export interface Building {
    */
   built_after_2015?: boolean;
   /**
-   * Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de
+   * Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/(m³·K)] — bepaalt de
    * gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).
    *
    * Optioneel: `null` → conservatieve aanname "zwaar" (`ThermalMass::Heavy`,
    * hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of
-   * Formule 2.46 (`c_eff = C_eff / A_g`).
+   * Formule 2.46 (`c_eff = C_eff / V`).
    */
   c_eff?: number | null;
   /**
