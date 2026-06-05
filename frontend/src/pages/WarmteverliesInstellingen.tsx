@@ -19,11 +19,13 @@ import {
   BUILDING_TYPE_LABELS,
   DEFAULT_AGGREGATION_METHOD,
   DEFAULT_HEATING_CONTROL_TYPE,
+  DEFAULT_INFILTRATION_METHOD,
   DEFAULT_THETA_WATER,
   FROST_PROTECTION_LABELS,
   FROST_PROTECTION_SUPPLY_TEMP,
   getHeatingSystemLabels,
   HEATING_CONTROL_TYPE_LABELS,
+  INFILTRATION_METHOD_LABELS,
   SECURITY_CLASS_LABELS,
 } from "../lib/constants";
 import type {
@@ -33,6 +35,7 @@ import type {
   FrostProtectionType,
   HeatingControlType,
   HeatingSystem,
+  InfiltrationMethod,
   VentilationConfig,
 } from "../types";
 
@@ -363,6 +366,25 @@ export function WarmteverliesInstellingen() {
               <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
                 ISSO 51:2023 §4.3 — stuurt de opwarmtoeslag Φ_hu. Per zone →
                 P×A_g, zelflerend → 0.
+              </p>
+            </div>
+            <div className="col-span-2">
+              <Select
+                id="infiltration_method"
+                label="Infiltratiemethode"
+                value={
+                  building.infiltration_method ?? DEFAULT_INFILTRATION_METHOD
+                }
+                options={toOptions(INFILTRATION_METHOD_LABELS)}
+                onChange={(e) =>
+                  updateBuilding({
+                    infiltration_method: e.target.value as InfiltrationMethod,
+                  })
+                }
+              />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Bepaalt de infiltratie-rekenketen (Φ_i). Vabi-conform/Gemeten
+                qv10 voor Vabi-matching; per-gevel is de legacy 2017-default.
               </p>
             </div>
             <div>
