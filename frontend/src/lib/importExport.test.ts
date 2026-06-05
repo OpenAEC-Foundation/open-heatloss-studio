@@ -11,8 +11,10 @@ import type { Project, ProjectResult } from "../types";
 import {
   DEFAULT_ISSO53_BUILDING,
   DEFAULT_ISSO53_ROOM,
+  DEFAULT_SHARED_EXTRA,
   type Isso53BuildingState,
   type Isso53RoomState,
+  type SharedExtra,
 } from "../types/projectV2";
 
 /**
@@ -81,6 +83,10 @@ function makeIsso51Project(): Project {
       num_floors: 1,
       default_heating_system: "radiator_ht",
       aggregation_method: "vabi_compat",
+      // validateProject() backfilt dit veld op import; expliciet in de
+      // fixture zodat de round-trip deep-equal sluit (anders verschijnt het
+      // alleen in `imported.project`).
+      infiltration_method: "per_exterior_area",
     },
     climate: {
       theta_e: -10,
@@ -141,6 +147,8 @@ describe("exportProject — ISSO 51 byte-compat", () => {
     expect(env.schema).toBe("isso51-project-v1");
     expect("norm" in env).toBe(false);
     expect("isso53" in env).toBe(false);
+    // Geen sharedExtra-veld bij volledig-default sidecar → byte-compat.
+    expect("sharedExtra" in env).toBe(false);
   });
 
   it("round-trip levert identiek project + result", () => {
@@ -227,6 +235,69 @@ describe("exportProject — ISSO 53 sidecars", () => {
     expect(state.norm).toBe("isso53");
     expect(state.isso53Building).toEqual(building);
     expect(state.isso53Rooms).toEqual(rooms);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (b2) SharedExtra (bouwjaar etc.) — sidecar round-trip
+// ---------------------------------------------------------------------------
+
+describe("exportProject — sharedExtra sidecar", () => {
+  it("round-trip behoudt construction_year + overige sharedExtra-velden", () => {
+    const project = makeIsso51Project();
+    const result = makeResult();
+
+    const extra: SharedExtra = {
+      ...DEFAULT_SHARED_EXTRA,
+      construction_year: 1987,
+      postcode: "1234 AB",
+      location: "Amsterdam",
+      num_storeys: 3,
+    };
+
+    useProjectStore.setState({ norm: "isso51", sharedExtra: extra });
+
+    exportProject(project, result);
+
+    // Envelope bevat het sharedExtra-veld (niet-default).
+    const env = parseExported();
+    expect(env.sharedExtra).toBeTruthy();
+    expect((env.sharedExtra as SharedExtra).construction_year).toBe(1987);
+
+    const imported = importProject(lastBlobContent) as ImportResult;
+    expect(imported.sharedExtra).toBeTruthy();
+    expect(imported.sharedExtra?.construction_year).toBe(1987);
+    expect(imported.sharedExtra?.postcode).toBe("1234 AB");
+    expect(imported.sharedExtra?.location).toBe("Amsterdam");
+    expect(imported.sharedExtra?.num_storeys).toBe(3);
+
+    // setProject herstelt de sidecar autoritatief in de store.
+    useProjectStore.getState().setProject(imported.project, {
+      sharedExtra: imported.sharedExtra,
+    });
+    expect(useProjectStore.getState().sharedExtra.construction_year).toBe(1987);
+  });
+
+  it("oud bestand zonder sharedExtra → store valt terug op defaults", () => {
+    const project = makeIsso51Project();
+    const legacyEnvelope = {
+      version: "1.0.0",
+      schema: "isso51-project-v1",
+      exported_at: "2025-01-01T00:00:00.000Z",
+      project,
+      result: null,
+      // NB: bewust GEEN sharedExtra — oud bestand.
+    };
+
+    const imported = importProject(
+      JSON.stringify(legacyEnvelope),
+    ) as ImportResult;
+    expect(imported.sharedExtra).toBeUndefined();
+
+    useProjectStore.getState().setProject(imported.project, {
+      sharedExtra: imported.sharedExtra,
+    });
+    expect(useProjectStore.getState().sharedExtra).toEqual(DEFAULT_SHARED_EXTRA);
   });
 });
 

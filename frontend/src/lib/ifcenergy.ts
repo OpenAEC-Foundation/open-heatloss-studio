@@ -34,6 +34,7 @@ import type {
   WallBoundaryType,
 } from "../components/modeller/types";
 import type { UnderlayImage } from "../components/modeller/modellerStore";
+import type { SharedExtra } from "../types/projectV2";
 
 // ---------------------------------------------------------------------------
 // Namespace constants — mirror crates/isso51-ifcx/src/namespace.rs
@@ -95,6 +96,13 @@ interface IfcEnergyEnvelope {
   /** Calculation result if available; null when project hasn't been calculated yet. */
   result: ProjectResult | null;
   modeller: ModellerSnapshot;
+  /**
+   * V2-only sidecar-velden (`construction_year`, postcode, …) die buiten het
+   * V1 `Project` type in `projectStore.sharedExtra` leven. Optioneel — oude
+   * `.ifcenergy`-bestanden hebben dit veld niet; de parser valt dan terug op
+   * defaults. Zonder dit veld ging o.a. het bouwjaar verloren bij heropenen.
+   */
+  sharedExtra?: SharedExtra;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +113,11 @@ export interface BuildIfcEnergyOptions {
   project: Project;
   result: ProjectResult | null;
   modeller: ModellerSnapshot;
+  /**
+   * V2-only sidecar-velden (bouwjaar etc.). Optioneel — alleen meegeven
+   * wanneer er betekenisvolle V2-data is. Wordt 1:1 in de envelope opgenomen.
+   */
+  sharedExtra?: SharedExtra;
   author?: string;
 }
 
@@ -131,6 +144,7 @@ export function buildIfcEnergyDocument(opts: BuildIfcEnergyOptions): IfcxDocumen
     project: opts.project,
     result: opts.result,
     modeller: opts.modeller,
+    ...(opts.sharedExtra ? { sharedExtra: opts.sharedExtra } : {}),
   };
 
   const projectEntry: IfcxDataEntry = {
@@ -177,6 +191,11 @@ export interface ParsedIfcEnergy {
   project: Project;
   result: ProjectResult | null;
   modeller: ModellerSnapshot;
+  /**
+   * V2-only sidecar-velden uit de envelope, indien aanwezig. `undefined` voor
+   * oude `.ifcenergy`-bestanden zonder dit veld — caller valt terug op defaults.
+   */
+  sharedExtra?: SharedExtra;
   /** Schema version of the parsed envelope (for migration logic). */
   envelopeVersion: string;
 }
@@ -218,10 +237,15 @@ export function parseIfcEnergy(jsonString: string): ParsedIfcEnergy {
         e.modeller && typeof e.modeller === "object"
           ? mergeModellerSnapshot(e.modeller)
           : emptyModellerSnapshot();
+      const sharedExtra =
+        e.sharedExtra && typeof e.sharedExtra === "object"
+          ? (e.sharedExtra as SharedExtra)
+          : undefined;
       return {
         project: e.project as Project,
         result: (e.result ?? null) as ProjectResult | null,
         modeller,
+        sharedExtra,
         envelopeVersion: e.version ?? "unknown",
       };
     }

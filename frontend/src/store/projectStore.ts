@@ -185,6 +185,12 @@ interface ProjectStore {
       norm?: ActiveNorm;
       isso53Building?: Isso53BuildingState;
       isso53Rooms?: Record<string, Isso53RoomState>;
+      /**
+       * V2-only sidecar-velden (bouwjaar etc.) uit de envelope. Herstelt de
+       * `sharedExtra`-sidecar i.p.v. naar defaults te resetten. Afwezig →
+       * defaults (huidig gedrag voor oude bestanden zonder dit veld).
+       */
+      sharedExtra?: SharedExtra;
     },
   ) => void;
   /** Set the active server-side project ID. */
@@ -357,7 +363,13 @@ export const useProjectStore = create<ProjectStore>()(
             (detectNormFromProject(project) === "isso53" ? "isso53" : state.norm);
           return {
             project,
-            sharedExtra: { ...DEFAULT_SHARED_EXTRA },
+            // SharedExtra (bouwjaar etc.) uit de envelope herstellen indien
+            // meegegeven, anders resetten naar defaults (huidig gedrag voor
+            // oude bestanden). Backfill-spread net als isso53Building zodat
+            // nieuwe velden in toekomstige versies hun default krijgen.
+            sharedExtra: opts?.sharedExtra
+              ? { ...DEFAULT_SHARED_EXTRA, ...opts.sharedExtra }
+              : { ...DEFAULT_SHARED_EXTRA },
             norm,
             // Sidecars uit de envelope herstellen indien meegegeven, anders
             // resetten naar defaults (huidig gedrag voor oude bestanden).
