@@ -160,6 +160,35 @@ export const HEATING_CONTROL_TYPE_LABELS: Record<string, string> = {
 /** Default regeltype — gelijk aan Rust core `serde(default)` = `per_zone`. */
 export const DEFAULT_HEATING_CONTROL_TYPE = "per_zone" as const;
 
+/**
+ * Keuzehulp voor de effectieve warmtecapaciteit c_eff (gebouwzwaarte).
+ * Forfaitaire waarden uit ISSO 53 Tabel 2.4 (Wh/(m³·K)). ISSO 51:2023 Tabel
+ * 2.10 kent intern maar 2 rekenklassen (binaire split op c_eff = 70): Licht
+ * én Gemiddeld (beide ≤ 70) vallen in "ZL+L+M", alleen Zwaar (75 > 70) in "Z".
+ * `custom` is een display-only state: handmatige/niet-preset waarden of leeg.
+ */
+export const BUILDING_MASS_LABELS: Record<string, string> = {
+  light: "Licht (15 Wh/(m³·K))",
+  medium: "Gemiddeld (50 Wh/(m³·K))",
+  heavy: "Zwaar (75 Wh/(m³·K))",
+  custom: "Aangepast",
+};
+
+/** Forfaitaire c_eff-waarden per gebouwzwaarte-preset (Wh/(m³·K)). */
+export const BUILDING_MASS_C_EFF: Record<"light" | "medium" | "heavy", number> = {
+  light: 15,
+  medium: 50,
+  heavy: 75,
+};
+
+/** Map een c_eff-waarde naar de bijbehorende gebouwzwaarte-preset-key. */
+export function cEffToBuildingMass(cEff: number | null | undefined): string {
+  if (cEff === 15) return "light";
+  if (cEff === 50) return "medium";
+  if (cEff === 75) return "heavy";
+  return "custom";
+}
+
 /** Heating system labels (NL) voor ISSO 51 (woningen). */
 export const HEATING_SYSTEM_LABELS: Record<string, string> = {
   local_gas_heater: "Gaskachel",

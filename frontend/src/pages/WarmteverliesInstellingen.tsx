@@ -16,7 +16,10 @@ import { useRunCalculation } from "../hooks/useRunCalculation";
 import { useToastStore } from "../store/toastStore";
 import {
   AGGREGATION_METHOD_LABELS,
+  BUILDING_MASS_C_EFF,
+  BUILDING_MASS_LABELS,
   BUILDING_TYPE_LABELS,
+  cEffToBuildingMass,
   DEFAULT_AGGREGATION_METHOD,
   DEFAULT_HEATING_CONTROL_TYPE,
   DEFAULT_INFILTRATION_METHOD,
@@ -394,6 +397,20 @@ export function WarmteverliesInstellingen() {
               </p>
             </div>
             <div>
+              <Select
+                id="building_mass"
+                label="Gebouwzwaarte (keuzehulp)"
+                value={cEffToBuildingMass(building.c_eff)}
+                options={toOptions(BUILDING_MASS_LABELS)}
+                onChange={(e) => {
+                  const key = e.target.value;
+                  // "custom" laat c_eff ongemoeid — puur een display-state.
+                  if (key === "custom") return;
+                  updateBuilding({
+                    c_eff: BUILDING_MASS_C_EFF[key as "light" | "medium" | "heavy"],
+                  });
+                }}
+              />
               <Input
                 id="c_eff"
                 label="Effectieve warmtecapaciteit c_eff"
@@ -408,8 +425,12 @@ export function WarmteverliesInstellingen() {
                 }}
               />
               <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-                ISSO 51:2023 Tabel 2.10 — gebouwzwaarte. Leeg laten voor de
-                conservatieve aanname "zwaar".
+                De keuzehulp vult forfaitaire waarden in (Licht 15 / Gemiddeld 50
+                / Zwaar 75 Wh/(m³·K), ISSO 53 Tabel 2.4). ISSO 51:2023 Tabel 2.10
+                splitst intern op de grens 70: Licht én Gemiddeld vallen in
+                "ZL+L+M", alleen Zwaar in "Z". Handmatige invoer blijft mogelijk
+                (dropdown toont dan "Aangepast"). Leeg laten voor de conservatieve
+                aanname "zwaar".
               </p>
             </div>
             <div className="col-span-3 flex flex-wrap items-center gap-6">
