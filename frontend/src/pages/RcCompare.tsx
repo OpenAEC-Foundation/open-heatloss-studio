@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { GlaserDiagram } from "../components/construction/GlaserDiagram";
 import { MoistureYearTable } from "../components/construction/MoistureYearTable";
@@ -19,10 +19,11 @@ import { calculateYearlyMoisture } from "../lib/yearlyMoistureCalculation";
 import {
   CLIMATE_DEFAULT_SELECTION,
   CLIMATE_DEFAULT_STATION,
+  CLIMATE_FORFAITAIR,
+  decodeClimateValue,
+  encodeClimateValue,
   getMonthlyClimate,
-  listAvailableYears,
-  listStations,
-  type YearSelection,
+  listClimateOptions,
 } from "../lib/climateData";
 import { useCatalogueStore } from "../store/catalogueStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
@@ -36,25 +37,6 @@ const CATEGORY_POSITION: Record<string, VerticalPosition> = {
   vloeren_plafonds: "floor",
   daken: "ceiling",
 };
-
-// ---------- Klimaatselectie helpers (gespiegeld van RcCalculator) ----------
-
-function selectionToValue(selection: YearSelection): string {
-  return typeof selection === "number" ? `year:${selection}` : `key:${selection}`;
-}
-
-function valueToSelection(value: string): YearSelection {
-  if (value.startsWith("year:")) {
-    return Number(value.slice(5));
-  }
-  return value.slice(4) as YearSelection;
-}
-
-function selectionLabel(selection: YearSelection): string {
-  if (selection === "1991-2020") return "1991-2020 (normaal)";
-  if (selection === "NEN5060") return "NEN5060 (referentie)";
-  return String(selection);
-}
 
 // ---------- Constructie-bron ----------
 
@@ -410,13 +392,10 @@ export function RcCompare() {
   const [keyA, setKeyA] = useState<string>("");
   const [keyB, setKeyB] = useState<string>("");
 
-  // Gedeelde KNMI-klimaatkeuze (voedt de jaarbalans van BEIDE kolommen).
-  // Default De Bilt / 1991-2020-normaal reproduceert het forfaitaire klimaat.
-  const [climateStationId, setClimateStationId] = useState<string>(
-    CLIMATE_DEFAULT_STATION,
-  );
-  const [climateSelection, setClimateSelection] = useState<YearSelection>(
-    CLIMATE_DEFAULT_SELECTION,
+  // Gedeelde klimaatkeuze (voedt de jaarbalans van BEIDE kolommen), als één
+  // encoded dropdown-value. Default = forfaitair (norm).
+  const [climateValue, setClimateValue] = useState<string>(
+    encodeClimateValue(CLIMATE_DEFAULT_STATION, CLIMATE_DEFAULT_SELECTION),
   );
 
   const catalogueEntries = useCatalogueStore((s) => s.entries);
@@ -466,34 +445,28 @@ export function RcCompare() {
     [options, keyB],
   );
 
-  // KNMI-afgeleiden (gedeeld). Spiegelt RcCalculator's WP2-patroon.
-  const climateStations = useMemo(() => listStations(), []);
-  const climateYears = useMemo(
-    () => listAvailableYears(climateStationId),
-    [climateStationId],
+  // Klimaat-afgeleiden (gedeeld). Single-dropdown via listClimateOptions.
+  const climateOptions = useMemo(() => listClimateOptions(), []);
+  const climateGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const o of climateOptions) {
+      if (o.group && !seen.has(o.group)) {
+        seen.add(o.group);
+        out.push(o.group);
+      }
+    }
+    return out;
+  }, [climateOptions]);
+  const { stationId: climateStationId, selection: climateSelection } = useMemo(
+    () => decodeClimateValue(climateValue),
+    [climateValue],
   );
   const selectedClimate = useMemo(
     () => getMonthlyClimate(climateStationId, climateSelection),
     [climateStationId, climateSelection],
   );
   const climateUnavailable = selectedClimate === null;
-
-  // Val terug op default-selectie wanneer het gekozen station de huidige
-  // selectie niet kent (voorkomt een ongeldige dropdown-waarde).
-  useEffect(() => {
-    if (
-      climateYears.length > 0 &&
-      !climateYears.some(
-        (y) => selectionToValue(y) === selectionToValue(climateSelection),
-      )
-    ) {
-      setClimateSelection(
-        climateYears.includes(CLIMATE_DEFAULT_SELECTION)
-          ? CLIMATE_DEFAULT_SELECTION
-          : climateYears[0]!,
-      );
-    }
-  }, [climateYears, climateSelection]);
 
   const computedA = useMemo(
     () =>
@@ -524,42 +497,33 @@ export function RcCompare() {
             <h3 className="mb-2 text-sm font-semibold text-on-surface-secondary">
               Klimaat (jaarbalans, beide kolommen)
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
-                <span>KNMI-station</span>
+                <span>Klimaat (jaarbalans)</span>
                 <select
-                  value={climateStationId}
-                  onChange={(e) => setClimateStationId(e.target.value)}
+                  value={climateValue}
+                  onChange={(e) => setClimateValue(e.target.value)}
                   className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm focus:border-primary focus:outline-none"
                 >
-                  {climateStations.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
-                <span>Klimaatjaar / -periode</span>
-                <select
-                  value={selectionToValue(climateSelection)}
-                  onChange={(e) =>
-                    setClimateSelection(valueToSelection(e.target.value))
-                  }
-                  className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm focus:border-primary focus:outline-none"
-                >
-                  {climateYears.map((y) => (
-                    <option key={selectionToValue(y)} value={selectionToValue(y)}>
-                      {selectionLabel(y)}
-                    </option>
+                  <option value={CLIMATE_FORFAITAIR}>Forfaitair (norm)</option>
+                  {climateGroups.map((group) => (
+                    <optgroup key={group} label={group}>
+                      {climateOptions
+                        .filter((o) => o.group === group)
+                        .map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
               </label>
             </div>
             {climateUnavailable && (
               <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                Voor deze selectie is nog geen klimaatdata beschikbaar
-                (NEN 5060-tabel volgt); 1991-2020-normaal gebruikt.
+                Voor deze selectie is nog geen klimaatdata beschikbaar;
+                forfaitaire norm-reeks gebruikt.
               </div>
             )}
             <p className="mt-2 text-2xs text-on-surface-muted">
