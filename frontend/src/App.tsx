@@ -7,6 +7,7 @@ import { Projects } from "./pages/Projects";
 import { ProjectSetup } from "./pages/ProjectSetup";
 import { RoomEditor } from "./pages/RoomEditor";
 import { RcCalculator } from "./pages/RcCalculator";
+import { RcCompare } from "./pages/RcCompare";
 import { UwCalculator } from "./pages/UwCalculator";
 import { Results } from "./pages/Results";
 import { WarmteverliesInstellingen } from "./pages/WarmteverliesInstellingen";
@@ -40,6 +41,7 @@ export function App() {
             <Route path="/rooms" element={<RoomEditor />} />
             <Route path="/constructies" element={<ProjectConstructions />} />
             <Route path="/rc" element={<RcCalculator />} />
+            <Route path="/rc-compare" element={<RcCompare />} />
             <Route path="/uw" element={<UwCalculator />} />
             <Route path="/tojuli/quick" element={<Tojuli />} />
             <Route path="/tojuli" element={<TojuliFull />} />
