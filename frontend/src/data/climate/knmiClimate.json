@@ -1,0 +1,1589 @@
+{
+  "_meta": {
+    "description": "KNMI-klimaatdatalaag voor de vocht-/Glaser-jaarbalans (NEN-EN-ISO 13788 maandmethode). Statische, frontend-bundled referentiedata (geen live API-call in de app). Records per (station, selectie) met 12 maandwaarden voor buitentemperatuur (thetaE, °C) en relatieve buitenluchtvochtigheid (rhE, %).",
+    "scope_note": "Deze laag voedt UITSLUITEND de jaarlijkse vochtbalans (Glaser-maandmethode). De warmteverlies-ontwerptemperatuur theta_e (-10 °C) en de Glaser steady-state winterconditie (-10 °C) zijn norm-vast en worden NIET door deze laag bepaald.",
+    "source": "KNMI open data — etmaalgegevens (daggegevens) per station, velden TG (etmaalgemiddelde temperatuur, 0.1 °C) en UG (etmaalgemiddelde relatieve vochtigheid, %). Bron: Koninklijk Nederlands Meteorologisch Instituut (KNMI), https://www.knmi.nl/ / https://www.daggegevens.knmi.nl/klimatologie/daggegevens",
+    "license": "KNMI open data, Creative Commons Naamsvermelding 4.0 Internationaal (CC BY 4.0). Naamsvermelding: 'Bron: KNMI'.",
+    "knmi_download_date": "2026-06-05",
+    "nen5060_note": "Het record met selection 'NEN5060' (kind 'reference') is een PLACEHOLDER: de NEN 5060-referentiejaar-maandtabellen zijn auteursrechtelijk beschermd (betaalde norm) en zijn NIET gefabriceerd. De 12 maandwaarden staan op null totdat de gebruiker de officiele NEN 5060-maandtabel (klimaatzone De Bilt) aanlevert. listAvailableYears() geeft 'NEN5060' wel terug als kiesbaar, maar getMonthlyClimate() retourneert null zolang de maandwaarden null zijn — de UI moet dat als 'nog niet beschikbaar' tonen.",
+    "generator": "scripts/generate_climate_bundle.py",
+    "how_to_regenerate": [
+      "Optie A (online): python scripts/generate_climate_bundle.py --start 20210101 --end 20231231 — haalt KNMI daggegevens (TG+UG) op voor stations 260/240/280/380/235 en merget historische jaarrecords in deze bundel.",
+      "Optie B (offline): download per station etmgeg_<STN>.txt van het KNMI en draai python scripts/generate_climate_bundle.py --etmgeg-dir <map> — parst de lokale bestanden.",
+      "Het seed-record (260 / 1991-2020 / normal) en het NEN5060-placeholder-record worden door de generator NOOIT overschreven.",
+      "De seed-waarden (260 / 1991-2020) zijn bit-gelijk overgenomen uit frontend/src/lib/yearlyMoistureCalculation.ts (MONTHLY_CLIMATE_NL) voor backward-compatibiliteit; wijzig ze niet zonder die bron mee te wijzigen."
+    ],
+    "month_labels": [
+      "Jan",
+      "Feb",
+      "Mrt",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Dec"
+    ],
+    "field_note": "Per maand: month (NL-label), thetaE (gem. buitentemperatuur °C), rhE (gem. relatieve buitenluchtvochtigheid %), days (kalenderdagen, schrikkeljaar-aware), coverage (optioneel, fractie 0..1 geldige meetdagen in de aggregatie; ontbreekt bij seed/normaal)."
+  },
+  "stations": [
+    {
+      "id": "260",
+      "name": "De Bilt",
+      "lat": 52.1,
+      "lon": 5.18
+    },
+    {
+      "id": "240",
+      "name": "Schiphol",
+      "lat": 52.3,
+      "lon": 4.77
+    },
+    {
+      "id": "280",
+      "name": "Eelde",
+      "lat": 53.13,
+      "lon": 6.58
+    },
+    {
+      "id": "380",
+      "name": "Maastricht",
+      "lat": 50.91,
+      "lon": 5.77
+    },
+    {
+      "id": "235",
+      "name": "Den Helder (De Kooy)",
+      "lat": 52.92,
+      "lon": 4.79
+    }
+  ],
+  "records": [
+    {
+      "stationId": "260",
+      "selection": "1991-2020",
+      "kind": "normal",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 3.4,
+          "rhE": 87,
+          "days": 31
+        },
+        {
+          "month": "Feb",
+          "thetaE": 3.6,
+          "rhE": 84,
+          "days": 28
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.2,
+          "rhE": 80,
+          "days": 31
+        },
+        {
+          "month": "Apr",
+          "thetaE": 9.3,
+          "rhE": 74,
+          "days": 30
+        },
+        {
+          "month": "Mei",
+          "thetaE": 13.1,
+          "rhE": 73,
+          "days": 31
+        },
+        {
+          "month": "Jun",
+          "thetaE": 15.8,
+          "rhE": 74,
+          "days": 30
+        },
+        {
+          "month": "Jul",
+          "thetaE": 17.9,
+          "rhE": 76,
+          "days": 31
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.6,
+          "rhE": 77,
+          "days": 31
+        },
+        {
+          "month": "Sep",
+          "thetaE": 14.6,
+          "rhE": 81,
+          "days": 30
+        },
+        {
+          "month": "Okt",
+          "thetaE": 10.7,
+          "rhE": 84,
+          "days": 31
+        },
+        {
+          "month": "Nov",
+          "thetaE": 6.8,
+          "rhE": 88,
+          "days": 30
+        },
+        {
+          "month": "Dec",
+          "thetaE": 4.0,
+          "rhE": 88,
+          "days": 31
+        }
+      ]
+    },
+    {
+      "stationId": "260",
+      "selection": "NEN5060",
+      "kind": "reference",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Feb",
+          "thetaE": null,
+          "rhE": null,
+          "days": 28
+        },
+        {
+          "month": "Mrt",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Apr",
+          "thetaE": null,
+          "rhE": null,
+          "days": 30
+        },
+        {
+          "month": "Mei",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Jun",
+          "thetaE": null,
+          "rhE": null,
+          "days": 30
+        },
+        {
+          "month": "Jul",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Aug",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Sep",
+          "thetaE": null,
+          "rhE": null,
+          "days": 30
+        },
+        {
+          "month": "Okt",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        },
+        {
+          "month": "Nov",
+          "thetaE": null,
+          "rhE": null,
+          "days": 30
+        },
+        {
+          "month": "Dec",
+          "thetaE": null,
+          "rhE": null,
+          "days": 31
+        }
+      ]
+    },
+    {
+      "stationId": "235",
+      "selection": 2021,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 4.0,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 3.7,
+          "rhE": 82,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.1,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 6.8,
+          "rhE": 73,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 10.5,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 16.3,
+          "rhE": 79,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 17.7,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.2,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 16.7,
+          "rhE": 80,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 12.6,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 9.0,
+          "rhE": 84,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 5.7,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "235",
+      "selection": 2022,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 6.1,
+          "rhE": 84,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.6,
+          "rhE": 80,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.9,
+          "rhE": 76,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 9.2,
+          "rhE": 73,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 13.0,
+          "rhE": 77,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 16.1,
+          "rhE": 76,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.1,
+          "rhE": 71,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 19.8,
+          "rhE": 74,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 15.7,
+          "rhE": 75,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.9,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 9.2,
+          "rhE": 86,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 4.5,
+          "rhE": 87,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "235",
+      "selection": 2023,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 6.2,
+          "rhE": 83,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.1,
+          "rhE": 84,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.6,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.4,
+          "rhE": 78,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 12.2,
+          "rhE": 80,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 17.8,
+          "rhE": 73,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 17.8,
+          "rhE": 76,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.3,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 18.0,
+          "rhE": 81,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.5,
+          "rhE": 83,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 8.7,
+          "rhE": 83,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 7.1,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "240",
+      "selection": 2021,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 3.5,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 4.2,
+          "rhE": 80,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.5,
+          "rhE": 78,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 6.7,
+          "rhE": 71,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 11.2,
+          "rhE": 77,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 17.8,
+          "rhE": 75,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.0,
+          "rhE": 79,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.1,
+          "rhE": 80,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 16.5,
+          "rhE": 80,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 12.0,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.8,
+          "rhE": 88,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 5.6,
+          "rhE": 89,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "240",
+      "selection": 2022,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 5.6,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.9,
+          "rhE": 79,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.7,
+          "rhE": 67,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 9.7,
+          "rhE": 68,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 14.0,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 17.1,
+          "rhE": 71,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.8,
+          "rhE": 69,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 20.3,
+          "rhE": 70,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 15.4,
+          "rhE": 77,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.5,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 8.8,
+          "rhE": 89,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 4.2,
+          "rhE": 90,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "240",
+      "selection": 2023,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 6.0,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.1,
+          "rhE": 85,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.0,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.9,
+          "rhE": 76,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 13.3,
+          "rhE": 76,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 19.3,
+          "rhE": 65,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.2,
+          "rhE": 73,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.8,
+          "rhE": 79,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 18.2,
+          "rhE": 80,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.4,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 8.2,
+          "rhE": 88,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 7.0,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "260",
+      "selection": 2021,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 3.4,
+          "rhE": 87,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 4.3,
+          "rhE": 80,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.4,
+          "rhE": 78,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 6.7,
+          "rhE": 71,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 11.2,
+          "rhE": 77,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 18.2,
+          "rhE": 74,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.0,
+          "rhE": 80,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 16.9,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 15.9,
+          "rhE": 81,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 11.6,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.4,
+          "rhE": 89,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 5.4,
+          "rhE": 90,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "260",
+      "selection": 2022,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 5.3,
+          "rhE": 87,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.8,
+          "rhE": 78,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.3,
+          "rhE": 68,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 9.3,
+          "rhE": 70,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 14.0,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 17.1,
+          "rhE": 71,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.6,
+          "rhE": 69,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 20.0,
+          "rhE": 69,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 14.6,
+          "rhE": 78,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.1,
+          "rhE": 84,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 8.6,
+          "rhE": 86,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 3.9,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "260",
+      "selection": 2023,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 5.8,
+          "rhE": 83,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 5.7,
+          "rhE": 82,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.0,
+          "rhE": 79,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.7,
+          "rhE": 74,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 13.5,
+          "rhE": 74,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 19.4,
+          "rhE": 62,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.1,
+          "rhE": 74,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 17.6,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 17.5,
+          "rhE": 82,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.2,
+          "rhE": 87,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.8,
+          "rhE": 89,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 6.9,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "280",
+      "selection": 2021,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 2.2,
+          "rhE": 90,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 3.0,
+          "rhE": 81,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 5.7,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 5.8,
+          "rhE": 75,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 10.4,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 17.2,
+          "rhE": 78,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.0,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 16.7,
+          "rhE": 83,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 15.4,
+          "rhE": 84,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 11.2,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.2,
+          "rhE": 90,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 4.1,
+          "rhE": 90,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "280",
+      "selection": 2022,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 5.1,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 5.9,
+          "rhE": 80,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 5.9,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.4,
+          "rhE": 71,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 12.9,
+          "rhE": 74,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 16.1,
+          "rhE": 75,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 17.6,
+          "rhE": 73,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 19.2,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 14.0,
+          "rhE": 78,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 12.6,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.8,
+          "rhE": 87,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 3.2,
+          "rhE": 91,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "280",
+      "selection": 2023,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 5.2,
+          "rhE": 87,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 5.1,
+          "rhE": 84,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.1,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.1,
+          "rhE": 76,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 12.4,
+          "rhE": 77,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 18.1,
+          "rhE": 68,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 17.5,
+          "rhE": 76,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 16.7,
+          "rhE": 83,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 17.0,
+          "rhE": 81,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 12.2,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 6.9,
+          "rhE": 88,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 5.7,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "380",
+      "selection": 2021,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 2.8,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 5.2,
+          "rhE": 74,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 6.9,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 6.7,
+          "rhE": 70,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 11.6,
+          "rhE": 72,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 19.3,
+          "rhE": 70,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.1,
+          "rhE": 78,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 16.7,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 16.3,
+          "rhE": 79,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 11.5,
+          "rhE": 82,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 6.0,
+          "rhE": 90,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 5.5,
+          "rhE": 89,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "380",
+      "selection": 2022,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 4.1,
+          "rhE": 88,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 6.2,
+          "rhE": 78,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.9,
+          "rhE": 61,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 9.7,
+          "rhE": 66,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 15.4,
+          "rhE": 65,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 18.1,
+          "rhE": 67,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 19.7,
+          "rhE": 62,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 21.3,
+          "rhE": 60,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 15.0,
+          "rhE": 76,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 14.2,
+          "rhE": 80,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 9.1,
+          "rhE": 83,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 3.9,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    },
+    {
+      "stationId": "380",
+      "selection": 2023,
+      "kind": "historical",
+      "months": [
+        {
+          "month": "Jan",
+          "thetaE": 4.9,
+          "rhE": 85,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Feb",
+          "thetaE": 5.3,
+          "rhE": 82,
+          "days": 28,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mrt",
+          "thetaE": 7.2,
+          "rhE": 78,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Apr",
+          "thetaE": 8.7,
+          "rhE": 73,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Mei",
+          "thetaE": 13.8,
+          "rhE": 73,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jun",
+          "thetaE": 20.4,
+          "rhE": 58,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Jul",
+          "thetaE": 18.7,
+          "rhE": 70,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Aug",
+          "thetaE": 18.0,
+          "rhE": 80,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Sep",
+          "thetaE": 18.4,
+          "rhE": 76,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Okt",
+          "thetaE": 13.4,
+          "rhE": 81,
+          "days": 31,
+          "coverage": 1.0
+        },
+        {
+          "month": "Nov",
+          "thetaE": 7.4,
+          "rhE": 87,
+          "days": 30,
+          "coverage": 1.0
+        },
+        {
+          "month": "Dec",
+          "thetaE": 6.5,
+          "rhE": 86,
+          "days": 31,
+          "coverage": 1.0
+        }
+      ]
+    }
+  ]
+}
