@@ -148,12 +148,12 @@ pub struct Building {
     #[serde(default)]
     pub heating_control_type: HeatingControlType,
 
-    /// Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de
+    /// Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/(m³·K)] — bepaalt de
     /// gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).
     ///
     /// Optioneel: `None` → conservatieve aanname "zwaar" (`ThermalMass::Heavy`,
     /// hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of
-    /// Formule 2.46 (`c_eff = C_eff / A_g`).
+    /// Formule 2.46 (`c_eff = C_eff / V`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub c_eff: Option<f64>,
 

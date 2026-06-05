@@ -392,7 +392,7 @@ export function WarmteverliesInstellingen() {
                 id="c_eff"
                 label="Effectieve warmtecapaciteit c_eff"
                 type="number"
-                unit="Wh/K"
+                unit="Wh/(m³·K)"
                 value={building.c_eff ?? ""}
                 onChange={(e) => {
                   const raw = e.target.value;
