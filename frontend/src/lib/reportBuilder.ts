@@ -34,6 +34,10 @@ import {
   buildTemperatureGradientSvg,
   rasterizeSvgToPng,
 } from "./reportCharts";
+import {
+  buildRoomLookup,
+  getRoomDesignTemperature,
+} from "../components/charts/deltaT";
 
 /** Default buitentemperatuur (°C) voor fallback in rapport charts. */
 const DEFAULT_THETA_E = -10;
@@ -393,13 +397,20 @@ function buildRoomSections(
   project: Project,
   result: ProjectResult,
 ): Record<string, unknown>[] {
-  return result.rooms.map((room) => buildRoomDetailSection(project, room));
+  // Eén room-lookup voor het hele rapport: nodig om de aangrenzende
+  // ontwerp-θ van `adjacent_room`-grensvlakken op te lossen (consistent met
+  // `deltaT.ts` / de berekening).
+  const roomLookup = buildRoomLookup(project.rooms);
+  return result.rooms.map((room) =>
+    buildRoomDetailSection(project, room, roomLookup),
+  );
 }
 
 /** Eén vertrek-detailsectie — invoer (Algemeen + Constructie-elementen) + reken-resultaten. */
 function buildRoomDetailSection(
   project: Project,
   room: RoomResult,
+  roomLookup: Map<string, Room>,
 ): Record<string, unknown> {
   const projectRoom = project.rooms.find((r) => r.id === room.room_id);
   // Norm-detect via heating_system key-shape: camelCase = ISSO 53,
@@ -412,7 +423,9 @@ function buildRoomDetailSection(
     ? (heatingLabels[projectRoom.heating_system] ?? projectRoom.heating_system)
     : "";
 
-  const inputBlocks = projectRoom ? buildRoomInputBlocks(projectRoom) : [];
+  const inputBlocks = projectRoom
+    ? buildRoomInputBlocks(projectRoom, roomLookup)
+    : [];
 
   return {
     title: room.room_name,
@@ -667,8 +680,54 @@ function elementTypeLabel(
   return element.material_type ?? "—";
 }
 
+/** Begrenzing-cel: grens-label + de feitelijke reductie/aangrenzende temperatuur.
+ *
+ * Combineert de oude losse kolommen "Grens" en "Aangrenzend" tot één cel die
+ * exact toont wat de rekenkern voor dit grensvlak gebruikt. De factor-/temp-
+ * resolutie spiegelt `deltaT.ts::computeDeltaT` (ISSO 51-pad) zodat rapport en
+ * berekening niet uit elkaar lopen:
+ *   - `exterior` / `water`            → geen reductie, alleen het label.
+ *   - `adjacent_room` (+id of legacy) → de aangrenzende ontwerp-θ.
+ *   - `unheated_space`/`adjacent_building`/`adjacent_room`-zonder-temp
+ *                                     → de effectieve b-factor (expliciet of
+ *                                       de norm-default 0,50).
+ *   - `ground`                        → label (geen losse b/temp; de
+ *                                       grondreductie zit in de berekening).
+ */
+function boundaryCell(el: ConstructionElement, rooms: Map<string, Room>): string {
+  const label = BOUNDARY_TYPE_LABELS[el.boundary_type] ?? el.boundary_type;
+  switch (el.boundary_type) {
+    case "adjacent_room": {
+      // Live lookup via room-id (one source of truth), anders legacy
+      // adjacent_temperature — gelijk aan computeDeltaT's adjacent_room-pad.
+      if (el.adjacent_room_id) {
+        const adjacent = rooms.get(el.adjacent_room_id);
+        if (adjacent) {
+          return `${label} · ${fmtTemp(getRoomDesignTemperature(adjacent))}`;
+        }
+      }
+      if (el.adjacent_temperature != null) {
+        return `${label} · ${fmtTemp(el.adjacent_temperature)}`;
+      }
+      // Geen temp te bepalen → toon de effectieve b-factor.
+      return `${label} · b = ${fmt2(el.temperature_factor ?? 0.5)}`;
+    }
+    case "unheated_space":
+    case "adjacent_building": {
+      // ISSO 51-pad: expliciete temperature_factor ?? norm-default 0,50.
+      return `${label} · b = ${fmt2(el.temperature_factor ?? 0.5)}`;
+    }
+    default:
+      // exterior / water / ground → geen reductie-info in deze cel.
+      return label;
+  }
+}
+
 /** Build the per-room "Invoer" blocks: Algemeen + Constructie-elementen. */
-function buildRoomInputBlocks(room: Room): Record<string, unknown>[] {
+function buildRoomInputBlocks(
+  room: Room,
+  rooms: Map<string, Room>,
+): Record<string, unknown>[] {
   const designTemp = resolveDesignTemp(room);
   const functionLabel = ROOM_FUNCTION_LABELS[room.function] ?? room.function;
 
@@ -681,28 +740,25 @@ function buildRoomInputBlocks(room: Room): Record<string, unknown>[] {
     algemeenRows.push(["Hoogte", `${fmt2(room.height)} m`]);
   }
 
-  // Constructie-elementen — one row per element
+  // De "Verw.elem."-kolom alleen tonen als minstens één element vloer-/
+  // wandverwarming heeft — anders staat hij vol "—" en kost hij ruimte.
+  const showEmbedded = room.constructions.some((el) => el.has_embedded_heating);
+
+  // Constructie-elementen — één rij per element. "Grens" + "Aangrenzend" zijn
+  // samengevoegd tot één "Begrenzing"-kolom (7→6, of 5 zonder verw.elem.) zodat
+  // de tabel binnen de paginabreedte past en de reductie-info inline staat.
   const elementRows: string[][] = room.constructions.map((el) => {
-    const boundaryLabel = BOUNDARY_TYPE_LABELS[el.boundary_type] ?? el.boundary_type;
-    let aangrenzend = "—";
-    if (el.boundary_type === "adjacent_room" && el.adjacent_temperature != null) {
-      aangrenzend = fmtTemp(el.adjacent_temperature);
-    } else if (
-      el.boundary_type === "adjacent_room" &&
-      el.temperature_factor != null
-    ) {
-      aangrenzend = `b = ${fmt2(el.temperature_factor)}`;
-    }
-    const embedded = el.has_embedded_heating ? "ja" : "—";
-    return [
+    const row = [
       el.description || "—",
       elementTypeLabel(el),
       `${fmt2(el.area)} m²`,
       `${fmt2(el.u_value)} W/m²K`,
-      boundaryLabel,
-      aangrenzend,
-      embedded,
+      boundaryCell(el, rooms),
     ];
+    if (showEmbedded) {
+      row.push(el.has_embedded_heating ? "ja" : "—");
+    }
+    return row;
   });
 
   const blocks: Record<string, unknown>[] = [
@@ -716,18 +772,20 @@ function buildRoomInputBlocks(room: Room): Record<string, unknown>[] {
   ];
 
   if (elementRows.length > 0) {
+    // Proportionele kolombreedtes (relatieve gewichten → renderer schaalt naar
+    // beschikbare breedte): brede Omschrijving + Begrenzing, smalle numerieke
+    // kolommen. Voorkomt afgekapte kolommen bij de auto-fit.
+    const headers = ["Omschrijving", "Type", "Opp.", "U", "Begrenzing"];
+    const columnWidths = [34, 14, 13, 17, 30];
+    if (showEmbedded) {
+      headers.push("Verw.elem.");
+      columnWidths.push(14);
+    }
     blocks.push({
       type: "table",
       title: "Constructie-elementen (invoer)",
-      headers: [
-        "Omschrijving",
-        "Type",
-        "Oppervlak",
-        "U",
-        "Grens",
-        "Aangrenzend",
-        "Embedded heating",
-      ],
+      headers,
+      column_widths: columnWidths,
       rows: elementRows,
     });
     blocks.push({ type: "spacer", height_mm: 2 });
