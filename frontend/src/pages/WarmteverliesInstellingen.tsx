@@ -274,63 +274,62 @@ export function WarmteverliesInstellingen() {
                 per vertrek in (Verwarming-kolom), of gebruik “Toepassen op alle
                 vertrekken”.
               </p>
-            </div>
-          </div>
-          <div className="mt-3 flex items-start gap-4">
-            {!isIsso53 && (
-              <div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={building.has_night_setback ?? false}
-                    onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
-                    className="rounded border-[var(--oaec-border)] accent-primary"
-                  />
-                  Nachtreductie
-                </label>
-                {allRoomsFloorHeating && (
-                  <p className="mt-1 max-w-md text-[10px] leading-tight text-on-surface-muted">
-                    Alle vertrekken hebben vloerverwarming → de opwarmtoeslag
-                    Φ_hu vervalt (ISSO 51 §4.3, traag systeem); nachtreductie
-                    heeft daarom geen effect op de berekening.
-                  </p>
-                )}
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const system =
-                  building.default_heating_system ?? defaultHeatingSystem;
-                const count = project.rooms.length;
-                if (count === 0) {
-                  addToast("Geen vertrekken om aan te passen", "info", 2000);
-                  return;
-                }
-                if (count > BULK_APPLY_CONFIRM_THRESHOLD) {
-                  const label = heatingLabels[system] ?? system;
-                  if (
-                    !window.confirm(
-                      `Weet je zeker dat je "${label}" wilt toepassen op alle ${count} vertrekken? Dit overschrijft eventuele per-vertrek afwijkingen.`,
-                    )
-                  ) {
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  const system =
+                    building.default_heating_system ?? defaultHeatingSystem;
+                  const count = project.rooms.length;
+                  if (count === 0) {
+                    addToast("Geen vertrekken om aan te passen", "info", 2000);
                     return;
                   }
-                }
-                applyHeatingSystemToAllRooms(system);
-                addToast(
-                  `Verwarmingssysteem toegepast op ${count} vertrekken`,
-                  "success",
-                  2500,
-                );
-              }}
-            >
-              Toepassen op alle vertrekken
-            </Button>
+                  if (count > BULK_APPLY_CONFIRM_THRESHOLD) {
+                    const label = heatingLabels[system] ?? system;
+                    if (
+                      !window.confirm(
+                        `Weet je zeker dat je "${label}" wilt toepassen op alle ${count} vertrekken? Dit overschrijft eventuele per-vertrek afwijkingen.`,
+                      )
+                    ) {
+                      return;
+                    }
+                  }
+                  applyHeatingSystemToAllRooms(system);
+                  addToast(
+                    `Verwarmingssysteem toegepast op ${count} vertrekken`,
+                    "success",
+                    2500,
+                  );
+                }}
+              >
+                Toepassen op alle vertrekken
+              </Button>
+            </div>
           </div>
           {!isIsso53 && (
-          <div className="mt-4 grid grid-cols-3 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4">
+            <div className="mt-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={building.has_night_setback ?? false}
+                  onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
+                  className="rounded border-[var(--oaec-border)] accent-primary"
+                />
+                Nachtreductie
+              </label>
+              {allRoomsFloorHeating && (
+                <p className="mt-1 max-w-md text-[10px] leading-tight text-on-surface-muted">
+                  Alle vertrekken hebben vloerverwarming → de opwarmtoeslag
+                  Φ_hu vervalt (ISSO 51 §4.3, traag systeem); nachtreductie
+                  heeft daarom geen effect op de berekening.
+                </p>
+              )}
+            </div>
+          )}
+          {!isIsso53 && (
+          <div className="mt-4 grid grid-cols-3 gap-4">
             <div>
               <Input
                 id="frame_u_override"
@@ -429,6 +428,14 @@ export function WarmteverliesInstellingen() {
                   });
                 }}
               />
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                Vult forfaitaire waarden in (Licht 15 / Gemiddeld 50 / Zwaar 75
+                Wh/(m³·K), ISSO 53 Tabel 2.4). ISSO 51:2023 Tabel 2.10 splitst
+                intern op de grens 70: Licht én Gemiddeld vallen in "ZL+L+M",
+                alleen Zwaar in "Z".
+              </p>
+            </div>
+            <div>
               <Input
                 id="c_eff"
                 label="Effectieve warmtecapaciteit c_eff"
@@ -443,12 +450,8 @@ export function WarmteverliesInstellingen() {
                 }}
               />
               <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
-                De keuzehulp vult forfaitaire waarden in (Licht 15 / Gemiddeld 50
-                / Zwaar 75 Wh/(m³·K), ISSO 53 Tabel 2.4). ISSO 51:2023 Tabel 2.10
-                splitst intern op de grens 70: Licht én Gemiddeld vallen in
-                "ZL+L+M", alleen Zwaar in "Z". Handmatige invoer blijft mogelijk
-                (dropdown toont dan "Aangepast"). Leeg laten voor de conservatieve
-                aanname "zwaar".
+                Handmatige invoer blijft mogelijk (de keuzehulp toont dan
+                "Aangepast"). Leeg laten voor de conservatieve aanname "zwaar".
               </p>
             </div>
             <div className="col-span-3 flex flex-wrap items-center gap-6">
