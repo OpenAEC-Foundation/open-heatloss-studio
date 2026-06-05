@@ -164,9 +164,16 @@ pub struct Building {
     #[serde(default = "default_true")]
     pub built_after_2015: bool,
 
-    /// Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben.
-    /// Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag,
-    /// nachtverlaging is dan niet zinvol). Default = `false`.
+    /// **DEPRECATED / GENEGEERD (rekenkundig dood).** Was vroeger de handmatige
+    /// "alle vertrekken vloerverwarming"-vlag (→ `Φ_hu = 0`, ISSO 51:2023 p.70).
+    ///
+    /// De afleiding gebeurt nu uitsluitend uit `room.heating_system`: `Φ_hu = 0`
+    /// alleen als ELK vertrek een vloerverwarming-variant heeft
+    /// (`HeatingSystem::is_floor_heating()`). Zie [`crate::calculate`]. Dit veld
+    /// wordt door de rekenkern NIET meer gelezen.
+    ///
+    /// Behouden (met `#[serde(default)]`) voor backward-compatibiliteit met
+    /// bestaande project-JSONs en constructor-sites; opruimen is een aparte stap.
     #[serde(default)]
     pub all_floor_heating: bool,
 }

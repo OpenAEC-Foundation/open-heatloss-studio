@@ -82,7 +82,7 @@
         },
         "all_floor_heating": {
           "default": false,
-          "description": "Of alle verwarmde vertrekken (ook verdiepingen) vloerverwarming hebben. Zo ja → `Φ_hu = 0` (ISSO 51:2023 p.70: vloerverwarming reageert traag, nachtverlaging is dan niet zinvol). Default = `false`.",
+          "description": "**DEPRECATED / GENEGEERD (rekenkundig dood).** Was vroeger de handmatige \"alle vertrekken vloerverwarming\"-vlag (→ `Φ_hu = 0`, ISSO 51:2023 p.70).\n\nDe afleiding gebeurt nu uitsluitend uit `room.heating_system`: `Φ_hu = 0` alleen als ELK vertrek een vloerverwarming-variant heeft (`HeatingSystem::is_floor_heating()`). Zie [`crate::calculate`]. Dit veld wordt door de rekenkern NIET meer gelezen.\n\nBehouden (met `#[serde(default)]`) voor backward-compatibiliteit met bestaande project-JSONs en constructor-sites; opruimen is een aparte stap.",
           "type": "boolean"
         },
         "building_height": {
@@ -107,7 +107,7 @@
           "type": "boolean"
         },
         "c_eff": {
-          "description": "Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/K] — bepaalt de gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).\n\nOptioneel: `None` → conservatieve aanname \"zwaar\" (`ThermalMass::Heavy`, hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of Formule 2.46 (`c_eff = C_eff / A_g`).",
+          "description": "Effectieve warmtecapaciteit `c_eff` van het gebouw [Wh/(m³·K)] — bepaalt de gebouwzwaarte voor Tabel 2.10 (`c_eff ≤ 70` → ZL+L+M, anders Z).\n\nOptioneel: `None` → conservatieve aanname \"zwaar\" (`ThermalMass::Heavy`, hoogste toeslag). Forfaitair te bepalen via ISSO 51:2023 Tabel 2.1 of Formule 2.46 (`c_eff = C_eff / V`).",
           "format": "double",
           "type": [
             "number",

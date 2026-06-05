@@ -256,6 +256,12 @@ export function WarmteverliesInstellingen() {
                 om dit systeem op alle bestaande vertrekken toe te passen.
                 Bepaalt Δθ₁/Δθ₂/Δθᵥ correcties ({heatingTableRef}).
               </p>
+              <p className="mt-1 text-[10px] leading-tight text-on-surface-muted">
+                De opwarmtoeslag Φ_hu vervalt automatisch zodra álle vertrekken
+                een vloerverwarming-variant hebben. Stel het verwarmingssysteem
+                per vertrek in (Verwarming-kolom), of gebruik “Toepassen op alle
+                vertrekken”.
+              </p>
             </div>
           </div>
           <div className="mt-3 flex items-center gap-4">
@@ -417,17 +423,6 @@ export function WarmteverliesInstellingen() {
                   className="rounded border-[var(--oaec-border)] accent-primary"
                 />
                 Nieuwbouw (na 2015)
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={building.all_floor_heating ?? false}
-                  onChange={(e) =>
-                    updateBuilding({ all_floor_heating: e.target.checked })
-                  }
-                  className="rounded border-[var(--oaec-border)] accent-primary"
-                />
-                Alle vertrekken vloerverwarming
               </label>
             </div>
           </div>

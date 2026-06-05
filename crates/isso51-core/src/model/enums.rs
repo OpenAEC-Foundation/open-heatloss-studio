@@ -113,6 +113,28 @@ pub enum HeatingSystem {
     FanConvector,
 }
 
+impl HeatingSystem {
+    /// Of dit een vloerverwarming-variant is. Bepaalt de gebouwbrede
+    /// "alle vertrekken vloerverwarming"-afleiding voor de opwarmtoeslag
+    /// (ISSO 51:2023 §4.3 p.70: vloerverwarming in alle vertrekken → traag
+    /// systeem → `Φ_hu = 0`).
+    ///
+    /// Alle vijf de vloerverwarming-varianten tellen mee — ook de combinaties
+    /// met radiatoren (`FloorHeatingWithRadiatorHt/Lt`) en de vloer+wand-
+    /// combinatie. Losse wand-/plafondverwarming (`WallHeating`,
+    /// `CeilingHeating`) telt **niet** mee: dat zijn geen vloersystemen.
+    pub fn is_floor_heating(&self) -> bool {
+        matches!(
+            self,
+            HeatingSystem::FloorHeatingWithRadiatorHt
+                | HeatingSystem::FloorHeatingWithRadiatorLt
+                | HeatingSystem::FloorHeatingMainHigh
+                | HeatingSystem::FloorHeatingMainLow
+                | HeatingSystem::FloorAndWallHeating
+        )
+    }
+}
+
 /// Ventilation system type (A through E).
 /// ISSO 51 §2.5.7.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -444,6 +466,28 @@ mod tests {
         assert_ne!(a, b);
         assert_ne!(b, c);
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_is_floor_heating_classification() {
+        // De vijf vloerverwarming-varianten → true.
+        assert!(HeatingSystem::FloorHeatingWithRadiatorHt.is_floor_heating());
+        assert!(HeatingSystem::FloorHeatingWithRadiatorLt.is_floor_heating());
+        assert!(HeatingSystem::FloorHeatingMainHigh.is_floor_heating());
+        assert!(HeatingSystem::FloorHeatingMainLow.is_floor_heating());
+        assert!(HeatingSystem::FloorAndWallHeating.is_floor_heating());
+
+        // Niet-vloer systemen → false. WallHeating (los) en CeilingHeating
+        // tellen expliciet NIET mee, ook al verwarmen ze een oppervlak.
+        assert!(!HeatingSystem::RadiatorHt.is_floor_heating());
+        assert!(!HeatingSystem::RadiatorLt.is_floor_heating());
+        assert!(!HeatingSystem::WallHeating.is_floor_heating());
+        assert!(!HeatingSystem::CeilingHeating.is_floor_heating());
+        assert!(!HeatingSystem::PlinthHeating.is_floor_heating());
+        assert!(!HeatingSystem::LocalGasHeater.is_floor_heating());
+        assert!(!HeatingSystem::IrPanelWall.is_floor_heating());
+        assert!(!HeatingSystem::IrPanelCeiling.is_floor_heating());
+        assert!(!HeatingSystem::FanConvector.is_floor_heating());
     }
 
     #[test]

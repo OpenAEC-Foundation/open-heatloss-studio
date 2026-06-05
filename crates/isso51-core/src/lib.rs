@@ -94,6 +94,16 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     let hu_cooling_k = calc::heating_up::newbuild_cooling_k(u_bar);
     let hu_mass = calc::heating_up::building_thermal_mass(&project.building);
 
+    // Vloerverwarming-in-alle-vertrekken (ISSO 51:2023 §4.3 p.70 → Φ_hu = 0)
+    // wordt afgeleid uit `room.heating_system`, niet meer uit het
+    // gedeprecateerde `building.all_floor_heating`-vlag. Alleen waar als ELK
+    // vertrek een vloerverwarming-variant heeft (één radiator-kamer, bv. een
+    // badkamer, houdt de opwarmtoeslag normaal). De `!is_empty()`-guard is
+    // verplicht: een lege `.all()` is vacuously true en zou anders ten onrechte
+    // Φ_hu = 0 forceren voor een project zonder vertrekken.
+    let all_floor_heating =
+        !project.rooms.is_empty() && project.rooms.iter().all(|r| r.heating_system.is_floor_heating());
+
     let mut room_results: Vec<result::RoomResult> = Vec::with_capacity(project.rooms.len());
 
     for room in &project.rooms {
@@ -106,6 +116,7 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
             hu_cooling_k,
             hu_mass,
             use_high_delta_v,
+            all_floor_heating,
         )?;
         room_results.push(room_result);
     }
@@ -853,6 +864,74 @@ mod tests {
             s2.aggregation_method,
             AggregationMethod::NormStrict,
             "NormStrict moet als zodanig in het resultaat staan"
+        );
+    }
+
+    /// §4.3 p.70 — de "alle vertrekken vloerverwarming → Φ_hu = 0"-afleiding
+    /// gebeurt nu uit `room.heating_system`, niet uit `building.all_floor_heating`.
+    ///
+    /// (a) elke kamer een vloerverwarming-variant → `total_heating_up == 0`;
+    /// (b) één kamer `RadiatorHt` (geen vloerverwarming) → `total_heating_up > 0`.
+    /// Het project heeft nachtverlaging aan + opwarmtijd 2 h, zodat Φ_hu écht
+    /// berekend wordt (anders is de short-circuit `!has_night_setback` dominant).
+    #[test]
+    fn test_all_floor_heating_derived_from_room_heating_system() {
+        use crate::model::enums::HeatingSystem;
+
+        // (a) Eén-kamer fixture (woonkamer) op een vloerverwarming-variant.
+        let mut all_fh = create_portiekwoning();
+        // Building-vlag bewust UIT — bewijst dat de afleiding uit de room komt.
+        all_fh.building.all_floor_heating = false;
+        for room in &mut all_fh.rooms {
+            room.heating_system = HeatingSystem::FloorHeatingMainLow;
+        }
+        let s_all = calculate(&all_fh).unwrap().summary;
+        assert_eq!(
+            s_all.total_heating_up, 0.0,
+            "alle vertrekken vloerverwarming → Φ_hu = 0 (afgeleid uit room.heating_system)"
+        );
+
+        // (b) Eén kamer met radiator → niet alle vloerverwarming → Φ_hu > 0.
+        let mut mixed = create_portiekwoning();
+        mixed.building.all_floor_heating = true; // legacy vlag — moet genegeerd
+        for room in &mut mixed.rooms {
+            room.heating_system = HeatingSystem::RadiatorHt;
+        }
+        let s_mixed = calculate(&mixed).unwrap().summary;
+        assert!(
+            s_mixed.total_heating_up > 0.0,
+            "een radiator-vertrek → opwarmtoeslag blijft normaal (Φ_hu > 0), kreeg {}",
+            s_mixed.total_heating_up
+        );
+    }
+
+    /// Lege rooms-vector: de afleidingsexpressie moet `false` zijn — een
+    /// vacuously-true `.all()` (zonder de `!is_empty()`-guard) zou ten onrechte
+    /// `all_floor_heating = true → Φ_hu = 0` forceren. `calculate` zelf weigert
+    /// een leeg project al via de validator (≥1 room), dus dit is een directe
+    /// unit-test op de afleidingsexpressie + een controle dat `calculate` netjes
+    /// een error geeft i.p.v. te paniekken of een gesilencete 0.
+    #[test]
+    fn test_all_floor_heating_empty_rooms_is_false() {
+        let mut empty = create_portiekwoning();
+        empty.rooms.clear();
+        // Exacte afleidingsexpressie uit `calculate` — mét de verplichte
+        // `!is_empty()`-guard die de vacuous-true valkuil afvangt.
+        let derived = !empty.rooms.is_empty()
+            && empty.rooms.iter().all(|r| r.heating_system.is_floor_heating());
+        assert!(
+            !derived,
+            "lege rooms moet false geven (geen vacuously-true all_floor_heating)"
+        );
+        // Tegenproef dat de guard daadwerkelijk het verschil maakt: ZONDER de
+        // `!is_empty()`-guard is `.all()` op een lege iterator vacuously true.
+        let vacuous = empty.rooms.iter().all(|r| r.heating_system.is_floor_heating());
+        assert!(vacuous, "controle: lege .all() is vacuously true — guard is nodig");
+        // `calculate` geeft op een leeg project een nette InvalidInput-error
+        // (validator), géén panic en géén stilzwijgend resultaat.
+        assert!(
+            matches!(calculate(&empty), Err(error::Isso51Error::InvalidInput(_))),
+            "leeg project moet een InvalidInput-error geven, niet paniekken"
         );
     }
 
