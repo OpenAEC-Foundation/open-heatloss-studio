@@ -11,18 +11,19 @@
 > - **Glaser steady-state winterconditie blijft norm-vast -10°C** → `getGlaserWinterCondition` uit het plan VERVALT; klimaatlaag voedt enkel de jáárbalans.
 > - **Default-selectie = `"1991-2020"` normaal** (geen stille resultaatwijziging; seed = huidige 12 waarden bit-gelijk).
 
-### WP1 — KNMI-klimaatdatalaag (fundament)
-- [ ] **Data-schema + `_meta`** [M] — `frontend/src/data/climate/knmiClimate.json`, exact het `productCatalog.json`-patroon (typed cast over `resolveJsonModule`, `_meta` met KNMI-bron/downloaddatum/licentie + NEN 5060-herkomst). Records per (station, selectie) met `kind: normal|reference|historical` + 12 maanden `{month, thetaE, rhE, days, coverage?}`.
-- [ ] **Generator** [M] — `scripts/generate_climate_bundle.py` (Python, conform bestaande `scripts/`): KNMI `etmgeg_<STN>.txt` (velden `TG`+`UG`) + NEN 5060-maandtabel → bundel. Dag→maand-aggregatie (schrikkeljaar-aware), koudste-maand-afleiding, `coverage`-flag. Reproduceerbaar.
-- [ ] **Seed-bundel** [L] — De Bilt 1991-2020 normaal = **exacte huidige waarden** uit `yearlyMoistureCalculation.ts:24-35` (backward-compat) + De Bilt NEN5060 + MVP-stations (Schiphol 240 / Eelde 280 / Maastricht 380 / Den Helder 235) met enkele historische jaren. `Station`-records dragen lat/lon voor latere postcode-auto-mapping.
-- [ ] **`frontend/src/lib/climateData.ts`** [M] — API: `listStations()`, `listAvailableYears(stationId)`, `getMonthlyClimate(stationId, selection: number|"NEN5060"|"1991-2020") -> MonthlyClimate[12]|null`. `MonthlyClimate` = superset van bestaand `{thetaE,rhE,days}` → valt schoon in `yearlyMoistureCalculation.ts`. (Geen `getGlaserWinterCondition` — winter blijft -10.)
-- [ ] **Scope-guard** — `climateData.ts` alleen importeren in de Glaser/vocht-keten + RcCalculator; NOOIT in de warmteverlies-θ_e-keten.
+### WP1 — KNMI-klimaatdatalaag (fundament) ✅ GEDAAN `fcefb96`
+- [x] **Data-schema + `_meta`** — `frontend/src/data/climate/knmiClimate.json` (5 stations, 17 records, `_meta` CC BY 4.0).
+- [x] **Generator** — `scripts/generate_climate_bundle.py` (KNMI daggegevens-API + offline etmgeg; dag→maand). **KNMI-fetch gelukt:** 15 historische records (5 stations × 2021/22/23, coverage 1.0).
+- [x] **Seed-bundel** — De Bilt 1991-2020 bit-gelijk aan `MONTHLY_CLIMATE_NL` (test-geverifieerd) + 5 MVP-stations met lat/lon. **NEN5060 = eerlijke placeholder** (months=null; betaalde norm, user levert tabel).
+- [x] **`frontend/src/lib/climateData.ts`** — `listStations/listAvailableYears/getMonthlyClimate` + 8 tests. Geen `getGlaserWinterCondition`.
+- [x] **Scope-guard** — climateData alleen in eigen test geïmporteerd (WP1 standalone).
 
-### WP2 — RcCalculator-upgrade (klimaatkiezer)
-- [ ] **Klimaatkiezer-UI** [M] in `RcCalculator.tsx:84-88` — station + selectie (1991-2020 / NEN5060 / jaar). Voedt `calculateYearlyMoisture`.
-- [ ] **`yearlyMoistureCalculation.ts`** [L] — optionele param `climate?: MonthlyClimate[]`; vervang `MONTHLY_CLIMATE_NL`-refs (regels 161, 201, 225, 269) door meegegeven array, default = huidige `MONTHLY_CLIMATE_NL`.
-- [ ] **`glaserCalculation.ts`** — ONGEMOEID (winter blijft -10 via `GLASER_DEFAULTS`).
-- [ ] **State-locatie** [M] — start component-state; promoveer naar `SharedExtra.glaser_climate?: {stationId, selection}` (`projectV2.ts:599`) zodra Glaser-rapport projectbreed reproduceerbaar moet zijn (analoog sidecar-V2; let op persist-keten die net gefixt is, `8ccff9f`).
+### WP2 — RcCalculator-upgrade (klimaatkiezer) ✅ GEDAAN `5e0e8a7`
+- [x] **Klimaatkiezer-UI** in `RcCalculator.tsx` — station + selectie-dropdowns, default De Bilt/1991-2020 (bit-identiek resultaat). Dual-review ship (3 false-pos).
+- [x] **`yearlyMoistureCalculation.ts`** — optionele `climate?`-param; refs vervangen, fallback `MONTHLY_CLIMATE_NL` bij ontbreken/`length!==12`.
+- [x] **`glaserCalculation.ts`** — ONGEMOEID (Glaser-winter blijft -10). Bevestigd.
+- [x] **NEN5060-fallback** — `getMonthlyClimate`→null → default + inline-melding, geen crash. Rapport toont gebruikt klimaat (`rcReportBuilder.ts`).
+- [ ] **Follow-up [M]:** klimaatkeuze nu component-`useState` (niet persistent). Promoveer naar `SharedExtra.glaser_climate?: {stationId, selection}` (`projectV2.ts:599`) zodra Glaser-rapport projectbreed reproduceerbaar moet zijn (persist-keten gefixt in `8ccff9f`).
 
 ### WP3 — Rc-vergelijk-pagina (de "WUFI light")
 - [ ] **Nieuwe pagina** [H] `pages/RcCompare.tsx` + route `/rc-compare`; activeer `Sidebar.tsx:202` (verwijder `disabled`/`to:""`). ≥2 constructies naast elkaar: Rc/U-waarde + condensatie (Glaser) + jaarlijkse vochtbalans, zelfde klimaatlaag (WP1). Hergebruikt `calculateRc`/`calculateGlaser`/`calculateYearlyMoisture` + `GlaserDiagram`/`MoistureYearTable`.
