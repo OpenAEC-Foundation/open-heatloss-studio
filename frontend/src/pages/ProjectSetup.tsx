@@ -93,6 +93,7 @@ export function ProjectSetup() {
             norm: imported.norm,
             isso53Building: imported.isso53?.building,
             isso53Rooms: imported.isso53?.rooms,
+            sharedExtra: imported.sharedExtra,
           });
           if (imported.result) {
             setResult(imported.result);

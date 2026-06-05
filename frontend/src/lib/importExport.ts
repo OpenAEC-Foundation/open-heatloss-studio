@@ -26,7 +26,9 @@ import type {
   ActiveNorm,
   Isso53BuildingState,
   Isso53RoomState,
+  SharedExtra,
 } from "../types/projectV2";
+import { DEFAULT_SHARED_EXTRA } from "../types/projectV2";
 import {
   buildIfcEnergyDocument,
   detectFormat,
@@ -101,6 +103,16 @@ interface ProjectEnvelope {
    * worden, anders gaat ISSO 53-config verloren bij opslaan/heropenen.
    */
   isso53?: Isso53Envelope;
+  /**
+   * V2-only sidecar-velden (`construction_year`, postcode, location, notes,
+   * num_storeys, building_type, infiltratie/mechanische ventilatie-debieten).
+   * Leven sidecar in `projectStore.sharedExtra` buiten het V1 `Project` type.
+   * Optioneel + ALLEEN geschreven wanneer er minstens één veld betekenisvol
+   * afwijkt van {@link DEFAULT_SHARED_EXTRA} — zodat een ISSO 51-export van
+   * een project zonder V2-data byte-gelijk blijft aan de oude versie. Zonder
+   * dit veld ging o.a. het bouwjaar verloren bij opslaan/heropenen.
+   */
+  sharedExtra?: SharedExtra;
 }
 
 /** Result of a successful regular project import. */
@@ -119,6 +131,12 @@ export interface ImportResult {
    * voor oude bestanden — de store reset dan naar defaults (huidig gedrag).
    */
   isso53?: Isso53Envelope;
+  /**
+   * V2-only sidecar-velden uit de envelope (bouwjaar etc.), indien aanwezig.
+   * Backfilled met {@link DEFAULT_SHARED_EXTRA} (forward-compat). `undefined`
+   * voor oude bestanden zonder het veld — de store reset dan naar defaults.
+   */
+  sharedExtra?: SharedExtra;
 }
 
 /**
@@ -166,6 +184,14 @@ export function exportProject(
       building: projectState.isso53Building,
       rooms: projectState.isso53Rooms,
     };
+  }
+
+  // SharedExtra (bouwjaar, postcode, …) leeft sidecar buiten het V1 `Project`
+  // type. Alleen wegschrijven wanneer er minstens één veld betekenisvol
+  // afwijkt van DEFAULT_SHARED_EXTRA, zodat een ISSO 51-export van een project
+  // zonder V2-data byte-gelijk blijft aan de oude versie (geen extra veld).
+  if (isMeaningfulSharedExtra(projectState.sharedExtra)) {
+    envelope.sharedExtra = projectState.sharedExtra;
   }
 
   const json = JSON.stringify(envelope, null, 2);
@@ -232,10 +258,15 @@ export async function exportIfcEnergy(
   result: ProjectResult | null,
   targetPath?: string | null,
 ): Promise<string | null> {
+  // SharedExtra (bouwjaar etc.) leeft sidecar buiten het V1 `Project` type.
+  // Alleen meegeven wanneer er betekenisvolle V2-data is, zodat de envelope
+  // van een project zonder V2-data geen leeg sidecar-veld krijgt.
+  const extra = useProjectStore.getState().sharedExtra;
   const doc = buildIfcEnergyDocument({
     project,
     result,
     modeller: snapshotModellerState(),
+    sharedExtra: isMeaningfulSharedExtra(extra) ? extra : undefined,
   });
   const json = serializeIfcEnergy(doc);
 
@@ -335,7 +366,11 @@ export function openProjectFile(
       parsed.modeller.doors,
     );
 
-    return { type: "project", project, result, format: "ifcenergy" };
+    // SharedExtra (bouwjaar etc.) terug uit de envelope. Backfill met defaults
+    // voor forward-compat; `undefined` bij oude bestanden zonder dit veld.
+    const sharedExtra = readSharedExtraEnvelope(parsed.sharedExtra);
+
+    return { type: "project", project, result, sharedExtra, format: "ifcenergy" };
   }
 
   // Fall back to legacy importer for `.isso51.json`, raw Project JSON,
@@ -412,8 +447,9 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
     // `.isso51.json`-bestanden).
     const norm = obj.norm === "isso51" || obj.norm === "isso53" ? obj.norm : undefined;
     const isso53 = readIsso53Envelope(obj.isso53);
+    const sharedExtra = readSharedExtraEnvelope(obj.sharedExtra);
 
-    return { type: "project", project, result, norm, isso53 };
+    return { type: "project", project, result, norm, isso53, sharedExtra };
   }
 
   // Try as raw Project JSON. No envelope means no modeller data either —
@@ -439,6 +475,43 @@ function readIsso53Envelope(raw: unknown): Isso53Envelope | undefined {
     building: o.building as Isso53BuildingState,
     rooms: o.rooms as Record<string, Isso53RoomState>,
   };
+}
+
+/**
+ * Bevat `extra` minstens één veld dat betekenisvol afwijkt van
+ * `DEFAULT_SHARED_EXTRA`? Bepaalt of `sharedExtra` in de envelope wordt
+ * geschreven. Gelijk aan default → niet schrijven, zodat ISSO 51-exports
+ * van projecten zonder V2-data byte-gelijk blijven aan de oude versie.
+ *
+ * Vergelijking is shallow per veld; `building_type` (object) wordt via
+ * JSON-string vergeleken. `null` en `undefined` tellen beide als "leeg".
+ */
+function isMeaningfulSharedExtra(extra: SharedExtra): boolean {
+  const keys = Object.keys(DEFAULT_SHARED_EXTRA) as (keyof SharedExtra)[];
+  return keys.some((k) => {
+    const cur = extra[k];
+    const def = DEFAULT_SHARED_EXTRA[k];
+    // Behandel null/undefined als gelijkwaardig "leeg".
+    if (cur == null && def == null) return false;
+    if (k === "building_type") {
+      return JSON.stringify(cur ?? null) !== JSON.stringify(def ?? null);
+    }
+    return cur !== def;
+  });
+}
+
+/**
+ * Lees de optionele `sharedExtra`-sidecar uit een envelope. Net als
+ * `readIsso53Envelope` valideren we niet structureel — ontbrekende velden
+ * worden ge-backfilled met `DEFAULT_SHARED_EXTRA` (forward-compat: nieuwe
+ * velden in een toekomstige versie krijgen hun default voor oude bestanden).
+ * Ontbrekend/ongeldig → `undefined`, zodat de caller terugvalt op defaults
+ * (huidig gedrag voor oude bestanden zonder dit veld).
+ */
+function readSharedExtraEnvelope(raw: unknown): SharedExtra | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const partial = raw as Partial<SharedExtra>;
+  return { ...DEFAULT_SHARED_EXTRA, ...partial };
 }
 
 /**
