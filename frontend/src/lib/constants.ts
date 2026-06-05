@@ -131,6 +131,22 @@ export const AGGREGATION_METHOD_LABELS: Record<string, string> = {
 export const DEFAULT_AGGREGATION_METHOD = "vabi_compat" as const;
 
 /**
+ * Infiltratiemethode-labels (NL). Bepaalt de infiltratie-rekenketen (Φ_i).
+ * Default `per_exterior_area` matcht de Rust core `serde(default)` (legacy 2017).
+ * `vabi_compat`/`measured_qv10` voor Vabi-matching.
+ */
+export const INFILTRATION_METHOD_LABELS: Record<string, string> = {
+  per_exterior_area: "Per geveloppervlak (legacy 2017)",
+  per_floor_area: "Per vloeroppervlak (legacy)",
+  vabi_compat: "Vabi-conform (Tabel 2.8-keten)",
+  nta8800_strict: "NTA 8800 strikt",
+  measured_qv10: "Gemeten qv10 (blower-door)",
+};
+
+/** Default infiltratiemethode — gelijk aan Rust core `serde(default)`. */
+export const DEFAULT_INFILTRATION_METHOD = "per_exterior_area" as const;
+
+/**
  * Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3. Stuurt de
  * opwarmtoeslag-tak Φ_hu (per zone → P×A_g, zelflerend → 0, kamerthermostaat
  * → bestaande-bouw fallback).

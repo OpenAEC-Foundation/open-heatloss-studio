@@ -533,6 +533,13 @@ export function validateProject(data: unknown): Project {
     project.building.aggregation_method = "vabi_compat";
   }
 
+  // Backfill infiltration_method voor legacy JSONs van vóór de
+  // infiltratiemethode-keuze. Rust core heeft `serde(default)` =
+  // `per_exterior_area` (legacy 2017), dus consistent met backend-gedrag.
+  if (project.building.infiltration_method == null) {
+    project.building.infiltration_method = "per_exterior_area";
+  }
+
   return project;
 }
 

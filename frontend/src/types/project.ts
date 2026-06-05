@@ -32,6 +32,27 @@ export type BuildingType =
 export type AggregationMethod = "vabi_compat" | "norm_strict";
 
 /**
+ * Infiltratie-rekenketen voor Φ_i op gebouwniveau — ISSO 51:2023.
+ * Snake_case waarden matchen het Rust `InfiltrationMethod` serde-enum
+ * (`crates/isso51-core/src/model/enums.rs`).
+ *
+ * - `per_exterior_area` (default): legacy 2017, per geveloppervlak.
+ * - `per_floor_area`: legacy, per vloeroppervlak.
+ * - `vabi_compat`: Vabi-conform via Tabel 2.8-keten.
+ * - `nta8800_strict`: NTA 8800 strikt.
+ * - `measured_qv10`: gemeten qv10 (blower-door).
+ *
+ * Default in Rust core = `per_exterior_area`. Veld in `Building` is optioneel
+ * (serde default in Rust).
+ */
+export type InfiltrationMethod =
+  | "per_exterior_area"
+  | "per_floor_area"
+  | "vabi_compat"
+  | "nta8800_strict"
+  | "measured_qv10";
+
+/**
  * Regeltype van de verwarmingsinstallatie — ISSO 51:2023 §4.3.
  *
  * Bepaalt hoe de opwarmtoeslag `Φ_hu` wordt berekend:
@@ -337,6 +358,12 @@ export interface Building {
    * `vabi_compat` wanneer afwezig. UI volgt later (apart spoor).
    */
   aggregation_method?: AggregationMethod;
+  /**
+   * Infiltratie-rekenketen voor Φ_i op gebouwniveau. Zie
+   * `InfiltrationMethod`. Optioneel — Rust core gebruikt `serde(default)` =
+   * `per_exterior_area` (legacy 2017) wanneer afwezig.
+   */
+  infiltration_method?: InfiltrationMethod;
 }
 
 export interface DesignConditions {

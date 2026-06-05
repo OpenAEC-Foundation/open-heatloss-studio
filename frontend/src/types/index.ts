@@ -13,6 +13,7 @@ export type {
   HeatingSystem,
   HeatingSystemIsso51,
   HeatingSystemIsso53,
+  InfiltrationMethod,
   MaterialType,
   Project,
   ProjectInfo,
