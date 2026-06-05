@@ -47,6 +47,9 @@ export interface RcReportInput {
   thetaE: number;
   rhI: number;
   rhE: number;
+  /** Gekozen KNMI-klimaat voor de jaarlijkse vochtbalans, bv.
+   *  "De Bilt — 1991-2020 (normaal)". Alleen relevant voor de vochtsectie. */
+  climateLabel?: string;
 }
 
 /** Build BM Reports JSON from Rc-calculator state. */
@@ -362,6 +365,15 @@ async function buildMoistureSection(input: RcReportInput): Promise<Record<string
     title: "Jaarlijkse vochtbalans (NEN-EN-ISO 13788)",
     level: 1,
     content: [
+      ...(input.climateLabel
+        ? [
+            {
+              type: "paragraph",
+              text: `Gebruikt buitenklimaat (KNMI): <b>${input.climateLabel}</b>.`,
+            },
+            { type: "spacer", height_mm: 2 },
+          ]
+        : []),
       {
         type: "paragraph",
         text: `Condensatievlak: tussen <b>${mr.planeInnerLayer}</b> en <b>${mr.planeOuterLayer}</b> (positie ${mr.planePosition} mm vanaf binnen).`,
