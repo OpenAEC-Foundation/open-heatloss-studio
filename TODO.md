@@ -25,9 +25,15 @@
 - [x] **NEN5060-fallback** — `getMonthlyClimate`→null → default + inline-melding, geen crash. Rapport toont gebruikt klimaat (`rcReportBuilder.ts`).
 - [ ] **Follow-up [M]:** klimaatkeuze nu component-`useState` (niet persistent). Promoveer naar `SharedExtra.glaser_climate?: {stationId, selection}` (`projectV2.ts:599`) zodra Glaser-rapport projectbreed reproduceerbaar moet zijn (persist-keten gefixt in `8ccff9f`).
 
-### WP3 — Rc-vergelijk-pagina (de "WUFI light")
-- [ ] **Nieuwe pagina** [H] `pages/RcCompare.tsx` + route `/rc-compare`; activeer `Sidebar.tsx:202` (verwijder `disabled`/`to:""`). ≥2 constructies naast elkaar: Rc/U-waarde + condensatie (Glaser) + jaarlijkse vochtbalans, zelfde klimaatlaag (WP1). Hergebruikt `calculateRc`/`calculateGlaser`/`calculateYearlyMoisture` + `GlaserDiagram`/`MoistureYearTable`.
-- [ ] **Intentie bevestigd:** placeholder stond als "coming soon" naast `/rc` + `/uw` in sidebar-groep "Rc-waarde" → vergelijk-tool was altijd het doel.
+### WP3 — Rc-vergelijk-pagina (de "WUFI light") ✅ GEDAAN `9f6dd76`
+- [x] **`pages/RcCompare.tsx`** (~560 r) + route `/rc-compare` + sidebar geactiveerd. 2 kolommen A/B: constructie-picker (bibliotheek + projectconstructies, kozijnen vallen af), Rc/U + Bouwbesluit-min-check, Glaser-oordeel (-10), jaarbalans (gedeelde KNMI-kiezer voedt beide), GlaserDiagram + MoistureYearTable per kolom, delta-samenvatting. Calc puur hergebruikt.
+- [x] **Intentie bevestigd:** was "coming soon"-placeholder naast `/rc` + `/uw` → vergelijk-tool. Nu live.
+- [ ] **→ Visuele check door user vereist** (na nginx-deploy) — UI-layout/leesbaarheid, niet alleen build.
+
+### → Resterende follow-ups KNMI-feature
+- [ ] **WP2-persistentie [M]** — klimaatkeuze (RcCalculator + RcCompare) is component-state; promoveer naar `SharedExtra.glaser_climate?: {stationId, selection}` (`projectV2.ts:599`) voor reproduceerbare Glaser-rapporten.
+- [ ] **NEN5060-data [L, user]** — NEN 5060-maandtabel aanleveren → placeholder-record in `knmiClimate.json` invullen (betaalde norm, niet te fabriceren).
+- [ ] **Meer historische jaren/stations [L]** — `scripts/generate_climate_bundle.py` opnieuw draaien met bredere jaar-/stationrange indien gewenst.
 
 ---
 
