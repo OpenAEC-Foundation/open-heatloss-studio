@@ -29,6 +29,7 @@ import {
   getHeatingSystemLabels,
   HEATING_CONTROL_TYPE_LABELS,
   INFILTRATION_METHOD_LABELS,
+  isFloorHeating,
   SECURITY_CLASS_LABELS,
 } from "../lib/constants";
 import type {
@@ -113,6 +114,14 @@ export function WarmteverliesInstellingen() {
   }, [runCalculation, navigate]);
 
   const numVal = (v: string) => (v === "" ? 0 : Number(v));
+
+  // Bij een volledig-vloerverwarmingsproject vervalt de opwarmtoeslag Φ_hu
+  // (ISSO 51:2023 §4.3, traag systeem) — de nachtreductie werkt uitsluitend
+  // via die toeslag en heeft dan geen effect op de berekening. Toon een
+  // toelichting bij de checkbox zodat dit geen "kapotte" indruk wekt.
+  const allRoomsFloorHeating =
+    project.rooms.length > 0 &&
+    project.rooms.every((r) => isFloorHeating(r.heating_system));
 
   const title = t("warmteverliesInstellingen.title", "Warmteverlies-instellingen");
 
@@ -267,17 +276,26 @@ export function WarmteverliesInstellingen() {
               </p>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-4">
+          <div className="mt-3 flex items-start gap-4">
             {!isIsso53 && (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={building.has_night_setback ?? false}
-                  onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
-                  className="rounded border-[var(--oaec-border)] accent-primary"
-                />
-                Nachtreductie
-              </label>
+              <div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={building.has_night_setback ?? false}
+                    onChange={(e) => updateBuilding({ has_night_setback: e.target.checked })}
+                    className="rounded border-[var(--oaec-border)] accent-primary"
+                  />
+                  Nachtreductie
+                </label>
+                {allRoomsFloorHeating && (
+                  <p className="mt-1 max-w-md text-[10px] leading-tight text-on-surface-muted">
+                    Alle vertrekken hebben vloerverwarming → de opwarmtoeslag
+                    Φ_hu vervalt (ISSO 51 §4.3, traag systeem); nachtreductie
+                    heeft daarom geen effect op de berekening.
+                  </p>
+                )}
+              </div>
             )}
             <Button
               variant="ghost"
