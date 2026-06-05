@@ -1,3 +1,5 @@
+import type { HeatingSystem } from "../types";
+
 /** API base URL prefix. */
 export const API_PREFIX = "/api/v1";
 
@@ -237,4 +239,24 @@ export function getHeatingSystemLabels(
   norm: "isso51" | "isso53",
 ): Record<string, string> {
   return norm === "isso53" ? HEATING_SYSTEM_LABELS_ISSO53 : HEATING_SYSTEM_LABELS;
+}
+
+/**
+ * ISSO 51-verwarmingssysteem-keys die als vloerverwarming gelden (traag
+ * systeem, ISSO 51:2023 §4.3 p.70). Bij een project waarin álle vertrekken
+ * een van deze systemen hebben vervalt de opwarmtoeslag Φ_hu — en daarmee
+ * heeft de nachtreductie geen effect op de berekening. Snake-case keys
+ * mirroren de Rust serde-enum `HeatingSystem`.
+ */
+const FLOOR_HEATING_KEYS: ReadonlySet<HeatingSystem> = new Set([
+  "floor_heating_with_radiator_ht",
+  "floor_heating_with_radiator_lt",
+  "floor_heating_main_high",
+  "floor_heating_main_low",
+  "floor_and_wall_heating",
+]);
+
+/** True wanneer het verwarmingssysteem een vloerverwarming-variant is. */
+export function isFloorHeating(hs: HeatingSystem): boolean {
+  return FLOOR_HEATING_KEYS.has(hs);
 }
