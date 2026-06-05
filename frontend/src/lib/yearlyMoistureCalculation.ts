@@ -105,9 +105,16 @@ export function calculateYearlyMoisture(
   position: VerticalPosition,
   thetaI: number,
   rhI: number,
+  climate?: MonthlyClimate[],
 ): YearlyMoistureResult | null {
   const rSi = R_SI[position];
   const rSe = R_SE;
+
+  // Maandklimaat: gekozen KNMI-data (station + selectie) of de forfaitaire
+  // De Bilt 1991–2020-normaal als fallback. Een ongeldige/lege array valt
+  // óók terug op de norm-tabel zodat de berekening niet stilvalt.
+  const monthlyClimate =
+    climate && climate.length === 12 ? climate : MONTHLY_CLIMATE_NL;
 
   // Bouw laagdata op
   const layerData: LayerData[] = [];
@@ -158,7 +165,7 @@ export function calculateYearlyMoisture(
   }
 
   // Vind het kritieke condensatievlak (maximale condensatie in koudste maand)
-  const coldest = MONTHLY_CLIMATE_NL.reduce((prev, curr) =>
+  const coldest = monthlyClimate.reduce((prev, curr) =>
     curr.thetaE < prev.thetaE ? curr : prev,
   );
   const peCold = (coldest.rhE / 100) * saturationPressure(coldest.thetaE);
@@ -198,7 +205,7 @@ export function calculateYearlyMoisture(
   const monthlyGc: number[] = [];
 
   for (let m = 0; m < 12; m++) {
-    const climate = MONTHLY_CLIMATE_NL[m]!;
+    const climate = monthlyClimate[m]!;
     const pe = (climate.rhE / 100) * saturationPressure(climate.thetaE);
     const thetaC = thetaI - (thetaI - climate.thetaE) * crit.rCum / rTotal;
     const pSatC = saturationPressure(thetaC);
@@ -222,7 +229,7 @@ export function calculateYearlyMoisture(
 
   for (let iter = 0; iter < 24; iter++) {
     const m = (startMonth + iter) % 12;
-    const climate = MONTHLY_CLIMATE_NL[m]!;
+    const climate = monthlyClimate[m]!;
     const pe = (climate.rhE / 100) * saturationPressure(climate.thetaE);
     const thetaC = thetaI - (thetaI - climate.thetaE) * crit.rCum / rTotal;
     const pSatC = saturationPressure(thetaC);
@@ -265,7 +272,7 @@ export function calculateYearlyMoisture(
   // Hersorteer naar kalendermaand (Jan–Dec)
   const months: MonthlyMoistureResult[] = [];
   for (let m = 0; m < 12; m++) {
-    const target = MONTHLY_CLIMATE_NL[m]!.month;
+    const target = monthlyClimate[m]!.month;
     const found = settled.find((r) => r.month === target);
     if (found) months.push(found);
   }

@@ -30,6 +30,14 @@ import {
 } from "../lib/fastenerCorrection";
 import { generateReportDirect } from "../lib/reportClient";
 import { calculateYearlyMoisture } from "../lib/yearlyMoistureCalculation";
+import {
+  CLIMATE_DEFAULT_SELECTION,
+  CLIMATE_DEFAULT_STATION,
+  getMonthlyClimate,
+  listAvailableYears,
+  listStations,
+  type YearSelection,
+} from "../lib/climateData";
 import { useCatalogueStore } from "../store/catalogueStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useProjectStore } from "../store/projectStore";
@@ -55,6 +63,28 @@ const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   masonry: "Steenachtig",
   non_masonry: "Niet-steenachtig",
 };
+
+// ---------- Klimaatselectie helpers ----------
+
+/** Serialiseer een YearSelection naar de string-value van een <option>. */
+function selectionToValue(selection: YearSelection): string {
+  return typeof selection === "number" ? `year:${selection}` : `key:${selection}`;
+}
+
+/** Parse de <option>-value terug naar een YearSelection. */
+function valueToSelection(value: string): YearSelection {
+  if (value.startsWith("year:")) {
+    return Number(value.slice(5));
+  }
+  return value.slice(4) as YearSelection;
+}
+
+/** Leesbaar label per selectie voor dropdown + rapport. */
+function selectionLabel(selection: YearSelection): string {
+  if (selection === "1991-2020") return "1991-2020 (normaal)";
+  if (selection === "NEN5060") return "NEN5060 (referentie)";
+  return String(selection);
+}
 
 // ---------- Component ----------
 
@@ -86,6 +116,16 @@ export function RcCalculator() {
   const [thetaE, setThetaE] = useState<number>(GLASER_DEFAULTS.thetaE);
   const [rhI, setRhI] = useState<number>(GLASER_DEFAULTS.rhI);
   const [rhE, setRhE] = useState<number>(GLASER_DEFAULTS.rhE);
+
+  // KNMI-klimaatkeuze voor de jaarlijkse vochtbalans. Default De Bilt /
+  // 1991-2020-normaal reproduceert exact het bestaande resultaat. Voedt
+  // UITSLUITEND de vochtbalans, NIET de steady-state Glaser (-10 norm-vast).
+  const [climateStationId, setClimateStationId] = useState<string>(
+    CLIMATE_DEFAULT_STATION,
+  );
+  const [climateSelection, setClimateSelection] = useState<YearSelection>(
+    CLIMATE_DEFAULT_SELECTION,
+  );
 
   // MaterialPicker state
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
@@ -221,10 +261,53 @@ export function RcCalculator() {
     [layers, position, thetaI, thetaE, rhI, rhE],
   );
 
-  const moistureResult = useMemo(
-    () => calculateYearlyMoisture(layers, position, thetaI, rhI),
-    [layers, position, thetaI, rhI],
+  // KNMI-klimaat afgeleiden voor de dropdowns + vochtbalans.
+  const climateStations = useMemo(() => listStations(), []);
+  const climateYears = useMemo(
+    () => listAvailableYears(climateStationId),
+    [climateStationId],
   );
+  const selectedClimate = useMemo(
+    () => getMonthlyClimate(climateStationId, climateSelection),
+    [climateStationId, climateSelection],
+  );
+  // `null` (bv. NEN5060-placeholder) → val terug op de norm-tabel; toon melding.
+  const climateUnavailable = selectedClimate === null;
+  const climateStationName = useMemo(
+    () =>
+      climateStations.find((s) => s.id === climateStationId)?.name ??
+      climateStationId,
+    [climateStations, climateStationId],
+  );
+
+  const moistureResult = useMemo(
+    () =>
+      calculateYearlyMoisture(
+        layers,
+        position,
+        thetaI,
+        rhI,
+        selectedClimate ?? undefined,
+      ),
+    [layers, position, thetaI, rhI, selectedClimate],
+  );
+
+  // Wissel je van station naar één zonder de huidige selectie, val terug op
+  // de default-selectie zodat de dropdown nooit een ongeldige waarde toont.
+  useEffect(() => {
+    if (
+      climateYears.length > 0 &&
+      !climateYears.some(
+        (y) => selectionToValue(y) === selectionToValue(climateSelection),
+      )
+    ) {
+      setClimateSelection(
+        climateYears.includes(CLIMATE_DEFAULT_SELECTION)
+          ? CLIMATE_DEFAULT_SELECTION
+          : climateYears[0]!,
+      );
+    }
+  }, [climateYears, climateSelection]);
 
   const rcMin = RC_MIN_BOUWBESLUIT[position];
   const meetsRequirement = rcResult.rc >= rcMin;
@@ -479,6 +562,7 @@ export function RcCalculator() {
         thetaE,
         rhI,
         rhE,
+        climateLabel: `${climateStationName} — ${selectionLabel(climateSelection)}`,
       });
       const blob = await generateReportDirect(reportData);
 
@@ -498,7 +582,7 @@ export function RcCalculator() {
     } finally {
       setIsGenerating(false);
     }
-  }, [category, materialType, position, layers, rcResult, glaserResult, moistureResult, thetaI, thetaE, rhI, rhE, addToast]);
+  }, [category, materialType, position, layers, rcResult, glaserResult, moistureResult, thetaI, thetaE, rhI, rhE, climateStationName, climateSelection, addToast]);
 
   const canSave = layers.some((l) => l.materialId);
 
@@ -1039,6 +1123,45 @@ export function RcCalculator() {
                 )}
               </div>
               <div className="px-4 py-3">
+                {/* KNMI-klimaatkeuze (voedt uitsluitend de vochtbalans) */}
+                <div className="mb-4 grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                    <span>KNMI-station</span>
+                    <select
+                      value={climateStationId}
+                      onChange={(e) => setClimateStationId(e.target.value)}
+                      className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                    >
+                      {climateStations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-medium text-on-surface-muted">
+                    <span>Klimaatjaar / -periode</span>
+                    <select
+                      value={selectionToValue(climateSelection)}
+                      onChange={(e) =>
+                        setClimateSelection(valueToSelection(e.target.value))
+                      }
+                      className="rounded border border-[var(--oaec-border)] px-2 py-1 text-sm focus:border-primary focus:outline-none"
+                    >
+                      {climateYears.map((y) => (
+                        <option key={selectionToValue(y)} value={selectionToValue(y)}>
+                          {selectionLabel(y)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {climateUnavailable && (
+                  <div className="mb-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                    Voor deze selectie is nog geen klimaatdata beschikbaar
+                    (NEN 5060-tabel volgt); 1991-2020-normaal gebruikt.
+                  </div>
+                )}
                 <MoistureYearTable result={moistureResult} />
               </div>
             </div>
