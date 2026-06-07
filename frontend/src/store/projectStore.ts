@@ -24,6 +24,11 @@ import {
   type Isso53RoomState,
   type SharedExtra,
 } from "../types/projectV2";
+import type {
+  VentilationRoomState,
+  VentilationState,
+  VentilationTerminal,
+} from "../types/ventilation";
 
 // ---------------------------------------------------------------------------
 // Undo/Redo history
@@ -109,6 +114,14 @@ interface ProjectStore {
    */
   isso53Rooms: Record<string, Isso53RoomState>;
   /**
+   * Ventilatiebalans-sidecar (frontend, geen Rust): ventielen + per-room
+   * ventilatie-velden (gebruiksfunctie + afgeleide BBL-eisen in dm³/s).
+   * Leeft buiten het V1 `Project` type en wordt mee-geserialiseerd in de
+   * opslag-envelope (zie `importExport.ts`) zodat het een save→reopen
+   * overleeft (valkuil commit `8ccff9f`).
+   */
+  ventilation: VentilationState;
+  /**
    * Calculation result (null if not yet calculated). Houdt een ISSO 51
    * (`ProjectResult`) of ISSO 53 (`Isso53ProjectResult`) resultaat —
    * consumers discrimineren op `norm`, niet op het result-shape zelf.
@@ -155,6 +168,26 @@ interface ProjectStore {
     partial: Partial<Isso53RoomState>,
   ) => void;
 
+  // -- Ventilatiebalans (frontend-sidecar) --
+  /** Voeg een ventilatie-ventiel toe (genereert een id wanneer leeg). */
+  addVentilationTerminal: (
+    terminal: Omit<VentilationTerminal, "id"> & { id?: string },
+  ) => string;
+  /** Werk een ventiel bij (partial merge op id). */
+  updateVentilationTerminal: (
+    id: string,
+    partial: Partial<Omit<VentilationTerminal, "id">>,
+  ) => void;
+  /** Verwijder een ventiel op id. */
+  removeVentilationTerminal: (id: string) => void;
+  /** Set of update de per-room ventilatie-sidecar (partial merge). */
+  updateVentilationRoom: (
+    roomId: string,
+    partial: Partial<VentilationRoomState>,
+  ) => void;
+  /** Vervang de volledige ventilatie-sidecar (gebruikt bij envelope-load). */
+  setVentilation: (ventilation: VentilationState) => void;
+
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
   /** Redo history (not persisted). */
@@ -191,6 +224,12 @@ interface ProjectStore {
        * defaults (huidig gedrag voor oude bestanden zonder dit veld).
        */
       sharedExtra?: SharedExtra;
+      /**
+       * Ventilatiebalans-sidecar uit de envelope. Herstelt ventielen +
+       * per-room ventilatie-velden i.p.v. naar leeg te resetten. Afwezig →
+       * leeg (huidig gedrag voor bestanden zonder ventilatie-data).
+       */
+      ventilation?: VentilationState;
     },
   ) => void;
   /** Set the active server-side project ID. */
@@ -276,6 +315,10 @@ export const useProjectStore = create<ProjectStore>()(
       norm: "isso51",
       isso53Building: { ...DEFAULT_ISSO53_BUILDING },
       isso53Rooms: {},
+      ventilation: {
+        terminals: [],
+        rooms: {},
+      },
       result: null,
       error: null,
       isCalculating: false,
@@ -315,6 +358,63 @@ export const useProjectStore = create<ProjectStore>()(
             isDirty: true,
           };
         }),
+
+      // -- Ventilatiebalans (frontend-sidecar) --
+      addVentilationTerminal: (terminal) => {
+        const id = terminal.id ?? `vent-${crypto.randomUUID()}`;
+        set((state) => ({
+          ventilation: {
+            ...state.ventilation,
+            terminals: [...state.ventilation.terminals, { ...terminal, id }],
+          },
+          isDirty: true,
+        }));
+        return id;
+      },
+
+      updateVentilationTerminal: (id, partial) =>
+        set((state) => ({
+          ventilation: {
+            ...state.ventilation,
+            terminals: state.ventilation.terminals.map((t) =>
+              t.id === id ? { ...t, ...partial } : t,
+            ),
+          },
+          isDirty: true,
+        })),
+
+      removeVentilationTerminal: (id) =>
+        set((state) => ({
+          ventilation: {
+            ...state.ventilation,
+            terminals: state.ventilation.terminals.filter((t) => t.id !== id),
+          },
+          isDirty: true,
+        })),
+
+      updateVentilationRoom: (roomId, partial) =>
+        set((state) => {
+          const current = state.ventilation.rooms[roomId];
+          const base: VentilationRoomState =
+            current ?? {
+              ventilationFunction: "verblijfsruimte",
+              requiredSupplyDm3s: 0,
+              requiredExhaustDm3s: 0,
+              airSourceRoomId: null,
+            };
+          return {
+            ventilation: {
+              ...state.ventilation,
+              rooms: {
+                ...state.ventilation.rooms,
+                [roomId]: { ...base, ...partial },
+              },
+            },
+            isDirty: true,
+          };
+        }),
+
+      setVentilation: (ventilation) => set({ ventilation }),
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
@@ -385,6 +485,14 @@ export const useProjectStore = create<ProjectStore>()(
                 }
               : { ...DEFAULT_ISSO53_BUILDING },
             isso53Rooms: opts?.isso53Rooms ?? {},
+            // Ventilatie-sidecar uit de envelope herstellen indien meegegeven,
+            // anders leeg (huidig gedrag voor bestanden zonder ventilatie-data).
+            ventilation: opts?.ventilation
+              ? {
+                  terminals: opts.ventilation.terminals ?? [],
+                  rooms: opts.ventilation.rooms ?? {},
+                }
+              : { terminals: [], rooms: {} },
             isDirty: true,
             result: null,
             error: null,
@@ -405,6 +513,7 @@ export const useProjectStore = create<ProjectStore>()(
           norm: detectNormFromProject(project),
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
+          ventilation: { terminals: [], rooms: {} },
           activeProjectId: id,
           result,
           isDirty: false,
@@ -438,6 +547,7 @@ export const useProjectStore = create<ProjectStore>()(
           norm: "isso51",
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
+          ventilation: { terminals: [], rooms: {} },
           result: null,
           error: null,
           isCalculating: false,
@@ -484,12 +594,20 @@ export const useProjectStore = create<ProjectStore>()(
         const snap = takeProjectSnapshot(get());
         set((state) => {
           const { [roomId]: _removed, ...remainingIsso53 } = state.isso53Rooms;
+          const { [roomId]: _removedVent, ...remainingVentRooms } =
+            state.ventilation.rooms;
           return {
             project: {
               ...state.project,
               rooms: state.project.rooms.filter((r) => r.id !== roomId),
             },
             isso53Rooms: remainingIsso53,
+            ventilation: {
+              terminals: state.ventilation.terminals.filter(
+                (t) => t.roomId !== roomId,
+              ),
+              rooms: remainingVentRooms,
+            },
             isDirty: true,
             error: null,
             _past: [...state._past, snap].slice(-MAX_HISTORY),
@@ -662,6 +780,7 @@ export const useProjectStore = create<ProjectStore>()(
         norm: state.norm,
         isso53Building: state.isso53Building,
         isso53Rooms: state.isso53Rooms,
+        ventilation: state.ventilation,
         result: state.result,
       }),
       merge: (persisted, current) => ({
@@ -673,6 +792,7 @@ export const useProjectStore = create<ProjectStore>()(
           | "norm"
           | "isso53Building"
           | "isso53Rooms"
+          | "ventilation"
           | "result"
         >),
         sharedExtra:
@@ -696,6 +816,16 @@ export const useProjectStore = create<ProjectStore>()(
         })(),
         isso53Rooms:
           (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
+        // Silent migration voor projecten van vóór de ventilatiebalans-module.
+        ventilation: (() => {
+          const v = (persisted as Partial<ProjectStore>)?.ventilation;
+          if (!v) return current.ventilation;
+          return {
+            terminals: Array.isArray(v.terminals) ? v.terminals : [],
+            rooms:
+              v.rooms && typeof v.rooms === "object" ? v.rooms : {},
+          };
+        })(),
         isDirty: false,
         isCalculating: false,
         error: null,

@@ -5,13 +5,18 @@
  * dimension annotations, grid, snap, underlay rendering.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle } from "react-konva";
+import { Stage, Layer, Group, Line, Rect, Text, Shape, Circle, Arrow } from "react-konva";
 import Konva from "konva";
 
 import type { ModelRoom, ModelWindow, ModelDoor, ModellerTool, Point2D, SnapSettings, Selection, WallBoundaryType } from "./types";
 import { pointInPolygon, polygonArea, polygonCenter, getSharedEdges, segmentsShareEdge, computeWallSegments, edgeToSegmentMap } from "./geometry";
 import type { WallSegment } from "./geometry";
 import type { UnderlayImage } from "./modellerStore";
+import type {
+  VentilationTerminal,
+  VentilationTerminalType,
+} from "../../types/ventilation";
+import { estimateDoorGapAreaCm2, type OverflowRelation } from "../../lib/ventilationBalance";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -44,6 +49,36 @@ interface FloorCanvasProps {
   ghostRooms?: ModelRoom[];
   /** Increment to trigger a fit-view zoom. */
   fitViewTrigger?: number;
+
+  // -- Ventilatiebalans-laag --
+  /** Ventilatie-ventielen (toevoer/afvoer) van het project. */
+  ventilationTerminals?: VentilationTerminal[];
+  /**
+   * Overstroom-relaties tussen aangrenzende ruimtes (afgeleid van de gedeelde
+   * scheidingswanden, niet van deuren). Voeden de overstroom-pijl + spleet-
+   * indicator. Leeg → niets te tekenen.
+   */
+  ventilationOverflow?: OverflowRelation[];
+  /**
+   * Welke ventilatie-lagen zichtbaar zijn. Wanneer `undefined` is de hele
+   * laag verborgen (geen ventilatie-mode actief). Toggle-chips zetten dit.
+   */
+  ventilationLayers?: VentilationLayerVisibility;
+  /** Plaats een ventiel op een wand (wand-hit patroon, identiek aan ramen). */
+  onAddTerminal?: (
+    roomId: string,
+    type: VentilationTerminalType,
+    wallIndex: number,
+    offsetMm: number,
+  ) => void;
+}
+
+/** Zichtbaarheid van de vier ventilatie-deellagen (toggle-chips). */
+export interface VentilationLayerVisibility {
+  supply: boolean;
+  exhaust: boolean;
+  overflow: boolean;
+  gaps: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +131,10 @@ export function FloorCanvas({
   wallBoundaryTypes = {},
   ghostRooms = [],
   fitViewTrigger = 0,
+  ventilationTerminals = [],
+  ventilationOverflow = [],
+  ventilationLayers,
+  onAddTerminal,
 }: FloorCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -352,7 +391,7 @@ export function FloorCanvas({
     if (!pointer) return;
 
     const raw = screenToWorld(pointer.x, pointer.y);
-    const forceNearest = tool === "split_room" || tool === "draw_window" || tool === "draw_door";
+    const forceNearest = tool === "split_room" || isWallPlacingTool(tool);
     const snapped = applySnap(raw, forceNearest);
     if (isDrawingTool(tool) || tool === "measure") setCursorWorld(snapped);
     else setCursorWorld(null);
@@ -439,7 +478,7 @@ export function FloorCanvas({
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     const raw = screenToWorld(pointer.x, pointer.y);
-    const forceNearest = tool === "split_room" || tool === "draw_window" || tool === "draw_door";
+    const forceNearest = tool === "split_room" || isWallPlacingTool(tool);
     const snapped = applySnap(raw, forceNearest);
 
     // Drawing tools
@@ -481,6 +520,20 @@ export function FloorCanvas({
     if (tool === "draw_door") {
       const hit = findWallHit(snapped, rooms, Math.max(snap.gridSize * 3, 30 / zoom));
       if (hit) onAddDoor(hit.roomId, hit.wallIndex, hit.offset, DEFAULT_DOOR_WIDTH);
+      return;
+    }
+
+    // Ventilatie-ventiel plaatsen — exact hetzelfde wand-hit patroon als ramen.
+    if (tool === "place_supply" || tool === "place_exhaust") {
+      const hit = findWallHit(snapped, rooms, Math.max(snap.gridSize * 3, 30 / zoom));
+      if (hit && onAddTerminal) {
+        onAddTerminal(
+          hit.roomId,
+          tool === "place_supply" ? "supply" : "exhaust",
+          hit.wallIndex,
+          hit.offset,
+        );
+      }
       return;
     }
 
@@ -589,7 +642,7 @@ export function FloorCanvas({
       }
       onSelect(null);
     }
-  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, zoom, onAddRoom, onAddWindow, onAddDoor, onSelect, onSplitRoom, resolveSplitWall]);
+  }, [tool, drawPoints, rooms, screenToWorld, applySnap, snap.gridSize, zoom, onAddRoom, onAddWindow, onAddDoor, onAddTerminal, onSelect, onSplitRoom, resolveSplitWall]);
 
   const handleDblClick = useCallback(() => {
     if (tool === "draw_polygon" && drawPoints.length >= 3) {
@@ -789,6 +842,20 @@ export function FloorCanvas({
                 />
               );
             })}
+
+            {/* Ventilatiebalans-laag — ventielen, gevelroosters, overstroom,
+                spleten. Alleen zichtbaar wanneer ventilationLayers gezet is
+                (ventilatie-mode actief). Na walls + deuren, vóór labels. */}
+            {ventilationLayers && (
+              <VentilationLayer
+                rooms={rooms}
+                overflow={ventilationOverflow}
+                terminals={ventilationTerminals}
+                sharedEdges={sharedEdges}
+                layers={ventilationLayers}
+                invZoom={invZoom}
+              />
+            )}
 
             {/* Room labels */}
             {rooms.map((room) => (
@@ -1398,6 +1465,224 @@ function DoorMarker({ room, door, strokeWidth, zoom }: {
   );
 }
 
+// =============================================================================
+// Ventilatiebalans-laag
+// =============================================================================
+
+const VENT_SUPPLY_COLOR = "#22c55e"; // toevoer (groen)
+const VENT_EXHAUST_COLOR = "#3b82f6"; // afvoer (blauw)
+const VENT_OVERFLOW_COLOR = "#D97706"; // overstroom + spleet (oranje)
+
+/** Punt op een wand-edge: `a + t·(b-a)` met `t = offsetMm / len`. */
+function pointOnWall(
+  room: ModelRoom,
+  wallIndex: number,
+  offsetMm: number,
+): { x: number; y: number; ux: number; uy: number; nx: number; ny: number } | null {
+  const poly = room.polygon;
+  const n = poly.length;
+  const a = poly[wallIndex % n]!;
+  const b = poly[(wallIndex + 1) % n]!;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+  // Inward normal — point into the room (toward centroid).
+  let nx = dy / len;
+  let ny = -dx / len;
+  const c = polygonCenter(poly);
+  const mx = a.x + ux * offsetMm;
+  const my = a.y + uy * offsetMm;
+  if ((c.x - mx) * nx + (c.y - my) * ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return { x: mx, y: my, ux, uy, nx, ny };
+}
+
+/**
+ * Ventilatie-overlaylaag: toevoer-/afvoerventielen, gevelroosters,
+ * overstroom-pijlen en spleet-indicatoren. Pure render, geen interactie
+ * (selectie/eigenschappen komen in delegatie 2).
+ */
+function VentilationLayer({
+  rooms,
+  overflow,
+  terminals,
+  sharedEdges,
+  layers,
+  invZoom,
+}: {
+  rooms: ModelRoom[];
+  overflow: OverflowRelation[];
+  terminals: VentilationTerminal[];
+  sharedEdges: Set<string>;
+  layers: VentilationLayerVisibility;
+  invZoom: number;
+}) {
+  const roomById = useMemo(() => {
+    const m = new Map<string, ModelRoom>();
+    for (const r of rooms) m.set(r.id, r);
+    return m;
+  }, [rooms]);
+
+  // Glyph-maat in wereld-mm — schaalt mee zodat het op elke zoom leesbaar is.
+  const r = 220 * invZoom; // ventiel-straal
+  const arrowLen = 700 * invZoom; // gevelrooster-pijllengte
+  const stroke = Math.max(60, 3 * invZoom);
+
+  return (
+    <Group listening={false}>
+      {/* ── Ventielen (toevoer / afvoer) ── */}
+      {terminals.map((t) => {
+        const room = roomById.get(t.roomId);
+        if (!room) return null;
+        const isSupply = t.type === "supply";
+        if (isSupply && !layers.supply) return null;
+        if (!isSupply && !layers.exhaust) return null;
+
+        // Positie: wand-gebonden (wallIndex+offset) of vrij (positionMm).
+        let pos: { x: number; y: number; nx: number; ny: number } | null = null;
+        let onExteriorWall = false;
+        if (t.wallIndex !== undefined && t.offsetMm !== undefined) {
+          const onWall = pointOnWall(room, t.wallIndex, t.offsetMm);
+          if (onWall) {
+            pos = { x: onWall.x, y: onWall.y, nx: onWall.nx, ny: onWall.ny };
+            onExteriorWall = !sharedEdges.has(`${room.id}:${t.wallIndex}`);
+          }
+        } else if (t.positionMm) {
+          pos = { x: t.positionMm.x, y: t.positionMm.y, nx: 0, ny: -1 };
+        }
+        if (!pos) return null;
+
+        const color = isSupply ? VENT_SUPPLY_COLOR : VENT_EXHAUST_COLOR;
+        const flowLabel =
+          t.flowDm3s !== undefined ? `${t.flowDm3s.toFixed(1)} dm³/s` : "";
+
+        return (
+          <Group key={`vent-${t.id}`} x={pos.x} y={pos.y}>
+            <Circle radius={r} fill="#ffffff" stroke={color} strokeWidth={stroke} />
+            {isSupply ? (
+              // Toevoer: gevelrooster-pijl van buiten naar binnen op buitenwand.
+              onExteriorWall && (
+                <Arrow
+                  points={[
+                    -pos.nx * arrowLen,
+                    -pos.ny * arrowLen,
+                    pos.nx * r * 0.4,
+                    pos.ny * r * 0.4,
+                  ]}
+                  stroke={color}
+                  strokeWidth={stroke}
+                  fill={color}
+                  pointerLength={r * 0.6}
+                  pointerWidth={r * 0.6}
+                />
+              )
+            ) : (
+              // Afvoer: vier pijltjes naar het ventiel toe (afzuiging).
+              <>
+                {[
+                  [-1, -1],
+                  [1, -1],
+                  [-1, 1],
+                  [1, 1],
+                ].map(([sx, sy], i) => (
+                  <Arrow
+                    key={i}
+                    points={[sx! * r * 2, sy! * r * 2, sx! * r * 0.7, sy! * r * 0.7]}
+                    stroke={color}
+                    strokeWidth={stroke}
+                    fill={color}
+                    pointerLength={r * 0.5}
+                    pointerWidth={r * 0.5}
+                  />
+                ))}
+              </>
+            )}
+            {flowLabel && (
+              <Text
+                text={flowLabel}
+                fontSize={11 * invZoom}
+                fill={color}
+                x={-r * 3}
+                y={r + 40 * invZoom}
+                width={r * 6}
+                align="center"
+              />
+            )}
+          </Group>
+        );
+      })}
+
+      {/* ── Overstroom-pijlen over de gedeelde scheidingswand (bron → afvoer) ──
+          Hangt aan de aangrenzende-ruimte-relatie (gedeelde wand), niet aan een
+          deur-object. `nx/ny` wijst bron → doel. */}
+      {layers.overflow &&
+        overflow.map((rel) => {
+          const half = 500 * invZoom;
+          return (
+            <Arrow
+              key={`ovf-${rel.key}`}
+              points={[
+                rel.mid.x - rel.nx * half,
+                rel.mid.y - rel.ny * half,
+                rel.mid.x + rel.nx * half,
+                rel.mid.y + rel.ny * half,
+              ]}
+              stroke={VENT_OVERFLOW_COLOR}
+              strokeWidth={Math.max(50, 2.5 * invZoom)}
+              fill={VENT_OVERFLOW_COLOR}
+              dash={[120, 90]}
+              pointerLength={r * 0.7}
+              pointerWidth={r * 0.7}
+            />
+          );
+        })}
+
+      {/* ── Spleet-indicator op de gedeelde scheidingswand (vrije doorlaat) ──
+          De doorstroomopening zit in de scheidingswand. Balk-breedte begrensd
+          door de gedeelde edge-overlap. */}
+      {layers.gaps &&
+        overflow.map((rel) => {
+          const areaCm2 = estimateDoorGapAreaCm2(rel.flowDm3s);
+          // Balk over (een deel van) de gedeelde edge; max ~900 mm visuele breedte.
+          const barHalf = Math.min(rel.overlapMm * 0.45, 900);
+          if (barHalf < 1) return null;
+          return (
+            <Group key={`gap-${rel.key}`} x={rel.mid.x} y={rel.mid.y} listening={false}>
+              <Line
+                points={[
+                  -rel.ux * barHalf,
+                  -rel.uy * barHalf,
+                  rel.ux * barHalf,
+                  rel.uy * barHalf,
+                ]}
+                stroke={VENT_OVERFLOW_COLOR}
+                strokeWidth={Math.max(120, 6 * invZoom)}
+                lineCap="butt"
+                opacity={0.85}
+              />
+              {rel.flowDm3s > 0 && (
+                <Text
+                  text={`r.v. ${areaCm2.toFixed(0)} cm²`}
+                  fontSize={10 * invZoom}
+                  fill="#92400e"
+                  x={-600 * invZoom}
+                  y={-260 * invZoom}
+                  width={1200 * invZoom}
+                  align="center"
+                />
+              )}
+            </Group>
+          );
+        })}
+    </Group>
+  );
+}
+
 /** Room label (ID + name + area). */
 function RoomLabel({ room, invZoom, isSelected }: { room: ModelRoom; invZoom: number; isSelected: boolean }) {
   const center = useMemo(() => polygonCenter(room.polygon), [room.polygon]);
@@ -1715,7 +2000,22 @@ function sharedEdgePartner(
 }
 
 function isDrawingTool(tool: ModellerTool): boolean {
-  return tool.startsWith("draw_") || tool === "split_room";
+  return (
+    tool.startsWith("draw_") ||
+    tool === "split_room" ||
+    tool === "place_supply" ||
+    tool === "place_exhaust"
+  );
+}
+
+/** Tools die op een wand klikken (snap altijd op de wand-edge). */
+function isWallPlacingTool(tool: ModellerTool): boolean {
+  return (
+    tool === "draw_window" ||
+    tool === "draw_door" ||
+    tool === "place_supply" ||
+    tool === "place_exhaust"
+  );
 }
 
 function getDrawingHint(tool: ModellerTool, pointCount: number): string {
@@ -1727,6 +2027,8 @@ function getDrawingHint(tool: ModellerTool, pointCount: number): string {
   if (tool === "draw_circle") return pointCount === 0 ? "Klik om middelpunt te plaatsen" : "Klik om straal in te stellen";
   if (tool === "draw_window") return "Klik op een wand om een raam te plaatsen";
   if (tool === "draw_door") return "Klik op een wand om een deur te plaatsen";
+  if (tool === "place_supply") return "Klik op een wand om een toevoerventiel te plaatsen";
+  if (tool === "place_exhaust") return "Klik op een wand om een afvoerventiel te plaatsen";
   if (tool === "split_room") {
     if (pointCount === 0) return "Klik op een wand om splitpunt te plaatsen";
     if (pointCount === 1) return "Klik op een andere wand, of klik vrij voor tussenpunten";

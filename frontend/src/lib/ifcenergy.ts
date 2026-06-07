@@ -35,6 +35,7 @@ import type {
 } from "../components/modeller/types";
 import type { UnderlayImage } from "../components/modeller/modellerStore";
 import type { SharedExtra } from "../types/projectV2";
+import type { VentilationState } from "../types/ventilation";
 
 // ---------------------------------------------------------------------------
 // Namespace constants — mirror crates/isso51-ifcx/src/namespace.rs
@@ -103,6 +104,12 @@ interface IfcEnergyEnvelope {
    * defaults. Zonder dit veld ging o.a. het bouwjaar verloren bij heropenen.
    */
   sharedExtra?: SharedExtra;
+  /**
+   * Ventilatiebalans-sidecar (ventielen + per-room ventilatie-velden).
+   * Optioneel — oude `.ifcenergy`-bestanden hebben dit veld niet. Zonder dit
+   * veld gingen ventielen verloren bij heropenen (valkuil commit `8ccff9f`).
+   */
+  ventilation?: VentilationState;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +125,11 @@ export interface BuildIfcEnergyOptions {
    * wanneer er betekenisvolle V2-data is. Wordt 1:1 in de envelope opgenomen.
    */
   sharedExtra?: SharedExtra;
+  /**
+   * Ventilatiebalans-sidecar. Optioneel — alleen meegeven wanneer er
+   * betekenisvolle ventilatie-data is. Wordt 1:1 in de envelope opgenomen.
+   */
+  ventilation?: VentilationState;
   author?: string;
 }
 
@@ -145,6 +157,7 @@ export function buildIfcEnergyDocument(opts: BuildIfcEnergyOptions): IfcxDocumen
     result: opts.result,
     modeller: opts.modeller,
     ...(opts.sharedExtra ? { sharedExtra: opts.sharedExtra } : {}),
+    ...(opts.ventilation ? { ventilation: opts.ventilation } : {}),
   };
 
   const projectEntry: IfcxDataEntry = {
@@ -196,6 +209,11 @@ export interface ParsedIfcEnergy {
    * oude `.ifcenergy`-bestanden zonder dit veld — caller valt terug op defaults.
    */
   sharedExtra?: SharedExtra;
+  /**
+   * Ventilatiebalans-sidecar uit de envelope, indien aanwezig. `undefined`
+   * voor bestanden zonder ventilatie-data — caller valt terug op leeg.
+   */
+  ventilation?: VentilationState;
   /** Schema version of the parsed envelope (for migration logic). */
   envelopeVersion: string;
 }
@@ -241,11 +259,18 @@ export function parseIfcEnergy(jsonString: string): ParsedIfcEnergy {
         e.sharedExtra && typeof e.sharedExtra === "object"
           ? (e.sharedExtra as SharedExtra)
           : undefined;
+      const ventilation =
+        e.ventilation &&
+        typeof e.ventilation === "object" &&
+        Array.isArray((e.ventilation as VentilationState).terminals)
+          ? (e.ventilation as VentilationState)
+          : undefined;
       return {
         project: e.project as Project,
         result: (e.result ?? null) as ProjectResult | null,
         modeller,
         sharedExtra,
+        ventilation,
         envelopeVersion: e.version ?? "unknown",
       };
     }

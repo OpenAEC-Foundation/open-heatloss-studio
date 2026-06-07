@@ -29,6 +29,7 @@ import type {
   SharedExtra,
 } from "../types/projectV2";
 import { DEFAULT_SHARED_EXTRA } from "../types/projectV2";
+import type { VentilationState } from "../types/ventilation";
 import {
   buildIfcEnergyDocument,
   detectFormat,
@@ -113,6 +114,15 @@ interface ProjectEnvelope {
    * dit veld ging o.a. het bouwjaar verloren bij opslaan/heropenen.
    */
   sharedExtra?: SharedExtra;
+  /**
+   * Ventilatiebalans-sidecar (ventielen + per-room ventilatie-velden).
+   * Leeft sidecar in `projectStore.ventilation` buiten het V1 `Project` type.
+   * Optioneel + ALLEEN geschreven wanneer er minstens één ventiel of room-veld
+   * aanwezig is — zodat een export zonder ventilatie-data byte-gelijk blijft
+   * aan de oude versie. Zonder dit veld gingen ventielen verloren bij
+   * opslaan/heropenen (valkuil commit `8ccff9f`).
+   */
+  ventilation?: VentilationState;
 }
 
 /** Result of a successful regular project import. */
@@ -137,6 +147,11 @@ export interface ImportResult {
    * voor oude bestanden zonder het veld — de store reset dan naar defaults.
    */
   sharedExtra?: SharedExtra;
+  /**
+   * Ventilatiebalans-sidecar uit de envelope, indien aanwezig. `undefined`
+   * voor bestanden zonder ventilatie-data — de store reset dan naar leeg.
+   */
+  ventilation?: VentilationState;
 }
 
 /**
@@ -192,6 +207,13 @@ export function exportProject(
   // zonder V2-data byte-gelijk blijft aan de oude versie (geen extra veld).
   if (isMeaningfulSharedExtra(projectState.sharedExtra)) {
     envelope.sharedExtra = projectState.sharedExtra;
+  }
+
+  // Ventilatie-sidecar (ventielen + per-room velden) leeft buiten het V1
+  // `Project` type. Alleen wegschrijven wanneer er betekenisvolle data is,
+  // zodat exports van projecten zonder ventilatie byte-gelijk blijven.
+  if (isMeaningfulVentilation(projectState.ventilation)) {
+    envelope.ventilation = projectState.ventilation;
   }
 
   const json = JSON.stringify(envelope, null, 2);
@@ -261,12 +283,16 @@ export async function exportIfcEnergy(
   // SharedExtra (bouwjaar etc.) leeft sidecar buiten het V1 `Project` type.
   // Alleen meegeven wanneer er betekenisvolle V2-data is, zodat de envelope
   // van een project zonder V2-data geen leeg sidecar-veld krijgt.
-  const extra = useProjectStore.getState().sharedExtra;
+  const projectState = useProjectStore.getState();
+  const extra = projectState.sharedExtra;
   const doc = buildIfcEnergyDocument({
     project,
     result,
     modeller: snapshotModellerState(),
     sharedExtra: isMeaningfulSharedExtra(extra) ? extra : undefined,
+    ventilation: isMeaningfulVentilation(projectState.ventilation)
+      ? projectState.ventilation
+      : undefined,
   });
   const json = serializeIfcEnergy(doc);
 
@@ -370,7 +396,11 @@ export function openProjectFile(
     // voor forward-compat; `undefined` bij oude bestanden zonder dit veld.
     const sharedExtra = readSharedExtraEnvelope(parsed.sharedExtra);
 
-    return { type: "project", project, result, sharedExtra, format: "ifcenergy" };
+    // Ventilatie-sidecar terug uit de envelope; `undefined` bij bestanden
+    // zonder ventilatie-data.
+    const ventilation = readVentilationEnvelope(parsed.ventilation);
+
+    return { type: "project", project, result, sharedExtra, ventilation, format: "ifcenergy" };
   }
 
   // Fall back to legacy importer for `.isso51.json`, raw Project JSON,
@@ -448,8 +478,9 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
     const norm = obj.norm === "isso51" || obj.norm === "isso53" ? obj.norm : undefined;
     const isso53 = readIsso53Envelope(obj.isso53);
     const sharedExtra = readSharedExtraEnvelope(obj.sharedExtra);
+    const ventilation = readVentilationEnvelope(obj.ventilation);
 
-    return { type: "project", project, result, norm, isso53, sharedExtra };
+    return { type: "project", project, result, norm, isso53, sharedExtra, ventilation };
   }
 
   // Try as raw Project JSON. No envelope means no modeller data either —
@@ -512,6 +543,39 @@ function readSharedExtraEnvelope(raw: unknown): SharedExtra | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const partial = raw as Partial<SharedExtra>;
   return { ...DEFAULT_SHARED_EXTRA, ...partial };
+}
+
+/**
+ * Bevat de ventilatie-sidecar betekenisvolle data (minstens één ventiel of
+ * één per-room-veld)? Bepaalt of `ventilation` in de envelope wordt geschreven,
+ * zodat exports zonder ventilatie byte-gelijk blijven aan de oude versie.
+ */
+function isMeaningfulVentilation(v: VentilationState | undefined): boolean {
+  if (!v) return false;
+  return v.terminals.length > 0 || Object.keys(v.rooms).length > 0;
+}
+
+/**
+ * Lees de optionele `ventilation`-sidecar uit een envelope. Net als de andere
+ * sidecar-readers valideren we niet structureel — alleen een shallow shape-check
+ * op `terminals` (array) + `rooms` (object), dan doorcasten. Ontbrekend/ongeldig
+ * → `undefined`, zodat de caller terugvalt op leeg (huidig gedrag voor bestanden
+ * zonder ventilatie-data).
+ */
+function readVentilationEnvelope(raw: unknown): VentilationState | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const terminals = Array.isArray(o.terminals)
+    ? (o.terminals as VentilationState["terminals"])
+    : [];
+  const rooms =
+    o.rooms && typeof o.rooms === "object"
+      ? (o.rooms as VentilationState["rooms"])
+      : {};
+  if (terminals.length === 0 && Object.keys(rooms).length === 0) {
+    return undefined;
+  }
+  return { terminals, rooms };
 }
 
 /**
