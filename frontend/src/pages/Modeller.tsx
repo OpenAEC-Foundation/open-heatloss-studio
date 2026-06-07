@@ -28,6 +28,9 @@ import { useModellerToolStore } from "../store/modellerToolStore";
 import { useAllConstructions } from "../hooks/useAllConstructions";
 import { openProjectFile, exportIfcEnergy, extractAndLinkConstructions } from "../lib/importExport";
 import type { ProjectResult } from "../types";
+import type { VentilationTerminalType } from "../types/ventilation";
+import { deriveVentilationDemand, defaultBblFunction, deriveOverflowRelations } from "../lib/ventilationBalance";
+import type { VentilationLayerVisibility } from "../components/modeller/FloorCanvas";
 import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
 import { polygonArea, segmentsShareEdge, mergePolygons, removeCollinearVertices } from "../components/modeller";
@@ -99,6 +102,70 @@ export function Modeller() {
   const undo = useModellerStore((s) => s.undo);
   const redo = useModellerStore((s) => s.redo);
 
+  // -- Ventilatiebalans --
+  const ventilation = useProjectStore((s) => s.ventilation);
+  const addVentilationTerminal = useProjectStore((s) => s.addVentilationTerminal);
+  const updateVentilationRoom = useProjectStore((s) => s.updateVentilationRoom);
+
+  // Per-room BBL-eis (dm³/s), afgeleid uit project.rooms + bestaande sidecar.
+  // Beschikbaar in state voor de visualisatie en (delegatie 2) het zijpaneel.
+  const ventilationRooms = useMemo(
+    () => deriveVentilationDemand(project, ventilation.rooms),
+    [project, ventilation.rooms],
+  );
+
+  // Laag-zichtbaarheid (toggle-chips). `null` = ventilatie-mode niet actief →
+  // de hele ventilatie-laag is verborgen in de canvas.
+  const [ventLayers, setVentLayers] = useState<VentilationLayerVisibility | null>(null);
+  const ventModeActive = ventLayers !== null;
+
+  const toggleVentMode = useCallback(() => {
+    setVentLayers((cur) =>
+      cur === null
+        ? { supply: true, exhaust: true, overflow: true, gaps: true }
+        : null,
+    );
+  }, []);
+
+  const toggleVentLayer = useCallback(
+    (key: keyof VentilationLayerVisibility) => {
+      setVentLayers((cur) => (cur ? { ...cur, [key]: !cur[key] } : cur));
+    },
+    [],
+  );
+
+  const handleAddTerminal = useCallback(
+    (roomId: string, type: VentilationTerminalType, wallIndex: number, offsetMm: number) => {
+      // Default-debiet = de afgeleide BBL-eis voor dit type (indicatief).
+      const vr = ventilationRooms[roomId];
+      const flowDm3s =
+        type === "supply" ? vr?.requiredSupplyDm3s : vr?.requiredExhaustDm3s;
+      addVentilationTerminal({
+        roomId,
+        type,
+        source: "manual",
+        wallIndex,
+        offsetMm,
+        flowDm3s: flowDm3s && flowDm3s > 0 ? flowDm3s : undefined,
+      });
+      // Persisteer de afgeleide gebruiksfunctie + eisen voor deze ruimte zodat
+      // ze in de opgeslagen sidecar landen (en niet alleen runtime-afgeleid zijn).
+      const room = project.rooms.find((r) => r.id === roomId);
+      if (room && !ventilation.rooms[roomId]) {
+        updateVentilationRoom(roomId, {
+          ventilationFunction: defaultBblFunction(String(room.function)),
+          requiredSupplyDm3s: vr?.requiredSupplyDm3s ?? 0,
+          requiredExhaustDm3s: vr?.requiredExhaustDm3s ?? 0,
+        });
+      }
+      addToast(
+        type === "supply" ? "Toevoerventiel geplaatst" : "Afvoerventiel geplaatst",
+        "success",
+      );
+    },
+    [ventilationRooms, addVentilationTerminal, updateVentilationRoom, project.rooms, ventilation.rooms, addToast],
+  );
+
   // IFC wall type review dialog state
   const [ifcWallTypes, setIfcWallTypes] = useState<IfcWallTypeInfo[] | null>(
     null,
@@ -151,6 +218,16 @@ export function Modeller() {
   const floorRooms = useMemo(() => rooms.filter((r) => r.floor === activeFloor), [rooms, activeFloor]);
   const floorWindows = useMemo(() => windows.filter((w) => floorRooms.some((r) => r.id === w.roomId)), [windows, floorRooms]);
   const floorDoors = useMemo(() => doors.filter((d) => floorRooms.some((r) => r.id === d.roomId)), [doors, floorRooms]);
+  const floorTerminals = useMemo(
+    () => ventilation.terminals.filter((t) => floorRooms.some((r) => r.id === t.roomId)),
+    [ventilation.terminals, floorRooms],
+  );
+  // Overstroom-relaties tussen aangrenzende ruimtes op de actieve verdieping
+  // (afgeleid van de gedeelde scheidingswanden, niet van deuren).
+  const overflowRelations = useMemo(
+    () => deriveOverflowRelations(floorRooms, ventilationRooms),
+    [floorRooms, ventilationRooms],
+  );
   const belowFloorRooms = useMemo(() => activeFloor > 0 ? rooms.filter((r) => r.floor === activeFloor - 1) : [], [rooms, activeFloor]);
 
   // Selected room (for properties panel)
@@ -451,6 +528,7 @@ export function Modeller() {
             isso53Building: imported.isso53?.building,
             isso53Rooms: imported.isso53?.rooms,
             sharedExtra: imported.sharedExtra,
+            ventilation: imported.ventilation,
           });
           if (imported.result) {
             useProjectStore.getState().setResult(imported.result);
@@ -601,6 +679,10 @@ export function Modeller() {
               onSplitRoom={handleSplitRoom}
               onMergeRooms={handleMergeRooms}
               fitViewTrigger={fitViewTrigger}
+              ventilationTerminals={floorTerminals}
+              ventilationOverflow={overflowRelations}
+              ventilationLayers={ventLayers ?? undefined}
+              onAddTerminal={handleAddTerminal}
             />
           ) : (
             <FloorCanvas3D
@@ -647,6 +729,19 @@ export function Modeller() {
               3D
             </button>
           </div>
+
+          {/* Ventilatiebalans — mode-toggle + plaats-knoppen + laag-chips.
+              Alleen in 2D zinvol (de laag rendert in FloorCanvas). */}
+          {viewMode === "2d" && (
+            <VentilationToolbar
+              active={ventModeActive}
+              layers={ventLayers}
+              tool={tool}
+              onToggleMode={toggleVentMode}
+              onSetTool={setTool}
+              onToggleLayer={toggleVentLayer}
+            />
+          )}
         </div>
 
         {/* Right: Properties Panel */}
@@ -1156,6 +1251,101 @@ function _handleImportIfcWeb(
     }
   };
   input.click();
+}
+
+// ---------------------------------------------------------------------------
+// Ventilatiebalans-toolbar (in-canvas overlay)
+// ---------------------------------------------------------------------------
+
+interface VentilationToolbarProps {
+  active: boolean;
+  layers: VentilationLayerVisibility | null;
+  tool: ModellerTool;
+  onToggleMode: () => void;
+  onSetTool: (tool: ModellerTool) => void;
+  onToggleLayer: (key: keyof VentilationLayerVisibility) => void;
+}
+
+const VENT_LAYER_CHIPS: { key: keyof VentilationLayerVisibility; label: string; color: string }[] = [
+  { key: "supply", label: "Toevoer", color: "#22c55e" },
+  { key: "exhaust", label: "Afvoer", color: "#3b82f6" },
+  { key: "overflow", label: "Overstroom", color: "#D97706" },
+  { key: "gaps", label: "Spleten", color: "#6b7280" },
+];
+
+function VentilationToolbar({
+  active,
+  layers,
+  tool,
+  onToggleMode,
+  onSetTool,
+  onToggleLayer,
+}: VentilationToolbarProps) {
+  return (
+    <div className="pointer-events-auto absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-primary/25 bg-surface-alt/95 px-2 py-1.5 text-xs shadow-sm backdrop-blur-sm">
+      <button
+        onClick={onToggleMode}
+        className={`rounded px-2.5 py-1 font-semibold transition-colors ${
+          active ? "bg-deep-forge text-white" : "text-deep-forge/70 hover:bg-primary/10"
+        }`}
+        title="Ventilatiebalans-laag tonen/verbergen"
+      >
+        Ventilatie
+      </button>
+
+      {active && layers && (
+        <>
+          <span className="h-4 w-px bg-primary/20" />
+
+          {/* Plaats-knoppen */}
+          <button
+            onClick={() => onSetTool(tool === "place_supply" ? "select" : "place_supply")}
+            className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+              tool === "place_supply"
+                ? "bg-[#22c55e] text-white"
+                : "text-deep-forge/70 hover:bg-primary/10"
+            }`}
+            title="Toevoerventiel plaatsen — klik daarna op een wand"
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#22c55e" }} />
+            Toevoer
+          </button>
+          <button
+            onClick={() => onSetTool(tool === "place_exhaust" ? "select" : "place_exhaust")}
+            className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+              tool === "place_exhaust"
+                ? "bg-[#3b82f6] text-white"
+                : "text-deep-forge/70 hover:bg-primary/10"
+            }`}
+            title="Afvoerventiel plaatsen — klik daarna op een wand"
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#3b82f6" }} />
+            Afvoer
+          </button>
+
+          <span className="h-4 w-px bg-primary/20" />
+
+          {/* Laag-toggles */}
+          {VENT_LAYER_CHIPS.map((chip) => {
+            const on = layers[chip.key];
+            return (
+              <button
+                key={chip.key}
+                onClick={() => onToggleLayer(chip.key)}
+                className={`flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+                  on ? "text-deep-forge" : "text-scaffold-gray line-through opacity-50"
+                } hover:bg-primary/10`}
+                title={`Laag ${chip.label} aan/uit`}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: chip.color }} />
+                {chip.label}
+              </button>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
 }
 
 function wallDir(polygon: Point2D[], edgeIndex: number): string {

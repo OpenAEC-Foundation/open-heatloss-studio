@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ventilatiebalans - ISSO 51 Warmteverliesberekening</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <style>
+    /* ---- Layout: plattegrond links, paneel rechts ---- */
+    .vent-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: var(--space-5);
+      align-items: start;
+    }
+    @media (max-width: 1200px) {
+      .vent-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ---- Plattegrond-canvas ---- */
+    .floor-canvas {
+      background: var(--color-gray-50);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      position: relative;
+    }
+    .canvas-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--color-white);
+      flex-wrap: wrap;
+    }
+    .canvas-toolbar .spacer { flex: 1; }
+    .toggle-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding: 3px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      color: var(--color-gray-600);
+      cursor: pointer;
+      user-select: none;
+      background: var(--color-white);
+    }
+    .toggle-chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .toggle-chip.off { opacity: 0.4; text-decoration: line-through; }
+    .floor-svg { display: block; width: 100%; height: auto; background: var(--color-gray-100); }
+
+    /* SVG room styling */
+    .room-fill { fill: var(--color-white); stroke: var(--color-gray-700); stroke-width: 4; }
+    .room-fill.wet { fill: var(--boundary-exterior-bg); }
+    .room-fill.dry { fill: var(--boundary-adjacent-room-bg); }
+    .room-fill.traffic { fill: var(--color-gray-100); }
+    .room-name { font-family: var(--font-heading); font-size: 15px; font-weight: 700; fill: var(--color-gray-900); }
+    .room-meta { font-family: var(--font-mono); font-size: 11px; fill: var(--color-gray-500); }
+    .door-gap { stroke: var(--color-gray-100); stroke-width: 6; }
+
+    /* layers hidden state */
+    .layer.hidden { display: none; }
+
+    .flow-label {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      paint-order: stroke; stroke: var(--color-white); stroke-width: 3px;
+    }
+    .legend {
+      display: flex; flex-wrap: wrap; gap: var(--space-3);
+      padding: var(--space-3); border-top: 1px solid var(--border-color);
+      background: var(--color-white); font-size: var(--text-sm); color: var(--color-gray-600);
+    }
+    .legend .li { display: inline-flex; align-items: center; gap: 6px; }
+    .legend .sw { width: 22px; height: 0; border-top: 3px solid; }
+
+    /* ---- Rechterpaneel ---- */
+    .panel-card { margin-bottom: var(--space-4); }
+    .sys-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .sys-card {
+      text-align: center; padding: var(--space-2) 2px; border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); cursor: pointer; background: var(--color-white);
+    }
+    .sys-card.selected { border-color: var(--color-primary); background: var(--color-primary-light); }
+    .sys-card .l { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; color: var(--color-gray-800); line-height: 1; }
+    .sys-card.selected .l { color: var(--color-primary); }
+    .sys-card .n { font-size: 10px; color: var(--color-gray-500); margin-top: 2px; }
+
+    .bal-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .bal-table th { text-align: left; padding: 5px 6px; color: var(--color-gray-500); font-weight: 600; border-bottom: 1px solid var(--border-color); }
+    .bal-table td { padding: 5px 6px; border-bottom: 1px solid var(--color-gray-100); }
+    .bal-table td.num { text-align: right; font-family: var(--font-mono); }
+    .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+    .pill.sup { background: var(--boundary-adjacent-room-bg); color: var(--boundary-adjacent-room); }
+    .pill.exh { background: var(--boundary-exterior-bg); color: var(--boundary-exterior); }
+    .pill.none { background: var(--color-gray-100); color: var(--color-gray-500); }
+
+    .balance-bar { height: 10px; border-radius: 999px; background: var(--color-gray-200); overflow: hidden; display: flex; margin: var(--space-2) 0; }
+    .balance-bar .sup { background: var(--boundary-adjacent-room); }
+    .balance-bar .exh { background: var(--boundary-exterior); }
+    .kv { display: flex; justify-content: space-between; font-size: var(--text-sm); padding: 2px 0; }
+    .kv .v { font-family: var(--font-mono); font-weight: 600; }
+
+    .gap-detail { font-size: var(--text-sm); color: var(--color-gray-600); }
+    .gap-detail .big { font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 700; color: var(--color-gray-900); }
+    .formula { font-family: var(--font-mono); font-size: 11px; color: var(--color-gray-500); background: var(--color-gray-50); padding: var(--space-2); border-radius: var(--radius-sm); margin-top: var(--space-2); }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <div><div class="brand-text">ISSO 51</div><div class="brand-sub">Warmteverlies</div></div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Project</div>
+        <a href="dashboard.html" class="nav-item"><span class="nav-icon">&#9638;</span> Dashboard</a>
+        <a href="project-setup.html" class="nav-item"><span class="nav-icon">&#9881;</span> Project Setup</a>
+        <div class="nav-section-label">Berekening</div>
+        <a href="room-editor-tree.html" class="nav-item"><span class="nav-icon">&#9633;</span> Vertrekken</a>
+        <a href="construction-library.html" class="nav-item"><span class="nav-icon">&#9776;</span> Constructies</a>
+        <a href="ventilation.html" class="nav-item"><span class="nav-icon">&#9707;</span> Ventilatie</a>
+        <a href="ventilation-balance.html" class="nav-item active"><span class="nav-icon">&#10070;</span> Ventilatiebalans</a>
+        <div class="nav-section-label">Output</div>
+        <a href="results.html" class="nav-item"><span class="nav-icon">&#9736;</span> Resultaten</a>
+        <a href="report.html" class="nav-item"><span class="nav-icon">&#9112;</span> Rapport</a>
+        <a href="import.html" class="nav-item"><span class="nav-icon">&#8613;</span> Import</a>
+      </nav>
+      <div class="sidebar-footer">ISSO 51:2023 &middot; v0.1</div>
+    </aside>
+
+    <main class="main-content">
+      <header class="page-header">
+        <h1 class="page-title">Ventilatiebalans</h1>
+        <div class="header-actions">
+          <span class="badge badge-success">&#10003; In balans</span>
+          <button class="theme-toggle" onclick="toggleTheme()" title="Thema wisselen">&#9790;</button>
+          <button class="btn btn-secondary">Importeer uit Revit</button>
+          <button class="btn btn-primary">Opslaan</button>
+        </div>
+      </header>
+
+      <section class="page-body">
+        <div class="vent-layout">
+
+          <!-- ============ LINKS: orthogonale plattegrond ============ -->
+          <div class="floor-canvas">
+            <div class="canvas-toolbar">
+              <span style="font-size:var(--text-sm); font-weight:600; color:var(--color-gray-600);">Plattegrond &middot; orthogonaal aanzicht &middot; BG</span>
+              <span class="spacer"></span>
+              <span class="toggle-chip" data-layer="layer-supply"><span class="dot" style="background:var(--boundary-adjacent-room)"></span>Toevoer</span>
+              <span class="toggle-chip" data-layer="layer-exhaust"><span class="dot" style="background:var(--boundary-exterior)"></span>Afvoer</span>
+              <span class="toggle-chip" data-layer="layer-overflow"><span class="dot" style="background:var(--color-primary)"></span>Overstroom</span>
+              <span class="toggle-chip" data-layer="layer-gaps"><span class="dot" style="background:var(--color-gray-500)"></span>Spleten</span>
+            </div>
+
+            <svg class="floor-svg" viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="ar-sup" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="#22c55e"/>
+                </marker>
+                <marker id="ar-exh" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="#3b82f6"/>
+                </marker>
+                <marker id="ar-ovf" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="#D97706"/>
+                </marker>
+              </defs>
+
+              <!-- ===== Rooms ===== -->
+              <g class="layer" id="layer-rooms">
+                <!-- droog = toevoer (groen), nat = afvoer (blauw), verkeer = grijs -->
+                <rect class="room-fill dry"     x="40"  y="40"  width="175" height="150"/>
+                <rect class="room-fill dry"     x="215" y="40"  width="175" height="150"/>
+                <rect class="room-fill dry"     x="390" y="40"  width="175" height="150"/>
+                <rect class="room-fill wet"     x="565" y="40"  width="195" height="150"/>
+                <rect class="room-fill wet"     x="40"  y="190" width="100" height="80"/>
+                <rect class="room-fill traffic" x="140" y="190" width="620" height="80"/>
+                <rect class="room-fill dry"     x="40"  y="270" width="430" height="250"/>
+                <rect class="room-fill wet"     x="470" y="270" width="290" height="250"/>
+
+                <!-- labels -->
+                <text class="room-name" x="58"  y="78">Slaapkamer 1</text>
+                <text class="room-meta" x="58"  y="96">toevoer &middot; 28,4 m&sup3;/h</text>
+                <text class="room-name" x="233" y="78">Slaapkamer 2</text>
+                <text class="room-meta" x="233" y="96">toevoer &middot; 41,8 m&sup3;/h</text>
+                <text class="room-name" x="408" y="78">Slaapkamer 3</text>
+                <text class="room-meta" x="408" y="96">toevoer &middot; 44,3 m&sup3;/h</text>
+                <text class="room-name" x="583" y="78">Badkamer</text>
+                <text class="room-meta" x="583" y="96">afvoer &middot; 50,4 m&sup3;/h</text>
+                <text class="room-name" x="52"  y="226" style="font-size:12px">Toilet</text>
+                <text class="room-meta" x="52"  y="242">25,2</text>
+                <text class="room-name" x="300" y="226">Entree / Gang</text>
+                <text class="room-meta" x="300" y="242">verkeersruimte &middot; overstroom-route</text>
+                <text class="room-name" x="58"  y="308">Woonkamer</text>
+                <text class="room-meta" x="58"  y="326">toevoer &middot; 91,4 m&sup3;/h</text>
+                <text class="room-name" x="488" y="308">Keuken</text>
+                <text class="room-meta" x="488" y="326">afvoer &middot; 75,6 m&sup3;/h</text>
+              </g>
+
+              <!-- ===== Binnendeuren (gaps in muren) ===== -->
+              <g class="layer" id="layer-doors">
+                <line class="door-gap" x1="150" y1="190" x2="185" y2="190"/>
+                <line class="door-gap" x1="285" y1="190" x2="320" y2="190"/>
+                <line class="door-gap" x1="455" y1="190" x2="490" y2="190"/>
+                <line class="door-gap" x1="635" y1="190" x2="670" y2="190"/>
+                <line class="door-gap" x1="140" y1="215" x2="140" y2="250"/>
+                <line class="door-gap" x1="232" y1="270" x2="268" y2="270"/>
+                <line class="door-gap" x1="585" y1="270" x2="620" y2="270"/>
+              </g>
+
+              <!-- ===== Toevoer: gevelroosters + pijl naar binnen (systeem C natuurlijk) ===== -->
+              <g class="layer" id="layer-supply">
+                <!-- noordgevel slaapkamers -->
+                <g>
+                  <rect x="115" y="34" width="24" height="12" fill="none" stroke="#22c55e" stroke-width="2"/>
+                  <line x1="119" y1="36" x2="135" y2="36" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="119" y1="40" x2="135" y2="40" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="119" y1="44" x2="135" y2="44" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="127" y1="50" x2="127" y2="120" stroke="#22c55e" stroke-width="3" marker-end="url(#ar-sup)"/>
+                </g>
+                <g>
+                  <rect x="288" y="34" width="24" height="12" fill="none" stroke="#22c55e" stroke-width="2"/>
+                  <line x1="292" y1="36" x2="308" y2="36" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="292" y1="40" x2="308" y2="40" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="292" y1="44" x2="308" y2="44" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="300" y1="50" x2="300" y2="120" stroke="#22c55e" stroke-width="3" marker-end="url(#ar-sup)"/>
+                </g>
+                <g>
+                  <rect x="463" y="34" width="24" height="12" fill="none" stroke="#22c55e" stroke-width="2"/>
+                  <line x1="467" y1="36" x2="483" y2="36" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="467" y1="40" x2="483" y2="40" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="467" y1="44" x2="483" y2="44" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="475" y1="50" x2="475" y2="120" stroke="#22c55e" stroke-width="3" marker-end="url(#ar-sup)"/>
+                </g>
+                <!-- zuidgevel woonkamer -->
+                <g>
+                  <rect x="188" y="514" width="24" height="12" fill="none" stroke="#22c55e" stroke-width="2"/>
+                  <line x1="192" y1="518" x2="208" y2="518" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="192" y1="522" x2="208" y2="522" stroke="#22c55e" stroke-width="1.5"/>
+                  <line x1="200" y1="510" x2="200" y2="430" stroke="#22c55e" stroke-width="3" marker-end="url(#ar-sup)"/>
+                </g>
+                <text class="flow-label" x="210" y="455" fill="#16a34a">natuurlijke toevoer</text>
+              </g>
+
+              <!-- ===== Afvoer: mechanische afzuigventielen ===== -->
+              <g class="layer" id="layer-exhaust">
+                <!-- Keuken -->
+                <g transform="translate(615,400)">
+                  <circle r="16" fill="var(--color-white)" stroke="#3b82f6" stroke-width="3"/>
+                  <line x1="-22" y1="-22" x2="-8" y2="-8" stroke="#3b82f6" stroke-width="3" marker-end="url(#ar-exh)"/>
+                  <line x1="22"  y1="-22" x2="8"  y2="-8" stroke="#3b82f6" stroke-width="3" marker-end="url(#ar-exh)"/>
+                  <line x1="-22" y1="22"  x2="-8" y2="8"  stroke="#3b82f6" stroke-width="3" marker-end="url(#ar-exh)"/>
+                  <line x1="22"  y1="22"  x2="8"  y2="8"  stroke="#3b82f6" stroke-width="3" marker-end="url(#ar-exh)"/>
+                  <text class="flow-label" x="0" y="38" text-anchor="middle" fill="#2563eb">75,6 m&sup3;/h</text>
+                </g>
+                <!-- Badkamer -->
+                <g transform="translate(662,118)">
+                  <circle r="14" fill="var(--color-white)" stroke="#3b82f6" stroke-width="3"/>
+                  <line x1="-20" y1="-20" x2="-7" y2="-7" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#ar-exh)"/>
+                  <line x1="20"  y1="-20" x2="7"  y2="-7" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#ar-exh)"/>
+                  <line x1="-20" y1="20"  x2="-7" y2="7"  stroke="#3b82f6" stroke-width="2.5" marker-end="url(#ar-exh)"/>
+                  <line x1="20"  y1="20"  x2="7"  y2="7"  stroke="#3b82f6" stroke-width="2.5" marker-end="url(#ar-exh)"/>
+                  <text class="flow-label" x="0" y="34" text-anchor="middle" fill="#2563eb">50,4 m&sup3;/h</text>
+                </g>
+                <!-- Toilet -->
+                <g transform="translate(90,232)">
+                  <circle r="11" fill="var(--color-white)" stroke="#3b82f6" stroke-width="2.5"/>
+                  <line x1="-16" y1="-16" x2="-6" y2="-6" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar-exh)"/>
+                  <line x1="16"  y1="-16" x2="6"  y2="-6" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar-exh)"/>
+                  <line x1="-16" y1="16"  x2="-6" y2="6"  stroke="#3b82f6" stroke-width="2" marker-end="url(#ar-exh)"/>
+                </g>
+              </g>
+
+              <!-- ===== Overstroom: ruimte-op-ruimte door deuren ===== -->
+              <g class="layer" id="layer-overflow">
+                <!-- droge ruimtes -> gang -->
+                <line x1="167" y1="175" x2="167" y2="208" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <line x1="302" y1="175" x2="302" y2="208" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <line x1="472" y1="175" x2="472" y2="208" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <line x1="250" y1="285" x2="250" y2="252" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <!-- gang -> natte ruimtes -->
+                <line x1="652" y1="208" x2="652" y2="175" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <line x1="602" y1="252" x2="602" y2="285" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+                <line x1="158" y1="232" x2="124" y2="232" stroke="#D97706" stroke-width="3" stroke-dasharray="2 3" marker-end="url(#ar-ovf)"/>
+              </g>
+
+              <!-- ===== Spleten onder deuren (NEN 1087 doorstroomopening) ===== -->
+              <g class="layer" id="layer-gaps">
+                <g>
+                  <rect x="232" y="267" width="36" height="6" fill="#D97706" opacity="0.85"/>
+                  <text class="flow-label" x="250" y="262" text-anchor="middle" fill="#92400e">r.v. 140 cm&sup2;</text>
+                </g>
+                <g>
+                  <rect x="585" y="267" width="35" height="6" fill="#D97706" opacity="0.85"/>
+                  <text class="flow-label" x="602" y="290" text-anchor="middle" fill="#92400e">r.v. 116 cm&sup2;</text>
+                </g>
+                <g>
+                  <rect x="635" y="187" width="35" height="6" fill="#D97706" opacity="0.85"/>
+                  <text class="flow-label" x="652" y="183" text-anchor="middle" fill="#92400e">r.v. 78 cm&sup2;</text>
+                </g>
+              </g>
+            </svg>
+
+            <div class="legend">
+              <span class="li"><span class="sw" style="border-color:#22c55e"></span> Toevoer (rooster &rarr; binnen)</span>
+              <span class="li"><span class="sw" style="border-color:#3b82f6"></span> Mechanische afzuiging</span>
+              <span class="li"><span class="sw" style="border-color:#D97706; border-top-style:dashed"></span> Overstroom ruimte&rarr;ruimte</span>
+              <span class="li"><span class="sw" style="border-color:#D97706; border-top-width:6px"></span> Spleet onder deur (r.v.)</span>
+            </div>
+          </div>
+
+          <!-- ============ RECHTS: paneel ============ -->
+          <div>
+            <!-- Systeem -->
+            <div class="card panel-card">
+              <h3 style="margin-bottom:var(--space-3)">Ventilatiesysteem</h3>
+              <div class="sys-grid">
+                <div class="sys-card"><div class="l">A</div><div class="n">Natuurl.</div></div>
+                <div class="sys-card"><div class="l">B</div><div class="n">Mech. toe</div></div>
+                <div class="sys-card selected"><div class="l">C</div><div class="n">Mech. af</div></div>
+                <div class="sys-card"><div class="l">D</div><div class="n">Gebal.</div></div>
+                <div class="sys-card"><div class="l">E</div><div class="n">Lokaal</div></div>
+              </div>
+              <p style="font-size:var(--text-sm); color:var(--color-gray-500); margin-top:var(--space-3)">
+                Systeem C: natuurlijke toevoer via gevelroosters in droge vertrekken, mechanische afvoer in natte vertrekken. Overstroom via doorstroomopeningen (spleten).
+              </p>
+            </div>
+
+            <!-- Zone-balans -->
+            <div class="card panel-card">
+              <h3 style="margin-bottom:var(--space-3)">Zone-balans</h3>
+              <div class="kv"><span>Toevoer (droog)</span><span class="v" style="color:var(--boundary-adjacent-room)">205,9 m&sup3;/h</span></div>
+              <div class="kv"><span>Afvoer (nat)</span><span class="v" style="color:var(--boundary-exterior)">151,2 m&sup3;/h</span></div>
+              <div class="balance-bar">
+                <div class="sup" style="width:58%"></div>
+                <div class="exh" style="width:42%"></div>
+              </div>
+              <div class="kv"><span>Overstroom naar nat</span><span class="v">151,2 m&sup3;/h</span></div>
+              <div class="kv"><span>Status</span><span class="v" style="color:var(--color-success)">&#10003; gedekt</span></div>
+            </div>
+
+            <!-- Balans per vertrek -->
+            <div class="card panel-card">
+              <h3 style="margin-bottom:var(--space-3)">Balans per vertrek</h3>
+              <table class="bal-table">
+                <thead><tr><th>Vertrek</th><th>Type</th><th class="num">Eis</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td>Woonkamer</td><td><span class="pill sup">toe</span></td><td class="num">91,4</td><td>&#10003;</td></tr>
+                  <tr><td>Slaapk. 1</td><td><span class="pill sup">toe</span></td><td class="num">28,4</td><td>&#10003;</td></tr>
+                  <tr><td>Slaapk. 2</td><td><span class="pill sup">toe</span></td><td class="num">41,8</td><td>&#10003;</td></tr>
+                  <tr><td>Slaapk. 3</td><td><span class="pill sup">toe</span></td><td class="num">44,3</td><td>&#10003;</td></tr>
+                  <tr><td>Keuken</td><td><span class="pill exh">af</span></td><td class="num">75,6</td><td>&#10003;</td></tr>
+                  <tr><td>Badkamer</td><td><span class="pill exh">af</span></td><td class="num">50,4</td><td>&#10003;</td></tr>
+                  <tr><td>Toilet</td><td><span class="pill exh">af</span></td><td class="num">25,2</td><td>&#10003;</td></tr>
+                  <tr><td>Entree</td><td><span class="pill none">verkeer</span></td><td class="num">&mdash;</td><td></td></tr>
+                </tbody>
+              </table>
+              <p style="font-size:10px; color:var(--color-gray-400); margin-top:6px">Eis in m&sup3;/h &middot; Bouwbesluit/BBL afd. 3.6</p>
+            </div>
+
+            <!-- Spleet detail (NEN 1087) -->
+            <div class="card panel-card">
+              <h3 style="margin-bottom:var(--space-2)">Spleet onder deur</h3>
+              <p style="font-size:var(--text-sm); color:var(--color-gray-500); margin-bottom:var(--space-2)">Deur Woonkamer &rarr; Gang (geselecteerd)</p>
+              <div class="gap-detail">
+                <div class="kv"><span>Overstroomdebiet q</span><span class="v">91,4 m&sup3;/h</span></div>
+                <div class="kv"><span>Toelaatbaar &Delta;P</span><span class="v">1,0 Pa</span></div>
+                <div class="kv"><span>Benodigde vrije doorlaat</span><span class="big">140 cm&sup2;</span></div>
+                <div class="kv"><span>Bij deurbreedte 0,83 m</span><span class="v">&rarr; 17 mm spleet</span></div>
+              </div>
+              <div class="formula">A = q / (C&#8345; &middot; &radic;(2&middot;&Delta;P/&rho;))<br>NEN 1087 &mdash; doorstroomopening</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  var t = localStorage.getItem('isso51-theme');
+  if (t) document.documentElement.setAttribute('data-theme', t);
+})();
+function toggleTheme() {
+  var d = document.documentElement;
+  var next = d.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  d.setAttribute('data-theme', next);
+  localStorage.setItem('isso51-theme', next);
+}
+// Laag-toggles
+document.querySelectorAll('.toggle-chip').forEach(function(chip){
+  chip.addEventListener('click', function(){
+    chip.classList.toggle('off');
+    var layer = document.getElementById(chip.dataset.layer);
+    if (layer) layer.classList.toggle('hidden');
+  });
+});
+// Systeem-selectie
+document.querySelectorAll('.sys-card').forEach(function(card){
+  card.addEventListener('click', function(){
+    document.querySelectorAll('.sys-card').forEach(function(c){ c.classList.remove('selected'); });
+    card.classList.add('selected');
+  });
+});
+</script>
+</body>
+</html>

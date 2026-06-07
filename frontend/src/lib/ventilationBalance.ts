@@ -1,0 +1,326 @@
+/**
+ * Ventilatiebalans — afgeleide berekeningen (frontend, TypeScript).
+ *
+ * Pragmatische port van de pyRevit `VentilatieBalans`-plugin: BBL-eis per
+ * ruimte (dm³/s), default gebruiksfunctie-classificatie uit de model-room en
+ * een eenvoudige (indicatieve) spleet-onder-deur-schatting. NEN 1087-exact
+ * komt in delegatie 2.
+ *
+ * **Eenheden:** dm³/s intern.
+ */
+
+import type { Project } from "../types";
+import type { RoomFunction } from "../types/project";
+import type { ModelRoom, Point2D } from "../components/modeller/types";
+import { segmentsShareEdge } from "../components/modeller/geometry";
+import {
+  bblDemandDm3s,
+  bblRequirementFor,
+  DEFAULT_BBL_FUNCTION,
+  type BblFunctionKey,
+  type BblRequirementType,
+  type VentilationRoomState,
+} from "../types/ventilation";
+
+/**
+ * Map de model-room-`function` (RoomFunction) op een BBL-gebruiksfunctie.
+ * Onbekend → {@link DEFAULT_BBL_FUNCTION}.
+ */
+const ROOM_FUNCTION_TO_BBL: Record<RoomFunction, BblFunctionKey> = {
+  living_room: "verblijfsruimte",
+  kitchen: "keuken",
+  bedroom: "verblijfsruimte",
+  bathroom: "badruimte",
+  toilet: "toiletruimte",
+  hallway: "verkeersruimte",
+  landing: "verkeersruimte",
+  storage: "bergruimte",
+  attic: "bergruimte",
+  custom: DEFAULT_BBL_FUNCTION,
+};
+
+/** Bepaal de default BBL-functie voor een room-functie-string. */
+export function defaultBblFunction(fn: string): BblFunctionKey {
+  return ROOM_FUNCTION_TO_BBL[fn as RoomFunction] ?? DEFAULT_BBL_FUNCTION;
+}
+
+/**
+ * Bereken de per-room ventilatie-state (gebruiksfunctie + eisen in dm³/s) voor
+ * een gegeven oppervlak. Wanneer een bestaande state een handmatig gekozen
+ * `ventilationFunction` heeft, wordt die gerespecteerd; anders valt het terug
+ * op de afgeleide functie uit de room-`function`.
+ */
+export function computeRoomVentilation(
+  areaM2: number,
+  roomFunction: string,
+  existing?: VentilationRoomState,
+): VentilationRoomState {
+  const fn = existing?.ventilationFunction ?? defaultBblFunction(roomFunction);
+  const req = bblRequirementFor(fn);
+  const demand = bblDemandDm3s(areaM2, fn);
+  return {
+    ventilationFunction: fn,
+    requiredSupplyDm3s: req.type === "supply" ? demand : 0,
+    requiredExhaustDm3s: req.type === "exhaust" ? demand : 0,
+    airSourceRoomId: existing?.airSourceRoomId ?? null,
+  };
+}
+
+/**
+ * Bereken de BBL-eis (dm³/s) per ruimte voor het hele project. Resultaat is
+ * gekeyed op `room.id`. Hergebruikt bestaande sidecar-states (handmatige
+ * functie-override + overstroom-bron) waar aanwezig.
+ *
+ * Oppervlak komt uit `Room.floor_area` (m²) — de calc-bron van waarheid.
+ */
+export function deriveVentilationDemand(
+  project: Project,
+  existing?: Record<string, VentilationRoomState>,
+): Record<string, VentilationRoomState> {
+  const out: Record<string, VentilationRoomState> = {};
+  for (const room of project.rooms) {
+    const sourceId =
+      existing?.[room.id]?.airSourceRoomId ?? room.air_source_room_id ?? null;
+    const base = existing?.[room.id]
+      ? { ...existing[room.id]!, airSourceRoomId: sourceId }
+      : undefined;
+    out[room.id] = computeRoomVentilation(
+      room.floor_area,
+      String(room.function),
+      base,
+    );
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Spleet onder de deur — indicatieve schatting
+// ---------------------------------------------------------------------------
+
+/**
+ * Indicatieve schatting van de benodigde vrije doorlaat (cm²) van een
+ * doorstroomopening (spleet onder de deur) voor een gegeven overstroomdebiet.
+ *
+ * Orifice-benadering: `A = q / (C_d · √(2·ΔP/ρ))`, met
+ *   - q in m³/s (= dm³/s ÷ 1000),
+ *   - C_d ≈ 0,6 (scherprandige opening),
+ *   - ΔP ≈ 1,0 Pa (toelaatbaar drukverschil),
+ *   - ρ ≈ 1,2 kg/m³ (lucht).
+ *
+ * **Indicatief** — de NEN 1087-exacte parameters/formule volgen in delegatie 2.
+ * Resultaat in cm².
+ */
+export function estimateDoorGapAreaCm2(flowDm3s: number): number {
+  if (flowDm3s <= 0) return 0;
+  const C_D = 0.6;
+  const DELTA_P = 1.0; // Pa
+  const RHO = 1.2; // kg/m³
+  const qM3s = flowDm3s / 1000;
+  const aM2 = qM3s / (C_D * Math.sqrt((2 * DELTA_P) / RHO));
+  return aM2 * 1e4; // m² → cm²
+}
+
+// ---------------------------------------------------------------------------
+// Overstroom-relaties — afgeleid van gedeelde wanden (niet van deuren)
+// ---------------------------------------------------------------------------
+
+/**
+ * Eén overstroom-relatie tussen twee aangrenzende ruimtes: lucht stroomt van de
+ * bron- (toevoer) naar de doel- (afvoer) ruimte door de doorstroomopening in de
+ * gedeelde scheidingswand.
+ *
+ * Geometrie is afgeleid uit de gedeelde wand-edge tussen de twee
+ * room-polygonen: `mid` is het midden van de overlap, `nx/ny` wijst van de bron
+ * naar de doel-ruimte (loodrecht op de wand), `ux/uy` loopt langs de wand.
+ * `overlapMm` is de lengte van de gedeelde edge (voor de spleet-balkbreedte).
+ */
+export interface OverflowRelation {
+  /** Stabiele sleutel op het ruimte-paar (gesorteerd, dedup). */
+  key: string;
+  /** Bron-ruimte (toevoer) id. */
+  sourceRoomId: string;
+  /** Doel-ruimte (afvoer) id. */
+  targetRoomId: string;
+  /** Midden van de gedeelde wand-edge (wereld-mm). */
+  mid: Point2D;
+  /** Eenheidsvector langs de gedeelde wand. */
+  ux: number;
+  uy: number;
+  /** Eenheidsvector loodrecht op de wand, bron → doel. */
+  nx: number;
+  ny: number;
+  /** Lengte van de gedeelde edge-overlap in mm. */
+  overlapMm: number;
+  /** Indicatief overstroomdebiet in dm³/s (afvoer-eis van de doel-ruimte). */
+  flowDm3s: number;
+}
+
+/** Het BBL-type (supply/exhaust/none) voor een ruimte uit de ventilatie-state. */
+function ventTypeOf(
+  vr: VentilationRoomState | undefined,
+): BblRequirementType {
+  if (!vr) return "none";
+  if (vr.requiredSupplyDm3s > 0) return "supply";
+  if (vr.requiredExhaustDm3s > 0) return "exhaust";
+  return "none";
+}
+
+/**
+ * Bepaal de overstroom-richting voor een paar aangrenzende ruimtes.
+ *
+ * Prioriteit:
+ *   1. `airSourceRoomId` — wanneer ruimte X die van ruimte Y heeft gezet,
+ *      stroomt lucht Y → X (X betrekt z'n lucht uit Y). Hardste signaal.
+ *   2. BBL-type-heuristiek — toevoer-ruimte (droog) → afvoer-ruimte (nat).
+ *
+ * Returns `[sourceId, targetId]` of `null` wanneer er geen overstroom is
+ * (zelfde type aan beide kanten, of beide `none`).
+ */
+function resolveOverflowDirection(
+  aId: string,
+  bId: string,
+  vrA: VentilationRoomState | undefined,
+  vrB: VentilationRoomState | undefined,
+): [string, string] | null {
+  // 1. Expliciete overstroom-bron (hardste signaal).
+  if (vrA?.airSourceRoomId === bId) return [bId, aId];
+  if (vrB?.airSourceRoomId === aId) return [aId, bId];
+
+  // 2. Type-heuristiek: toevoer → afvoer.
+  const ta = ventTypeOf(vrA);
+  const tb = ventTypeOf(vrB);
+  if (ta === "supply" && tb === "exhaust") return [aId, bId];
+  if (tb === "supply" && ta === "exhaust") return [bId, aId];
+
+  // Geen netto overstroom-richting (zelfde type, of een verkeersruimte zonder
+  // expliciete bron aan beide kanten).
+  return null;
+}
+
+/**
+ * Vind de gedeelde wand-edge tussen twee room-polygonen en geef de geometrie
+ * voor de overstroom-pijl + spleet-balk terug. `nx/ny` wijst van `polyFrom`
+ * (bron) naar `polyTo` (doel). Returns `null` als er geen gedeelde edge is.
+ */
+function sharedEdgeGeometry(
+  polyFrom: Point2D[],
+  polyTo: Point2D[],
+): { mid: Point2D; ux: number; uy: number; nx: number; ny: number; overlapMm: number } | null {
+  const nFrom = polyFrom.length;
+  const nTo = polyTo.length;
+  for (let i = 0; i < nFrom; i++) {
+    const a = polyFrom[i]!;
+    const b = polyFrom[(i + 1) % nFrom]!;
+    for (let j = 0; j < nTo; j++) {
+      const c = polyTo[j]!;
+      const d = polyTo[(j + 1) % nTo]!;
+      if (!segmentsShareEdge(a, b, c, d)) continue;
+
+      // Overlap-interval langs de bron-edge (projecteer c,d op a→b).
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const ux = dx / len;
+      const uy = dy / len;
+      const tA = 0;
+      const tB = len;
+      const tC = (c.x - a.x) * ux + (c.y - a.y) * uy;
+      const tD = (d.x - a.x) * ux + (d.y - a.y) * uy;
+      const lo = Math.max(Math.min(tA, tB), Math.min(tC, tD));
+      const hi = Math.min(Math.max(tA, tB), Math.max(tC, tD));
+      const overlapMm = Math.max(0, hi - lo);
+      const tMid = (lo + hi) / 2;
+      const mid = { x: a.x + ux * tMid, y: a.y + uy * tMid };
+
+      // Normaal loodrecht op de wand; oriënteer van bron- naar doel-polygon
+      // (richting het centrum van de doel-ruimte).
+      let nx = uy;
+      let ny = -ux;
+      const cTo = polygonCentroid(polyTo);
+      if ((cTo.x - mid.x) * nx + (cTo.y - mid.y) * ny < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      return { mid, ux, uy, nx, ny, overlapMm };
+    }
+  }
+  return null;
+}
+
+/** Eenvoudig zwaartepunt (gemiddelde van de hoekpunten). */
+function polygonCentroid(poly: Point2D[]): Point2D {
+  const n = poly.length;
+  return {
+    x: poly.reduce((s, p) => s + p.x, 0) / n,
+    y: poly.reduce((s, p) => s + p.y, 0) / n,
+  };
+}
+
+/**
+ * Leid de overstroom-relaties af voor een set model-ruimtes + hun ventilatie-
+ * state. Voor elk paar aangrenzende ruimtes (gedeelde wand) wordt bepaald of
+ * lucht overstroomt en in welke richting (`airSourceRoomId` > toevoer→afvoer-
+ * heuristiek). Per ruimte-paar maximaal één relatie (dedup).
+ *
+ * Geen interactie met `deriveModelDoors` (die blijft een stub) — de
+ * doorstroomopening hangt aan de scheidingswand, niet aan een deur-object.
+ *
+ * @param rooms model-ruimtes (polygonen in wereld-mm)
+ * @param ventilationRooms per-room ventilatie-state (eisen + overstroom-bron)
+ */
+export function deriveOverflowRelations(
+  rooms: ModelRoom[],
+  ventilationRooms: Record<string, VentilationRoomState>,
+): OverflowRelation[] {
+  const out: OverflowRelation[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < rooms.length; i++) {
+    const ri = rooms[i]!;
+    for (let j = i + 1; j < rooms.length; j++) {
+      const rj = rooms[j]!;
+      const pairKey = ri.id < rj.id ? `${ri.id}|${rj.id}` : `${rj.id}|${ri.id}`;
+      if (seen.has(pairKey)) continue;
+
+      const dir = resolveOverflowDirection(
+        ri.id,
+        rj.id,
+        ventilationRooms[ri.id],
+        ventilationRooms[rj.id],
+      );
+      if (!dir) continue;
+      const [sourceId, targetId] = dir;
+
+      const sourceRoom = sourceId === ri.id ? ri : rj;
+      const targetRoom = targetId === ri.id ? ri : rj;
+      const geom = sharedEdgeGeometry(sourceRoom.polygon, targetRoom.polygon);
+      if (!geom) continue; // delen wel een type-relatie maar geen geometrische wand
+
+      seen.add(pairKey);
+
+      // Overstroomdebiet ≈ afvoer-eis van de doel-ruimte (indicatief); val
+      // terug op de toevoer-eis van de bron als de doel-ruimte geen afvoer heeft.
+      const vrTarget = ventilationRooms[targetId];
+      const vrSource = ventilationRooms[sourceId];
+      const flowDm3s =
+        (vrTarget?.requiredExhaustDm3s ?? 0) > 0
+          ? vrTarget!.requiredExhaustDm3s
+          : (vrSource?.requiredSupplyDm3s ?? 0);
+
+      out.push({
+        key: pairKey,
+        sourceRoomId: sourceId,
+        targetRoomId: targetId,
+        mid: geom.mid,
+        ux: geom.ux,
+        uy: geom.uy,
+        nx: geom.nx,
+        ny: geom.ny,
+        overlapMm: geom.overlapMm,
+        flowDm3s,
+      });
+    }
+  }
+  return out;
+}

@@ -94,6 +94,7 @@ export function ProjectSetup() {
             isso53Building: imported.isso53?.building,
             isso53Rooms: imported.isso53?.rooms,
             sharedExtra: imported.sharedExtra,
+            ventilation: imported.ventilation,
           });
           if (imported.result) {
             setResult(imported.result);

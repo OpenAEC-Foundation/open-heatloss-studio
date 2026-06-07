@@ -114,6 +114,8 @@ export type ModellerTool =
   | "draw_circle"
   | "draw_window"
   | "draw_door"
+  | "place_supply"
+  | "place_exhaust"
   | "split_room"
   | "annotate_text"
   | "annotate_dimension"
