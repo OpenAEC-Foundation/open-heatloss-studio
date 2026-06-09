@@ -1,0 +1,1072 @@
+{
+  "info": {
+    "name": "WV ISSO51 Tuinkamerwoning",
+    "project_number": "IS51-2",
+    "notes": "Voorbeeld Warmteverliesberekening conform ISSO",
+    "engineer": "Vabi import (extract_vp.py)"
+  },
+  "building": {
+    "building_type": "terraced",
+    "qv10": 100.0,
+    "security_class": "a",
+    "total_floor_area": 202.98,
+    "num_floors": 1,
+    "has_night_setback": true,
+    "warmup_time": 2.0
+  },
+  "climate": {
+    "theta_e": -10.0
+  },
+  "ventilation": {
+    "system_type": "system_d",
+    "has_heat_recovery": true,
+    "heat_recovery_efficiency": 0.5
+  },
+  "rooms": [
+    {
+      "id": "1.1",
+      "name": "04:Toilet",
+      "function": "toilet",
+      "floor_area": 2.6,
+      "height": 1.172,
+      "constructions": [
+        {
+          "id": "bp_1",
+          "description": "Floor 1",
+          "area": 1.3,
+          "u_value": 0.3663,
+          "boundary_type": "ground",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_7",
+          "description": "Floor 2",
+          "area": 1.3,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_2",
+          "description": "Wall 3",
+          "area": 2.65,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_4",
+          "description": "Wall 4",
+          "area": 3.445,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_5",
+          "description": "Wall 5",
+          "area": 2.65,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_6",
+          "description": "Wall 6",
+          "area": 3.445,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "1.2",
+      "name": "03:Entree",
+      "function": "hallway",
+      "floor_area": 16.6,
+      "height": 1.294,
+      "constructions": [
+        {
+          "id": "bp_8",
+          "description": "Floor 1",
+          "area": 8.3,
+          "u_value": 0.3663,
+          "boundary_type": "ground",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_55",
+          "description": "Floor 2",
+          "area": 6.3,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_56",
+          "description": "Floor 3",
+          "area": 2.0,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_5",
+          "description": "Wall 4",
+          "area": 2.65,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_6",
+          "description": "Wall 5",
+          "area": 3.445,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_9",
+          "description": "Wall 6",
+          "area": 7.95,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_10",
+          "description": "Wall 7",
+          "area": 3.445,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_12",
+          "description": "Wall 8",
+          "area": 11.66,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_13",
+          "description": "Wall 9",
+          "area": 2.65,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_14",
+          "description": "Wall 10",
+          "area": 7.155,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_15",
+          "description": "Wall 11",
+          "area": 3.445,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "1.3",
+      "name": "02:Keuken",
+      "function": "kitchen",
+      "floor_area": 16.8,
+      "height": 1.259,
+      "constructions": [
+        {
+          "id": "bp_16",
+          "description": "Floor 1",
+          "area": 8.4,
+          "u_value": 0.3663,
+          "boundary_type": "ground",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_21",
+          "description": "Floor 2",
+          "area": 8.4,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_9",
+          "description": "Wall 3",
+          "area": 7.95,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_17",
+          "description": "Wall 4",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_18",
+          "description": "Wall 5",
+          "area": 7.95,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_19",
+          "description": "Wall 6",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "1.4",
+      "name": "01:Woonkamer",
+      "function": "living_room",
+      "floor_area": 55.8,
+      "height": 1.289,
+      "constructions": [
+        {
+          "id": "bp_22",
+          "description": "Floor 1",
+          "area": 27.9,
+          "u_value": 0.3663,
+          "boundary_type": "ground",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_58",
+          "description": "Floor 2",
+          "area": 2.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_59",
+          "description": "Floor 3",
+          "area": 0.91,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50468",
+          "description": "Floor 4",
+          "area": 12.32,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50469",
+          "description": "Floor 5",
+          "area": 7.59,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50470",
+          "description": "Floor 6",
+          "area": 4.48,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_13",
+          "description": "Wall 7",
+          "area": 2.65,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_14",
+          "description": "Wall 8",
+          "area": 7.155,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_15",
+          "description": "Wall 9",
+          "area": 3.445,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_17",
+          "description": "Wall 10",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_23",
+          "description": "Wall 11",
+          "area": 13.515,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_25",
+          "description": "Wall 12",
+          "area": 15.9,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_26",
+          "description": "Wall 13",
+          "area": 8.745,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "2.1",
+      "name": "15:Overloop",
+      "function": "landing",
+      "floor_area": 9.2,
+      "height": 1.325,
+      "constructions": [
+        {
+          "id": "bp_32",
+          "description": "Floor 1",
+          "area": 4.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_56",
+          "description": "Floor 2",
+          "area": 2.0,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_58",
+          "description": "Floor 3",
+          "area": 2.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_27",
+          "description": "Wall 4",
+          "area": 5.3,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_28",
+          "description": "Wall 5",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_29",
+          "description": "Wall 6",
+          "area": 2.915,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_30",
+          "description": "Wall 7",
+          "area": 2.385,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_31",
+          "description": "Wall 8",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "2.2",
+      "name": "14:Badkamer",
+      "function": "bathroom",
+      "floor_area": 11.04,
+      "height": 1.822,
+      "constructions": [
+        {
+          "id": "bp_50471",
+          "description": "FlatRoof 1",
+          "area": 5.98,
+          "u_value": 0.365,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "ceiling",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_7",
+          "description": "Floor 2",
+          "area": 1.3,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_37",
+          "description": "Floor 3",
+          "area": 2.53,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_55",
+          "description": "Floor 4",
+          "area": 6.3,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_59",
+          "description": "Floor 5",
+          "area": 0.91,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_31",
+          "description": "Wall 6",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_33",
+          "description": "Wall 7",
+          "area": 9.805,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_34",
+          "description": "Wall 8",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_36",
+          "description": "Wall 9",
+          "area": 9.805,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "2.3",
+      "name": "13:Slaapkamer 3",
+      "function": "bedroom",
+      "floor_area": 18.48,
+      "height": 1.686,
+      "constructions": [
+        {
+          "id": "bp_50472",
+          "description": "FlatRoof 1",
+          "area": 7.28,
+          "u_value": 0.365,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "ceiling",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_21",
+          "description": "Floor 2",
+          "area": 8.4,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50470",
+          "description": "Floor 3",
+          "area": 4.48,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50475",
+          "description": "Floor 4",
+          "area": 5.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_30",
+          "description": "Wall 5",
+          "area": 2.385,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_33",
+          "description": "Wall 6",
+          "area": 9.805,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_39",
+          "description": "Wall 7",
+          "area": 12.19,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_40",
+          "description": "Wall 8",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_42",
+          "description": "Wall 9",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "2.4",
+      "name": "12:Slaapkamer 2",
+      "function": "bedroom",
+      "floor_area": 15.18,
+      "height": 1.265,
+      "constructions": [
+        {
+          "id": "bp_50469",
+          "description": "Floor 1",
+          "area": 7.59,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50474",
+          "description": "Floor 2",
+          "area": 7.59,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_28",
+          "description": "Wall 3",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_45",
+          "description": "Wall 4",
+          "area": 6.095,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_47",
+          "description": "Wall 5",
+          "area": 8.745,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_48",
+          "description": "Wall 6",
+          "area": 8.745,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "2.5",
+      "name": "11:Slaapkamer 1",
+      "function": "bedroom",
+      "floor_area": 24.64,
+      "height": 1.28,
+      "constructions": [
+        {
+          "id": "bp_50468",
+          "description": "Floor 1",
+          "area": 12.32,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50473",
+          "description": "Floor 2",
+          "area": 12.32,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_29",
+          "description": "Wall 3",
+          "area": 2.915,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_42",
+          "description": "Wall 4",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_47",
+          "description": "Wall 5",
+          "area": 8.745,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_51",
+          "description": "Wall 6",
+          "area": 7.42,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_53",
+          "description": "Wall 7",
+          "area": 11.66,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    },
+    {
+      "id": "3.1",
+      "name": "21:Zolder",
+      "function": "attic",
+      "floor_area": 32.64,
+      "height": 2.268,
+      "constructions": [
+        {
+          "id": "bp_65",
+          "description": "FlatRoof 1",
+          "area": 32.64,
+          "u_value": 0.365,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "ceiling",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_32",
+          "description": "Floor 2",
+          "area": 4.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_37",
+          "description": "Floor 3",
+          "area": 2.53,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50473",
+          "description": "Floor 4",
+          "area": 12.32,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50474",
+          "description": "Floor 5",
+          "area": 7.59,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_50475",
+          "description": "Floor 6",
+          "area": 5.6,
+          "u_value": 0.3663,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "floor",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_60",
+          "description": "Wall 7",
+          "area": 13.515,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_61",
+          "description": "Wall 8",
+          "area": 16.96,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_62",
+          "description": "Wall 9",
+          "area": 13.515,
+          "u_value": 0.361,
+          "boundary_type": "exterior",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        },
+        {
+          "id": "bp_64",
+          "description": "Wall 10",
+          "area": 16.96,
+          "u_value": 2.5641,
+          "boundary_type": "adjacent_building",
+          "material_type": "masonry",
+          "vertical_position": "wall",
+          "use_forfaitaire_thermal_bridge": true,
+          "has_embedded_heating": false
+        }
+      ],
+      "heating_system": "radiator_ht",
+      "clamp_positive": true
+    }
+  ]
+}
