@@ -1,0 +1,56 @@
+{
+  "project": "ISSO 51 Portiekwoning (worked example)",
+  "source": "PLACEHOLDER — onze eigen ISSO 51-engine op tests/fixtures/portiekwoning.json. Vervang deze getallen door de werkelijke Vabi WV-rapport-PDF waarden zodra die uit Vabi GUI zijn geexporteerd (zie README, fase B).",
+  "notes": "Deze waarden zijn GEEN onafhankelijke Vabi-referentie maar onze eigen output, zodat de harness aantoonbaar draait en ~0% verschil toont tegen de fixture. phi_ventilation = phi_v + phi_i. H_T = som van alle transmissie-conductanties (W/K).",
+  "tolerance_pct": 5.0,
+  "rooms": {
+    "Woonkamer": {
+      "phi_transmission": 1247.0,
+      "phi_ventilation": 995.1,
+      "phi_total": 2051.5,
+      "h_t": 41.57
+    },
+    "Keuken": {
+      "phi_transmission": 618.7,
+      "phi_ventilation": 42.4,
+      "phi_total": 813.7,
+      "h_t": 20.62
+    },
+    "Badkamer": {
+      "phi_transmission": 275.8,
+      "phi_ventilation": 117.6,
+      "phi_total": 367.5,
+      "h_t": 8.62
+    },
+    "Slaapkamer 1": {
+      "phi_transmission": 693.7,
+      "phi_ventilation": 325.3,
+      "phi_total": 978.4,
+      "h_t": 23.12
+    },
+    "Slaapkamer 2": {
+      "phi_transmission": 536.5,
+      "phi_ventilation": 474.6,
+      "phi_total": 951.3,
+      "h_t": 17.88
+    },
+    "Slaapkamer 3": {
+      "phi_transmission": 694.9,
+      "phi_ventilation": 484.8,
+      "phi_total": 1072.6,
+      "h_t": 23.16
+    },
+    "Entree": {
+      "phi_transmission": -239.9,
+      "phi_ventilation": 132.0,
+      "phi_total": 0.0,
+      "h_t": -9.59
+    },
+    "Toilet": {
+      "phi_transmission": -78.4,
+      "phi_ventilation": 0.0,
+      "phi_total": 0.0,
+      "h_t": -3.14
+    }
+  }
+}

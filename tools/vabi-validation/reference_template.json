@@ -1,0 +1,20 @@
+{
+  "project": "<project name>",
+  "source": "Vabi Elements warmteverlies-rapport (PDF), <filename / date>",
+  "notes": "Vul per ruimte de vier grootheden uit het Vabi WV-rapport in. Alle vermogens in W, H_T in W/K. phi_ventilation = ventilatie + infiltratie samen (Vabi rapporteert deze vaak als een gecombineerde post). De sleutel per ruimte mag de Vabi-ruimtenaam zijn (numeriek prefix als '01:' wordt automatisch genegeerd bij het matchen) of het ruimte-id.",
+  "tolerance_pct": 5.0,
+  "rooms": {
+    "Woonkamer": {
+      "phi_transmission": 0.0,
+      "phi_ventilation": 0.0,
+      "phi_total": 0.0,
+      "h_t": 0.0
+    },
+    "Keuken": {
+      "phi_transmission": 0.0,
+      "phi_ventilation": 0.0,
+      "phi_total": 0.0,
+      "h_t": 0.0
+    }
+  }
+}
