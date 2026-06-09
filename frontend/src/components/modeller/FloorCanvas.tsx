@@ -1528,10 +1528,12 @@ function VentilationLayer({
     return m;
   }, [rooms]);
 
-  // Glyph-maat in wereld-mm — schaalt mee zodat het op elke zoom leesbaar is.
-  const r = 220 * invZoom; // ventiel-straal
-  const arrowLen = 700 * invZoom; // gevelrooster-pijllengte
-  const stroke = Math.max(60, 3 * invZoom);
+  // Glyph-maat in schermpixels (× invZoom = constante schermgrootte op elke
+  // zoom, idem als de vertex-handles die `4 * invZoom` gebruiken). De oude
+  // waarden (220/700/60) leverden een ~220 px ventiel-straal → veel te groot.
+  const r = 12 * invZoom; // ventiel-straal (~12 px op scherm)
+  const arrowLen = 32 * invZoom; // gevelrooster-pijllengte
+  const stroke = 2 * invZoom; // ~2 px lijn, consistent met de overige glyphs
 
   return (
     <Group listening={false}>
