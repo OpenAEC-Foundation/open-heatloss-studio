@@ -17,9 +17,13 @@ import {
   bblDemandDm3s,
   bblRequirementFor,
   DEFAULT_BBL_FUNCTION,
+  ventilationSystemOf,
   type BblFunctionKey,
   type BblRequirementType,
   type VentilationRoomState,
+  type VentilationState,
+  type VentilationSystemInfo,
+  type VentilationTerminal,
 } from "../types/ventilation";
 
 /**
@@ -48,7 +52,9 @@ export function defaultBblFunction(fn: string): BblFunctionKey {
  * Bereken de per-room ventilatie-state (gebruiksfunctie + eisen in dm³/s) voor
  * een gegeven oppervlak. Wanneer een bestaande state een handmatig gekozen
  * `ventilationFunction` heeft, wordt die gerespecteerd; anders valt het terug
- * op de afgeleide functie uit de room-`function`.
+ * op de afgeleide functie uit de room-`function`. Een opgegeven `occupancy`
+ * (bezetting) verhoogt de eis via de personen-toeslag in
+ * {@link bblDemandDm3s} (`max(opp × dm3/m², pers × pp, minimum)`).
  */
 export function computeRoomVentilation(
   areaM2: number,
@@ -57,12 +63,15 @@ export function computeRoomVentilation(
 ): VentilationRoomState {
   const fn = existing?.ventilationFunction ?? defaultBblFunction(roomFunction);
   const req = bblRequirementFor(fn);
-  const demand = bblDemandDm3s(areaM2, fn);
+  const demand = bblDemandDm3s(areaM2, fn, existing?.occupancy);
   return {
     ventilationFunction: fn,
     requiredSupplyDm3s: req.type === "supply" ? demand : 0,
     requiredExhaustDm3s: req.type === "exhaust" ? demand : 0,
     airSourceRoomId: existing?.airSourceRoomId ?? null,
+    ...(existing?.occupancy !== undefined
+      ? { occupancy: existing.occupancy }
+      : {}),
   };
 }
 
@@ -323,4 +332,126 @@ export function deriveOverflowRelations(
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Gebouwbalans — per-room aggregatie + totalen (zijpaneel)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tolerantie (dm³/s) waarbinnen totaal-toevoer en totaal-afvoer als "in
+ * balans" gelden. Port van `abs(balans) < 1` uit de pyRevit-plugin
+ * (`VentilatieBalans.pushbutton/script.py:1211`).
+ */
+export const BALANCE_TOLERANCE_DM3S = 1.0;
+
+/** Per-room regel in de gebouwbalans (eis vs. aanwezig per richting). */
+export interface RoomVentilationBalance {
+  roomId: string;
+  /** BBL-eis toevoer/afvoer in dm³/s (uit de afgeleide room-state). */
+  requiredSupplyDm3s: number;
+  requiredExhaustDm3s: number;
+  /** Som van `flowDm3s` van de geplaatste ventielen (zonder debiet = 0). */
+  presentSupplyDm3s: number;
+  presentExhaustDm3s: number;
+  /** Aantal ventielen in deze ruimte zónder `flowDm3s` ("debiet ontbreekt"). */
+  missingFlowCount: number;
+  /**
+   * Tekort per richting in dm³/s (eis − aanwezig, geclamped op ≥ 0).
+   * Bij een natuurlijke kant (zie {@link VentilationSystemInfo}) is het
+   * ventiel-tekort niet van toepassing en is de waarde 0 — de toetsing loopt
+   * dan via gevelroosters/natuurlijke afvoer i.p.v. ventielen.
+   */
+  supplyDeficitDm3s: number;
+  exhaustDeficitDm3s: number;
+}
+
+/** Gebouwbrede ventilatiebalans: per-room regels + totalen + indicator. */
+export interface BuildingVentilationBalance {
+  rooms: Record<string, RoomVentilationBalance>;
+  /** Effectief ventilatiesysteem (default-fallback voor oude bestanden). */
+  system: VentilationSystemInfo;
+  totalRequiredSupplyDm3s: number;
+  totalRequiredExhaustDm3s: number;
+  totalPresentSupplyDm3s: number;
+  totalPresentExhaustDm3s: number;
+  /** Eis-totalen in balans binnen {@link BALANCE_TOLERANCE_DM3S}? */
+  balanced: boolean;
+  /** Totaal toevoer-eis − totaal afvoer-eis in dm³/s (+ = overdruk). */
+  imbalanceDm3s: number;
+}
+
+/**
+ * Aggregeer de gebouwbalans uit de per-room eisen + geplaatste ventielen.
+ *
+ * - "Aanwezig" per ruimte = som `flowDm3s` van de terminals van dat type;
+ *   terminals zonder `flowDm3s` tellen als 0 maar worden geteld in
+ *   `missingFlowCount` zodat de UI ze kan markeren.
+ * - Tekorten worden alleen gerapporteerd voor de mechanische kant(en) van het
+ *   gekozen systeem; een natuurlijke kant (bv. toevoer bij systeem A/C) wordt
+ *   via gevelroosters getoetst en krijgt tekort 0.
+ * - De balans-indicator vergelijkt de eis-totalen (toevoer vs. afvoer) binnen
+ *   {@link BALANCE_TOLERANCE_DM3S} — zelfde criterium als de plugin.
+ */
+export function aggregateVentilationBalance(
+  ventilationRooms: Record<string, VentilationRoomState>,
+  terminals: VentilationTerminal[],
+  system?: VentilationState["system"],
+): BuildingVentilationBalance {
+  const sys = ventilationSystemOf({ system });
+  const rooms: Record<string, RoomVentilationBalance> = {};
+
+  for (const [roomId, vr] of Object.entries(ventilationRooms)) {
+    rooms[roomId] = {
+      roomId,
+      requiredSupplyDm3s: vr.requiredSupplyDm3s,
+      requiredExhaustDm3s: vr.requiredExhaustDm3s,
+      presentSupplyDm3s: 0,
+      presentExhaustDm3s: 0,
+      missingFlowCount: 0,
+      supplyDeficitDm3s: 0,
+      exhaustDeficitDm3s: 0,
+    };
+  }
+
+  for (const t of terminals) {
+    const row = rooms[t.roomId];
+    if (!row) continue; // ventiel van een verwijderde/onbekende ruimte
+    if (t.flowDm3s === undefined) {
+      row.missingFlowCount += 1;
+      continue;
+    }
+    if (t.type === "supply") row.presentSupplyDm3s += t.flowDm3s;
+    else row.presentExhaustDm3s += t.flowDm3s;
+  }
+
+  let totalRequiredSupply = 0;
+  let totalRequiredExhaust = 0;
+  let totalPresentSupply = 0;
+  let totalPresentExhaust = 0;
+
+  for (const row of Object.values(rooms)) {
+    row.supplyDeficitDm3s = sys.supplyMechanical
+      ? Math.max(0, row.requiredSupplyDm3s - row.presentSupplyDm3s)
+      : 0;
+    row.exhaustDeficitDm3s = sys.exhaustMechanical
+      ? Math.max(0, row.requiredExhaustDm3s - row.presentExhaustDm3s)
+      : 0;
+    totalRequiredSupply += row.requiredSupplyDm3s;
+    totalRequiredExhaust += row.requiredExhaustDm3s;
+    totalPresentSupply += row.presentSupplyDm3s;
+    totalPresentExhaust += row.presentExhaustDm3s;
+  }
+
+  const imbalance = totalRequiredSupply - totalRequiredExhaust;
+  return {
+    rooms,
+    system: sys,
+    totalRequiredSupplyDm3s: totalRequiredSupply,
+    totalRequiredExhaustDm3s: totalRequiredExhaust,
+    totalPresentSupplyDm3s: totalPresentSupply,
+    totalPresentExhaustDm3s: totalPresentExhaust,
+    balanced: Math.abs(imbalance) < BALANCE_TOLERANCE_DM3S,
+    imbalanceDm3s: imbalance,
+  };
 }

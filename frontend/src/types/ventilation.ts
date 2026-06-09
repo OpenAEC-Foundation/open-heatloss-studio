@@ -80,6 +80,14 @@ export interface VentilationRoomState {
    * buitenlucht. Spiegelt/overschrijft `Room.air_source_room_id`.
    */
   airSourceRoomId?: string | null;
+  /**
+   * Optionele bezetting (aantal personen) voor de personen-toeslag op de
+   * BBL-eis: `eis = max(opp × dm3/m², personen × pp-debiet, minimum)`.
+   * `undefined` = geen toeslag. Port van `aantal_personen` /
+   * `_bereken_ventilatie_eis` uit de pyRevit-plugin
+   * (`VentilatieBalans.pushbutton/script.py:272-289`).
+   */
+  occupancy?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,12 +101,85 @@ export interface VentilationRoomState {
 export interface VentilationState {
   terminals: VentilationTerminal[];
   rooms: Record<string, VentilationRoomState>;
+  /**
+   * Gebouw-niveau ventilatiesysteem (NL-standaard A–D). Optioneel zodat
+   * oude opgeslagen projecten zonder dit veld blijven laden — `undefined`
+   * valt terug op {@link DEFAULT_VENTILATION_SYSTEM} via
+   * {@link ventilationSystemOf}.
+   */
+  system?: VentilationSystemKey;
 }
 
 export const DEFAULT_VENTILATION_STATE: VentilationState = {
   terminals: [],
   rooms: {},
 };
+
+// ---------------------------------------------------------------------------
+// Ventilatiesysteem A–D (gebouw-niveau)
+// ---------------------------------------------------------------------------
+
+/**
+ * NL-standaard ventilatiesystemen. De pyRevit-plugin
+ * (`VentilatieBalans.pushbutton/script.py`) kent géén systeemlijst (alleen
+ * WTW/MV-unitkeuze), dus we hanteren de standaard NEN 1087-indeling:
+ *   - A — natuurlijke toevoer + natuurlijke afvoer
+ *   - B — mechanische toevoer + natuurlijke afvoer
+ *   - C — natuurlijke toevoer + mechanische afvoer
+ *   - D — balansventilatie (WTW): mechanische toevoer + afvoer
+ */
+export type VentilationSystemKey = "A" | "B" | "C" | "D";
+
+/** Metadata per ventilatiesysteem: label + welke kant mechanisch is. */
+export interface VentilationSystemInfo {
+  key: VentilationSystemKey;
+  label: string;
+  /** Toevoer mechanisch (via ventielen) — anders natuurlijk via gevelroosters. */
+  supplyMechanical: boolean;
+  /** Afvoer mechanisch (via ventielen) — anders natuurlijk (bv. kanalen/schacht). */
+  exhaustMechanical: boolean;
+}
+
+export const VENTILATION_SYSTEMS: Record<VentilationSystemKey, VentilationSystemInfo> = {
+  A: {
+    key: "A",
+    label: "Systeem A — natuurlijke toevoer + natuurlijke afvoer",
+    supplyMechanical: false,
+    exhaustMechanical: false,
+  },
+  B: {
+    key: "B",
+    label: "Systeem B — mechanische toevoer + natuurlijke afvoer",
+    supplyMechanical: true,
+    exhaustMechanical: false,
+  },
+  C: {
+    key: "C",
+    label: "Systeem C — natuurlijke toevoer + mechanische afvoer",
+    supplyMechanical: false,
+    exhaustMechanical: true,
+  },
+  D: {
+    key: "D",
+    label: "Systeem D — balansventilatie (WTW)",
+    supplyMechanical: true,
+    exhaustMechanical: true,
+  },
+};
+
+/**
+ * Default systeem voor projecten zonder expliciete keuze. Systeem C is de
+ * meest gangbare bestaande-bouw/nieuwbouw-default in NL woningbouw en matcht
+ * de `system_c`-default van het calc-model (`projectStore.DEFAULT_PROJECT`).
+ */
+export const DEFAULT_VENTILATION_SYSTEM: VentilationSystemKey = "C";
+
+/** Effectief systeem van een sidecar-state (default-fallback voor oude files). */
+export function ventilationSystemOf(
+  state: Pick<VentilationState, "system"> | undefined,
+): VentilationSystemInfo {
+  return VENTILATION_SYSTEMS[state?.system ?? DEFAULT_VENTILATION_SYSTEM];
+}
 
 // ---------------------------------------------------------------------------
 // BBL-eisentabel (Bouwbesluit / BBL afd. 3.6)
@@ -182,13 +263,36 @@ export function bblRequirementFor(fn: string): BblRequirement {
 }
 
 /**
- * Per-ruimte BBL-eis in dm³/s = `max(oppervlak × dm3PerM2, minimum)`.
- * Personen-toeslag wordt (bewust) overgeslagen — komt in delegatie 2.
+ * Default ventilatiedebiet per persoon in dm³/s. Port van `dm3_per_persoon`
+ * uit de pyRevit-plugin (`VentilatieBalans.pushbutton/script.py:336` /
+ * NumericUpDown-default r.421: 4,0 dm³/s = 14,4 m³/h pp).
+ */
+export const DEFAULT_OCCUPANCY_DM3S_PER_PERSON = 4.0;
+
+/**
+ * Per-ruimte BBL-eis in dm³/s, inclusief optionele personen-toeslag:
+ * `eis = max(oppervlak × dm3PerM2, personen × pp-debiet, minimum)`.
+ *
+ * Port van `_bereken_ventilatie_eis` uit de pyRevit-plugin
+ * (`VentilatieBalans.pushbutton/script.py:282-289`). Net als in de plugin
+ * geldt de personen-term voor élke gebruiksfunctie (geen functie-restrictie)
+ * en alleen wanneer er daadwerkelijk personen zijn opgegeven (> 0).
  *
  * @param areaM2 vloeroppervlak in m²
  * @param fn gebruiksfunctie-sleutel
+ * @param occupancy aantal personen (`undefined`/0 = geen toeslag)
+ * @param dm3sPerPerson pp-debiet in dm³/s (default {@link DEFAULT_OCCUPANCY_DM3S_PER_PERSON})
  */
-export function bblDemandDm3s(areaM2: number, fn: string): number {
+export function bblDemandDm3s(
+  areaM2: number,
+  fn: string,
+  occupancy?: number,
+  dm3sPerPerson: number = DEFAULT_OCCUPANCY_DM3S_PER_PERSON,
+): number {
   const req = bblRequirementFor(fn);
-  return Math.max(areaM2 * req.dm3PerM2, req.minimumDm3s);
+  let demand = areaM2 * req.dm3PerM2;
+  if (occupancy !== undefined && occupancy > 0 && dm3sPerPerson > 0) {
+    demand = Math.max(demand, occupancy * dm3sPerPerson);
+  }
+  return Math.max(demand, req.minimumDm3s);
 }

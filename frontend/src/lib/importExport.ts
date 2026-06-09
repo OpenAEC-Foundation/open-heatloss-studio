@@ -29,7 +29,11 @@ import type {
   SharedExtra,
 } from "../types/projectV2";
 import { DEFAULT_SHARED_EXTRA } from "../types/projectV2";
-import type { VentilationState } from "../types/ventilation";
+import type {
+  VentilationState,
+  VentilationSystemKey,
+} from "../types/ventilation";
+import { VENTILATION_SYSTEMS } from "../types/ventilation";
 import {
   buildIfcEnergyDocument,
   detectFormat,
@@ -546,13 +550,18 @@ function readSharedExtraEnvelope(raw: unknown): SharedExtra | undefined {
 }
 
 /**
- * Bevat de ventilatie-sidecar betekenisvolle data (minstens één ventiel of
- * één per-room-veld)? Bepaalt of `ventilation` in de envelope wordt geschreven,
- * zodat exports zonder ventilatie byte-gelijk blijven aan de oude versie.
+ * Bevat de ventilatie-sidecar betekenisvolle data (minstens één ventiel, één
+ * per-room-veld of een expliciet gekozen systeem)? Bepaalt of `ventilation`
+ * in de envelope wordt geschreven, zodat exports zonder ventilatie byte-gelijk
+ * blijven aan de oude versie.
  */
 function isMeaningfulVentilation(v: VentilationState | undefined): boolean {
   if (!v) return false;
-  return v.terminals.length > 0 || Object.keys(v.rooms).length > 0;
+  return (
+    v.terminals.length > 0 ||
+    Object.keys(v.rooms).length > 0 ||
+    v.system !== undefined
+  );
 }
 
 /**
@@ -572,10 +581,20 @@ function readVentilationEnvelope(raw: unknown): VentilationState | undefined {
     o.rooms && typeof o.rooms === "object"
       ? (o.rooms as VentilationState["rooms"])
       : {};
-  if (terminals.length === 0 && Object.keys(rooms).length === 0) {
+  // Systeem A–D: alleen geldige sleutels doorlaten (forward-compat: een
+  // onbekende waarde uit een nieuwere versie valt terug op de default).
+  const system =
+    typeof o.system === "string" && o.system in VENTILATION_SYSTEMS
+      ? (o.system as VentilationSystemKey)
+      : undefined;
+  if (
+    terminals.length === 0 &&
+    Object.keys(rooms).length === 0 &&
+    system === undefined
+  ) {
     return undefined;
   }
-  return { terminals, rooms };
+  return { terminals, rooms, ...(system ? { system } : {}) };
 }
 
 /**
