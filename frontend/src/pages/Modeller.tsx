@@ -140,17 +140,28 @@ export function Modeller() {
   );
 
   const handleAddTerminal = useCallback(
-    (roomId: string, type: VentilationTerminalType, wallIndex: number, offsetMm: number) => {
+    (
+      roomId: string,
+      type: VentilationTerminalType,
+      placement:
+        | { wallIndex: number; offsetMm: number }
+        | { positionMm: { x: number; y: number } },
+    ) => {
       // Default-debiet = de afgeleide BBL-eis voor dit type (indicatief).
       const vr = ventilationRooms[roomId];
       const flowDm3s =
         type === "supply" ? vr?.requiredSupplyDm3s : vr?.requiredExhaustDm3s;
+      // Wand-binding (wallIndex/offsetMm) óf vrije positie (positionMm,
+      // plafond-/dakventiel) — nooit beide tegelijk.
+      const placementFields =
+        "positionMm" in placement
+          ? { positionMm: placement.positionMm }
+          : { wallIndex: placement.wallIndex, offsetMm: placement.offsetMm };
       addVentilationTerminal({
         roomId,
         type,
         source: "manual",
-        wallIndex,
-        offsetMm,
+        ...placementFields,
         flowDm3s: flowDm3s && flowDm3s > 0 ? flowDm3s : undefined,
       });
       // Persisteer de afgeleide gebruiksfunctie + eisen voor deze ruimte zodat
@@ -1333,7 +1344,7 @@ function VentilationToolbar({
                 ? "bg-[#22c55e] text-white"
                 : "text-deep-forge/70 hover:bg-primary/10"
             }`}
-            title="Toevoerventiel plaatsen — klik daarna op een wand"
+            title="Toevoerventiel plaatsen — klik op een wand, of in de ruimte voor een plafond-/dakventiel"
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#22c55e" }} />
             Toevoer
@@ -1345,7 +1356,7 @@ function VentilationToolbar({
                 ? "bg-[#3b82f6] text-white"
                 : "text-deep-forge/70 hover:bg-primary/10"
             }`}
-            title="Afvoerventiel plaatsen — klik daarna op een wand"
+            title="Afvoerventiel plaatsen — klik op een wand, of in de ruimte voor een plafond-/dakventiel"
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#3b82f6" }} />
             Afvoer

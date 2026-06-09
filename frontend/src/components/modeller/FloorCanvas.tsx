@@ -64,12 +64,15 @@ interface FloorCanvasProps {
    * laag verborgen (geen ventilatie-mode actief). Toggle-chips zetten dit.
    */
   ventilationLayers?: VentilationLayerVisibility;
-  /** Plaats een ventiel op een wand (wand-hit patroon, identiek aan ramen). */
+  /**
+   * Plaats een ventiel. Wand-hit → `{ wallIndex, offsetMm }` (wand-gebonden,
+   * identiek aan ramen). Geen wand-hit maar binnen een ruimte → `{ positionMm }`
+   * (vrij plafond-/dakventiel op het klikpunt in wereld-mm).
+   */
   onAddTerminal?: (
     roomId: string,
     type: VentilationTerminalType,
-    wallIndex: number,
-    offsetMm: number,
+    placement: { wallIndex: number; offsetMm: number } | { positionMm: { x: number; y: number } },
   ) => void;
 }
 
@@ -523,16 +526,23 @@ export function FloorCanvas({
       return;
     }
 
-    // Ventilatie-ventiel plaatsen — exact hetzelfde wand-hit patroon als ramen.
+    // Ventilatie-ventiel plaatsen. Wand-hit → wand-gebonden (zoals ramen).
+    // Geen wand-hit maar binnen een ruimte → vrij plafond-/dakventiel op het
+    // klikpunt (positionMm in wereld-mm).
     if (tool === "place_supply" || tool === "place_exhaust") {
+      if (!onAddTerminal) return;
+      const type = tool === "place_supply" ? "supply" : "exhaust";
       const hit = findWallHit(snapped, rooms, Math.max(snap.gridSize * 3, 30 / zoom));
-      if (hit && onAddTerminal) {
-        onAddTerminal(
-          hit.roomId,
-          tool === "place_supply" ? "supply" : "exhaust",
-          hit.wallIndex,
-          hit.offset,
-        );
+      if (hit) {
+        onAddTerminal(hit.roomId, type, { wallIndex: hit.wallIndex, offsetMm: hit.offset });
+        return;
+      }
+      // Geen wand-hit → eerste ruimte die het klikpunt bevat → vrij ventiel.
+      for (let i = rooms.length - 1; i >= 0; i--) {
+        if (pointInPolygon(raw, rooms[i]!.polygon)) {
+          onAddTerminal(rooms[i]!.id, type, { positionMm: { x: raw.x, y: raw.y } });
+          return;
+        }
       }
       return;
     }
