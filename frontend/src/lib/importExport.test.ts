@@ -16,6 +16,7 @@ import {
   type Isso53RoomState,
   type SharedExtra,
 } from "../types/projectV2";
+import type { VentilationState } from "../types/ventilation";
 
 /**
  * Tests voor de norm-bewuste opslag/laad-cyclus in {@link exportProject} /
@@ -336,5 +337,117 @@ describe("importProject — legacy .isso51.json zonder sidecars", () => {
     expect(state.norm).toBe("isso51");
     expect(state.isso53Building).toEqual(DEFAULT_ISSO53_BUILDING);
     expect(state.isso53Rooms).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (d) Ventilatie-sidecar — save→reopen van `system` + `occupancy`
+// ---------------------------------------------------------------------------
+
+describe("exportProject — ventilatie-sidecar (system + occupancy)", () => {
+  function makeVentilation(): VentilationState {
+    return {
+      system: "D",
+      terminals: [
+        {
+          id: "vent-1",
+          roomId: "r1",
+          type: "supply",
+          source: "manual",
+          wallIndex: 0,
+          offsetMm: 1200,
+          flowDm3s: 25,
+        },
+      ],
+      rooms: {
+        r1: {
+          ventilationFunction: "verblijfsruimte",
+          requiredSupplyDm3s: 32,
+          requiredExhaustDm3s: 0,
+          airSourceRoomId: null,
+          occupancy: 8,
+        },
+      },
+    };
+  }
+
+  it("round-trip behoudt system, occupancy en terminals exact", () => {
+    const project = makeIsso51Project();
+    const ventilation = makeVentilation();
+    useProjectStore.setState({ norm: "isso51", ventilation });
+
+    exportProject(project, makeResult());
+
+    const env = parseExported();
+    expect((env.ventilation as VentilationState).system).toBe("D");
+
+    const imported = importProject(lastBlobContent) as ImportResult;
+    expect(imported.ventilation).toEqual(ventilation);
+    expect(imported.ventilation?.rooms.r1?.occupancy).toBe(8);
+
+    // setProject herstelt de sidecar (incl. system) autoritatief in de store.
+    useProjectStore.getState().setProject(imported.project, {
+      ventilation: imported.ventilation,
+    });
+    const state = useProjectStore.getState();
+    expect(state.ventilation.system).toBe("D");
+    expect(state.ventilation.rooms.r1?.occupancy).toBe(8);
+    expect(state.ventilation.terminals).toHaveLength(1);
+  });
+
+  it("alleen een gekozen systeem (geen ventielen/rooms) overleeft de round-trip", () => {
+    const project = makeIsso51Project();
+    useProjectStore.setState({
+      norm: "isso51",
+      ventilation: { terminals: [], rooms: {}, system: "A" },
+    });
+
+    exportProject(project, makeResult());
+    const imported = importProject(lastBlobContent) as ImportResult;
+    expect(imported.ventilation?.system).toBe("A");
+  });
+
+  it("oud bestand zonder ventilatie/system → defaults (geen crash)", () => {
+    const project = makeIsso51Project();
+    const legacyEnvelope = {
+      version: "1.0.0",
+      schema: "isso51-project-v1",
+      exported_at: "2025-01-01T00:00:00.000Z",
+      project,
+      result: null,
+      // NB: bewust GEEN ventilation — oud bestand.
+    };
+
+    const imported = importProject(
+      JSON.stringify(legacyEnvelope),
+    ) as ImportResult;
+    expect(imported.ventilation).toBeUndefined();
+
+    useProjectStore.getState().setProject(imported.project, {
+      ventilation: imported.ventilation,
+    });
+    const state = useProjectStore.getState();
+    expect(state.ventilation.terminals).toEqual([]);
+    expect(state.ventilation.rooms).toEqual({});
+    // Geen expliciet systeem → undefined, downstream default (C).
+    expect(state.ventilation.system).toBeUndefined();
+  });
+
+  it("ouder envelope met ventilation zonder system-veld laadt zonder system", () => {
+    const project = makeIsso51Project();
+    const ventilation = makeVentilation();
+    const { system: _system, ...ventilationZonderSystem } = ventilation;
+    const envelope = {
+      version: "1.0.0",
+      schema: "isso51-project-v1",
+      exported_at: "2025-01-01T00:00:00.000Z",
+      project,
+      result: null,
+      ventilation: ventilationZonderSystem,
+    };
+
+    const imported = importProject(JSON.stringify(envelope)) as ImportResult;
+    expect(imported.ventilation?.system).toBeUndefined();
+    expect(imported.ventilation?.rooms.r1?.occupancy).toBe(8);
   });
 });

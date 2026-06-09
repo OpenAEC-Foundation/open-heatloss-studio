@@ -27,8 +27,10 @@ import {
 import type {
   VentilationRoomState,
   VentilationState,
+  VentilationSystemKey,
   VentilationTerminal,
 } from "../types/ventilation";
+import { VENTILATION_SYSTEMS } from "../types/ventilation";
 
 // ---------------------------------------------------------------------------
 // Undo/Redo history
@@ -187,6 +189,8 @@ interface ProjectStore {
   ) => void;
   /** Vervang de volledige ventilatie-sidecar (gebruikt bij envelope-load). */
   setVentilation: (ventilation: VentilationState) => void;
+  /** Zet het gebouw-niveau ventilatiesysteem (A–D). */
+  setVentilationSystem: (system: VentilationSystemKey) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -416,6 +420,12 @@ export const useProjectStore = create<ProjectStore>()(
 
       setVentilation: (ventilation) => set({ ventilation }),
 
+      setVentilationSystem: (system) =>
+        set((state) => ({
+          ventilation: { ...state.ventilation, system },
+          isDirty: true,
+        })),
+
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
       setCurrentLocalPath: (path) => set({ currentLocalPath: path }),
@@ -487,10 +497,15 @@ export const useProjectStore = create<ProjectStore>()(
             isso53Rooms: opts?.isso53Rooms ?? {},
             // Ventilatie-sidecar uit de envelope herstellen indien meegegeven,
             // anders leeg (huidig gedrag voor bestanden zonder ventilatie-data).
+            // `system` expliciet meenemen — `undefined` voor oude bestanden
+            // valt downstream terug op DEFAULT_VENTILATION_SYSTEM.
             ventilation: opts?.ventilation
               ? {
                   terminals: opts.ventilation.terminals ?? [],
                   rooms: opts.ventilation.rooms ?? {},
+                  ...(opts.ventilation.system
+                    ? { system: opts.ventilation.system }
+                    : {}),
                 }
               : { terminals: [], rooms: {} },
             isDirty: true,
@@ -824,6 +839,11 @@ export const useProjectStore = create<ProjectStore>()(
             terminals: Array.isArray(v.terminals) ? v.terminals : [],
             rooms:
               v.rooms && typeof v.rooms === "object" ? v.rooms : {},
+            // Alleen geldige systeemsleutels doorlaten; ontbrekend/ongeldig →
+            // undefined (default-fallback, projecten van vóór de selector).
+            ...(v.system && v.system in VENTILATION_SYSTEMS
+              ? { system: v.system }
+              : {}),
           };
         })(),
         isDirty: false,

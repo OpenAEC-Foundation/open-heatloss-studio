@@ -29,7 +29,9 @@ import { useAllConstructions } from "../hooks/useAllConstructions";
 import { openProjectFile, exportIfcEnergy, extractAndLinkConstructions } from "../lib/importExport";
 import type { ProjectResult } from "../types";
 import type { VentilationTerminalType } from "../types/ventilation";
-import { deriveVentilationDemand, defaultBblFunction, deriveOverflowRelations } from "../lib/ventilationBalance";
+import { defaultBblFunction, deriveOverflowRelations } from "../lib/ventilationBalance";
+import { useVentilationBalance } from "../hooks/useVentilationBalance";
+import { VentilationBalancePanel } from "../components/modeller/VentilationBalancePanel";
 import type { VentilationLayerVisibility } from "../components/modeller/FloorCanvas";
 import { formatArea } from "../lib/formatNumber";
 import { FLOOR_LABELS } from "../components/modeller/exampleData";
@@ -108,16 +110,18 @@ export function Modeller() {
   const redo = useModellerStore((s) => s.redo);
 
   // -- Ventilatiebalans --
-  const ventilation = useProjectStore((s) => s.ventilation);
+  // Gedeelde state + handlers via `useVentilationBalance` — zelfde hook als
+  // de Ventilatiebalans-tab (`pages/VentilationBalance.tsx`), dus één bron
+  // van waarheid: wijzigingen daar zijn hier direct zichtbaar en vice versa.
+  const {
+    ventilation,
+    ventilationRooms,
+    changeFunction: handleChangeVentFunction,
+    changeOccupancy: handleChangeVentOccupancy,
+    setSystem: setVentilationSystem,
+  } = useVentilationBalance();
   const addVentilationTerminal = useProjectStore((s) => s.addVentilationTerminal);
   const updateVentilationRoom = useProjectStore((s) => s.updateVentilationRoom);
-
-  // Per-room BBL-eis (dm³/s), afgeleid uit project.rooms + bestaande sidecar.
-  // Beschikbaar in state voor de visualisatie en (delegatie 2) het zijpaneel.
-  const ventilationRooms = useMemo(
-    () => deriveVentilationDemand(project, ventilation.rooms),
-    [project, ventilation.rooms],
-  );
 
   // Laag-zichtbaarheid (toggle-chips). `null` = ventilatie-mode niet actief →
   // de hele ventilatie-laag is verborgen in de canvas.
@@ -138,6 +142,10 @@ export function Modeller() {
     },
     [],
   );
+
+  const handleSelectVentRoom = useCallback((roomId: string) => {
+    setSelection({ type: "room", roomId });
+  }, []);
 
   const handleAddTerminal = useCallback(
     (
@@ -783,25 +791,38 @@ export function Modeller() {
           )}
         </div>
 
-        {/* Right: Properties Panel */}
-        <PropertiesPanel
-          room={selectedRoom}
-          rooms={floorRooms}
-          windows={floorWindows}
-          selection={selection}
-          onUpdateRoom={updateRoom}
-          onRemoveRoom={handleRemoveRoom}
-          onUpdateWindow={handleUpdateWindow}
-          onRemoveWindow={handleRemoveWindow}
-          wallConstructions={wallConstructions}
-          floorConstructions={floorConstructions}
-          roofConstructions={roofConstructions}
-          onAssignWall={assignWallConstruction}
-          onAssignFloor={assignFloorConstruction}
-          onAssignRoof={assignRoofConstruction}
-          wallBoundaryTypes={wallBoundaryTypes}
-          onAssignBoundaryType={assignWallBoundaryType}
-        />
+        {/* Right: Ventilatiebalans-paneel (ventilatie-mode, 2D) of Properties Panel */}
+        {ventModeActive && viewMode === "2d" ? (
+          <VentilationBalancePanel
+            rooms={project.rooms}
+            ventilationRooms={ventilationRooms}
+            ventilation={ventilation}
+            selection={selection}
+            onSelectRoom={handleSelectVentRoom}
+            onChangeFunction={handleChangeVentFunction}
+            onChangeOccupancy={handleChangeVentOccupancy}
+            onChangeSystem={setVentilationSystem}
+          />
+        ) : (
+          <PropertiesPanel
+            room={selectedRoom}
+            rooms={floorRooms}
+            windows={floorWindows}
+            selection={selection}
+            onUpdateRoom={updateRoom}
+            onRemoveRoom={handleRemoveRoom}
+            onUpdateWindow={handleUpdateWindow}
+            onRemoveWindow={handleRemoveWindow}
+            wallConstructions={wallConstructions}
+            floorConstructions={floorConstructions}
+            roofConstructions={roofConstructions}
+            onAssignWall={assignWallConstruction}
+            onAssignFloor={assignFloorConstruction}
+            onAssignRoof={assignRoofConstruction}
+            wallBoundaryTypes={wallBoundaryTypes}
+            onAssignBoundaryType={assignWallBoundaryType}
+          />
+        )}
       </div>
 
       {/* IFC Wall Type Review Dialog */}
