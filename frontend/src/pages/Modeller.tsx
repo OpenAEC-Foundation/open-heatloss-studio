@@ -41,6 +41,8 @@ export function Modeller() {
   const setTool = useModellerToolStore((s) => s.setTool);
   const viewMode = useModellerToolStore((s) => s.viewMode);
   const setViewMode = useModellerToolStore((s) => s.setViewMode);
+  const orientationMode = useModellerToolStore((s) => s.orientationMode);
+  const setOrientationMode = useModellerToolStore((s) => s.setOrientationMode);
   const activeFloor = useModellerToolStore((s) => s.activeFloor);
   const setActiveFloor = useModellerToolStore((s) => s.setActiveFloor);
   const snap = useModellerToolStore((s) => s.snap);
@@ -67,9 +69,12 @@ export function Modeller() {
     () =>
       deriveModelRooms(project, {
         roomPolygons: importGeometry?.roomPolygons,
-        trueNorthDeg: importGeometry?.trueNorthDeg,
+        // Orthogonal mode shows the model axis-aligned: pass 0 so rotatePoint2D
+        // returns the identity and the footprint is not rotated north-up.
+        trueNorthDeg:
+          orientationMode === "orthogonal" ? 0 : importGeometry?.trueNorthDeg,
       }),
-    [project, importGeometry],
+    [project, importGeometry, orientationMode],
   );
   const windows = useMemo(() => deriveModelWindows(project), [project]);
   const doors = useMemo(() => deriveModelDoors(project), [project]);
@@ -727,6 +732,26 @@ export function Modeller() {
               }`}
             >
               3D
+            </button>
+          </div>
+
+          {/* Op noord / Orthogonaal toggle — top left overlay, naast 2D/3D */}
+          <div className="pointer-events-auto absolute left-[5.5rem] top-3 z-20 flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm text-xs">
+            <button
+              onClick={() => setOrientationMode("north")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                orientationMode === "north" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+              }`}
+            >
+              Op noord
+            </button>
+            <button
+              onClick={() => setOrientationMode("orthogonal")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                orientationMode === "orthogonal" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+              }`}
+            >
+              Orthogonaal
             </button>
           </div>
 
