@@ -1,4 +1,5 @@
 import type { RoomResult } from "../types/result";
+import type { Isso53RoomResult } from "../types/isso53Result";
 
 /**
  * Klimaat-graaddagen (HDD) NL gemiddelde — KNMI De Bilt 1991-2020 normaal,
@@ -40,6 +41,40 @@ export function computeAnnualHeatDemandKWh(rooms: RoomResult[]): {
       (t.h_t_water ?? 0) +
       room.infiltration.h_i +
       room.ventilation.h_v;
+  }
+  const annualKWh = (hExternal * HDD_NL * 24) / 1000;
+  return { hExternal, annualKWh };
+}
+
+/**
+ * Schat de jaarlijkse netto warmtebehoefte (kWh/jaar) volgens de
+ * graaddagen-methode — ISSO 53-variant.
+ *
+ * Formule:
+ *   H_extern (W/K) = Σ rooms (hTExterior + hTUnheated + hTAdjacentBuildings
+ *     + hTGround + hV + hI)
+ *   Q_jaar (kWh/jaar) = H_extern × HDD_NL × 24 / 1000
+ *
+ * NB: `hTAdjacentRooms` (interne transmissie tussen verwarmde vertrekken)
+ * wordt bewust uitgesloten — dat is geen netto jaarverlies van het gebouw.
+ * ISSO 53 kent geen water-boundary, dus dat veld ontbreekt hier.
+ *
+ * Dit is een eerste-orde schatting; niet norm-conform BENG/NTA 8800.
+ * Werkelijk verbruik wijkt af door zoninstraling, interne warmte en gebruik.
+ */
+export function computeAnnualHeatDemandKWhIsso53(rooms: Isso53RoomResult[]): {
+  hExternal: number;
+  annualKWh: number;
+} {
+  let hExternal = 0;
+  for (const room of rooms) {
+    hExternal +=
+      room.hTExterior +
+      room.hTUnheated +
+      room.hTAdjacentBuildings +
+      room.hTGround +
+      room.hV +
+      room.hI;
   }
   const annualKWh = (hExternal * HDD_NL * 24) / 1000;
   return { hExternal, annualKWh };
