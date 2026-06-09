@@ -602,18 +602,19 @@ export function FloorCanvas3D({
       if (realVerts && realVerts.length >= 3 && importTransform) {
         const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
         if (surfGeom) {
-          // Real construction faces: interior partitions are correctly exported
-          // as TWO sides ~6 cm apart (each its own construction.id — kept for
-          // the φ_T heatmap, NOT deduplicated). To stop those near-coplanar
-          // sides flickering: write depth (so the front side occludes the back),
-          // give each face a polygonOffset depth bias, and render a bit more
-          // opaque so they read as solid rather than see-through.
+          // Real construction faces: interior partitions are exported as TWO
+          // sides ~6 cm apart (each its own construction.id — kept for the φ_T
+          // heatmap, NOT deduplicated). These are transparent, so they MUST NOT
+          // write depth: a transparent depth-writer occludes everything drawn
+          // behind it (regressie 5e57af1 — halve scene viel weg). Their ~6 cm
+          // separation + back-to-front transparency sort houden ze stabiel; de
+          // polygonOffset-bias en iets hogere opacity laten ze solide lezen.
           const mat = new THREE.MeshStandardMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: REAL_SURFACE_OPACITY,
-            depthWrite: true,
+            depthWrite: false,
             polygonOffset: true,
             polygonOffsetFactor: 1,
             polygonOffsetUnits: 1,
