@@ -16,7 +16,11 @@ import { exportProject } from "../lib/importExport";
 import { buildReportData } from "../lib/reportBuilder";
 import { buildIsso53Report } from "../lib/isso53ReportBuilder";
 import { bblMinimumVentilationRate } from "../lib/roomDefaults";
-import { HDD_NL, computeAnnualHeatDemandKWh } from "../lib/annualEnergy";
+import {
+  HDD_NL,
+  computeAnnualHeatDemandKWh,
+  computeAnnualHeatDemandKWhIsso53,
+} from "../lib/annualEnergy";
 import type { Project, ProjectResult } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import type { Isso53RoomState } from "../types/projectV2";
@@ -501,6 +505,31 @@ function Isso53Results({
   const donutSummary = useMemo(() => isso53DonutSummary(summary), [summary]);
   const donutSegments = useMemo(() => isso53DonutSegments(summary), [summary]);
 
+  // Schil-oppervlak = som van constructie-areas met boundary_type
+  // exterior/ground/water (= de daadwerkelijke gebouwschil). Identiek aan
+  // het ISSO 51-pad.
+  const totalEnvelopeArea = useMemo(() => {
+    let areaSum = 0;
+    for (const room of project.rooms) {
+      for (const ce of room.constructions) {
+        if (
+          ce.boundary_type === "exterior" ||
+          ce.boundary_type === "ground" ||
+          ce.boundary_type === "water"
+        ) {
+          areaSum += ce.area;
+        }
+      }
+    }
+    return areaSum;
+  }, [project.rooms]);
+
+  // Jaarverbruik warmtebehoefte (graaddagen-schatting, geen norm-conform BENG/NTA 8800).
+  const { hExternal: hExternalAnnual, annualKWh: annualHeatDemandKWh } = useMemo(
+    () => computeAnnualHeatDemandKWhIsso53(rooms),
+    [rooms],
+  );
+
   return (
     <div>
       <PageHeader
@@ -621,6 +650,46 @@ function Isso53Results({
             </div>
             <p className="mt-1 text-center text-[10px] text-on-surface-muted">
               Klik om te vergroten
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[var(--oaec-border-subtle)] pt-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                  Ventilatiedebiet (gebouw)
+                </div>
+                <div className="text-sm font-semibold tabular-nums text-on-surface">
+                  {summary.totalVentilationFlow.toFixed(1)} dm³/s
+                </div>
+                <div className="text-[10px] text-on-surface-muted tabular-nums">
+                  {(summary.totalVentilationFlow * 3.6).toFixed(0)} m³/h
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                  Oppervlak gebouwschil
+                </div>
+                <div className="text-sm font-semibold tabular-nums text-on-surface">
+                  {totalEnvelopeArea.toFixed(1)} m²
+                </div>
+                <div className="text-[10px] text-on-surface-muted">
+                  exterior + ground + water
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 border-t border-[var(--oaec-border-subtle)] pt-3">
+              <div className="text-[11px] uppercase tracking-wider text-on-surface-muted">
+                Jaarverbruik warmtebehoefte (graaddagen)*
+              </div>
+              <div className="text-sm font-semibold tabular-nums text-on-surface">
+                {Math.round(annualHeatDemandKWh).toLocaleString("nl-NL")} kWh/jaar
+              </div>
+              <div className="text-[10px] text-on-surface-muted tabular-nums">
+                H = {Math.round(hExternalAnnual)} W/K · HDD {HDD_NL} K·d
+              </div>
+            </div>
+            <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
+              *Schatting via graaddagen-methode (HDD {HDD_NL} K·d NL-gemiddelde). Niet
+              norm-conform BENG/NTA 8800 — werkelijk verbruik wijkt af door zoninstraling,
+              interne warmte en gebruikersgedrag.
             </p>
             <p className="mt-3 text-[10px] leading-tight text-on-surface-muted">
               ISSO 53 splitst infiltratie áf van ventilatie; beide worden los
