@@ -98,6 +98,16 @@ function IconIfc({ className }: { className?: string }) {
   );
 }
 
+function IconWind({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.59 4.59A2 2 0 1111 8H2" />
+      <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2" />
+      <path d="M12.59 19.41A2 2 0 1014 16H2" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -132,7 +142,7 @@ function IconChevron({ className, expanded }: { className?: string; expanded: bo
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
-type GroupKey = "project" | "warmteverlies" | "tojuli" | "rcwaarde" | "library";
+type GroupKey = "project" | "warmteverlies" | "ventilatie" | "tojuli" | "rcwaarde" | "library";
 
 type NavItemSpec = {
   to: string;
@@ -173,6 +183,14 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     items: [
       { to: "/warmteverlies/instellingen", labelKey: "sidebar.warmteverliesInstellingen", Icon: IconLayers },
       { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
+    ],
+  },
+  {
+    key: "ventilatie",
+    titleKey: "sidebar.groups.ventilatie",
+    defaultCollapsed: false,
+    items: [
+      { to: "/ventilation", labelKey: "sidebar.ventilationBalance", Icon: IconWind },
     ],
   },
   {

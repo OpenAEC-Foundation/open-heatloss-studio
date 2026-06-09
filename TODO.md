@@ -37,6 +37,21 @@
 
 ---
 
+## 💨 Ventilatiebalans-module (plan: `docs/2026-06-06-ventilatiebalans-module-plan.md`)
+
+> BBL + NEN 1087 + NTA 8800. Mode in de Modeller + eigen tab. Delegatie 1+2 (06-07): datamodel-sidecar, BBL-eis, ventiel-plaatsing, Konva-renderlaag. Delegatie 3+4 (09-06): zie hieronder.
+
+- [x] **Delegatie 3 (09-06)** — zone-balans-zijpaneel + per-vertrek cijfertabel (`VentilationBalancePanel.tsx`, `aggregateVentilationBalance()`), systeem A–D-selector (`VentilationState.system`, default C; plugin kent geen A–E-lijst), personen-toeslag `max(opp×spec, pers×4,0 dm³/s, min)` geport uit plugin r.282-289 (`occupancy` op `VentilationRoomState`). Save→reopen-tests voor beide envelopes.
+- [x] **Delegatie 4 (09-06)** — eigen tab `/ventilation` à la TO-juli (`pages/VentilationBalance.tsx`, sidebar-group `ventilatie`, NL+EN i18n); gedeelde bron via `hooks/useVentilationBalance.ts` + `components/ventilation/shared.tsx` (geen state-duplicatie met zijpaneel). Review 2× ship, 0 findings.
+- [ ] **→ Visuele check door user** — zijpaneel + `/ventilation`-tab na deploy (build/tests groen, niet visueel bevestigd).
+- [ ] **Rapport-sectie [M]** — balans-tabel per ruimte/zone via openaec-reports renderer + evt. plattegrond-snapshot (Konva→PNG haalbaarheid checken). Fase 5 uit het plan; volgende delegatie.
+- [ ] **WTW/MV-units-database [M]** — port `ventilatie_units.json` + zone-toewijzing + capaciteitstoets (plugin `_setup_units_tab`).
+- [ ] **NEN 1087-exacte spleetformule [S, user]** — nu indicatief C_d=0,6/ΔP=1,0 Pa (`estimateDoorGapAreaCm2`); user levert normpagina's.
+- [ ] **pyRevit "Export naar web" + import-keten [M]** — `ventilation.json`-export in `pyrevit-gis2bim` + web-import met merge (revit overschrijven, manual behouden). Apart spoor (revit-bim-specialist).
+- [ ] **`deriveModelDoors` blijft stub** — overstroom hangt aan gedeelde wanden; deur-objecten later.
+
+---
+
 ## 🧪 Norm-conformiteit audit (02-06) — VOLLEDIGE LIJST
 
 > Bron: 4 norm-audit-agents (ISSO 51/53 PDF regel-voor-regel) + UI-dekkingsaudit + Codex cross-check + PM-hardverificatie. Detail per item in `audit-reports/00-SAMENVATTING.md` (+ 01-06). Conform-beleid: **hybride** (norm leidend; Vabi-compat alleen achter gemarkeerd pad). Effort: [L]=laag [M]=middel [H]=hoog. ✅=hard geverifieerd.
