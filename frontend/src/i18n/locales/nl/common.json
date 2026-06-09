@@ -78,10 +78,12 @@
     "groups": {
       "project": "Project",
       "warmteverlies": "Warmteverlies",
+      "ventilatie": "Ventilatie",
       "tojuli": "TO-juli",
       "rcwaarde": "Rc-waarde",
       "library": "Bibliotheek"
     },
+    "ventilationBalance": "Ventilatiebalans",
     "tojuli": {
       "comingSoon": "Binnenkort",
       "quick": "Snelle check (woningen)",

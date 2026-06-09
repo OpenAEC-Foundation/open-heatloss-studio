@@ -78,10 +78,12 @@
     "groups": {
       "project": "Project",
       "warmteverlies": "Heat loss",
+      "ventilatie": "Ventilation",
       "tojuli": "Summer overheating",
       "rcwaarde": "R-value",
       "library": "Library"
     },
+    "ventilationBalance": "Ventilation balance",
     "tojuli": {
       "comingSoon": "Coming soon",
       "quick": "Quick check (dwellings)",
