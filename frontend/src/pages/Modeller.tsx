@@ -715,44 +715,47 @@ export function Modeller() {
             </div>
           )}
 
-          {/* 2D / 3D toggle — top left overlay */}
-          <div className="pointer-events-auto absolute left-3 top-3 z-20 flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm text-xs">
-            <button
-              onClick={() => setViewMode("2d")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                viewMode === "2d" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
-              }`}
-            >
-              2D
-            </button>
-            <button
-              onClick={() => setViewMode("3d")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                viewMode === "3d" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
-              }`}
-            >
-              3D
-            </button>
-          </div>
+          {/* View- + oriëntatie-toggles — top left overlay, naast elkaar met gap */}
+          <div className="pointer-events-auto absolute left-3 top-3 z-20 flex gap-2 text-xs">
+            {/* 2D / 3D */}
+            <div className="flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm">
+              <button
+                onClick={() => setViewMode("2d")}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  viewMode === "2d" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+                }`}
+              >
+                2D
+              </button>
+              <button
+                onClick={() => setViewMode("3d")}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  viewMode === "3d" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+                }`}
+              >
+                3D
+              </button>
+            </div>
 
-          {/* Op noord / Orthogonaal toggle — top left overlay, naast 2D/3D */}
-          <div className="pointer-events-auto absolute left-[5.5rem] top-3 z-20 flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm text-xs">
-            <button
-              onClick={() => setOrientationMode("north")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                orientationMode === "north" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
-              }`}
-            >
-              Op noord
-            </button>
-            <button
-              onClick={() => setOrientationMode("orthogonal")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                orientationMode === "orthogonal" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
-              }`}
-            >
-              Orthogonaal
-            </button>
+            {/* Op noord / Orthogonaal */}
+            <div className="flex overflow-hidden rounded-lg border border-primary/25 bg-surface-alt/95 shadow-sm backdrop-blur-sm">
+              <button
+                onClick={() => setOrientationMode("north")}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  orientationMode === "north" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+                }`}
+              >
+                Op noord
+              </button>
+              <button
+                onClick={() => setOrientationMode("orthogonal")}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  orientationMode === "orthogonal" ? "bg-deep-forge text-white" : "text-deep-forge/60 hover:bg-primary/10"
+                }`}
+              >
+                Orthogonaal
+              </button>
+            </div>
           </div>
 
           {/* Ventilatiebalans — mode-toggle + plaats-knoppen + laag-chips.
