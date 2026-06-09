@@ -18,6 +18,7 @@ import * as OBC from "@thatopen/components";
 import type { ModelRoom, ModelWindow, ModelDoor, Selection, ImportedBoundary } from "./types";
 import { polygonCenter, getSharedEdges } from "./geometry";
 import { useModellerStore } from "./modellerStore";
+import { useModellerToolStore } from "../../store/modellerToolStore";
 import {
   computeImportTransform,
   applyImportTransform3D,
@@ -175,7 +176,16 @@ export function FloorCanvas3D({
     return ids;
   }, [importGeometry]);
 
+  // Real import true-north (degrees). Kept as-is for the north arrow, which must
+  // always point to the actual north regardless of orientation mode.
   const trueNorthDeg = importGeometry?.trueNorthDeg;
+
+  // Orientation mode (shared with Modeller + 2D view). In "orthogonal" the model
+  // is shown axis-aligned, so the geometry/transform must skip the north-up
+  // rotation → effective angle 0. The arrow still uses the real `trueNorthDeg`.
+  const orientationMode = useModellerToolStore((s) => s.orientationMode);
+  const effectiveTrueNorthDeg =
+    orientationMode === "orthogonal" ? 0 : trueNorthDeg;
 
   // Per-construction 3D vertices (raw Revit meters), keyed by construction id.
   const constructionGeomById = useMemo(() => {
@@ -195,10 +205,10 @@ export function FloorCanvas3D({
     if (!rps || rps.length === 0) return null;
     return computeImportTransform(
       rps.map((rp) => rp.polygon),
-      importGeometry?.trueNorthDeg,
+      effectiveTrueNorthDeg,
       rps.map((rp) => rp.floorZ),
     );
-  }, [importGeometry]);
+  }, [importGeometry, effectiveTrueNorthDeg]);
 
   // Room ids that came from a thermal import. Their walls are rendered from the
   // real construction surfaces (boundary group), so the schematic edge-walls in
@@ -772,9 +782,28 @@ export function FloorCanvas3D({
     const baseY = 0.02;
     const len = 2.0; // m
 
-    // Arrow shaft + head pointing to -Z (true north).
+    // Arrow direction.
+    //  - "north" mode: the footprint is rotated north-up, so true north is a
+    //    fixed world direction (-Z) and the arrow points straight to -Z.
+    //  - "orthogonal" mode: the footprint is NOT rotated, so the arrow itself
+    //    must rotate by the real true-north angle to keep pointing to north.
+    //    Polygon +Y maps to world -Z and +X to +X, so the un-rotated north
+    //    direction n = R(-deg)·(0,1) maps to world (sin deg, 0, -cos deg).
+    //    At deg = 0 this reduces to (0,0,-1), matching the north-up arrow.
+    //    (Flip the sign of `arrowRad` if the arrow points the mirrored way —
+    //    same convention as rotatePoint2D in deriveRoomGeometry.)
+    const arrowRad =
+      orientationMode === "orthogonal" && Number.isFinite(trueNorthDeg)
+        ? ((trueNorthDeg as number) * Math.PI) / 180
+        : 0;
+    const arrowDir = new THREE.Vector3(
+      Math.sin(arrowRad),
+      0,
+      -Math.cos(arrowRad),
+    ).normalize();
+
     const arrow = new THREE.ArrowHelper(
-      new THREE.Vector3(0, 0, -1),
+      arrowDir,
       new THREE.Vector3(cornerX, baseY, cornerZ),
       len,
       0xdc2626,
@@ -784,13 +813,17 @@ export function FloorCanvas3D({
     arrow.renderOrder = 20;
     nGroup.add(arrow);
 
-    // "N" label at the arrow tip.
+    // "N" label at the arrow tip (follows the arrow direction).
     const label = createNorthLabel();
-    label.position.set(cornerX, baseY + 0.1, cornerZ - len - 0.5);
+    label.position.set(
+      cornerX + arrowDir.x * (len + 0.5),
+      baseY + 0.1,
+      cornerZ + arrowDir.z * (len + 0.5),
+    );
     label.scale.set(1.2, 1.2, 1.2);
     label.renderOrder = 21;
     nGroup.add(label);
-  }, [trueNorthDeg, rooms, bounds]);
+  }, [trueNorthDeg, orientationMode, rooms, bounds]);
 
   // -----------------------------------------------------------------------
   // Click handler (room selection)
