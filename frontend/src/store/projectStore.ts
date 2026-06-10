@@ -328,6 +328,16 @@ interface ProjectStore {
   ) => void;
   /** Update the server timestamp after a successful save. */
   setServerUpdatedAt: (updatedAt: string | null) => void;
+  /**
+   * Koppel de serverbinding los: `activeProjectId`/`serverUpdatedAt`/
+   * `hasConflict` wissen + save-status naar idle. Aangeroepen bij logout en
+   * bij een definitief verlopen Authentik-sessie (R1): de binding wordt
+   * gepersisteerd in localStorage en zou anders op een gedeelde browser
+   * overerven naar de volgende ingelogde gebruiker. Het project zelf,
+   * `isDirty` en `currentLocalPath` blijven staan — onopgeslagen werk wordt
+   * niet weggegooid, alleen de koppeling met het serverproject vervalt.
+   */
+  clearServerBinding: () => void;
   /** Reset to default state. */
   reset: () => void;
 
@@ -557,6 +567,18 @@ export const useProjectStore = create<ProjectStore>()(
 
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
+
+      clearServerBinding: () => {
+        // Save-status hoort bij de binding die we loskoppelen — een stale
+        // "Opslaan…"/"Fout"-indicator mag niet blijven staan terwijl er
+        // geen serverproject meer actief is.
+        useSaveStatusStore.getState().resetStatus();
+        set({
+          activeProjectId: null,
+          serverUpdatedAt: null,
+          hasConflict: false,
+        });
+      },
       setCurrentLocalPath: (path) => set({ currentLocalPath: path }),
 
       updateProject: (partial) => {
@@ -996,6 +1018,11 @@ export const useProjectStore = create<ProjectStore>()(
  * op hetzelfde serverproject i.p.v. stil te stoppen. `hasConflict` bewust
  * NIET — een conflict wordt bij de eerste save na reload opnieuw
  * gedetecteerd via `serverUpdatedAt`.
+ *
+ * Keerzijde (R1): juist doordat de binding persist, moet hij bij logout en
+ * bij een definitief verlopen sessie expliciet gewist worden — zie
+ * {@link ProjectStore.clearServerBinding} (aangeroepen in `lib/auth.ts`
+ * `logoutRedirect` en `lib/serverProjects.ts` `recordSaveFailure`).
  */
 export function partializeProjectStore(state: ProjectStore) {
   return {

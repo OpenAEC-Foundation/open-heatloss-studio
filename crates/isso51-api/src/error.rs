@@ -18,6 +18,8 @@ pub enum ApiError {
     Calculation(isso51_core::error::Isso51Error),
     /// Database error.
     Database(String),
+    /// Invalid client input (e.g. malformed path parameter).
+    BadRequest(String),
     /// Resource not found.
     NotFound(String),
     /// Forbidden (ownership check failed).
@@ -52,6 +54,7 @@ impl IntoResponse for ApiError {
             ApiError::Database(msg) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "database_error", msg)
             }
+            ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "bad_request", msg),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, "not_found", msg),
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "forbidden", msg),
             ApiError::Internal(msg) => {

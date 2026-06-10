@@ -13,9 +13,19 @@
 //! endpoint met een 5-minuten fingerprint-cache — zie
 //! [`validate_authentik_token`].
 //!
-//! Optionele header `X-Original-Tenant` wordt gehonoreerd voor
-//! backend-to-backend impersonation: Authentik heeft de caller al
-//! gevalideerd, dus de service mag op naam van een andere tenant spreken.
+//! Optionele header `X-Original-Tenant` wordt **alleen** gehonoreerd voor
+//! backend-to-backend impersonation wanneer de geauthenticeerde principal
+//! (Bearer service-account) expliciet op de allowlist staat in de env-var
+//! [`ENV_TENANT_OVERRIDE_ACCOUNTS`] (comma-separated `sub`-waarden, default
+//! leeg = niemand mag overriden). Een geweigerde override wordt genegeerd
+//! en gelogd via `tracing::warn`.
+//!
+//! Inventarisatie 2026-06-10: er zijn géén bekende machine-clients die
+//! `X-Original-Tenant` *inbound* naar deze API sturen. Het platform-patroon
+//! "service-account + X-Original-Tenant" bestaat hier alleen *outbound*
+//! (warmteverlies → reports-API, zie `handlers/report.rs`). Mocht er bij
+//! deploy tóch een flow blijken: infra zet `TENANT_OVERRIDE_ACCOUNTS` op de
+//! betreffende service-account-username(s).
 //!
 //! Referenties:
 //! - `docs/2026-04-16-authentik-unified-sso-plan.md` §2.2 / §5.1
@@ -24,7 +34,7 @@
 //! - BCF peer-implementatie:
 //!   `crates/bcf-server/src/auth/authentik_token.rs`
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -63,9 +73,18 @@ pub const HEADER_PHONE: &str = "X-Authentik-Meta-Phone";
 /// Registration number (custom).
 pub const HEADER_REG_NUMBER: &str = "X-Authentik-Meta-RegNumber";
 
-/// Impersonation header for backend-to-backend calls — overrides tenant
-/// claim when the caller has authenticated via a Bearer service token.
+/// Impersonation header for backend-to-backend calls — overrides the tenant
+/// claim **only** when the caller authenticated via a Bearer service token
+/// *and* its `sub` is listed in [`ENV_TENANT_OVERRIDE_ACCOUNTS`].
 pub const HEADER_ORIGINAL_TENANT: &str = "X-Original-Tenant";
+
+/// Env-var met comma-separated service-account usernames (`sub`) die
+/// `X-Original-Tenant` mogen gebruiken. Default (niet gezet / leeg):
+/// **niemand** — de header wordt dan genegeerd met een warn-log.
+///
+/// Infra: alleen zetten als er daadwerkelijk een inbound on-behalf-of flow
+/// bestaat (per 2026-06-10 niet het geval, zie module-doc).
+pub const ENV_TENANT_OVERRIDE_ACCOUNTS: &str = "TENANT_OVERRIDE_ACCOUNTS";
 
 // ---------------------------------------------------------------------------
 // Claims
@@ -94,7 +113,8 @@ pub struct OidcClaims {
     /// Group memberships (parsed from `X-Authentik-Groups`).
     pub groups: Vec<String>,
     /// Tenant slug from `X-Authentik-Meta-Tenant` / `attributes.tenant`,
-    /// optioneel overschreven door `X-Original-Tenant`.
+    /// optioneel overschreven door `X-Original-Tenant` (alleen voor
+    /// principals op de `TENANT_OVERRIDE_ACCOUNTS`-allowlist).
     pub tenant: Option<String>,
     /// Company from `X-Authentik-Meta-Company`.
     pub company: Option<String>,
@@ -437,8 +457,9 @@ async fn parse_users_me_payload(resp: reqwest::Response) -> Option<AuthentikUser
 
 /// Project an [`AuthentikUserInfo`] onto [`OidcClaims`].
 ///
-/// The `tenant` is taken straight from Authentik; the caller (extractor)
-/// may override it using the `X-Original-Tenant` request header.
+/// The `tenant` is taken straight from Authentik; the extractor may
+/// override it via `X-Original-Tenant`, but only for principals on the
+/// `TENANT_OVERRIDE_ACCOUNTS` allowlist (see [`apply_tenant_override`]).
 fn claims_from_authentik_user(info: &AuthentikUserInfo) -> OidcClaims {
     OidcClaims {
         sub: info.username.clone(),
@@ -453,6 +474,62 @@ fn claims_from_authentik_user(info: &AuthentikUserInfo) -> OidcClaims {
         phone: None,
         registration_number: None,
         uid: info.pk.clone(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tenant override allowlist (X-Original-Tenant)
+// ---------------------------------------------------------------------------
+
+/// Cached allowlist, loaded once from [`ENV_TENANT_OVERRIDE_ACCOUNTS`].
+static TENANT_OVERRIDE_ALLOWLIST: OnceLock<HashSet<String>> = OnceLock::new();
+
+fn tenant_override_allowlist() -> &'static HashSet<String> {
+    TENANT_OVERRIDE_ALLOWLIST.get_or_init(|| {
+        parse_override_allowlist(
+            env::var(ENV_TENANT_OVERRIDE_ACCOUNTS)
+                .ok()
+                .as_deref()
+                .unwrap_or(""),
+        )
+    })
+}
+
+/// Parse een comma-separated allowlist naar een set van usernames.
+/// Lege string (env-var niet gezet) → lege set → niemand mag overriden.
+fn parse_override_allowlist(raw: &str) -> HashSet<String> {
+    raw.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Pas de `X-Original-Tenant` override toe op de claims — maar alleen als
+/// de principal (`claims.sub`) op de allowlist staat. Geweigerde overrides
+/// worden genegeerd (claims blijven ongewijzigd) en gelogd via `warn`.
+fn apply_tenant_override(
+    claims: &mut OidcClaims,
+    headers: &HeaderMap,
+    allowlist: &HashSet<String>,
+) {
+    let Some(requested) = header_string(headers, HEADER_ORIGINAL_TENANT) else {
+        return;
+    };
+
+    if allowlist.contains(&claims.sub) {
+        tracing::info!(
+            principal = %claims.sub,
+            tenant = %requested,
+            "X-Original-Tenant override toegepast (principal op allowlist)"
+        );
+        claims.tenant = Some(requested);
+    } else {
+        tracing::warn!(
+            principal = %claims.sub,
+            requested_tenant = %requested,
+            "X-Original-Tenant geweigerd — principal staat niet in TENANT_OVERRIDE_ACCOUNTS; header genegeerd"
+        );
     }
 }
 
@@ -489,12 +566,14 @@ where
 
             // X-Original-Tenant is een expliciete impersonation-hint voor
             // backend-to-backend calls. Alleen gehonoreerd nadat Authentik
-            // het Bearer-token heeft geaccepteerd.
-            if let Some(override_tenant) =
-                header_string(&parts.headers, HEADER_ORIGINAL_TENANT)
-            {
-                claims.tenant = Some(override_tenant);
-            }
+            // het Bearer-token heeft geaccepteerd ÉN de principal op de
+            // TENANT_OVERRIDE_ACCOUNTS-allowlist staat (default leeg =
+            // niemand). Zie module-doc voor de inventarisatie-uitkomst.
+            apply_tenant_override(
+                &mut claims,
+                &parts.headers,
+                tenant_override_allowlist(),
+            );
 
             return Ok(AuthClaims(claims));
         }
@@ -706,41 +785,71 @@ mod tests {
         assert_eq!(claims.iss.as_deref(), Some("authentik"));
     }
 
-    /// Simulates the extractor logic for tenant override — we can't spin
-    /// up Authentik in a unit test, so we assert the override step in
-    /// isolation: start with claims that have tenant `3bm`, apply the
-    /// `X-Original-Tenant` header logic, and verify the override wins.
-    #[test]
-    fn x_original_tenant_overrides_authentik_claim() {
+    fn svc_claims(tenant: &str) -> OidcClaims {
         let info = AuthentikUserInfo {
-            username: "svc".into(),
+            username: "svc-extern".into(),
             display_name: None,
             email: None,
             pk: None,
-            tenant: Some("3bm".into()),
+            tenant: Some(tenant.into()),
         };
-        let mut claims = claims_from_authentik_user(&info);
+        claims_from_authentik_user(&info)
+    }
 
+    /// Override toegestaan: principal staat op de allowlist → header wint.
+    #[test]
+    fn tenant_override_allowed_for_allowlisted_principal() {
+        let mut claims = svc_claims("3bm");
         let headers = hdr(&[(HEADER_ORIGINAL_TENANT, "klant-a")]);
-        if let Some(override_tenant) = header_string(&headers, HEADER_ORIGINAL_TENANT) {
-            claims.tenant = Some(override_tenant);
-        }
-        assert_eq!(claims.tenant.as_deref(), Some("klant-a"));
+        let allowlist = parse_override_allowlist("svc-extern,svc-other");
 
-        // Zonder header blijft de Authentik-waarde staan.
-        let info2 = AuthentikUserInfo {
-            username: "svc".into(),
-            display_name: None,
-            email: None,
-            pk: None,
-            tenant: Some("3bm".into()),
-        };
-        let mut claims2 = claims_from_authentik_user(&info2);
-        let headers2 = hdr(&[]);
-        if let Some(override_tenant) = header_string(&headers2, HEADER_ORIGINAL_TENANT) {
-            claims2.tenant = Some(override_tenant);
-        }
-        assert_eq!(claims2.tenant.as_deref(), Some("3bm"));
+        apply_tenant_override(&mut claims, &headers, &allowlist);
+        assert_eq!(claims.tenant.as_deref(), Some("klant-a"));
+    }
+
+    /// Override geweigerd: principal NIET op de allowlist → header genegeerd,
+    /// de Authentik tenant-claim blijft staan.
+    #[test]
+    fn tenant_override_denied_for_unlisted_principal() {
+        let mut claims = svc_claims("3bm");
+        let headers = hdr(&[(HEADER_ORIGINAL_TENANT, "klant-a")]);
+        let allowlist = parse_override_allowlist("svc-other");
+
+        apply_tenant_override(&mut claims, &headers, &allowlist);
+        assert_eq!(claims.tenant.as_deref(), Some("3bm"));
+    }
+
+    /// Default-dicht: lege allowlist (env-var niet gezet) → niemand mag
+    /// overriden, ook een geldig service-account niet.
+    #[test]
+    fn tenant_override_denied_with_empty_allowlist() {
+        let mut claims = svc_claims("3bm");
+        let headers = hdr(&[(HEADER_ORIGINAL_TENANT, "klant-a")]);
+        let allowlist = parse_override_allowlist("");
+
+        apply_tenant_override(&mut claims, &headers, &allowlist);
+        assert_eq!(claims.tenant.as_deref(), Some("3bm"));
+    }
+
+    /// Zonder header blijft de Authentik-waarde staan, ook mét allowlist.
+    #[test]
+    fn tenant_override_noop_without_header() {
+        let mut claims = svc_claims("3bm");
+        let headers = hdr(&[]);
+        let allowlist = parse_override_allowlist("svc-extern");
+
+        apply_tenant_override(&mut claims, &headers, &allowlist);
+        assert_eq!(claims.tenant.as_deref(), Some("3bm"));
+    }
+
+    #[test]
+    fn parse_override_allowlist_trims_and_skips_empty_entries() {
+        let set = parse_override_allowlist(" svc-a , ,svc-b,, ");
+        assert_eq!(set.len(), 2);
+        assert!(set.contains("svc-a"));
+        assert!(set.contains("svc-b"));
+        assert!(parse_override_allowlist("").is_empty());
+        assert!(parse_override_allowlist(" , ,").is_empty());
     }
 
     #[tokio::test]

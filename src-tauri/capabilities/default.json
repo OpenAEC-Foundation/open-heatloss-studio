@@ -30,9 +30,12 @@
     "core:path:default",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOWNLOAD/**" }
+      ]
     },
-    "shell:allow-execute",
     "shell:allow-open"
   ]
 }

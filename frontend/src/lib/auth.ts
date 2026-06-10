@@ -6,6 +6,7 @@
  * endpoints — there is no JS-side session state to keep.
  */
 import { API_PREFIX } from "./constants";
+import { useProjectStore } from "../store/projectStore";
 
 /** User profile returned by `GET /api/v1/me`. */
 export interface AuthProfile {
@@ -60,5 +61,10 @@ export function loginRedirect(): void {
  * redirects the user to the Authentik logout flow.
  */
 export function logoutRedirect(): void {
+  // Serverbinding loskoppelen vóór de redirect (R1): `activeProjectId` en
+  // `serverUpdatedAt` worden gepersisteerd in localStorage en zouden op een
+  // gedeelde browser anders overerven naar de volgende ingelogde gebruiker.
+  // Het project zelf blijft in de store — er gaat geen werk verloren.
+  useProjectStore.getState().clearServerBinding();
   window.location.assign("/outpost.goauthentik.io/sign_out");
 }

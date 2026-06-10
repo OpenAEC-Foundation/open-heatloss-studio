@@ -228,6 +228,12 @@ pub async fn update_project(
     // when the caller did not provide a new value (NULL bind). Ownership
     // and soft-delete are enforced in the WHERE clause, so rows_affected
     // tells us authoritatively whether the user had access.
+    //
+    // Audit-fix 2026-06-10: het optimistic-locking guard zit nu óók in de
+    // WHERE-clause (`?5 IS NULL OR updated_at = ?5`). De pre-SELECT hierboven
+    // blijft de snelle 409-route, maar was alleen een pre-check — een
+    // concurrent write tussen check en UPDATE kon een lost update opleveren.
+    // Met de guard in de UPDATE zelf is de vergelijking atomair met de write.
     let result = sqlx::query(
         "UPDATE projects
             SET name         = COALESCE(?1, name),
@@ -235,16 +241,42 @@ pub async fn update_project(
                 updated_at   = datetime('now')
           WHERE id = ?3
             AND user_id = ?4
-            AND is_archived = 0",
+            AND is_archived = 0
+            AND (?5 IS NULL OR updated_at = ?5)",
     )
     .bind(body.name.as_deref())
     .bind(project_data_json.as_deref())
     .bind(&project_id)
     .bind(&claims.sub)
+    .bind(body.expected_updated_at.as_deref())
     .execute(&state.db)
     .await?;
 
     if result.rows_affected() == 0 {
+        // Onderscheid stale optimistic-lock van niet-gevonden: bestaat de
+        // rij (voor déze eigenaar) nog wel, dan is de guard de reden →
+        // 409 met dezelfde response-shape als de pre-check hierboven.
+        if body.expected_updated_at.is_some() {
+            let current = sqlx::query_scalar::<_, String>(
+                "SELECT updated_at FROM projects
+                 WHERE id = ?1 AND user_id = ?2 AND is_archived = 0",
+            )
+            .bind(&project_id)
+            .bind(&claims.sub)
+            .fetch_optional(&state.db)
+            .await?;
+
+            if let Some(updated_at) = current {
+                return Ok((
+                    StatusCode::CONFLICT,
+                    Json(serde_json::json!({
+                        "detail": "Project is elders gewijzigd",
+                        "server_updated_at": updated_at
+                    })),
+                ));
+            }
+        }
+
         // Row either does not exist, is archived, or is owned by someone
         // else. We collapse all three into 404 to avoid leaking ownership.
         return Err(ApiError::NotFound("Project niet gevonden".to_string()));
@@ -435,6 +467,226 @@ struct ProjectDataRow {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod optimistic_locking_tests {
+    use super::*;
+    use crate::auth::OidcClaims;
+    use axum::response::IntoResponse;
+
+    /// Vast beginpunt voor `updated_at` — bewust ver van `datetime('now')`
+    /// zodat een geslaagde update de timestamp aantoonbaar verandert
+    /// (`datetime('now')` heeft seconde-granulariteit).
+    const T0: &str = "2026-01-01 10:00:00";
+
+    async fn test_state() -> AppState {
+        let db = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("in-memory sqlite");
+        crate::run_migrations(&db).await;
+        AppState::new(
+            db,
+            None,
+            None,
+            None,
+            None,
+            openaec_cloud::TenantsRegistry::default(),
+            None,
+        )
+    }
+
+    fn user_claims(sub: &str) -> OidcClaims {
+        OidcClaims {
+            sub: sub.to_string(),
+            ..Default::default()
+        }
+    }
+
+    async fn seed_project(state: &AppState, user: &str, updated_at: &str) -> String {
+        sqlx::query(
+            "INSERT OR IGNORE INTO users (id, email, oidc_issuer)
+             VALUES (?1, '', 'authentik')",
+        )
+        .bind(user)
+        .execute(&state.db)
+        .await
+        .expect("seed user");
+
+        let id = Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO projects (id, user_id, name, project_data, updated_at)
+             VALUES (?1, ?2, 'Test', '{}', ?3)",
+        )
+        .bind(&id)
+        .bind(user)
+        .bind(updated_at)
+        .execute(&state.db)
+        .await
+        .expect("seed project");
+        id
+    }
+
+    fn update_body(expected: Option<&str>) -> UpdateProjectRequest {
+        UpdateProjectRequest {
+            name: None,
+            project_data: Some(serde_json::json!({ "info": { "name": "nieuw" } })),
+            expected_updated_at: expected.map(str::to_string),
+        }
+    }
+
+    async fn call_update(
+        state: &AppState,
+        user: &str,
+        project_id: &str,
+        body: UpdateProjectRequest,
+    ) -> (StatusCode, serde_json::Value) {
+        let result = update_project(
+            State(state.clone()),
+            crate::auth::AuthClaims(user_claims(user)),
+            Path(project_id.to_string()),
+            Json(body),
+        )
+        .await;
+
+        let response = match result {
+            Ok(ok) => ok.into_response(),
+            Err(err) => err.into_response(),
+        };
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        let json: serde_json::Value =
+            serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+        (status, json)
+    }
+
+    async fn current_updated_at(state: &AppState, project_id: &str) -> String {
+        sqlx::query_scalar::<_, String>("SELECT updated_at FROM projects WHERE id = ?1")
+            .bind(project_id)
+            .fetch_one(&state.db)
+            .await
+            .expect("updated_at")
+    }
+
+    /// Happy flow (auto-save zonder expected): blijft 200 met `ok` +
+    /// `updated_at` — gedragsgelijk met de bestaande frontend-flow.
+    #[tokio::test]
+    async fn update_without_expected_succeeds() {
+        let state = test_state().await;
+        let id = seed_project(&state, "user-1", T0).await;
+
+        let (status, body) = call_update(&state, "user-1", &id, update_body(None)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["ok"], true);
+        assert!(body["updated_at"].is_string());
+    }
+
+    /// Happy flow mét expected (de normale optimistic-locking route).
+    #[tokio::test]
+    async fn update_with_matching_expected_succeeds() {
+        let state = test_state().await;
+        let id = seed_project(&state, "user-1", T0).await;
+
+        let (status, body) = call_update(&state, "user-1", &id, update_body(Some(T0))).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["ok"], true);
+        // De write is daadwerkelijk doorgekomen.
+        assert_ne!(current_updated_at(&state, &id).await, T0);
+    }
+
+    /// Lost-update-race door de handler heen: twee schrijvers met dezelfde
+    /// `expected`. De eerste wint; de tweede (inmiddels stale) krijgt 409
+    /// in dezelfde response-shape als de bestaande conflict-route en de
+    /// data van de eerste schrijver blijft staan.
+    #[tokio::test]
+    async fn second_writer_with_stale_expected_gets_409() {
+        let state = test_state().await;
+        let id = seed_project(&state, "user-1", T0).await;
+
+        // Schrijver 1: expected = T0 → slaagt, updated_at verandert.
+        let (status, _) = call_update(&state, "user-1", &id, update_body(Some(T0))).await;
+        assert_eq!(status, StatusCode::OK);
+        let after_first = current_updated_at(&state, &id).await;
+
+        // Schrijver 2: nog steeds expected = T0 (stale) → 409.
+        let mut stale = update_body(Some(T0));
+        stale.project_data = Some(serde_json::json!({ "info": { "name": "verliezer" } }));
+        let (status, body) = call_update(&state, "user-1", &id, stale).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body["detail"], "Project is elders gewijzigd");
+        assert_eq!(body["server_updated_at"], after_first);
+
+        // De data van schrijver 1 is niet overschreven.
+        let data = sqlx::query_scalar::<_, String>(
+            "SELECT project_data FROM projects WHERE id = ?1",
+        )
+        .bind(&id)
+        .fetch_one(&state.db)
+        .await
+        .expect("project_data");
+        assert!(data.contains("nieuw"));
+        assert!(!data.contains("verliezer"));
+    }
+
+    /// De race-window zelf: de pre-SELECT is in een unit-test niet te
+    /// interleaven met een concurrent write, dus we bewijzen de atomaire
+    /// guard op statement-niveau — exact het UPDATE-statement uit
+    /// [`update_project`] met een stale `?5` raakt 0 rijen, met een
+    /// kloppende `?5` raakt het 1 rij.
+    #[tokio::test]
+    async fn update_statement_guard_rejects_stale_expected_atomically() {
+        let state = test_state().await;
+        let id = seed_project(&state, "user-1", T0).await;
+
+        let run = |expected: &'static str| {
+            let db = state.db.clone();
+            let id = id.clone();
+            async move {
+                sqlx::query(
+                    "UPDATE projects
+                        SET name         = COALESCE(?1, name),
+                            project_data = COALESCE(?2, project_data),
+                            updated_at   = datetime('now')
+                      WHERE id = ?3
+                        AND user_id = ?4
+                        AND is_archived = 0
+                        AND (?5 IS NULL OR updated_at = ?5)",
+                )
+                .bind(None::<&str>)
+                .bind(Some("{\"x\":1}"))
+                .bind(&id)
+                .bind("user-1")
+                .bind(Some(expected))
+                .execute(&db)
+                .await
+                .expect("update")
+                .rows_affected()
+            }
+        };
+
+        // Stale expected (concurrent write heeft updated_at al veranderd).
+        assert_eq!(run("1999-01-01 00:00:00").await, 0);
+        // Kloppende expected → de write komt door.
+        assert_eq!(run(T0).await, 1);
+    }
+
+    /// Niet-bestaand project met expected → 404 (niet 409): de
+    /// disambiguatie na rows_affected == 0 mag geen conflict melden voor
+    /// een rij die er (voor deze eigenaar) niet is.
+    #[tokio::test]
+    async fn missing_project_with_expected_returns_404_not_409() {
+        let state = test_state().await;
+        seed_project(&state, "user-1", T0).await;
+
+        let (status, body) =
+            call_update(&state, "user-1", "bestaat-niet", update_body(Some(T0))).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["error"], "not_found");
+    }
+}
 
 #[cfg(test)]
 mod tests {

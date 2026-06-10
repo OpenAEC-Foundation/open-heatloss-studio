@@ -5,6 +5,7 @@ import {
   buildServerProjectData,
   saveExistingServerProject,
 } from "./serverProjects";
+import { SessionExpiredError } from "./backend";
 import { useProjectStore } from "../store/projectStore";
 import { useSaveStatusStore } from "../store/saveStatusStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
@@ -439,6 +440,48 @@ describe("saveExistingServerProject — race-guard bij projectwissel", () => {
     expect(state.serverUpdatedAt).toBe("2026-06-10 10:10:00");
     expect(state.isDirty).toBe(false);
     expect(useSaveStatusStore.getState().status).toBe("saved");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (e2) Verlopen sessie — serverbinding loskoppelen (R1)
+// ---------------------------------------------------------------------------
+
+describe("saveExistingServerProject — definitief verlopen sessie (R1)", () => {
+  it("koppelt de serverbinding los maar laat het project + dirty-vlag staan", async () => {
+    // 401 van de forward-auth proxy → parseResponse gooit SessionExpiredError.
+    const fetchSpy = vi.fn(async () => ({
+      ok: false,
+      redirected: false,
+      status: 401,
+      headers: { get: () => "application/json" },
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    applyServerProjectResponse("proj-A", {
+      project_data: overWire(makeProject("Project van user A")),
+      result_data: null,
+      updated_at: "2026-06-10 10:00:00",
+    });
+    // Onopgeslagen wijziging vóór de mislukte save.
+    useProjectStore.setState({ isDirty: true });
+
+    await expect(saveExistingServerProject("proj-A")).rejects.toThrowError(
+      SessionExpiredError,
+    );
+
+    const s = useProjectStore.getState();
+    // Binding los — een volgende (andere) gebruiker op deze browser erft
+    // geen activeProjectId/serverUpdatedAt van user A via localStorage.
+    expect(s.activeProjectId).toBeNull();
+    expect(s.serverUpdatedAt).toBeNull();
+    expect(s.hasConflict).toBe(false);
+    // Werk niet weggegooid: project + dirty-vlag blijven staan.
+    expect(s.project.info.name).toBe("Project van user A");
+    expect(s.isDirty).toBe(true);
+    // Geen hangende "Opslaan…"/"Fout"-indicator voor een losgekoppeld project.
+    expect(useSaveStatusStore.getState().status).toBe("idle");
   });
 });
 

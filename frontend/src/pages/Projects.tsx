@@ -11,6 +11,7 @@ import {
   fetchProject,
   createProject,
   deleteProject,
+  SessionExpiredError,
   type ServerProjectData,
 } from "../lib/backend";
 import { validateProject } from "../lib/importExport";
@@ -33,6 +34,12 @@ export function Projects() {
       const list = await fetchProjects();
       setProjects(list);
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        // Definitief verlopen sessie op de projectenlijst: serverbinding
+        // loskoppelen (R1) — zelfde gedrag als de save-paden in
+        // lib/serverProjects.ts. Project + isDirty blijven staan.
+        useProjectStore.getState().clearServerBinding();
+      }
       setError(err instanceof Error ? err.message : "Kon projecten niet laden");
     } finally {
       setLoading(false);
