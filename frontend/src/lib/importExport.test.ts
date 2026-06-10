@@ -3,8 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   exportProject,
   importProject,
+  openProjectFile,
   type ImportResult,
 } from "./importExport";
+import {
+  buildIfcEnergyDocument,
+  emptyModellerSnapshot,
+  serializeIfcEnergy,
+} from "./ifcenergy";
 import { useProjectStore } from "../store/projectStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import type { Project, ProjectResult } from "../types";
@@ -449,5 +455,127 @@ describe("exportProject — ventilatie-sidecar (system + occupancy)", () => {
     const imported = importProject(JSON.stringify(envelope)) as ImportResult;
     expect(imported.ventilation?.system).toBeUndefined();
     expect(imported.ventilation?.rooms.r1?.occupancy).toBe(8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (e) Ventilatie-sidecar — save→reopen van WTW/MV-units + toewijzingen
+//     in BEIDE envelopes (.heatloss.json én .ifcenergy)
+// ---------------------------------------------------------------------------
+
+describe("ventilatie-units — save→reopen (beide envelopes)", () => {
+  function makeVentilationWithUnits(): VentilationState {
+    return {
+      system: "D",
+      terminals: [],
+      rooms: {
+        r1: {
+          ventilationFunction: "verblijfsruimte",
+          requiredSupplyDm3s: 32,
+          requiredExhaustDm3s: 0,
+          airSourceRoomId: null,
+        },
+      },
+      units: [
+        {
+          id: "zehnder-comfoair-q450",
+          type: "wtw",
+          fabrikant: "Zehnder",
+          model: "ComfoAir Q450",
+          capaciteitM3h: 450,
+          rendement: 0.9,
+          source: "catalog",
+        },
+        {
+          id: "unit-custom-1",
+          type: "mv",
+          fabrikant: "Eigen",
+          model: "MV Box",
+          capaciteitM3h: 250,
+          geluidDb: 45,
+          source: "custom",
+        },
+      ],
+      unitAssignments: [
+        { unitId: "zehnder-comfoair-q450", aantal: 2 },
+        { unitId: "unit-custom-1", aantal: 1 },
+      ],
+    };
+  }
+
+  it(".heatloss.json: round-trip behoudt units + toewijzingen exact", () => {
+    const project = makeIsso51Project();
+    const ventilation = makeVentilationWithUnits();
+    useProjectStore.setState({ norm: "isso51", ventilation });
+
+    exportProject(project, makeResult());
+    const imported = importProject(lastBlobContent) as ImportResult;
+    expect(imported.ventilation).toEqual(ventilation);
+    expect(imported.ventilation?.units).toHaveLength(2);
+    expect(imported.ventilation?.unitAssignments).toEqual(
+      ventilation.unitAssignments,
+    );
+
+    // setProject herstelt de sidecar (incl. units) autoritatief in de store.
+    useProjectStore.getState().setProject(imported.project, {
+      ventilation: imported.ventilation,
+    });
+    const state = useProjectStore.getState();
+    expect(state.ventilation.units).toEqual(ventilation.units);
+    expect(state.ventilation.unitAssignments).toEqual(
+      ventilation.unitAssignments,
+    );
+  });
+
+  it(".ifcenergy: round-trip behoudt units + toewijzingen exact", () => {
+    const project = makeIsso51Project();
+    const ventilation = makeVentilationWithUnits();
+
+    const doc = buildIfcEnergyDocument({
+      project,
+      result: null,
+      modeller: emptyModellerSnapshot(),
+      ventilation,
+    });
+    const json = serializeIfcEnergy(doc);
+
+    const imported = openProjectFile(json) as ImportResult & {
+      format?: string;
+    };
+    expect(imported.format).toBe("ifcenergy");
+    expect(imported.ventilation).toEqual(ventilation);
+
+    useProjectStore.getState().setProject(imported.project, {
+      ventilation: imported.ventilation,
+    });
+    const state = useProjectStore.getState();
+    expect(state.ventilation.units).toEqual(ventilation.units);
+    expect(state.ventilation.unitAssignments).toEqual(
+      ventilation.unitAssignments,
+    );
+    expect(state.ventilation.system).toBe("D");
+  });
+
+  it("envelope zonder units-velden → undefined (oude bestanden, geen crash)", () => {
+    const project = makeIsso51Project();
+    const envelope = {
+      version: "1.0.0",
+      schema: "isso51-project-v1",
+      exported_at: "2025-01-01T00:00:00.000Z",
+      project,
+      result: null,
+      ventilation: { terminals: [], rooms: {}, system: "C" },
+    };
+
+    const imported = importProject(JSON.stringify(envelope)) as ImportResult;
+    expect(imported.ventilation?.units).toBeUndefined();
+    expect(imported.ventilation?.unitAssignments).toBeUndefined();
+
+    useProjectStore.getState().setProject(imported.project, {
+      ventilation: imported.ventilation,
+    });
+    const state = useProjectStore.getState();
+    expect(state.ventilation.units).toBeUndefined();
+    expect(state.ventilation.unitAssignments).toBeUndefined();
   });
 });

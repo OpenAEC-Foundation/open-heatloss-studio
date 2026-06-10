@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "description": "Seed-catalogus voor WTW- en MV-units (ventilatiebalans, capaciteitstoets). Statische referentiedata, frontend-bundled (geen backend-call). Port van het databestand-mechanisme uit de pyRevit VentilatieBalans-plugin (ventilatie_units.json).",
+    "how_to_add_a_unit": [
+      "Voeg een object toe aan de array 'wtw_units' of 'mv_units'.",
+      "Velden: id (uniek), fabrikant, model, capaciteit_m3h (nominale capaciteit in m3/h, integer), rendement (WTW-rendement 0..1, alleen wtw_units, optioneel), geluid_db (dB(A), optioneel).",
+      "id mag niet botsen met ids van custom units in een project; gebruik het patroon '{fabrikant}-{model}' in kebab-case."
+    ],
+    "verification_note": "INDICATIEF — controleer fabrikantgegevens. De capaciteiten hieronder zijn orde-groottes afgeleid van de modelnaam (bv. 'Q450' -> 450 m3/h) of publiek bekende richtwaarden, NIET geverifieerd tegen officiele fabrikantsspecificaties. Rendementen zijn afgeronde richtwaarden. Geluidswaarden zijn bewust weggelaten (sterk afhankelijk van opstelling/stand). Gebruik deze seed als startpunt voor de capaciteitstoets, niet als ontwerpwaarde in een norm-rapportage."
+  },
+  "wtw_units": [
+    {
+      "id": "zehnder-comfoair-q350",
+      "fabrikant": "Zehnder",
+      "model": "ComfoAir Q350",
+      "capaciteit_m3h": 350,
+      "rendement": 0.9
+    },
+    {
+      "id": "zehnder-comfoair-q450",
+      "fabrikant": "Zehnder",
+      "model": "ComfoAir Q450",
+      "capaciteit_m3h": 450,
+      "rendement": 0.9
+    },
+    {
+      "id": "zehnder-comfoair-q600",
+      "fabrikant": "Zehnder",
+      "model": "ComfoAir Q600",
+      "capaciteit_m3h": 600,
+      "rendement": 0.9
+    },
+    {
+      "id": "brink-flair-325",
+      "fabrikant": "Brink",
+      "model": "Flair 325",
+      "capaciteit_m3h": 325,
+      "rendement": 0.9
+    },
+    {
+      "id": "brink-flair-400",
+      "fabrikant": "Brink",
+      "model": "Flair 400",
+      "capaciteit_m3h": 400,
+      "rendement": 0.9
+    },
+    {
+      "id": "itho-hru-eco-350",
+      "fabrikant": "Itho Daalderop",
+      "model": "HRU ECO 350",
+      "capaciteit_m3h": 350,
+      "rendement": 0.9
+    }
+  ],
+  "mv_units": [
+    {
+      "id": "itho-cve-eco",
+      "fabrikant": "Itho Daalderop",
+      "model": "CVE ECO",
+      "capaciteit_m3h": 400
+    },
+    {
+      "id": "orcon-mvs-15",
+      "fabrikant": "Orcon",
+      "model": "MVS-15",
+      "capaciteit_m3h": 500
+    },
+    {
+      "id": "zehnder-comfofan-s",
+      "fabrikant": "Zehnder",
+      "model": "ComfoFan S",
+      "capaciteit_m3h": 400
+    }
+  ]
+}

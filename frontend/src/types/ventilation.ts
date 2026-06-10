@@ -91,6 +91,62 @@ export interface VentilationRoomState {
 }
 
 // ---------------------------------------------------------------------------
+// WTW/MV-units (gebouwniveau)
+// ---------------------------------------------------------------------------
+
+/** Unit-type: balansventilatie met warmteterugwinning of mechanische afvoerbox. */
+export type VentilationUnitType = "wtw" | "mv";
+
+/** Herkomst van de unit: catalogus-snapshot of handmatig ingevoerd. */
+export type VentilationUnitSource = "catalog" | "custom";
+
+/**
+ * Eén WTW- of MV-unit. Port van het unit-record uit de pyRevit-plugin
+ * (`VentilatieBalans.pushbutton/script.py:117-126`, `load_units_database()`:
+ * `{wtw_units:[], mv_units:[]}` met fabrikant/model/capaciteit_m3h/rendement/
+ * geluid).
+ *
+ * Catalogus-units worden bij toewijzing als **snapshot** gekopieerd naar
+ * `VentilationState.units` (source `"catalog"`), zodat een opgeslagen project
+ * niet stilzwijgend verandert wanneer de seed-catalogus
+ * (`data/ventilationUnits.json`) wordt bijgewerkt.
+ *
+ * **Capaciteit in m³/h** — fabrikant-conventie; de rest van de codebase rekent
+ * in dm³/s, omrekenen via {@link m3hToDm3s} gebeurt in de capaciteitstoets.
+ */
+export interface VentilationUnit {
+  id: string;
+  type: VentilationUnitType;
+  fabrikant: string;
+  model: string;
+  /** Nominale capaciteit in m³/h (indicatief — controleer fabrikantgegevens). */
+  capaciteitM3h: number;
+  /** WTW-rendement als fractie 0–1. Alleen zinvol bij type `"wtw"`. */
+  rendement?: number;
+  /** Geluidsniveau in dB(A). Optioneel, informatief. */
+  geluidDb?: number;
+  source: VentilationUnitSource;
+}
+
+/**
+ * Toewijzing van een unit (uit {@link VentilationState.units}) met aantal.
+ * Port van `ZoneUnitToewijzing.voeg_unit_toe` (plugin r.304-321:
+ * totaalcapaciteit = Σ capaciteit × aantal).
+ *
+ * Toewijzing is op **gebouwniveau** — het webmodel kent (nog) geen
+ * zone-concept. `zoneId` is zone-ready voorbereid voor een latere
+ * zone-indeling en blijft tot die tijd `undefined`.
+ */
+export interface VentilationUnitAssignment {
+  /** Verwijst naar `VentilationUnit.id` in `VentilationState.units`. */
+  unitId: string;
+  /** Aantal toestellen van deze unit (≥ 1). */
+  aantal: number;
+  /** Zone-ready (toekomstige zone-indeling); nu altijd `undefined`. */
+  zoneId?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Sidecar envelope (persistentie)
 // ---------------------------------------------------------------------------
 
@@ -108,6 +164,17 @@ export interface VentilationState {
    * {@link ventilationSystemOf}.
    */
   system?: VentilationSystemKey;
+  /**
+   * Project-unitbibliotheek: catalogus-snapshots + custom units waar de
+   * toewijzingen naar verwijzen. Optioneel — oude opgeslagen projecten
+   * zonder dit veld blijven laden (`undefined` = geen units).
+   */
+  units?: VentilationUnit[];
+  /**
+   * Toegewezen units (gebouwniveau) met aantal. Optioneel — zelfde
+   * backward-compat-regel als {@link VentilationState.units}.
+   */
+  unitAssignments?: VentilationUnitAssignment[];
 }
 
 export const DEFAULT_VENTILATION_STATE: VentilationState = {

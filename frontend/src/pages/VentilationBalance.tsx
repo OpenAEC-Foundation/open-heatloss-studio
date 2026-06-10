@@ -37,9 +37,11 @@ import {
   FUNCTION_OPTIONS,
   StatusBadge,
   SystemSelector,
+  UnitCapacitySummary,
   flowLabel,
   m3hLabel,
 } from "../components/ventilation/shared";
+import { UnitsCard } from "../components/ventilation/UnitsCard";
 import { formatArea } from "../lib/formatNumber";
 import type { Room } from "../types";
 
@@ -51,6 +53,12 @@ export function VentilationBalance() {
     changeFunction,
     changeOccupancy,
     setSystem,
+    unitCapacity,
+    assignCatalogUnit,
+    addCustomUnit,
+    updateUnit,
+    removeUnit,
+    setUnitAssignment,
   } = useVentilationBalance();
 
   const { t } = useTranslation();
@@ -80,6 +88,8 @@ export function VentilationBalance() {
         ventilationRooms,
         terminals: ventilation.terminals,
         system: ventilation.system,
+        units: ventilation.units,
+        unitAssignments: ventilation.unitAssignments,
       });
       const blob = await generateReportDirect(reportData);
 
@@ -143,8 +153,24 @@ export function VentilationBalance() {
           {/* Gebouwbalans */}
           <Card title="Gebouwbalans">
             <BuildingBalanceSummary balance={balance} />
+            <UnitCapacitySummary check={unitCapacity} />
           </Card>
         </div>
+
+        {/* WTW/MV-units + capaciteitstoets — niet bij systeem A (natuurlijk) */}
+        {sys.key !== "A" && (
+          <Card title={t("ventilation.units.cardTitle")}>
+            <UnitsCard
+              ventilation={ventilation}
+              unitCapacity={unitCapacity}
+              onAssignCatalogUnit={assignCatalogUnit}
+              onAddCustomUnit={addCustomUnit}
+              onUpdateUnit={updateUnit}
+              onRemoveUnit={removeUnit}
+              onSetAssignment={setUnitAssignment}
+            />
+          </Card>
+        )}
 
         {/* Balans per vertrek */}
         <Card title="Balans per vertrek">

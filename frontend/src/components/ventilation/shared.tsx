@@ -7,6 +7,8 @@
  * **Eenheden:** dm³/s intern; m³/h alleen als afgeleide weergave.
  */
 
+import { useTranslation } from "react-i18next";
+
 import {
   BBL_REQUIREMENTS,
   dm3sToM3h,
@@ -15,6 +17,7 @@ import {
   type VentilationSystemKey,
 } from "../../types/ventilation";
 import type { BuildingVentilationBalance } from "../../lib/ventilationBalance";
+import type { UnitCapacityCheck } from "../../lib/ventilationUnits";
 import { formatDecimals } from "../../lib/formatNumber";
 
 // ---------------------------------------------------------------------------
@@ -219,6 +222,64 @@ export function BuildingBalanceSummary({
           <span className="font-semibold text-amber-600">
             {balance.imbalanceDm3s > 0 ? "Overdruk +" : "Onderdruk "}
             {formatDecimals(balance.imbalanceDm3s, 1)} dm³/s
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Compacte capaciteitstoets WTW/MV-units (zijpaneel + tab)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compact resultaat van de unit-capaciteitstoets: capaciteit vs. gecombineerde
+ * eis + ✓/tekort-oordeel met marge%. Rendert niets bij systeem A
+ * (`applicable: false`) of wanneer er geen units toegewezen zijn — de toets is
+ * dan niet zinvol.
+ */
+export function UnitCapacitySummary({ check }: { check: UnitCapacityCheck }) {
+  const { t } = useTranslation();
+  if (!check.applicable || check.assignedCount === 0) return null;
+  return (
+    <div className="mt-2 border-t border-[var(--oaec-border-subtle)] pt-2 text-xs">
+      <div className="flex items-center justify-between py-0.5">
+        <span className="text-on-surface-muted">
+          {t("ventilation.units.capacityAssigned")}
+        </span>
+        <span className="font-medium tabular-nums text-on-surface">
+          {flowLabel(check.totalCapacityDm3s)}{" "}
+          <span className="font-normal text-scaffold-gray">
+            ({formatDecimals(check.totalCapacityM3h, 0)} m³/h)
+          </span>
+        </span>
+      </div>
+      <div className="flex items-center justify-between py-0.5">
+        <span className="text-on-surface-muted">
+          {t("ventilation.units.capacityRequired")}
+        </span>
+        <span className="font-medium tabular-nums text-on-surface">
+          {flowLabel(check.requiredDm3s)}{" "}
+          <span className="font-normal text-scaffold-gray">
+            ({m3hLabel(check.requiredDm3s)})
+          </span>
+        </span>
+      </div>
+      <div className="mt-1 flex items-center justify-between">
+        <span className="text-on-surface-muted">
+          {t("ventilation.units.capacityCheck")}
+        </span>
+        {check.satisfied ? (
+          <span className="font-semibold text-green-600">
+            ✓ {t("ventilation.units.capacityOk")} (+
+            {formatDecimals(check.marginPct, 0)}%)
+          </span>
+        ) : (
+          <span className="font-semibold text-red-600">
+            {t("ventilation.units.capacityShortfall")}{" "}
+            {formatDecimals(check.shortfallDm3s, 1)} dm³/s (
+            {formatDecimals(check.marginPct, 0)}%)
           </span>
         )}
       </div>

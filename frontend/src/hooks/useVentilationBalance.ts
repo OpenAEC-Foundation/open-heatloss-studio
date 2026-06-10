@@ -12,7 +12,8 @@ import {
   defaultBblFunction,
   deriveVentilationDemand,
 } from "../lib/ventilationBalance";
-import type { BblFunctionKey } from "../types/ventilation";
+import { checkUnitCapacity, findCatalogUnit } from "../lib/ventilationUnits";
+import type { BblFunctionKey, VentilationUnit } from "../types/ventilation";
 
 export function useVentilationBalance() {
   const project = useProjectStore((s) => s.project);
@@ -21,6 +22,16 @@ export function useVentilationBalance() {
     (s) => s.updateVentilationRoom,
   );
   const setVentilationSystem = useProjectStore((s) => s.setVentilationSystem);
+  const addVentilationUnit = useProjectStore((s) => s.addVentilationUnit);
+  const updateVentilationUnit = useProjectStore(
+    (s) => s.updateVentilationUnit,
+  );
+  const removeVentilationUnit = useProjectStore(
+    (s) => s.removeVentilationUnit,
+  );
+  const setVentilationUnitAssignment = useProjectStore(
+    (s) => s.setVentilationUnitAssignment,
+  );
 
   // Per-room BBL-eis (dm³/s), afgeleid uit project.rooms + bestaande sidecar.
   const ventilationRooms = useMemo(
@@ -53,6 +64,53 @@ export function useVentilationBalance() {
     [updateVentilationRoom, ventilationRooms, project.rooms],
   );
 
+  // Capaciteitstoets: toegewezen unit-capaciteit vs. de gecombineerde eis
+  // (systeem-bewust, zie `combinedRequirementDm3s` in lib/ventilationUnits.ts).
+  const unitCapacity = useMemo(() => {
+    let supply = 0;
+    let exhaust = 0;
+    for (const vr of Object.values(ventilationRooms)) {
+      supply += vr.requiredSupplyDm3s;
+      exhaust += vr.requiredExhaustDm3s;
+    }
+    return checkUnitCapacity(
+      ventilation.units,
+      ventilation.unitAssignments,
+      supply,
+      exhaust,
+      ventilation.system,
+    );
+  }, [
+    ventilationRooms,
+    ventilation.units,
+    ventilation.unitAssignments,
+    ventilation.system,
+  ]);
+
+  /**
+   * Wijs een catalogus-unit toe: kopieer het catalogus-snapshot eenmalig naar
+   * de project-unitbibliotheek (source "catalog") en zet het aantal.
+   */
+  const assignCatalogUnit = useCallback(
+    (catalogId: string, aantal: number) => {
+      const unit = findCatalogUnit(catalogId);
+      if (!unit) return;
+      addVentilationUnit(unit); // no-op wanneer het snapshot al bestaat
+      setVentilationUnitAssignment(unit.id, aantal);
+    },
+    [addVentilationUnit, setVentilationUnitAssignment],
+  );
+
+  /** Voeg een custom unit toe en wijs hem direct toe (aantal 1). */
+  const addCustomUnit = useCallback(
+    (unit: Omit<VentilationUnit, "id" | "source">) => {
+      const id = addVentilationUnit({ ...unit, source: "custom" });
+      setVentilationUnitAssignment(id, 1);
+      return id;
+    },
+    [addVentilationUnit, setVentilationUnitAssignment],
+  );
+
   return {
     project,
     ventilation,
@@ -60,5 +118,11 @@ export function useVentilationBalance() {
     changeFunction,
     changeOccupancy,
     setSystem: setVentilationSystem,
+    unitCapacity,
+    assignCatalogUnit,
+    addCustomUnit,
+    updateUnit: updateVentilationUnit,
+    removeUnit: removeVentilationUnit,
+    setUnitAssignment: setVentilationUnitAssignment,
   };
 }

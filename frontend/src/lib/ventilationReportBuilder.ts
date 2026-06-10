@@ -26,6 +26,8 @@ import {
   type VentilationSystemInfo,
   type VentilationSystemKey,
   type VentilationTerminal,
+  type VentilationUnit,
+  type VentilationUnitAssignment,
 } from "../types/ventilation";
 import {
   aggregateVentilationBalance,
@@ -33,6 +35,10 @@ import {
   type BuildingVentilationBalance,
   type RoomVentilationBalance,
 } from "./ventilationBalance";
+import {
+  checkUnitCapacity,
+  resolveUnitAssignments,
+} from "./ventilationUnits";
 import { flowLabel, m3hLabel } from "../components/ventilation/shared";
 import { formatArea, formatDecimals } from "./formatNumber";
 
@@ -55,6 +61,13 @@ export interface VentilationReportInput {
   terminals: VentilationTerminal[];
   /** Ventilatiesysteem A–D (`undefined` = default, zie `ventilationSystemOf`). */
   system?: VentilationSystemKey;
+  /** Project-unitbibliotheek (WTW/MV). Optioneel — alleen voor de units-sectie. */
+  units?: VentilationUnit[];
+  /**
+   * Toegewezen units met aantal. De sub-sectie "Ventilatie-units" rendert
+   * alleen wanneer er minstens één geldige toewijzing is.
+   */
+  unitAssignments?: VentilationUnitAssignment[];
 }
 
 /** Build BM Reports JSON from ventilatiebalans-state. */
@@ -112,6 +125,8 @@ export function buildVentilationReportData(
       buildAssumptionsSection(input, sys),
       buildRoomBalanceSection(input, balance, sys),
       buildBuildingBalanceSection(balance),
+      // Optionele units-sectie — alleen wanneer er units toegewezen zijn.
+      ...buildUnitsSection(input, balance),
     ],
 
     backcover: { enabled: true },
@@ -374,4 +389,89 @@ function buildBuildingBalanceSection(
       },
     ],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Sectie 4 (optioneel): Ventilatie-units + capaciteitstoets
+// ---------------------------------------------------------------------------
+
+/**
+ * Optionele sub-sectie "Ventilatie-units": tabel met toegewezen WTW/MV-units
+ * (Σ capaciteit × aantal) + de capaciteitstoets tegen de gecombineerde eis
+ * (systeem-bewust, zie `combinedRequirementDm3s` in `ventilationUnits.ts`).
+ *
+ * Rendert ALLEEN wanneer er minstens één geldige toewijzing is — rapporten
+ * zonder units blijven byte-gelijk aan de vorige versie (15 bestaande
+ * builder-tests onaangetast). Returns een array (leeg of met één sectie)
+ * zodat de caller met spread kan invoegen.
+ */
+function buildUnitsSection(
+  input: VentilationReportInput,
+  balance: BuildingVentilationBalance,
+): Record<string, unknown>[] {
+  const resolved = resolveUnitAssignments(input.units, input.unitAssignments);
+  if (resolved.length === 0) return [];
+
+  const check = checkUnitCapacity(
+    input.units,
+    input.unitAssignments,
+    balance.totalRequiredSupplyDm3s,
+    balance.totalRequiredExhaustDm3s,
+    input.system,
+  );
+
+  const rows: string[][] = resolved.map(({ unit, aantal }) => [
+    `${unit.fabrikant} ${unit.model}`.trim(),
+    unit.type === "wtw" ? "WTW (balans)" : "MV (afvoer)",
+    `${formatDecimals(unit.capaciteitM3h, 0)} m³/h`,
+    unit.rendement !== undefined
+      ? `${formatDecimals(unit.rendement * 100, 0)}%`
+      : "—",
+    String(aantal),
+    `${formatDecimals(unit.capaciteitM3h * aantal, 0)} m³/h`,
+  ]);
+
+  const verdict = check.satisfied
+    ? `<b>✔ Voldoet</b> — capaciteit ${flowLabel(check.totalCapacityDm3s)} ≥ ` +
+      `eis ${flowLabel(check.requiredDm3s)} (marge +${formatDecimals(check.marginPct, 0)}%).`
+    : `<b>Tekort ${formatDecimals(check.shortfallDm3s, 1)} dm³/s</b> — capaciteit ` +
+      `${flowLabel(check.totalCapacityDm3s)} &lt; eis ${flowLabel(check.requiredDm3s)} ` +
+      `(${formatDecimals(check.marginPct, 0)}%).`;
+
+  return [
+    {
+      title: "Ventilatie-units",
+      level: 1,
+      content: [
+        {
+          type: "table",
+          title: "Toegewezen units (gebouwniveau)",
+          headers: ["Unit", "Type", "Capaciteit", "Rendement", "Aantal", "Totaal"],
+          // Proportionele kolombreedtes (relatieve gewichten → renderer
+          // schaalt, zelfde patroon als de per-vertrek-tabel). Unit
+          // (fabrikant + model) is veruit de langste kolom, Aantal de smalste.
+          column_widths: [30, 14, 14, 12, 8, 14],
+          rows,
+        },
+        { type: "spacer", height_mm: 4 },
+        {
+          type: "calculation",
+          title: "Capaciteitstoets (capaciteit vs. gecombineerde eis)",
+          result: formatDecimals(check.totalCapacityDm3s, 1),
+          unit: "dm³/s",
+          reference: `eis ${formatDecimals(check.requiredDm3s, 1)} dm³/s`,
+        },
+        { type: "paragraph", text: verdict },
+        {
+          type: "paragraph",
+          text:
+            "<i>Unit-capaciteiten zijn indicatief — controleer " +
+            "fabrikantgegevens. De gecombineerde eis volgt het gekozen " +
+            "systeem: D (WTW) toetst op de maatgevende kant " +
+            "(max van toevoer- en afvoer-eis), C (MV) op de afvoer-eis, " +
+            "B op de toevoer-eis.</i>",
+        },
+      ],
+    },
+  ];
 }
