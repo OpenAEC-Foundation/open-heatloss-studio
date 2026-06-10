@@ -412,5 +412,13 @@
       "sourceLabel": "Source: {{source}}",
       "disclaimer": "Public reference value — verify with the manufacturer/supplier."
     }
+  },
+  "ventilation": {
+    "report": "Generate report",
+    "generating": "Generating...",
+    "reportName": "Ventilation balance",
+    "reportSuccess": "Report generated",
+    "reportFailed": "Report failed",
+    "reportError": "Unknown error"
   }
 }
