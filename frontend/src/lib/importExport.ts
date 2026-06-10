@@ -560,7 +560,9 @@ function isMeaningfulVentilation(v: VentilationState | undefined): boolean {
   return (
     v.terminals.length > 0 ||
     Object.keys(v.rooms).length > 0 ||
-    v.system !== undefined
+    v.system !== undefined ||
+    (v.units?.length ?? 0) > 0 ||
+    (v.unitAssignments?.length ?? 0) > 0
   );
 }
 
@@ -587,14 +589,33 @@ function readVentilationEnvelope(raw: unknown): VentilationState | undefined {
     typeof o.system === "string" && o.system in VENTILATION_SYSTEMS
       ? (o.system as VentilationSystemKey)
       : undefined;
+  // WTW/MV-units + toewijzingen: shallow shape-check (arrays), dan doorcasten
+  // — zelfde lichte validatie als terminals. Ontbrekend → undefined (oude
+  // bestanden van vóór de units-module).
+  const units = Array.isArray(o.units)
+    ? (o.units as NonNullable<VentilationState["units"]>)
+    : undefined;
+  const unitAssignments = Array.isArray(o.unitAssignments)
+    ? (o.unitAssignments as NonNullable<VentilationState["unitAssignments"]>)
+    : undefined;
   if (
     terminals.length === 0 &&
     Object.keys(rooms).length === 0 &&
-    system === undefined
+    system === undefined &&
+    (units?.length ?? 0) === 0 &&
+    (unitAssignments?.length ?? 0) === 0
   ) {
     return undefined;
   }
-  return { terminals, rooms, ...(system ? { system } : {}) };
+  return {
+    terminals,
+    rooms,
+    ...(system ? { system } : {}),
+    ...(units && units.length > 0 ? { units } : {}),
+    ...(unitAssignments && unitAssignments.length > 0
+      ? { unitAssignments }
+      : {}),
+  };
 }
 
 /**

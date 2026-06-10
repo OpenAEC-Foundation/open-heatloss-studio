@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { useProjectStore } from "./projectStore";
 import type { ConstructionElement, Project, Room } from "../types";
+import type { VentilationState } from "../types/ventilation";
 
 /**
  * Tests voor {@link useProjectStore.syncProjectConstruction} — de propagatie
@@ -190,5 +191,97 @@ describe("syncProjectConstruction", () => {
       useProjectStore.getState().project.rooms[0]!.constructions[0]!;
     expect(restored.u_value).toBe(0.3);
     expect(restored.description).toBe("Oude wand");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ventilatie-sidecar — regressietests delegatie 6 (WTW/MV-units)
+// ---------------------------------------------------------------------------
+
+/**
+ * Geborgd gedrag:
+ *   (a) `removeRoom` behoudt de gebouw-niveau ventilatievelden (`system`,
+ *       `units`, `unitAssignments`) — vóór de spread-fix herbouwde
+ *       `removeRoom` het ventilation-object met alleen terminals+rooms en
+ *       gingen die velden verloren.
+ *   (b) `removeVentilationUnit` verwijdert cascade óók de toewijzingen die
+ *       naar de unit wijzen (geen dangling `unitId`-referenties).
+ */
+
+function makeVentilationWithUnits(): VentilationState {
+  return {
+    system: "D",
+    terminals: [
+      { id: "t1", roomId: "r1", type: "supply", source: "manual", flowDm3s: 25 },
+      { id: "t2", roomId: "r2", type: "exhaust", source: "manual", flowDm3s: 14 },
+    ],
+    rooms: {
+      r1: {
+        ventilationFunction: "verblijfsruimte",
+        requiredSupplyDm3s: 20,
+        requiredExhaustDm3s: 0,
+        airSourceRoomId: null,
+      },
+      r2: {
+        ventilationFunction: "badruimte",
+        requiredSupplyDm3s: 0,
+        requiredExhaustDm3s: 14,
+        airSourceRoomId: null,
+      },
+    },
+    units: [
+      {
+        id: "u-wtw",
+        type: "wtw",
+        fabrikant: "Zehnder",
+        model: "ComfoAir Q450",
+        capaciteitM3h: 450,
+        rendement: 0.9,
+        source: "catalog",
+      },
+    ],
+    unitAssignments: [{ unitId: "u-wtw", aantal: 2 }],
+  };
+}
+
+describe("removeRoom — gebouw-niveau ventilatievelden blijven behouden", () => {
+  it("behoudt system, units en unitAssignments; ruimt alleen room-data op", () => {
+    seedProject([makeRoom("r1", []), makeRoom("r2", [])]);
+    useProjectStore.getState().setVentilation(makeVentilationWithUnits());
+
+    useProjectStore.getState().removeRoom("r1");
+
+    const v = useProjectStore.getState().ventilation;
+    // Gebouw-niveau velden onaangetast (regressie: spread-fix in removeRoom).
+    expect(v.system).toBe("D");
+    expect(v.units).toHaveLength(1);
+    expect(v.unitAssignments).toEqual([{ unitId: "u-wtw", aantal: 2 }]);
+    // Room-gebonden data van r1 wél opgeschoond; r2 blijft.
+    expect(v.terminals.map((t) => t.id)).toEqual(["t2"]);
+    expect(v.rooms.r1).toBeUndefined();
+    expect(v.rooms.r2).toBeDefined();
+  });
+});
+
+describe("removeVentilationUnit — cascade naar toewijzingen", () => {
+  it("verwijdert de unit én de toewijzingen die ernaar wijzen", () => {
+    const id = useProjectStore.getState().addVentilationUnit({
+      type: "mv",
+      fabrikant: "Orcon",
+      model: "MVS-15",
+      capaciteitM3h: 500,
+      source: "catalog",
+    });
+    useProjectStore.getState().setVentilationUnitAssignment(id, 2);
+
+    let v = useProjectStore.getState().ventilation;
+    expect(v.units).toHaveLength(1);
+    expect(v.unitAssignments).toEqual([{ unitId: id, aantal: 2 }]);
+
+    useProjectStore.getState().removeVentilationUnit(id);
+
+    v = useProjectStore.getState().ventilation;
+    expect(v.units).toEqual([]);
+    expect(v.unitAssignments).toEqual([]);
   });
 });

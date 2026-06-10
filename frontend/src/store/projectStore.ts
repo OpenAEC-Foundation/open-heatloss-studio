@@ -29,6 +29,8 @@ import type {
   VentilationState,
   VentilationSystemKey,
   VentilationTerminal,
+  VentilationUnit,
+  VentilationUnitAssignment,
 } from "../types/ventilation";
 import { VENTILATION_SYSTEMS } from "../types/ventilation";
 
@@ -191,6 +193,26 @@ interface ProjectStore {
   setVentilation: (ventilation: VentilationState) => void;
   /** Zet het gebouw-niveau ventilatiesysteem (A–D). */
   setVentilationSystem: (system: VentilationSystemKey) => void;
+  /**
+   * Voeg een WTW/MV-unit toe aan de project-unitbibliotheek (genereert een id
+   * wanneer leeg). No-op (geeft bestaand id terug) wanneer het id al bestaat —
+   * catalogus-snapshots worden maximaal één keer gekopieerd.
+   */
+  addVentilationUnit: (
+    unit: Omit<VentilationUnit, "id"> & { id?: string },
+  ) => string;
+  /** Werk een unit bij (partial merge op id). */
+  updateVentilationUnit: (
+    id: string,
+    partial: Partial<Omit<VentilationUnit, "id">>,
+  ) => void;
+  /** Verwijder een unit op id, inclusief de toewijzingen die ernaar wijzen. */
+  removeVentilationUnit: (id: string) => void;
+  /**
+   * Zet het toegewezen aantal voor een unit (absoluut, upsert).
+   * `aantal <= 0` verwijdert de toewijzing.
+   */
+  setVentilationUnitAssignment: (unitId: string, aantal: number) => void;
 
   /** Undo history (not persisted). */
   _past: ProjectSnapshot[];
@@ -426,6 +448,64 @@ export const useProjectStore = create<ProjectStore>()(
           isDirty: true,
         })),
 
+      addVentilationUnit: (unit) => {
+        const id = unit.id ?? `unit-${crypto.randomUUID()}`;
+        set((state) => {
+          const units = state.ventilation.units ?? [];
+          // Bestaand id (bv. catalogus-snapshot al gekopieerd) → no-op.
+          if (units.some((u) => u.id === id)) return state;
+          return {
+            ventilation: {
+              ...state.ventilation,
+              units: [...units, { ...unit, id }],
+            },
+            isDirty: true,
+          };
+        });
+        return id;
+      },
+
+      updateVentilationUnit: (id, partial) =>
+        set((state) => ({
+          ventilation: {
+            ...state.ventilation,
+            units: (state.ventilation.units ?? []).map((u) =>
+              u.id === id ? { ...u, ...partial } : u,
+            ),
+          },
+          isDirty: true,
+        })),
+
+      removeVentilationUnit: (id) =>
+        set((state) => ({
+          ventilation: {
+            ...state.ventilation,
+            units: (state.ventilation.units ?? []).filter((u) => u.id !== id),
+            unitAssignments: (state.ventilation.unitAssignments ?? []).filter(
+              (a) => a.unitId !== id,
+            ),
+          },
+          isDirty: true,
+        })),
+
+      setVentilationUnitAssignment: (unitId, aantal) =>
+        set((state) => {
+          const current = state.ventilation.unitAssignments ?? [];
+          const exists = current.some((a) => a.unitId === unitId);
+          const unitAssignments: VentilationUnitAssignment[] =
+            aantal > 0
+              ? exists
+                ? current.map((a) =>
+                    a.unitId === unitId ? { ...a, aantal } : a,
+                  )
+                : [...current, { unitId, aantal }]
+              : current.filter((a) => a.unitId !== unitId);
+          return {
+            ventilation: { ...state.ventilation, unitAssignments },
+            isDirty: true,
+          };
+        }),
+
       setActiveProjectId: (id) => set({ activeProjectId: id }),
       setServerUpdatedAt: (updatedAt) => set({ serverUpdatedAt: updatedAt }),
       setCurrentLocalPath: (path) => set({ currentLocalPath: path }),
@@ -505,6 +585,14 @@ export const useProjectStore = create<ProjectStore>()(
                   rooms: opts.ventilation.rooms ?? {},
                   ...(opts.ventilation.system
                     ? { system: opts.ventilation.system }
+                    : {}),
+                  // WTW/MV-units + toewijzingen — alleen meenemen wanneer
+                  // aanwezig (oude bestanden hebben deze velden niet).
+                  ...(opts.ventilation.units
+                    ? { units: opts.ventilation.units }
+                    : {}),
+                  ...(opts.ventilation.unitAssignments
+                    ? { unitAssignments: opts.ventilation.unitAssignments }
                     : {}),
                 }
               : { terminals: [], rooms: {} },
@@ -617,7 +705,10 @@ export const useProjectStore = create<ProjectStore>()(
               rooms: state.project.rooms.filter((r) => r.id !== roomId),
             },
             isso53Rooms: remainingIsso53,
+            // Spread behoudt gebouw-niveau velden (system, units,
+            // unitAssignments) — alleen room-gebonden data wordt opgeschoond.
             ventilation: {
+              ...state.ventilation,
               terminals: state.ventilation.terminals.filter(
                 (t) => t.roomId !== roomId,
               ),
@@ -843,6 +934,12 @@ export const useProjectStore = create<ProjectStore>()(
             // undefined (default-fallback, projecten van vóór de selector).
             ...(v.system && v.system in VENTILATION_SYSTEMS
               ? { system: v.system }
+              : {}),
+            // WTW/MV-units + toewijzingen (projecten van vóór de
+            // units-module hebben deze velden niet).
+            ...(Array.isArray(v.units) ? { units: v.units } : {}),
+            ...(Array.isArray(v.unitAssignments)
+              ? { unitAssignments: v.unitAssignments }
               : {}),
           };
         })(),

@@ -28,11 +28,13 @@ import {
   aggregateVentilationBalance,
   type RoomVentilationBalance,
 } from "../../lib/ventilationBalance";
+import { checkUnitCapacity } from "../../lib/ventilationUnits";
 import {
   BuildingBalanceSummary,
   FUNCTION_OPTIONS,
   StatusBadge,
   SystemSelector,
+  UnitCapacitySummary,
   flowLabel,
   m3hLabel,
 } from "../ventilation/shared";
@@ -85,6 +87,26 @@ export function VentilationBalancePanel({
     [ventilationRooms, ventilation.terminals, ventilation.system],
   );
   const sys = ventilationSystemOf(ventilation);
+
+  // Capaciteitstoets WTW/MV-units — compact resultaat in het balansblok.
+  // Beheer van units/toewijzingen gebeurt op de /ventilation-tab.
+  const unitCapacity = useMemo(
+    () =>
+      checkUnitCapacity(
+        ventilation.units,
+        ventilation.unitAssignments,
+        balance.totalRequiredSupplyDm3s,
+        balance.totalRequiredExhaustDm3s,
+        ventilation.system,
+      ),
+    [
+      ventilation.units,
+      ventilation.unitAssignments,
+      ventilation.system,
+      balance.totalRequiredSupplyDm3s,
+      balance.totalRequiredExhaustDm3s,
+    ],
+  );
 
   const selectedRoomId =
     selection && "roomId" in selection ? selection.roomId : null;
@@ -143,6 +165,7 @@ export function VentilationBalancePanel({
           Gebouwbalans
         </div>
         <BuildingBalanceSummary balance={balance} />
+        <UnitCapacitySummary check={unitCapacity} />
       </div>
     </div>
   );

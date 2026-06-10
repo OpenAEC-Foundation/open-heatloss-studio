@@ -301,3 +301,68 @@ describe("buildVentilationReportData — systeem & gebouwbalans", () => {
     expect(String(verdict.text)).toContain("Onderdruk");
   });
 });
+
+// ---------------------------------------------------------------------------
+// (d) Optionele sectie Ventilatie-units (WTW/MV + capaciteitstoets)
+// ---------------------------------------------------------------------------
+
+describe("buildVentilationReportData — ventilatie-units (optionele sectie)", () => {
+  it("rendert GEEN units-sectie zonder toewijzingen (bestaand rapport ongewijzigd)", () => {
+    const data = buildFixture();
+    expect(
+      sectionsOf(data).find((s) => s.title === "Ventilatie-units"),
+    ).toBeUndefined();
+    // Bestaande sectie-volgorde blijft intact.
+    expect(sectionsOf(data).map((s) => s.title)).toEqual([
+      "Uitgangspunten",
+      "Balans per vertrek",
+      "Gebouwbalans",
+    ]);
+  });
+
+  it("rendert de units-tabel + capaciteitstoets bij toegewezen units", () => {
+    const data = buildVentilationReportData({
+      info,
+      rooms,
+      ventilationRooms,
+      terminals,
+      system: "D",
+      units: [
+        {
+          id: "u1",
+          type: "wtw",
+          fabrikant: "Zehnder",
+          model: "ComfoAir Q450",
+          capaciteitM3h: 450,
+          rendement: 0.9,
+          source: "catalog",
+        },
+      ],
+      unitAssignments: [{ unitId: "u1", aantal: 2 }],
+    });
+
+    const section = sectionByTitle(data, "Ventilatie-units");
+    const table = tablesOf(section)[0]!;
+    expect(table.headers).toEqual([
+      "Unit",
+      "Type",
+      "Capaciteit",
+      "Rendement",
+      "Aantal",
+      "Totaal",
+    ]);
+    // Proportionele kolombreedtes — verplicht op brede tabellen (zelfde
+    // patroon als de per-vertrek-tabel; voorkomt afgekapte kolommen in PDF).
+    expect(table.column_widths).toHaveLength(table.headers.length);
+    expect(table.rows).toEqual([
+      ["Zehnder ComfoAir Q450", "WTW (balans)", "450 m³/h", "90%", "2", "900 m³/h"],
+    ]);
+
+    // Capaciteitstoets: 900 m³/h = 250 dm³/s ≥ eis max(20, 35) = 35 dm³/s.
+    const calc = section.content.find((b) => b.type === "calculation")!;
+    expect(calc.result).toBe("250");
+    expect(calc.reference).toBe("eis 35 dm³/s");
+    const verdict = section.content.find((b) => b.type === "paragraph")!;
+    expect(String(verdict.text)).toContain("Voldoet");
+  });
+});
