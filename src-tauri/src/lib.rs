@@ -4,11 +4,21 @@ pub mod commands;
 pub mod reports;
 
 use tauri::Emitter;
+use tauri_plugin_fs::FsExt;
 
 /// Tauri command: returns the file path passed as argv[1] when the app was
 /// launched via a file association (double-click .ifcenergy in Explorer).
 /// Returns None when launched without a file or when the arg doesn't look
 /// like a supported project path.
+///
+/// Het resultaat verruimt in `run()` de fs-scope van de webview
+/// (`allow_file`), dus de validatie is bewust strikt:
+///   - alleen extensies die de open-file-flow (`AppShell` →
+///     `openProjectFile`) daadwerkelijk afhandelt: `.ifcenergy` en
+///     `.json`-varianten (`.isso51.json`, legacy `.heatloss.json`),
+///     case-insensitive;
+///   - alleen een bestaand, regulier bestand — geen directory of
+///     niet-bestaand pad — mag de scope verruimen.
 #[tauri::command]
 fn launched_with_file() -> Option<String> {
     let args: Vec<String> = std::env::args().collect();
@@ -19,11 +29,13 @@ fn launched_with_file() -> Option<String> {
             continue;
         }
         let lower = arg.to_lowercase();
-        if lower.ends_with(".ifcenergy")
-            || lower.ends_with(".isso51.json")
-            || lower.ends_with(".json")
-        {
-            return Some(arg.clone());
+        let supported = lower.ends_with(".ifcenergy") || lower.ends_with(".json");
+        if !supported {
+            continue;
+        }
+        match std::fs::metadata(arg) {
+            Ok(meta) if meta.is_file() => return Some(arg.clone()),
+            _ => continue,
         }
     }
     None
@@ -53,6 +65,13 @@ pub fn run() {
             // listens and runs the same `openProjectFile` pipeline as the
             // Bestand → Openen action.
             if let Some(path) = launched_with_file() {
+                // Het argv-pad kan buiten de statische fs-scope liggen
+                // (capabilities/default.json beperkt die tot Documents/
+                // Desktop/Downloads — zie src-tauri/README.md). Runtime
+                // allowlisten zodat de frontend `readTextFile` op dit pad
+                // mag doen — zelfde mechaniek als de dialog-plugin gebruikt
+                // voor user-gekozen paden.
+                let _ = app.fs_scope().allow_file(&path);
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
                     // Tiny delay so the main window is mounted + the React

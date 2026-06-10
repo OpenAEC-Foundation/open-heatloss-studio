@@ -1,14 +1,16 @@
 //! Cloud storage handlers — browse projects and save calculations to Nextcloud.
 //!
 //! All routes require authentication. The tenant is resolved from the
-//! `DEFAULT_TENANT` env var (per-token tenant claim support can be added later).
+//! authenticated user's tenant claim (`X-Authentik-Meta-Tenant` /
+//! `attributes.tenant`); zonder claim valt dit terug op de expliciete
+//! `DEFAULT_TENANT` env-var — zie [`resolve_cloud_client`].
 
 use axum::extract::{Path, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::auth::AuthClaims;
+use crate::auth::{AuthClaims, OidcClaims};
 use crate::error::ApiError;
 use crate::state::AppState;
 
@@ -61,16 +63,17 @@ pub struct SaveCalculationResponse {
 /// `GET /api/v1/cloud/status` — Check if cloud storage is available.
 pub async fn cloud_status(
     State(state): State<AppState>,
-    AuthClaims(_claims): AuthClaims,
+    AuthClaims(claims): AuthClaims,
 ) -> Result<Json<CloudStatusResponse>, ApiError> {
-    let client = state.cloud_client(None);
+    let tenant_slug = resolved_tenant_slug(&state, &claims);
+    let client = state.cloud_client(claims.tenant.as_deref());
 
     match client {
         Some(c) => {
             let available = c.is_available().await;
             Ok(Json(CloudStatusResponse {
                 available,
-                tenant: state.default_tenant.clone(),
+                tenant: tenant_slug.map(str::to_string),
                 volume_mounted: c.volume.available(),
             }))
         }
@@ -85,11 +88,9 @@ pub async fn cloud_status(
 /// `GET /api/v1/cloud/projects` — List project folders.
 pub async fn cloud_list_projects(
     State(state): State<AppState>,
-    AuthClaims(_claims): AuthClaims,
+    AuthClaims(claims): AuthClaims,
 ) -> Result<Json<Vec<CloudProjectResponse>>, ApiError> {
-    let client = state
-        .cloud_client(None)
-        .ok_or_else(|| ApiError::ServiceUnavailable("Cloud storage niet geconfigureerd".into()))?;
+    let client = resolve_cloud_client(&state, &claims)?;
 
     if !client.is_available().await {
         return Err(ApiError::ServiceUnavailable(
@@ -114,12 +115,11 @@ pub async fn cloud_list_projects(
 /// `GET /api/v1/cloud/projects/{project}/models` — List IFC model files.
 pub async fn cloud_list_models(
     State(state): State<AppState>,
-    AuthClaims(_claims): AuthClaims,
+    AuthClaims(claims): AuthClaims,
     Path(project): Path<String>,
 ) -> Result<Json<Vec<CloudFileResponse>>, ApiError> {
-    let client = state
-        .cloud_client(None)
-        .ok_or_else(|| ApiError::ServiceUnavailable("Cloud storage niet geconfigureerd".into()))?;
+    validate_project_name(&project)?;
+    let client = resolve_cloud_client(&state, &claims)?;
 
     if !client.project_exists(&project) {
         return Err(ApiError::NotFound(format!(
@@ -143,12 +143,11 @@ pub async fn cloud_list_models(
 /// `GET /api/v1/cloud/projects/{project}/calculations` — List calculation files.
 pub async fn cloud_list_calculations(
     State(state): State<AppState>,
-    AuthClaims(_claims): AuthClaims,
+    AuthClaims(claims): AuthClaims,
     Path(project): Path<String>,
 ) -> Result<Json<Vec<CloudFileResponse>>, ApiError> {
-    let client = state
-        .cloud_client(None)
-        .ok_or_else(|| ApiError::ServiceUnavailable("Cloud storage niet geconfigureerd".into()))?;
+    validate_project_name(&project)?;
+    let client = resolve_cloud_client(&state, &claims)?;
 
     if !client.project_exists(&project) {
         return Err(ApiError::NotFound(format!(
@@ -175,13 +174,12 @@ pub async fn cloud_list_calculations(
 /// the project manifest (`project.wefc`) with a `WefcCalculation` entry.
 pub async fn cloud_save_calculation(
     State(state): State<AppState>,
-    AuthClaims(_claims): AuthClaims,
+    AuthClaims(claims): AuthClaims,
     Path(project): Path<String>,
     Json(body): Json<SaveCalculationRequest>,
 ) -> Result<Json<SaveCalculationResponse>, ApiError> {
-    let client = state
-        .cloud_client(None)
-        .ok_or_else(|| ApiError::ServiceUnavailable("Cloud storage niet geconfigureerd".into()))?;
+    validate_project_name(&project)?;
+    let client = resolve_cloud_client(&state, &claims)?;
 
     if !client.is_available().await {
         return Err(ApiError::ServiceUnavailable(
@@ -265,6 +263,63 @@ pub async fn cloud_save_calculation(
 
 // ── Helpers ─────────────────────────────────────────────────────
 
+/// Resolve de tenant-slug voor de geauthenticeerde gebruiker.
+///
+/// Tenant-claim uit de auth (forward_auth header of Authentik
+/// `attributes.tenant`) gaat vóór; zonder claim valt dit terug op
+/// `DEFAULT_TENANT`.
+fn resolved_tenant_slug<'a>(state: &'a AppState, claims: &'a OidcClaims) -> Option<&'a str> {
+    claims.tenant.as_deref().or(state.default_tenant.as_deref())
+}
+
+/// Resolve een [`openaec_cloud::CloudClient`] voor de geauthenticeerde
+/// gebruiker.
+///
+/// Keuze (audit-fix 2026-06-10): de tenant komt uit de **auth-claims**, niet
+/// uit een vaste `DEFAULT_TENANT`. Zonder tenant-claim vallen we terug op de
+/// expliciete `DEFAULT_TENANT` env-var in plaats van 403 te geven — motivatie:
+/// single-tenant deployments zetten `DEFAULT_TENANT` bewust als infra-opt-in
+/// voor gebruikers zonder Authentik tenant-attribute. Is er géén claim én géén
+/// `DEFAULT_TENANT` (of is de claim-slug onbekend in de registry), dan is er
+/// geen tenant-storage → 503, nooit impliciet andermans storage.
+fn resolve_cloud_client(
+    state: &AppState,
+    claims: &OidcClaims,
+) -> Result<openaec_cloud::CloudClient, ApiError> {
+    state
+        .cloud_client(claims.tenant.as_deref())
+        .ok_or_else(|| {
+            tracing::warn!(
+                user = %claims.sub,
+                tenant_claim = claims.tenant.as_deref().unwrap_or("<geen>"),
+                "cloud storage niet beschikbaar voor tenant van gebruiker"
+            );
+            ApiError::ServiceUnavailable("Cloud storage niet geconfigureerd".into())
+        })
+}
+
+/// Valideer een `{project}` path-parameter tegen directory-traversal.
+///
+/// Weigert lege namen, padscheiders (`/`, `\`), `..`-segmenten, namen die
+/// met een punt beginnen (verborgen mappen, `.`/`..`) en control-characters.
+/// De parameter wordt verderop als directory-naam binnen de tenant-root
+/// gebruikt; alles wat daarbuiten kan wijzen is een 400.
+fn validate_project_name(name: &str) -> Result<(), ApiError> {
+    let valid = !name.is_empty()
+        && name.len() <= 255
+        && !name.starts_with('.')
+        && !name.contains(['/', '\\'])
+        && !name.contains("..")
+        && !name.chars().any(char::is_control);
+
+    if valid {
+        Ok(())
+    } else {
+        // Bewust zonder echo van de input — geen reflectie van attacker-data.
+        Err(ApiError::BadRequest("Ongeldige projectnaam".into()))
+    }
+}
+
 /// Remove any characters that could cause path traversal or OS issues.
 fn sanitize_filename(name: &str) -> String {
     name.chars()
@@ -298,5 +353,41 @@ mod tests {
     fn sanitize_empty_input() {
         assert_eq!(sanitize_filename(""), "");
         assert_eq!(sanitize_filename("../.."), "");
+    }
+
+    // --- validate_project_name (directory-traversal guard) ---------------
+
+    #[test]
+    fn project_name_accepts_normal_names() {
+        assert!(validate_project_name("Project Aldlânstate 12").is_ok());
+        assert!(validate_project_name("2026-042_woonhuis").is_ok());
+        assert!(validate_project_name("a").is_ok());
+    }
+
+    #[test]
+    fn project_name_rejects_traversal_segments() {
+        assert!(validate_project_name("..").is_err());
+        assert!(validate_project_name("../etc").is_err());
+        assert!(validate_project_name("a/../b").is_err());
+        assert!(validate_project_name("a..b").is_err());
+        assert!(validate_project_name("..\\windows").is_err());
+    }
+
+    #[test]
+    fn project_name_rejects_path_separators_and_absolute_paths() {
+        assert!(validate_project_name("a/b").is_err());
+        assert!(validate_project_name("/etc/passwd").is_err());
+        assert!(validate_project_name("a\\b").is_err());
+        assert!(validate_project_name("C:\\Windows").is_err());
+    }
+
+    #[test]
+    fn project_name_rejects_empty_hidden_and_control_chars() {
+        assert!(validate_project_name("").is_err());
+        assert!(validate_project_name(".").is_err());
+        assert!(validate_project_name(".verborgen").is_err());
+        assert!(validate_project_name("naam\u{0}met-nul").is_err());
+        assert!(validate_project_name("naam\nmet-newline").is_err());
+        assert!(validate_project_name(&"x".repeat(256)).is_err());
     }
 }

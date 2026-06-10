@@ -3,7 +3,8 @@
 ## 🔍 Fable 5 full-audit (10-06) — fix-rondes
 > Bron: `audit-reports/09-fable5-full-audit-2026-06-10.md` (62 bevestigd: 4 critical / 33 major / 25 minor). Rondes daar in §7.
 - [x] **R1 stille corruptie ✅ (10-06)** — garage-sentinel isso53 (2 call-sites incl. extra vondst transmission.rs adjacent) · tab-snapshot sidecars+serverbinding · newTab stale-snapshot (bonus-dataverlies-bug) · setResult run-epoch · persist isDirty/serverbinding · undo sidecars. cargo 145 + vitest 191 groen, 2 reviews ship.
-- [ ] **R2 security:** X-Original-Tenant `auth.rs:493` · cloud tenant+traversal `cloud.rs:66/118` · IFC-upload traversal `ifc_import.rs:108` · optimistic-locking UPDATE `projects.rs:231` · Tauri fs-scope `**` · logout-clear van gepersisteerde activeProjectId/serverUpdatedAt (review-bevinding R1)
+- [x] **R2 security ✅ (10-06)** — X-Original-Tenant env-allowlist (TENANT_OVERRIDE_ACCOUNTS, default dicht) · cloud tenant-claim-resolve · 2× path-traversal dicht · optimistic locking atomair · Tauri fs-scope versmald + shell:allow-execute weg · logout-clear serverbinding. cargo 45 + vitest 197 groen, reviews ship.
+- [ ] **R2 desktop-naverificatie [user]** — Tauri-build: open/save vanaf netwerkschijf, dubbelklik .ifcenergy, default-save Documenten, recent-file buiten scope (nette fallback), norm-wissel-backup buiten scope.
 - [ ] **R3 Vabi-import:** mapper.rs r.442/454/211/207/624 + extract_vp.py r.654/460
 - [ ] **R4 rekenkern-normvalidatie (PM-normbron eerst):** Ū+ΔU_TB `lib.rs:76` · U_equiv-monotonie `ground.rs:191` · NEN8088 Tabel 10
 - [ ] **R5 ventilatie/BBL:** overdrukverdeling · systeem C-eis · BBL per-persoon utiliteit

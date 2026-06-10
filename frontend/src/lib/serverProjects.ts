@@ -22,6 +22,7 @@
  */
 import {
   ConflictError,
+  SessionExpiredError,
   createProject as apiCreateProject,
   fetchProject,
   updateProject as apiUpdateProject,
@@ -60,6 +61,14 @@ function recordSaveFailure(err: unknown): void {
     // Conflict centraal markeren zodat de ConflictDialog opent — alle
     // save-flows deden dit voorheen elk voor zich (of vergaten het).
     useProjectStore.setState({ hasConflict: true });
+  } else if (err instanceof SessionExpiredError) {
+    // Definitief verlopen Authentik-sessie: server-saves zijn onmogelijk tot
+    // een nieuwe interactieve login. Serverbinding loskoppelen (R1 — een
+    // gepersisteerde binding mag op een gedeelde browser niet overerven naar
+    // de volgende gebruiker). Project + isDirty blijven staan; de caller
+    // (useAutoSave/Backstage) toont de "log opnieuw in"-toast. Na re-login
+    // heropent de user het project via de Projects-lijst.
+    useProjectStore.getState().clearServerBinding();
   } else if (typeof navigator !== "undefined" && !navigator.onLine) {
     status.setOffline();
   } else {

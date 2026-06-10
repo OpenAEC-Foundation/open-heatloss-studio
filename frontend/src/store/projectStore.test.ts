@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { DEFAULT_ISSO53_ROOM } from "../types/projectV2";
 import type { VentilationState } from "../types/ventilation";
+import { useSaveStatusStore } from "./saveStatusStore";
 
 /**
  * Tests voor {@link useProjectStore.syncProjectConstruction} — de propagatie
@@ -446,5 +447,75 @@ describe("persist — isDirty + serverbinding overleven een reload", () => {
     expect(merged.isDirty).toBe(true);
     expect(merged.activeProjectId).toBeNull();
     expect(merged.serverUpdatedAt).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearServerBinding — logout / definitief verlopen sessie (R1)
+// ---------------------------------------------------------------------------
+
+describe("clearServerBinding — logout / verlopen sessie (R1)", () => {
+  afterEach(() => {
+    useSaveStatusStore.getState().resetStatus();
+  });
+
+  function seedBinding(): void {
+    useProjectStore.setState({
+      project: {
+        ...useProjectStore.getState().project,
+        info: { name: "Project van user A" },
+      },
+      isDirty: true,
+      activeProjectId: "proj-A",
+      serverUpdatedAt: "2026-06-10 09:00:00",
+      hasConflict: true,
+      currentLocalPath: "C:\\werk\\project.ifcenergy",
+    });
+  }
+
+  it("wist activeProjectId, serverUpdatedAt en hasConflict", () => {
+    seedBinding();
+
+    useProjectStore.getState().clearServerBinding();
+
+    const s = useProjectStore.getState();
+    expect(s.activeProjectId).toBeNull();
+    expect(s.serverUpdatedAt).toBeNull();
+    expect(s.hasConflict).toBe(false);
+  });
+
+  it("laat project, isDirty en currentLocalPath staan — geen werk weggooien", () => {
+    seedBinding();
+
+    useProjectStore.getState().clearServerBinding();
+
+    const s = useProjectStore.getState();
+    expect(s.project.info.name).toBe("Project van user A");
+    expect(s.isDirty).toBe(true);
+    expect(s.currentLocalPath).toBe("C:\\werk\\project.ifcenergy");
+  });
+
+  it("reset de save-status naar idle", () => {
+    seedBinding();
+    useSaveStatusStore.getState().setError("save mislukt");
+
+    useProjectStore.getState().clearServerBinding();
+
+    expect(useSaveStatusStore.getState().status).toBe("idle");
+  });
+
+  it("persist-snapshot bevat daarna geen serverbinding meer (gedeelde browser)", () => {
+    seedBinding();
+
+    useProjectStore.getState().clearServerBinding();
+
+    // partialize = wat er in localStorage komt; na de clear mag de volgende
+    // gebruiker op deze machine geen binding van user A meer erven.
+    const slim = partializeProjectStore(useProjectStore.getState()) as Record<
+      string,
+      unknown
+    >;
+    expect(slim.activeProjectId).toBeNull();
+    expect(slim.serverUpdatedAt).toBeNull();
   });
 });
