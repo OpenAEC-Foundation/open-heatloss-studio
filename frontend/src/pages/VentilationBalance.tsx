@@ -13,11 +13,16 @@
  * **Eenheden:** dm³/s intern; m³/h alleen als afgeleide weergave.
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
+import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useVentilationBalance } from "../hooks/useVentilationBalance";
+import { generateReportDirect } from "../lib/reportClient";
+import { buildVentilationReportData } from "../lib/ventilationReportBuilder";
+import { useToastStore } from "../store/toastStore";
 import {
   ventilationSystemOf,
   type BblFunctionKey,
@@ -48,6 +53,10 @@ export function VentilationBalance() {
     setSystem,
   } = useVentilationBalance();
 
+  const { t } = useTranslation();
+  const addToast = useToastStore((s) => s.addToast);
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const balance = useMemo(
     () =>
       aggregateVentilationBalance(
@@ -59,11 +68,57 @@ export function VentilationBalance() {
   );
   const sys = ventilationSystemOf(ventilation);
 
+  // Zelfstandig ventilatiebalans-rapport — zelfde UX-patroon als de
+  // uw/rc-rapport-knoppen (UwCalculator.handleGenerateReport).
+  const handleGenerateReport = useCallback(async () => {
+    setIsGenerating(true);
+    const reportName = t("ventilation.reportName");
+    try {
+      const reportData = buildVentilationReportData({
+        info: project.info,
+        rooms: project.rooms,
+        ventilationRooms,
+        terminals: ventilation.terminals,
+        system: ventilation.system,
+      });
+      const blob = await generateReportDirect(reportData);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${reportName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      addToast(t("ventilation.reportSuccess"), "success");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : t("ventilation.reportError");
+      addToast(`${t("ventilation.reportFailed")}: ${message}`, "error", 5000);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [project, ventilationRooms, ventilation, addToast, t]);
+
   return (
     <div>
       <PageHeader
         title="Ventilatiebalans"
         subtitle="BBL afd. 3.6 — eis per vertrek + gebouwbalans"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleGenerateReport}
+            disabled={isGenerating || project.rooms.length === 0}
+          >
+            {isGenerating
+              ? t("ventilation.generating")
+              : t("ventilation.report")}
+          </Button>
+        }
       />
 
       <div className="space-y-4 p-6">

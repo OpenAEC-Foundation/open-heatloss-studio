@@ -412,5 +412,13 @@
       "sourceLabel": "Bron: {{source}}",
       "disclaimer": "Publieke richtwaarde — verifieer bij de fabrikant/leverancier."
     }
+  },
+  "ventilation": {
+    "report": "Genereer rapport",
+    "generating": "Genereren...",
+    "reportName": "Ventilatiebalans",
+    "reportSuccess": "Rapport gegenereerd",
+    "reportFailed": "Rapport mislukt",
+    "reportError": "Onbekende fout"
   }
 }
