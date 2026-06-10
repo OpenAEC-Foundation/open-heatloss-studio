@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { useBackend } from "./useBackend";
-import { useProjectStore } from "../store/projectStore";
+import { getProjectInputEpoch, useProjectStore } from "../store/projectStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { prepareProjectForCalculation } from "../lib/frameOverride";
 import { buildV2PayloadIsso53 } from "../lib/projectV2Migration";
@@ -33,6 +33,10 @@ export function useRunCalculation(): () => Promise<boolean> {
   const projectConstructions = useModellerStore((s) => s.projectConstructions);
 
   return useCallback(async () => {
+    // Epoch vastleggen vóór de (async) run: edits of een project-wissel
+    // tijdens de berekening mogen het stale result niet als "clean"
+    // laten markeren (setResult laat isDirty dan staan).
+    const runEpoch = getProjectInputEpoch();
     setCalculating(true);
     try {
       if (norm === "isso53") {
@@ -43,11 +47,11 @@ export function useRunCalculation(): () => Promise<boolean> {
           isso53Rooms,
         );
         const result = await backend.calculateV2(payload);
-        setResult(result);
+        setResult(result, runEpoch);
       } else {
         const payload = prepareProjectForCalculation(project, projectConstructions);
         const result = await backend.calculate(payload);
-        setResult(result);
+        setResult(result, runEpoch);
       }
       return true;
     } catch (err) {

@@ -41,17 +41,37 @@ import { useSaveStatusStore } from "./saveStatusStore";
 
 const MAX_HISTORY = 50;
 
+/**
+ * Undo-snapshot. Naast het project zelf ook de per-ruimte sidecars
+ * (`isso53Rooms` + `ventilation`): `removeRoom` schoont die mee op, dus
+ * een undo moet ze ook mee terugzetten — anders is per-ruimte config stil
+ * weg na een undo (audit 09 §2.1).
+ *
+ * `isso53Building` hoort hier bewust NIET bij: geen enkele history-tracked
+ * mutatie raakt het, en meenemen zou een undo van een room-mutatie stil
+ * latere (untracked) gebouw-instellingen terugdraaien.
+ */
 interface ProjectSnapshot {
   project: Project;
+  isso53Rooms: Record<string, Isso53RoomState>;
+  ventilation: VentilationState;
 }
 
-function takeProjectSnapshot(state: { project: Project }): ProjectSnapshot {
-  return { project: structuredClone(state.project) };
+function takeProjectSnapshot(state: {
+  project: Project;
+  isso53Rooms: Record<string, Isso53RoomState>;
+  ventilation: VentilationState;
+}): ProjectSnapshot {
+  return {
+    project: structuredClone(state.project),
+    isso53Rooms: structuredClone(state.isso53Rooms),
+    ventilation: structuredClone(state.ventilation),
+  };
 }
 
 /** Detecteer de norm van een geladen project uit de verwarmings-shape:
  * camelCase ISSO 53-waarden (bv. radiatorenConvLt) => isso53, anders isso51. */
-function detectNormFromProject(project: Project): ActiveNorm {
+export function detectNormFromProject(project: Project): ActiveNorm {
   const heatings = [
     project.building?.default_heating_system,
     ...project.rooms.map((r) => r.heating_system),
@@ -263,8 +283,22 @@ interface ProjectStore {
   setActiveProjectId: (id: string | null) => void;
   /** Set the local filesystem path (or clear with null on New). */
   setCurrentLocalPath: (path: string | null) => void;
-  /** Set the calculation result. */
-  setResult: (result: ProjectResult | Isso53ProjectResult) => void;
+  /**
+   * Set the calculation result.
+   *
+   * `runEpoch` (optioneel) is de waarde van {@link getProjectInputEpoch}
+   * op het moment dat de berekening startte. Wanneer de input sindsdien
+   * gewijzigd is (epoch-mismatch) wordt het result wél getoond (het is
+   * het meest recente dat bestaat) maar blijft `isDirty` staan — edits
+   * tijdens een lopende berekening mogen niet als "clean" gemarkeerd
+   * worden (audit 09 §2.1). Zonder `runEpoch` (load-/importflows die het
+   * result samen met het project zetten) blijft het oude gedrag:
+   * onvoorwaardelijk `isDirty: false`.
+   */
+  setResult: (
+    result: ProjectResult | Isso53ProjectResult,
+    runEpoch?: number,
+  ) => void;
   /** Set an error from a failed calculation. */
   setError: (error: string) => void;
   /** Clear the current error. */
@@ -674,8 +708,19 @@ export const useProjectStore = create<ProjectStore>()(
           _future: [],
         }),
 
-      setResult: (result) =>
-        set({ result, isDirty: false, error: null, isCalculating: false }),
+      setResult: (result, runEpoch) =>
+        set((state) => ({
+          result,
+          // Stale-guard: is de calc-input gewijzigd sinds de run startte
+          // (epoch-mismatch), dan blijft de dirty-vlag staan zodat
+          // auto-save en de "resultaat verouderd"-hints blijven werken.
+          isDirty:
+            runEpoch !== undefined && runEpoch !== projectInputEpoch
+              ? state.isDirty
+              : false,
+          error: null,
+          isCalculating: false,
+        })),
 
       setError: (error) =>
         set({ error, isCalculating: false }),
@@ -908,6 +953,10 @@ export const useProjectStore = create<ProjectStore>()(
         const prev = state._past[state._past.length - 1]!;
         set({
           project: prev.project,
+          // Per-ruimte sidecars mee terugzetten — een undo van removeRoom
+          // moet ook de isso53-/ventilatie-config van die ruimte herstellen.
+          isso53Rooms: prev.isso53Rooms ?? state.isso53Rooms,
+          ventilation: prev.ventilation ?? state.ventilation,
           _past: state._past.slice(0, -1),
           _future: [...state._future, currentSnap],
           isDirty: true,
@@ -921,6 +970,8 @@ export const useProjectStore = create<ProjectStore>()(
         const next = state._future[state._future.length - 1]!;
         set({
           project: next.project,
+          isso53Rooms: next.isso53Rooms ?? state.isso53Rooms,
+          ventilation: next.ventilation ?? state.ventilation,
           _past: [...state._past, currentSnap],
           _future: state._future.slice(0, -1),
           isDirty: true,
@@ -930,73 +981,141 @@ export const useProjectStore = create<ProjectStore>()(
     {
       name: "isso51-project",
       version: 1,
-      partialize: (state) => ({
-        project: state.project,
-        sharedExtra: state.sharedExtra,
-        norm: state.norm,
-        isso53Building: state.isso53Building,
-        isso53Rooms: state.isso53Rooms,
-        ventilation: state.ventilation,
-        result: state.result,
-      }),
-      merge: (persisted, current) => ({
-        ...current,
-        ...(persisted as Pick<
-          ProjectStore,
-          | "project"
-          | "sharedExtra"
-          | "norm"
-          | "isso53Building"
-          | "isso53Rooms"
-          | "ventilation"
-          | "result"
-        >),
-        sharedExtra:
-          (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
-        // Silent migration voor gepersisteerde projecten van vóór fase 2.
-        norm: (persisted as Partial<ProjectStore>)?.norm ?? "isso51",
-        // Silent migration voor projecten van vóór fase 3 (geen ISSO 53 sidecar).
-        // Plus §4.8-migratie: normaliseer de heatingUp-blob (vervallen
-        // pWPerM2/warmupMinutes → pWPerM2Override + defaults).
-        isso53Building: (() => {
-          const persistedBuilding = (persisted as Partial<ProjectStore>)
-            ?.isso53Building;
-          if (!persistedBuilding) return current.isso53Building;
-          return {
-            // Backfill nieuwe velden (bv. `bouwfase`) voor projecten van vóór
-            // ronde 6c — spread defaults eerst, dan de gepersisteerde waarden.
-            ...DEFAULT_ISSO53_BUILDING,
-            ...persistedBuilding,
-            heatingUp: normalizeIsso53HeatingUp(persistedBuilding.heatingUp),
-          };
-        })(),
-        isso53Rooms:
-          (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
-        // Silent migration voor projecten van vóór de ventilatiebalans-module.
-        ventilation: (() => {
-          const v = (persisted as Partial<ProjectStore>)?.ventilation;
-          if (!v) return current.ventilation;
-          return {
-            terminals: Array.isArray(v.terminals) ? v.terminals : [],
-            rooms:
-              v.rooms && typeof v.rooms === "object" ? v.rooms : {},
-            // Alleen geldige systeemsleutels doorlaten; ontbrekend/ongeldig →
-            // undefined (default-fallback, projecten van vóór de selector).
-            ...(v.system && v.system in VENTILATION_SYSTEMS
-              ? { system: v.system }
-              : {}),
-            // WTW/MV-units + toewijzingen (projecten van vóór de
-            // units-module hebben deze velden niet).
-            ...(Array.isArray(v.units) ? { units: v.units } : {}),
-            ...(Array.isArray(v.unitAssignments)
-              ? { unitAssignments: v.unitAssignments }
-              : {}),
-          };
-        })(),
-        isDirty: false,
-        isCalculating: false,
-        error: null,
-      }),
+      partialize: partializeProjectStore,
+      merge: mergePersistedProjectStore,
     },
   ),
 );
+
+/**
+ * Persist-partialize (geëxporteerd voor tests — de `store.persist`-API is
+ * in de node-testomgeving niet beschikbaar zonder `window.localStorage`).
+ *
+ * Server-binding + dirty-vlag worden mee-gepersisteerd (audit 09 §2.2):
+ * na een reload ("herlaad om in te loggen") moet de auto-save doorlopen
+ * op hetzelfde serverproject i.p.v. stil te stoppen. `hasConflict` bewust
+ * NIET — een conflict wordt bij de eerste save na reload opnieuw
+ * gedetecteerd via `serverUpdatedAt`.
+ */
+export function partializeProjectStore(state: ProjectStore) {
+  return {
+    project: state.project,
+    sharedExtra: state.sharedExtra,
+    norm: state.norm,
+    isso53Building: state.isso53Building,
+    isso53Rooms: state.isso53Rooms,
+    ventilation: state.ventilation,
+    result: state.result,
+    isDirty: state.isDirty,
+    activeProjectId: state.activeProjectId,
+    serverUpdatedAt: state.serverUpdatedAt,
+  };
+}
+
+/** Persist-merge (geëxporteerd voor tests — zie partializeProjectStore). */
+export function mergePersistedProjectStore(
+  persisted: unknown,
+  current: ProjectStore,
+): ProjectStore {
+  return {
+    ...current,
+    ...(persisted as Pick<
+      ProjectStore,
+      | "project"
+      | "sharedExtra"
+      | "norm"
+      | "isso53Building"
+      | "isso53Rooms"
+      | "ventilation"
+      | "result"
+    >),
+    sharedExtra:
+      (persisted as Partial<ProjectStore>)?.sharedExtra ?? current.sharedExtra,
+    // Silent migration voor gepersisteerde projecten van vóór fase 2.
+    norm: (persisted as Partial<ProjectStore>)?.norm ?? "isso51",
+    // Silent migration voor projecten van vóór fase 3 (geen ISSO 53 sidecar).
+    // Plus §4.8-migratie: normaliseer de heatingUp-blob (vervallen
+    // pWPerM2/warmupMinutes → pWPerM2Override + defaults).
+    isso53Building: (() => {
+      const persistedBuilding = (persisted as Partial<ProjectStore>)
+        ?.isso53Building;
+      if (!persistedBuilding) return current.isso53Building;
+      return {
+        // Backfill nieuwe velden (bv. `bouwfase`) voor projecten van vóór
+        // ronde 6c — spread defaults eerst, dan de gepersisteerde waarden.
+        ...DEFAULT_ISSO53_BUILDING,
+        ...persistedBuilding,
+        heatingUp: normalizeIsso53HeatingUp(persistedBuilding.heatingUp),
+      };
+    })(),
+    isso53Rooms:
+      (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
+    // Silent migration voor projecten van vóór de ventilatiebalans-module.
+    ventilation: (() => {
+      const v = (persisted as Partial<ProjectStore>)?.ventilation;
+      if (!v) return current.ventilation;
+      return {
+        terminals: Array.isArray(v.terminals) ? v.terminals : [],
+        rooms: v.rooms && typeof v.rooms === "object" ? v.rooms : {},
+        // Alleen geldige systeemsleutels doorlaten; ontbrekend/ongeldig →
+        // undefined (default-fallback, projecten van vóór de selector).
+        ...(v.system && v.system in VENTILATION_SYSTEMS
+          ? { system: v.system }
+          : {}),
+        // WTW/MV-units + toewijzingen (projecten van vóór de
+        // units-module hebben deze velden niet).
+        ...(Array.isArray(v.units) ? { units: v.units } : {}),
+        ...(Array.isArray(v.unitAssignments)
+          ? { unitAssignments: v.unitAssignments }
+          : {}),
+      };
+    })(),
+    // Rehydrate-keuze (audit 09 §2.2): isDirty + serverbinding worden
+    // gepersisteerd en hier hersteld. Legacy persisted state (van vóór
+    // deze velden) → isDirty: true. Dat is de veilige kant: hooguit één
+    // overbodige save/dirty-indicator, nooit een stil-stoppende
+    // auto-save terwijl er onopgeslagen werk staat.
+    isDirty: (persisted as Partial<ProjectStore>)?.isDirty ?? true,
+    activeProjectId:
+      (persisted as Partial<ProjectStore>)?.activeProjectId ?? null,
+    serverUpdatedAt:
+      (persisted as Partial<ProjectStore>)?.serverUpdatedAt ?? null,
+    hasConflict: false,
+    isCalculating: false,
+    error: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Calc-input epoch — stale-result guard voor setResult
+// ---------------------------------------------------------------------------
+
+/**
+ * Monotone teller die elke wijziging aan de berekenings-/save-relevante
+ * input telt (project + alle sidecars + norm). `useRunCalculation` legt de
+ * epoch vast bij de start van een berekening en geeft hem mee aan
+ * {@link ProjectStore.setResult}; bij een mismatch (edit of project-wissel
+ * tijdens de lopende run) blijft `isDirty` staan.
+ *
+ * Module-level i.p.v. store-state: de teller is geen UI-state en mag geen
+ * re-renders of persist-writes triggeren.
+ */
+let projectInputEpoch = 0;
+
+useProjectStore.subscribe((state, prev) => {
+  if (
+    state.project !== prev.project ||
+    state.sharedExtra !== prev.sharedExtra ||
+    state.norm !== prev.norm ||
+    state.isso53Building !== prev.isso53Building ||
+    state.isso53Rooms !== prev.isso53Rooms ||
+    state.ventilation !== prev.ventilation
+  ) {
+    projectInputEpoch += 1;
+  }
+});
+
+/** Huidige calc-input epoch — zie {@link ProjectStore.setResult}. */
+export function getProjectInputEpoch(): number {
+  return projectInputEpoch;
+}

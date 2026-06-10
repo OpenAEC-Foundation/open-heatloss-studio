@@ -5,7 +5,7 @@ use crate::model::{BoundaryType, ConstructionElement, DesignConditions, Room, Bu
 use crate::model::enums::{HeatingSystem, VerticalPosition};
 use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
 use crate::tables::adjacent_unheated::f_k;
-use crate::tables::temperature::{design_indoor_temperature, resolve_theta_i};
+use crate::tables::temperature::resolve_theta_i;
 use crate::tables::temperature_stratification::delta_theta_1_corrected;
 use super::ground::calculate_h_t_ground;
 
@@ -156,7 +156,7 @@ pub fn calculate_h_t_unheated(elements: &[&ConstructionElement]) -> Result<f64> 
 /// Geen thermische brug correctie (interne elementen — ISSO 53 §4.4).
 ///
 /// Temperature resolution:
-/// 1. If element.adjacent_room_id exists → lookup in all_rooms, use Room.custom_temperature
+/// 1. If element.adjacent_room_id exists → lookup in all_rooms, resolve θ via `resolve_theta_i`
 /// 2. Fallback to element.adjacent_temperature
 /// 3. Error if both missing
 ///
@@ -182,12 +182,10 @@ pub fn calculate_h_t_adjacent_rooms(
                     adjacent_room_id, element.id
                 )))?;
 
-            // Use room's custom temperature or calculate default based on usage
-            adjacent_room.custom_temperature
-                .unwrap_or_else(|| design_indoor_temperature(
-                    adjacent_room.gebruiks_functie,
-                    adjacent_room.ruimte_type
-                ))
+            // θ van de buurruimte via resolve_theta_i: custom wint, anders
+            // tabel 2.2, en de garage-sentinel TEMPERATURE_IS_EXTERIOR wordt
+            // vervangen door θ_e (f_ia,k = 1 → telt als buitenschil).
+            resolve_theta_i(adjacent_room, theta_e)
         } else if let Some(temp) = element.adjacent_temperature {
             // Fallback to explicit temperature on element
             temp
