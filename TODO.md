@@ -10,7 +10,7 @@
 - [ ] **R3-naverificatie [user/andere machine]** — vabi-importer v2_import-tests (voorweg_210a, 24221) draaien op machine mét de gitignored referentie-.vp's; daarna extractor-fixture-run.
 - [x] **R4 rekenkern-normvalidatie ✅ (10-06, PM-geverifieerd tegen norm-PDF's op Z:)** — U_equiv 4.24 norm-vorm (oude vorm: omgekeerde monotonie + misread-ijking) reproduceert beide normvoorbeelden · Ū opwarmtoeslag incl. ΔU_TB+grondvloer · NEN8088 Tabel 10 compleet + ISSO53 Tabel 4.7 bevestigd (twee normen, bewust niet geconsolideerd) · Φ_T,iaBE ≥0-clamp. Geen golden-shift. Review ship.
 - [ ] **R4-besluit: isso53 Vabi-compat f_inf [PM, laag]** — compat-pad wijkt af van beide normen (bewust, DR-golden); gedocumenteerd, besluit Vabi-pariteit vs norm bij gelegenheid.
-- [ ] **R5 ventilatie/BBL:** overdrukverdeling · systeem C-eis · BBL per-persoon utiliteit
+- [x] **R5 ventilatie/BBL ✅ (10-06, Bbl 4.122 via iplo.nl + NEN 1087-PDF geverifieerd)** — per-persoon-eisen utiliteit (onderwijs 8,5 pp; was vlakke 4,0 = >2× onderschat) + indicatief-markering zonder bezetting · overstroomverdeling plugin-port · systeem C max(toevoer,afvoer) · NEN 1087-docverankering spleetformule. 219/219, review ship.
 - [ ] **R6 test-infra** · **R7 efficiency/UI** · **R8 cleanup** · **R9 niet-onderzocht (aparte audits)**
 
 ---
@@ -63,7 +63,7 @@
 - [ ] **Plattegrond-snapshot in rapport [M]** — Konva stage.toDataURL → base64 image-block; obstakel: FloorCanvas niet gemount vanaf /ventilation → offscreen Konva-Stage vanuit modeldata (±0,5-1 dag, herbruikbaar voor andere rapporten).
 - [x] **Delegatie 6 (10-06) — WTW/MV-units + capaciteitstoets** — mechanisme-port (ventilatie_units.json bleek nergens te bestaan → indicatieve seed `data/ventilationUnits.json`, expliciet gemarkeerd): VentilationUnit-datamodel (zone-ready, toewijzing gebouwniveau), capaciteitstoets systeem-bewust (D=max(toevoer,afvoer), C=afvoer, B=toevoer, A=n.v.t.), UnitsCard op /ventilation + compact resultaat zijpaneel, optionele rapport-sectie, persistentie beide envelopes. Bugfix: removeRoom droppte ventilation.system/units (spread-fix + regressietest). 171/171 groen. Review 2 passes, fixes doorgevoerd.
 - [ ] **Units-catalogus valideren [S, user]** — seed-data is indicatief; fabrikantgegevens (capaciteit/rendement/geluid) controleren en aanvullen.
-- [ ] **NEN 1087-exacte spleetformule [S, user]** — nu indicatief C_d=0,6/ΔP=1,0 Pa (`estimateDoorGapAreaCm2`); user levert normpagina's.
+- [x] **NEN 1087-exacte spleetformule ✅ (R5)** — C_d=0,6/Δp=1,0 Pa/n=0,5 verankerd in norm (Z: PDF gelezen), kantoor-Δp=2 Pa als constante (`OFFICE_DOOR_GAP_DELTA_P_PA`). Geen extra normpagina's nodig.
 - [ ] **pyRevit "Export naar web" + import-keten [M]** — `ventilation.json`-export in `pyrevit-gis2bim` + web-import met merge (revit overschrijven, manual behouden). Apart spoor (revit-bim-specialist).
 - [ ] **`deriveModelDoors` blijft stub** — overstroom hangt aan gedeelde wanden; deur-objecten later.
 

@@ -32,6 +32,7 @@ import { checkUnitCapacity } from "../../lib/ventilationUnits";
 import {
   BuildingBalanceSummary,
   FUNCTION_OPTIONS,
+  IndicativeOccupancyBadge,
   StatusBadge,
   SystemSelector,
   UnitCapacitySummary,
@@ -292,6 +293,10 @@ function RoomRow({
                 <span className="font-normal text-scaffold-gray">
                   ({m3hLabel(required)})
                 </span>
+                <IndicativeOccupancyBadge
+                  fn={vr.ventilationFunction}
+                  occupancy={vr.occupancy}
+                />
               </>
             ) : (
               "geen eis"

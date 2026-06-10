@@ -261,7 +261,8 @@ export type BblRequirementType = "supply" | "exhaust" | "none";
 /**
  * Eén BBL-eisregel: specifiek debiet per m² (dm³/(s·m²)), een ondergrens
  * (dm³/s) en het eis-type. Geport uit `NORMEN_BBL` in
- * `VentilatieBalans.pushbutton/script.py:54-79`.
+ * `VentilatieBalans.pushbutton/script.py:54-79`, uitgebreid met de
+ * per-persoon-eisen van Bbl artikel 4.122 lid 2 (`personDm3s`).
  */
 export interface BblRequirement {
   /** Specifiek debiet in dm³/(s·m²). */
@@ -270,6 +271,16 @@ export interface BblRequirement {
   minimumDm3s: number;
   /** Toevoer / afvoer / geen. */
   type: BblRequirementType;
+  /**
+   * Per-persoon-eis in dm³/s per persoon — Bbl artikel 4.122 **lid 2**
+   * (overige gebruiksfuncties; via iplo.nl geverifieerd 2026-06-10). Wanneer
+   * gezet is de gebruiksfunctie **persoon-gebaseerd**: de eis is
+   * `personen × personDm3s` (zie {@link bblDemandDm3s}); zonder ingevulde
+   * bezetting valt de berekening terug op de m²-benadering en is de eis
+   * **indicatief** ({@link isBblDemandIndicative}).
+   * `undefined` = oppervlakte-gebaseerd (lid 1, woonfunctie-achtig).
+   */
+  personDm3s?: number;
 }
 
 /**
@@ -278,15 +289,28 @@ export interface BblRequirement {
  * Sleutels zijn de Nederlandse gebruiksfunctie-namen uit de plugin, zodat een
  * latere Revit-import 1:1 mapt. Minima en specifieke debieten in dm³/s
  * respectievelijk dm³/(s·m²).
+ *
+ * **Norm-grondslag (Bbl artikel 4.122, via iplo.nl geverifieerd 2026-06-10):**
+ *   - lid 1 (woonfunctie): verblijfsruimte 0,7 / verblijfsgebied 0,9
+ *     dm³/(s·m²), minimum 7 dm³/s;
+ *   - lid 2 (overige gebruiksfuncties, **per persoon**, `personDm3s`):
+ *     gezondheidszorg bedgebied 12 · onderwijs + gezondheidszorg overig 8,5 ·
+ *     kantoor/industrie/sport 6,5 · winkel/bijeenkomst (niet-kinderopvang) 4 ·
+ *     bijeenkomst-kinderopvang 6,5 dm³/s per persoon;
+ *   - lid 3: opstelplaats kooktoestel (keuken) 21 dm³/s;
+ *   - lid 5: toiletruimte 7 / badruimte 14 dm³/s (alle functies).
  */
 export const BBL_REQUIREMENTS = {
-  bijeenkomstfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
-  kantoorfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
-  onderwijsfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
-  sportfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
-  winkelfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
+  bijeenkomstfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 4 },
+  "bijeenkomstfunctie (kinderopvang)": { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 6.5 },
+  kantoorfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 6.5 },
+  industriefunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 6.5 },
+  onderwijsfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 8.5 },
+  sportfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 6.5 },
+  winkelfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 4 },
   woonfunctie: { dm3PerM2: 0.7, minimumDm3s: 7, type: "supply" },
-  gezondheidszorgfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
+  gezondheidszorgfunctie: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 8.5 },
+  "gezondheidszorgfunctie (bedgebied)": { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply", personDm3s: 12 },
   logiesfunctie: { dm3PerM2: 0.7, minimumDm3s: 7, type: "supply" },
   verblijfsgebied: { dm3PerM2: 0.9, minimumDm3s: 7, type: "supply" },
   verblijfsruimte: { dm3PerM2: 0.7, minimumDm3s: 7, type: "supply" },
@@ -330,25 +354,58 @@ export function bblRequirementFor(fn: string): BblRequirement {
 }
 
 /**
- * Default ventilatiedebiet per persoon in dm³/s. Port van `dm3_per_persoon`
- * uit de pyRevit-plugin (`VentilatieBalans.pushbutton/script.py:336` /
- * NumericUpDown-default r.421: 4,0 dm³/s = 14,4 m³/h pp).
+ * Default ventilatiedebiet per persoon in dm³/s voor de **woonfunctie-
+ * personentoeslag**. Port van `dm3_per_persoon` uit de pyRevit-plugin
+ * (`VentilatieBalans.pushbutton/script.py:336` / NumericUpDown-default r.421:
+ * 4,0 dm³/s = 14,4 m³/h pp).
+ *
+ * Geldt ALLEEN voor oppervlakte-gebaseerde functies (Bbl 4.122 lid 1,
+ * woonfunctie e.d.) — persoon-gebaseerde utiliteitsfuncties gebruiken hun
+ * eigen `personDm3s` uit {@link BBL_REQUIREMENTS} (lid 2).
  */
 export const DEFAULT_OCCUPANCY_DM3S_PER_PERSON = 4.0;
 
 /**
- * Per-ruimte BBL-eis in dm³/s, inclusief optionele personen-toeslag:
- * `eis = max(oppervlak × dm3PerM2, personen × pp-debiet, minimum)`.
+ * Is de afgeleide BBL-eis voor deze functie+bezetting **indicatief**?
  *
- * Port van `_bereken_ventilatie_eis` uit de pyRevit-plugin
- * (`VentilatieBalans.pushbutton/script.py:282-289`). Net als in de plugin
- * geldt de personen-term voor élke gebruiksfunctie (geen functie-restrictie)
- * en alleen wanneer er daadwerkelijk personen zijn opgegeven (> 0).
+ * `true` voor een persoon-gebaseerde gebruiksfunctie (Bbl 4.122 lid 2,
+ * `personDm3s` gezet) zónder ingevulde bezetting: {@link bblDemandDm3s} valt
+ * dan terug op de m²-benadering, terwijl de wettelijke eis per persoon geldt.
+ * UI en rapport markeren dit als "indicatief — bezetting invullen".
+ */
+export function isBblDemandIndicative(
+  fn: string,
+  occupancy?: number,
+): boolean {
+  const req = bblRequirementFor(fn);
+  return (
+    req.personDm3s !== undefined && !(occupancy !== undefined && occupancy > 0)
+  );
+}
+
+/**
+ * Per-ruimte BBL-eis in dm³/s.
+ *
+ * **Eis-formule per functie-type (Bbl artikel 4.122, geverifieerd via iplo.nl
+ * 2026-06-10):**
+ *   - **Oppervlakte-gebaseerd** (lid 1 — woonfunctie, verblijfsruimte/-gebied,
+ *     logies; en de afvoerruimtes uit lid 3/5):
+ *     `eis = max(oppervlak × dm3PerM2, personen × pp-toeslag, minimum)` —
+ *     de optionele personen-toeslag van 4,0 dm³/s pp is de plugin-conventie
+ *     uit `_bereken_ventilatie_eis` (`VentilatieBalans.pushbutton/
+ *     script.py:282-289`), geen wettelijke eis.
+ *   - **Persoon-gebaseerd** (lid 2 — utiliteitsfuncties met `personDm3s`):
+ *     `eis = max(personen × personDm3s, minimum)`. Zonder ingevulde bezetting
+ *     valt de berekening terug op de m²-benadering
+ *     (`max(oppervlak × dm3PerM2, minimum)`) — die uitkomst is **indicatief**
+ *     (zie {@link isBblDemandIndicative}; UI/rapport markeren dit).
  *
  * @param areaM2 vloeroppervlak in m²
  * @param fn gebruiksfunctie-sleutel
- * @param occupancy aantal personen (`undefined`/0 = geen toeslag)
- * @param dm3sPerPerson pp-debiet in dm³/s (default {@link DEFAULT_OCCUPANCY_DM3S_PER_PERSON})
+ * @param occupancy aantal personen (`undefined`/0 = geen bezetting)
+ * @param dm3sPerPerson woonfunctie-pp-toeslag in dm³/s (default
+ *   {@link DEFAULT_OCCUPANCY_DM3S_PER_PERSON}); persoon-gebaseerde functies
+ *   negeren deze parameter en gebruiken hun eigen `personDm3s`.
  */
 export function bblDemandDm3s(
   areaM2: number,
@@ -357,8 +414,17 @@ export function bblDemandDm3s(
   dm3sPerPerson: number = DEFAULT_OCCUPANCY_DM3S_PER_PERSON,
 ): number {
   const req = bblRequirementFor(fn);
+  const hasOccupancy = occupancy !== undefined && occupancy > 0;
+
+  // Persoon-gebaseerde utiliteitsfunctie (Bbl 4.122 lid 2).
+  if (req.personDm3s !== undefined && hasOccupancy) {
+    return Math.max(occupancy * req.personDm3s, req.minimumDm3s);
+  }
+
+  // Oppervlakte-gebaseerd (lid 1) — óf de indicatieve m²-fallback voor een
+  // persoon-gebaseerde functie zonder bezetting.
   let demand = areaM2 * req.dm3PerM2;
-  if (occupancy !== undefined && occupancy > 0 && dm3sPerPerson > 0) {
+  if (req.personDm3s === undefined && hasOccupancy && dm3sPerPerson > 0) {
     demand = Math.max(demand, occupancy * dm3sPerPerson);
   }
   return Math.max(demand, req.minimumDm3s);

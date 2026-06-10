@@ -426,6 +426,8 @@
     "reportSuccess": "Report generated",
     "reportFailed": "Report failed",
     "reportError": "Unknown error",
+    "indicativeBadge": "indicative — enter occupancy",
+    "indicativeHint": "Person-based use function (Dutch Building Decree art. 4.122(2)): the requirement applies per person. Without occupancy the shown requirement is an indicative m² approximation — enter the occupancy.",
     "units": {
       "cardTitle": "Ventilation units (HRV/MEV)",
       "intro": "Assign HRV or MEV units and check the capacity against the combined requirement of system {{system}}.",

@@ -21,6 +21,7 @@
 import type { ProjectInfo, Room } from "../types/project";
 import {
   DEFAULT_OCCUPANCY_DM3S_PER_PERSON,
+  isBblDemandIndicative,
   ventilationSystemOf,
   type VentilationRoomState,
   type VentilationSystemInfo,
@@ -94,15 +95,16 @@ export function buildVentilationReportData(
     status: "CONCEPT",
 
     cover: {
-      subtitle: "Ventilatiebalans conform BBL afd. 3.6 (NEN 1087 indicatief)",
+      subtitle: "Ventilatiebalans conform Bbl art. 4.122 / NEN 1087:2001",
     },
 
     colofon: {
       enabled: true,
       adviseur_bedrijf: "3BM Bouwkunde",
       normen:
-        "BBL afd. 3.6 (ventilatiedebieten per gebruiksfunctie), " +
-        "NEN 1087 (indicatief — overstroom/doorstroomopeningen)",
+        "Bbl art. 4.122 (ventilatiedebieten per gebruiksfunctie, " +
+        "BBL afd. 3.6), NEN 1087:2001 §5.1.3.2 " +
+        "(overstroom/doorstroomopeningen)",
       datum: today,
       status_colofon: "CONCEPT",
       revision_history: [
@@ -169,11 +171,17 @@ function buildAssumptionsSection(
         ? "Mechanisch — getoetst op ventielen"
         : "Natuurlijk — geen ventiel-toetsing",
     ],
-    ["Eisen per gebruiksfunctie", "BBL afd. 3.6 (Bouwbesluit)"],
-    ["Overstroom / doorstroomopeningen", "NEN 1087 — indicatief"],
+    ["Eisen per gebruiksfunctie", "Bbl art. 4.122 (BBL afd. 3.6)"],
+    ["Overstroom / doorstroomopeningen", "NEN 1087:2001 §5.1.3.2"],
     [
-      "Personen-toeslag",
+      "Personen-toeslag woonfunctie",
       `${formatDecimals(DEFAULT_OCCUPANCY_DM3S_PER_PERSON, 1)} dm³/s per persoon`,
+    ],
+    [
+      "Utiliteitsfuncties (per persoon, Bbl art. 4.122 lid 2)",
+      "gezondheidszorg bedgebied 12 · onderwijs/gezondheidszorg 8,5 · " +
+        "kantoor/industrie/sport 6,5 · winkel/bijeenkomst 4 · " +
+        "kinderopvang 6,5 dm³/s p.p.",
     ],
   ];
 
@@ -197,10 +205,12 @@ function buildAssumptionsSection(
       {
         type: "paragraph",
         text:
-          "<i>Eis per vertrek: eis = max(oppervlak × dm³/(s·m²), " +
-          "personen × 4,0 dm³/s, minimum) volgens BBL afd. 3.6. " +
-          "Debieten zijn intern in dm³/s; m³/h is afgeleide weergave " +
-          "(× 3,6).</i>",
+          "<i>Eis per vertrek (Bbl art. 4.122): woonfunctie eis = " +
+          "max(oppervlak × dm³/(s·m²), personen × 4,0 dm³/s, minimum); " +
+          "utiliteitsfuncties (lid 2) eis = personen × dm³/s p.p. — zonder " +
+          "ingevulde bezetting valt de eis terug op een indicatieve " +
+          "m²-benadering (gemarkeerd in de tabel). Debieten zijn intern in " +
+          "dm³/s; m³/h is afgeleide weergave (× 3,6).</i>",
       },
     ],
   };
@@ -261,13 +271,25 @@ function buildRoomRow(
   const mechanical = isSupply ? sys.supplyMechanical : sys.exhaustMechanical;
   const deficit = isSupply ? row.supplyDeficitDm3s : row.exhaustDeficitDm3s;
 
+  // Persoon-gebaseerde functie (Bbl 4.122 lid 2) zonder bezetting → de eis is
+  // een indicatieve m²-benadering; zichtbaar markeren (zelfde criterium als
+  // de UI-badge in `components/ventilation/shared.tsx`).
+  const indicative = isBblDemandIndicative(
+    vr.ventilationFunction,
+    vr.occupancy,
+  );
+  const requiredCell = hasDemand
+    ? `${flowLabel(required)} (${m3hLabel(required)})` +
+      (indicative ? " — indicatief: bezetting invullen" : "")
+    : "—";
+
   return [
     room.name,
     vr.ventilationFunction,
     `${formatArea(room.floor_area)} m²`,
     vr.occupancy !== undefined ? String(vr.occupancy) : "—",
     isSupply ? "toevoer" : isExhaust ? "afvoer" : "geen",
-    hasDemand ? `${flowLabel(required)} (${m3hLabel(required)})` : "—",
+    requiredCell,
     presentCell(hasDemand, isSupply, mechanical, present, row.missingFlowCount),
     statusLabel(hasDemand, mechanical, deficit),
   ];
@@ -318,7 +340,10 @@ function buildRoomBalanceSection(
         "<i>Ventielen zonder ingevoerd debiet tellen als 0 dm³/s en zijn in " +
         "de kolom Aanwezig gemarkeerd. Status “natuurlijk”: deze " +
         "richting wordt bij het gekozen systeem niet op ventielen getoetst " +
-        "(toevoer via gevelroosters resp. natuurlijke afvoer).</i>",
+        "(toevoer via gevelroosters resp. natuurlijke afvoer). " +
+        "“Indicatief: bezetting invullen”: persoon-gebaseerde " +
+        "gebruiksfunctie (Bbl art. 4.122 lid 2) zonder ingevulde bezetting — " +
+        "de eis is een m²-benadering, geen wettelijke per-persoon-eis.</i>",
     });
   }
 
@@ -467,9 +492,9 @@ function buildUnitsSection(
           text:
             "<i>Unit-capaciteiten zijn indicatief — controleer " +
             "fabrikantgegevens. De gecombineerde eis volgt het gekozen " +
-            "systeem: D (WTW) toetst op de maatgevende kant " +
-            "(max van toevoer- en afvoer-eis), C (MV) op de afvoer-eis, " +
-            "B op de toevoer-eis.</i>",
+            "systeem: D (WTW) én C (MV) toetsen op de maatgevende kant " +
+            "(max van toevoer- en afvoer-eis — de afvoer moet in balans ook " +
+            "de toegevoerde lucht verwerken), B op de toevoer-eis.</i>",
         },
       ],
     },

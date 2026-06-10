@@ -116,6 +116,7 @@ export function Modeller() {
   const {
     ventilation,
     ventilationRooms,
+    overflowDistribution,
     changeFunction: handleChangeVentFunction,
     changeOccupancy: handleChangeVentOccupancy,
     setSystem: setVentilationSystem,
@@ -247,10 +248,13 @@ export function Modeller() {
     [ventilation.terminals, floorRooms],
   );
   // Overstroom-relaties tussen aangrenzende ruimtes op de actieve verdieping
-  // (afgeleid van de gedeelde scheidingswanden, niet van deuren).
+  // (afgeleid van de gedeelde scheidingswanden, niet van deuren). De debieten
+  // werken op de gebouwbrede overdruk-verdeling (afvoer-eis + verdeeld
+  // toevoer-overschot), niet per ruimte-paar de volle afvoer-eis.
   const overflowRelations = useMemo(
-    () => deriveOverflowRelations(floorRooms, ventilationRooms),
-    [floorRooms, ventilationRooms],
+    () =>
+      deriveOverflowRelations(floorRooms, ventilationRooms, overflowDistribution),
+    [floorRooms, ventilationRooms, overflowDistribution],
   );
   const belowFloorRooms = useMemo(() => activeFloor > 0 ? rooms.filter((r) => r.floor === activeFloor - 1) : [], [rooms, activeFloor]);
 

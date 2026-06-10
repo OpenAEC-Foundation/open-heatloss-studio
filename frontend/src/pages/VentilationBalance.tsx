@@ -35,6 +35,7 @@ import {
 import {
   BuildingBalanceSummary,
   FUNCTION_OPTIONS,
+  IndicativeOccupancyBadge,
   StatusBadge,
   SystemSelector,
   UnitCapacitySummary,
@@ -134,12 +135,15 @@ export function VentilationBalance() {
       <div className="space-y-4 p-6">
         {/* Korte uitleg / legend */}
         <p className="max-w-3xl text-sm text-on-surface-muted">
-          Eisen per gebruiksfunctie volgens BBL afd. 3.6 (Bouwbesluit):{" "}
+          Eisen per gebruiksfunctie volgens Bbl art. 4.122 — woonfunctie:{" "}
           <code className="text-xs">
             eis = max(oppervlak × dm³/(s·m²), personen × 4,0 dm³/s, minimum)
           </code>
-          . Debieten zijn intern in dm³/s; m³/h is afgeleide weergave (× 3,6).
-          Ventielen plaats je in de Modeller (2D → Ventilatie).
+          ; utiliteitsfuncties (lid 2):{" "}
+          <code className="text-xs">eis = personen × dm³/s p.p.</code> (zonder
+          bezetting: indicatieve m²-benadering). Debieten zijn intern in dm³/s;
+          m³/h is afgeleide weergave (× 3,6). Ventielen plaats je in de
+          Modeller (2D → Ventilatie).
         </p>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -330,6 +334,10 @@ function RoomTableRow({
             <span className="text-xs text-scaffold-gray">
               ({m3hLabel(required)})
             </span>
+            <IndicativeOccupancyBadge
+              fn={vr.ventilationFunction}
+              occupancy={vr.occupancy}
+            />
           </>
         ) : (
           <span className="text-scaffold-gray">—</span>

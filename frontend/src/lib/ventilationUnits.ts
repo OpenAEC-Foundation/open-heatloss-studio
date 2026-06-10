@@ -148,20 +148,20 @@ export function totalAssignedCapacityM3h(
  *
  * **Eis-keuze per systeem (gedocumenteerde ontwerpkeuze):**
  * De plugin (`_get_gecombineerde_eis`, r.622-630) neemt altijd
- * `max(toevoer-eis, afvoer-eis)` — zij kent geen systeemkeuze en gaat
- * impliciet uit van een unit die de maatgevende kant aankan. De webtool ként
- * het systeem (A–D) en maakt de vergelijking systeem-bewust:
+ * `max(toevoer-eis, afvoer-eis)` — de unit moet de maatgevende kant aankunnen.
+ * De webtool ként het systeem (A–D) en maakt de vergelijking systeem-bewust:
  *
  *   - **Systeem D (WTW/balans):** de unit verzorgt toevoer én afvoer →
  *     eis = `max(toevoer, afvoer)` (maatgevende kant; identiek aan de plugin).
- *   - **Systeem C (MV-box):** alleen de afvoer is mechanisch (toevoer via
- *     gevelroosters) → eis = afvoer-eis.
- *   - **Systeem B:** alleen de toevoer is mechanisch → eis = toevoer-eis.
+ *   - **Systeem C (MV-box):** alleen de afvoer is mechanisch, maar de
+ *     MV-box moet in balans óók de via gevelroosters toegevoerde lucht
+ *     verwerken (de overdruk-verdeling boekt het toevoer-overschot bij de
+ *     afvoerruimtes, zie `computeOverflowDistribution`) →
+ *     eis = `max(toevoer, afvoer)` (identiek aan de plugin).
+ *   - **Systeem B:** alleen de toevoer is mechanisch (afvoer natuurlijk via
+ *     kanalen/schacht, geen unit-afhankelijkheid) → eis = toevoer-eis.
  *   - **Systeem A:** volledig natuurlijk → geen units van toepassing, eis = 0
  *     ({@link checkUnitCapacity} markeert de toets als `applicable: false`).
- *
- * Generiek uitgedrukt via {@link VentilationSystemInfo}:
- * `max(supplyMechanical ? toevoer : 0, exhaustMechanical ? afvoer : 0)`.
  */
 export function combinedRequirementDm3s(
   totalRequiredSupplyDm3s: number,
@@ -169,10 +169,13 @@ export function combinedRequirementDm3s(
   system?: VentilationState["system"],
 ): number {
   const sys = ventilationSystemOf({ system });
-  return Math.max(
-    sys.supplyMechanical ? totalRequiredSupplyDm3s : 0,
-    sys.exhaustMechanical ? totalRequiredExhaustDm3s : 0,
-  );
+  if (!sys.supplyMechanical && !sys.exhaustMechanical) return 0; // A
+  if (sys.exhaustMechanical) {
+    // C en D: de afvoerkant moet minstens de totale toevoer-eis verwerken
+    // (gebouwbalans) → maatgevende kant.
+    return Math.max(totalRequiredSupplyDm3s, totalRequiredExhaustDm3s);
+  }
+  return totalRequiredSupplyDm3s; // B: alleen mechanische toevoer
 }
 
 /** Uitkomst van de capaciteitstoets (gebouwniveau). */
