@@ -772,17 +772,23 @@ const B_PRIME_MAX: f64 = 50.0;
 
 /// Equivalente U-waarde U_e voor een grondvloer op maaiveld (z = 0).
 ///
-/// Curve-fit van [`crate::formulas::ISSO_51_2023_FIGUUR4_2`] (U_e als functie
-/// van B' en de vloerweerstand). De gebruikte kwotiëntvorm en parameters zijn
-/// de in deze repo geverifieerde ISSO 53 formule 4.24 / tabel 4.3
-/// (vloer-parameterset) — zie `crates/isso53-core/src/calc/ground.rs`
-/// (worked example p.65: U_k = 2,43, B' ≈ 4,1 → U_e ≈ 0,177 ✓) en de
-/// Vabi-cross-validatie in `tests/verification/isso53_*`. ISSO 51 en ISSO 53
-/// delen hetzelfde grondmodel (`H_T,ig = 1,45 × …`, formule 4.18 resp. 4.21).
+/// Norm-vorm van ISSO 53 formule 4.24 / tabel 4.3 (vloer-parameterset),
+/// PDF p.44 — visueel geverifieerd (PM-verificatie 2026-06-10):
+///
+/// ```text
+/// U_e = a / ( b + (c₁ + B')^n₁ + (c₂ + z)^n₂ + (c₃ + U_k)^n₃ ) + d
+/// ```
+///
+/// Zelfde implementatie als `crates/isso53-core/src/calc/ground.rs`
+/// (`calculate_u_equivalent`); ISSO 51 en ISSO 53 delen hetzelfde grondmodel
+/// (`H_T,ig = 1,45 × …`, formule 4.18 resp. 4.21 / Figuur 4.2,
+/// [`crate::formulas::ISSO_51_2023_FIGUUR4_2`]). Norm-ijkpunten (zie tests):
+/// schilvoorbeeld ISSO 53 p.59 (B' = 14,29, U_k = 0,36954 → 0,181) en
+/// detailvoorbeeld p.65 (B' = 12,07, U_k = 0,31 → 0,177).
 ///
 /// `z = 0` omdat de geparste Vabi-structuren geen vloerdiepte onder maaiveld
-/// bevatten; voor een reguliere grondvloer is dat de norm-aanname. De
-/// `c₃·z^n₃`-term valt daarmee weg (n₃ > 0 voor vloeren).
+/// bevatten; voor een reguliere grondvloer is dat de norm-aanname. De z-term
+/// reduceert dan tot de constante `c₂^n₂`.
 ///
 /// # Arguments
 /// * `area` — vloeroppervlak A in m²
@@ -798,22 +804,27 @@ fn u_equivalent_ground_floor(area: f64, perimeter: f64, u_construction: f64) -> 
 
     let b_prime = (2.0 * area / perimeter).clamp(B_PRIME_MIN, B_PRIME_MAX);
 
-    // Vloer-parameterset (ISSO 53 tabel 4.3, PDF p.44).
+    // Vloer-parameterset (ISSO 53 tabel 4.3, PDF p.44) — letterlijk.
     const A: f64 = 0.9671;
     const B: f64 = -7.455;
     const C1: f64 = 10.76;
     const N1: f64 = 0.5532;
     const C2: f64 = 9.773;
     const N2: f64 = 0.6027;
+    const C3: f64 = 0.0265;
+    const N3: f64 = -0.9296;
     const D: f64 = -0.0203;
 
-    // Kwotiëntvorm: U_e = |a·b| / (c₁·B'^n₁ + c₂·U_k^n₂ + c₃·0^n₃ + d).
-    let denom = C1 * b_prime.powf(N1) + C2 * u_construction.powf(N2) + D;
-    if denom.abs() < 1e-9 {
-        return Some(U_EQUIV_MIN);
+    // Norm-vorm 4.24 met z = 0: noemer b + (c₁+B')^n₁ + c₂^n₂ + (c₃+U_k)^n₃.
+    let denom =
+        B + (C1 + b_prime).powf(N1) + C2.powf(N2) + (C3 + u_construction).powf(N3);
+    if denom <= 1e-9 {
+        // Buiten het geldigheidsdomein (alleen bij fysisch onzinnige invoer);
+        // voor de import-context: geen U_e bepaalbaar → caller-fallback U_k.
+        return None;
     }
 
-    Some(((A * B).abs() / denom).max(U_EQUIV_MIN))
+    Some((A / denom + D).max(U_EQUIV_MIN))
 }
 
 /// Leid [`GroundParameters`] af voor een grondvlak uit de beschikbare
@@ -1557,10 +1568,11 @@ mod tests {
             .expect("grondvloer moet ground_params krijgen");
 
         // U_vloer = 1/(0.17+4.0+0.04) = 0.23753; U_k = U + ΔU_TB = 0.33753.
-        // B' = 2·50/30 = 3.333 → U_e = |a·b| / (c1·B'^n1 + c2·U_k^n2 + d) ≈ 0.277.
+        // B' = 2·50/30 = 3.333 → norm-vorm 4.24 (z = 0):
+        // U_e = a/(b + (c1+B')^n1 + c2^n2 + (c3+U_k)^n3) + d ≈ 0.2662.
         assert!(
-            (gp.u_equivalent - 0.277).abs() < 0.005,
-            "U_e = {}, verwacht ≈ 0.277 (Figuur 4.2-curve)",
+            (gp.u_equivalent - 0.2662).abs() < 0.005,
+            "U_e = {}, verwacht ≈ 0.2662 (norm-vorm 4.24, z = 0)",
             gp.u_equivalent
         );
         // f_g2 = (20 − 4) / (20 − (−10)) = 0.5333.
@@ -1572,12 +1584,12 @@ mod tests {
         assert_eq!(gp.ground_water_factor, 1.0);
 
         // De kern-formule 4.18 levert nu daadwerkelijk warmteverlies:
-        // 1.45 × 1.0 × 50 × 0.5333 × 0.277 ≈ 10.7 W/K.
+        // 1.45 × 1.0 × 50 × 0.5333 × 0.2662 ≈ 10.29 W/K.
         let h = h_t_ground_element(floor);
         assert!(h > 0.0, "grondvloer mag geen stil 0 W meer zijn");
         assert!(
-            (h - 10.72).abs() < 0.3,
-            "H_T,ig = {h}, verwacht ≈ 10.72 W/K"
+            (h - 10.29).abs() < 0.3,
+            "H_T,ig = {h}, verwacht ≈ 10.29 W/K"
         );
     }
 
@@ -1838,15 +1850,46 @@ mod tests {
     // Pure helpers
     // ------------------------------------------------------------------
 
-    /// Worked-example check van de Figuur 4.2-curve (ISSO 53 p.65):
-    /// U_k = 2.43, A = 200, O = 98 (B' ≈ 4.1), z = 0 → U_e ≈ 0.177.
+    /// Norm-ijkpunt 1 — ISSO 53 schilvoorbeeld (PDF p.59/60): vloer Rc = 3,5
+    /// → U_k = 1/3,71 ≈ 0,2695 + ΔU_TB 0,1 = 0,36954; B' = 2·1000/140 = 14,29;
+    /// z = 0 → U_e ≈ 0,181 (norm: 0,18).
+    ///
+    /// NB: de oude ijking "U_k = 2,43 → 0,177" was een misread — 2,43 op p.65
+    /// is de **plafond**-U uit de H_T,ia-tabel, niet de grondvloer.
     #[test]
-    fn u_equivalent_curve_matches_worked_example() {
-        let u_e = u_equivalent_ground_floor(200.0, 98.0, 2.43).expect("curve");
+    fn u_equivalent_curve_matches_worked_example_p59() {
+        let u_k = 1.0 / (3.5 + 0.17 + 0.04) + 0.1;
+        let u_e = u_equivalent_ground_floor(1000.0, 140.0, u_k).expect("curve");
         assert!(
-            (u_e - 0.177).abs() < 0.01,
-            "U_e = {u_e}, verwacht ≈ 0.177 (ISSO 53 worked example p.65)"
+            (u_e - 0.181).abs() < 0.005,
+            "U_e = {u_e}, verwacht ≈ 0.181 (ISSO 53 schilvoorbeeld p.59)"
         );
+    }
+
+    /// Norm-ijkpunt 2 — ISSO 53 detailvoorbeeld (PDF p.65): B' = 12,07,
+    /// grondvloer U = 0,26 (tabel 6.2) + ΔU_TB 0,05 (tabel 3.1) = 0,31;
+    /// z = 0 → U_e = 0,177 (norm-waarde in H_T,ig = 1,45·18,7·0,177·1·0,351).
+    #[test]
+    fn u_equivalent_curve_matches_worked_example_p65() {
+        // A/O zo gekozen dat B' = 2·A/O = 12,07 exact.
+        let u_e = u_equivalent_ground_floor(120.7, 20.0, 0.31).expect("curve");
+        assert!(
+            (u_e - 0.177).abs() < 0.005,
+            "U_e = {u_e}, verwacht ≈ 0.177 (ISSO 53 detailvoorbeeld p.65)"
+        );
+    }
+
+    /// Norm-vorm-monotonie: U_e stijgt met U_k (slechter geïsoleerde vloer →
+    /// meer grondverlies) en daalt met B' (compacter gebouw).
+    #[test]
+    fn u_equivalent_curve_monotonic() {
+        let lo = u_equivalent_ground_floor(100.0, 40.0, 0.3).expect("curve");
+        let hi = u_equivalent_ground_floor(100.0, 40.0, 0.6).expect("curve");
+        assert!(hi > lo, "U_e moet stijgen met U_k: {hi} !> {lo}");
+
+        let compact = u_equivalent_ground_floor(100.0, 10.0, 0.4).expect("curve"); // B'=20
+        let spread = u_equivalent_ground_floor(100.0, 80.0, 0.4).expect("curve"); // B'=2,5
+        assert!(spread > compact, "U_e moet dalen met B': {spread} !> {compact}");
     }
 
     /// Ongeldige invoer → None (caller valt terug op U_k + warning).
