@@ -5,7 +5,9 @@
 - [x] **R1 stille corruptie ✅ (10-06)** — garage-sentinel isso53 (2 call-sites incl. extra vondst transmission.rs adjacent) · tab-snapshot sidecars+serverbinding · newTab stale-snapshot (bonus-dataverlies-bug) · setResult run-epoch · persist isDirty/serverbinding · undo sidecars. cargo 145 + vitest 191 groen, 2 reviews ship.
 - [x] **R2 security ✅ (10-06)** — X-Original-Tenant env-allowlist (TENANT_OVERRIDE_ACCOUNTS, default dicht) · cloud tenant-claim-resolve · 2× path-traversal dicht · optimistic locking atomair · Tauri fs-scope versmald + shell:allow-execute weg · logout-clear serverbinding. cargo 45 + vitest 197 groen, reviews ship.
 - [ ] **R2 desktop-naverificatie [user]** — Tauri-build: open/save vanaf netwerkschijf, dubbelklik .ifcenergy, default-save Documenten, recent-file buiten scope (nette fallback), norm-wissel-backup buiten scope.
-- [ ] **R3 Vabi-import:** mapper.rs r.442/454/211/207/624 + extract_vp.py r.654/460
+- [x] **R3 Vabi-import ✅ (10-06)** — temperature_factor per boundary-type · grondvloer 0W→afgeleide GroundParameters+warnings · dwelling_class Tabel 2.8-afleiding · night_setback default false (geen Vabi-veld) · UnconditionedSpace-mapping · extractor custom_temperature+infiltration_method. cargo 197 + 15 tests, reviews ship.
+- [ ] **R3-besluit: Rust-mapper θ_i-veldkeuze [PM]** — mapper zet Vabi-ontwerptemp in internal_air_temperature (θ_a) maar custom_temperature=None → Rust-import gebruikt mogelijk tabel-θ_i waar Vabi eigen temps had (extractor doet het wél via custom_temperature). Gelijktrekken kan golden-fixtures verschuiven → eerst PM-analyse.
+- [ ] **R3-naverificatie [user/andere machine]** — vabi-importer v2_import-tests (voorweg_210a, 24221) draaien op machine mét de gitignored referentie-.vp's; daarna extractor-fixture-run.
 - [ ] **R4 rekenkern-normvalidatie (PM-normbron eerst):** Ū+ΔU_TB `lib.rs:76` · U_equiv-monotonie `ground.rs:191` · NEN8088 Tabel 10
 - [ ] **R5 ventilatie/BBL:** overdrukverdeling · systeem C-eis · BBL per-persoon utiliteit
 - [ ] **R6 test-infra** · **R7 efficiency/UI** · **R8 cleanup** · **R9 niet-onderzocht (aparte audits)**

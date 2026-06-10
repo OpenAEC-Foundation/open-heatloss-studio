@@ -430,6 +430,7 @@ def map_building(conn: sqlite3.Connection, stats: ExtractionStats) -> dict:
         return {
             "building_type": "terraced",
             "qv10": DEFAULT_QV10_DM3S,
+            "infiltration_method": "vabi_compat",  # default fallback
             "security_class": "b",
             "total_floor_area": 0.0,
             "num_floors": 1,
@@ -438,17 +439,23 @@ def map_building(conn: sqlite3.Connection, stats: ExtractionStats) -> dict:
     qv10_type = row["qv10_type"]
     spec_qv10 = row["spec_qv10"]
     meas_qv10 = row["meas_qv10"]
+
+    # Map qv10 value and infiltration method based on type
+    # (mirror the Rust mapper.rs logic)
     if qv10_type == "Measured" and meas_qv10:
         qv10 = float(meas_qv10)
+        infiltration_method = "measured_qv10"
     elif qv10_type == "Specific" and spec_qv10:
         qv10 = float(spec_qv10)
+        infiltration_method = "vabi_compat"
     else:
         # FlatRate / unknown / zero -> no usable qv10 stored. WARN.
         qv10 = float(spec_qv10 or meas_qv10 or 0.0) or DEFAULT_QV10_DM3S
+        infiltration_method = "vabi_compat"  # fallback to vabi_compat
         msg = (
             f"Qv10Type={qv10_type!r} with SpecificQv10={spec_qv10}, "
             f"MeasuredQv10={meas_qv10}: no usable air-tightness stored; "
-            f"using fallback qv10={qv10}"
+            f"using fallback qv10={qv10}, infiltration_method={infiltration_method}"
         )
         logger.warning(msg)
         stats.warnings.append(msg)
@@ -460,6 +467,7 @@ def map_building(conn: sqlite3.Connection, stats: ExtractionStats) -> dict:
     return {
         "building_type": map_building_type(row["shape"], row["hood"]),
         "qv10": qv10,
+        "infiltration_method": infiltration_method,
         "security_class": cclass,
         "total_floor_area": usage_area,  # often 0 in examples; patched from rooms later
         "num_floors": floors,
@@ -651,8 +659,8 @@ def map_rooms(
         }
         # Preserve the Vabi design temperature when it diverges from the
         # function default (e.g. toilets/halls authored at 15 C).
-        if func == "custom":
-            room["custom_temperature"] = theta_i
+        # Always emit custom_temperature when θ_i available from Vabi DB
+        room["custom_temperature"] = theta_i
         rooms.append(room)
         stats.rooms += 1
     return rooms

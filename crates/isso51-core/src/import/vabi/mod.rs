@@ -27,10 +27,17 @@
 //!
 //! ## Limitations
 //!
-//! This is a Phase 1 implementation focused on the happy path:
-//! - No construction data (BuildingPart, U-values, materials) — that's Phase 2
 //! - Aspect/Template/Variant scenarios use first row or CurrentProjectVersionID
 //! - Complex ventilation mappings fall back to MechanicalExhaust with TODO comment
+//! - `adjacent_room_id`-koppeling (cell-coupling) ontbreekt nog; binnenwanden
+//!   rekenen via het legacy `adjacent_temperature`-veld uit `BoundaryTemperatures`
+//!
+//! ## Warnings
+//!
+//! Niet-fatale afwijkingen (niet-afleidbare velden, conservatieve fallbacks)
+//! komen als `Vec<String>` mee in [`mapper::VabiImportResult`] — gebruik
+//! [`mapper::import_vabi_project_with_warnings`]. De legacy
+//! [`mapper::import_vabi_project`] echoot ze naar stderr.
 
 #[cfg(feature = "vabi-import")]
 pub mod mapper;
@@ -40,8 +47,10 @@ pub mod unzip;
 
 #[cfg(feature = "vabi-import")]
 pub use mapper::{
-    calculate_room_height, import_vabi_project, map_building, map_climate,
-    map_constructions_per_room, map_project_info, map_ventilation, VabiImportError,
+    calculate_room_height, import_vabi_project, import_vabi_project_with_warnings,
+    map_building, map_building_with_warnings, map_climate, map_constructions_per_room,
+    map_constructions_per_room_with_warnings, map_project_info, map_ventilation,
+    VabiImportError, VabiImportResult,
 };
 
 // Re-export for public API when feature is enabled
