@@ -10,6 +10,7 @@ use crate::model::enums::VentilationSystemType;
 
 /// Correctiefactor f_inf voor de invloed van het ventilatiesysteem op de
 /// infiltratie. ISSO 53 tabel 4.7 (PDF p.46-47), dimensieloos.
+/// Waardes geverifieerd tegen het bron-PDF (PM-verificatie 2026-06-10).
 ///
 /// - A — natuurlijke toe- en afvoer → 0,80;
 /// - B — mechanische toevoer + natuurlijke afvoer → 0,85;
@@ -17,6 +18,11 @@ use crate::model::enums::VentilationSystemType;
 /// - D — gebalanceerde mechanische toe- en afvoer → 1,15;
 /// - E — zones met natuurlijke toevoer + mechanische afvoer en zones met
 ///   lokale WTW (CO₂-sturing op afvoer) → 1,08.
+///
+/// NB: dit is bewust een ándere tabel dan NEN 8088-1+C2 Tabel 10
+/// (isso51-core, `f_inf_table_nen8088` — D = 1,10 / E.1 = 1,05):
+/// verschillende normen, niet consolideren. Het Vabi-compat-pad in deze
+/// crate (`tables::nen8088::f_inf_nen8088`) is een derde, empirische set.
 pub fn f_inf(system: VentilationSystemType) -> f64 {
     match system {
         VentilationSystemType::SystemA => 0.80,

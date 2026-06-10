@@ -296,7 +296,13 @@ pub fn calculate_room(
         phi_t_exterior + phi_t_adjacent + phi_t_unheated + phi_t_ground + phi_t_water + phi_i;
 
     let phi_t_adj_building = h_t_ib * (theta_i - theta_e);
-    let phi_extra = quadratic_sum::quadratic_sum(phi_vent, phi_t_adj_building, phi_hu);
+    // PM-interpretatie 2026-06-10: norm (erratum 2023, kwadratische sommatie)
+    // definieert geen negatieve termen; winst niet als verlies meetellen.
+    // Een warmere buur geeft een negatieve Φ_T,iaBE (warmtewinst); ongekclampt
+    // zou die door het kwadraat als extra VERLIES meetellen. Daarom clamp ≥ 0
+    // vóór de kwadratische sommatie (formule 3.11).
+    let phi_extra =
+        quadratic_sum::quadratic_sum(phi_vent, phi_t_adj_building.max(0.0), phi_hu);
 
     // Algebraic solution for circular dependency:
     // Φ_system = f × Φ_HL,i and Φ_HL,i = Φ_basis_no_sys + Φ_system + Φ_extra

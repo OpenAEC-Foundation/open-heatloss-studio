@@ -6,7 +6,7 @@
 //! - ISSO 51:2023 Tabel 2.8 — `q_i,spec` per gebouwtype (NEN 8088-1 afgeleid)
 //! - NTA 8800:2024 Tabel 11.13 — bouwjaarcorrectie `f_y`
 //! - NTA 8800:2024 Tabel 11.14 — uitvoeringsvariant-correctie `f_type`
-//! - NEN 8088-1 Tabel 10 — ventilatiesysteem-correctie `f_inf`
+//! - NEN 8088-1+C2 Tabel 10 (correctieblad p.8) — ventilatiesysteem-correctie `f_inf`
 //! - NTA 8800 Tabel 11.2 — power-law exponent `n_lea`
 //!
 //! De legacy-functies `qi_spec_per_exterior_area` en `qi_spec_per_floor_area`
@@ -121,29 +121,40 @@ pub fn f_y_table_11_13(construction_year: Option<u16>) -> f64 {
     }
 }
 
-/// NEN 8088-1 Tabel 10 — ventilatiesysteem-correctiefactor `f_inf`.
+/// NEN 8088-1+C2 Tabel 10 — ventilatiesysteem-correctiefactor `f_inf`.
 ///
 /// Correctiefactor op de infiltratie afhankelijk van het type ventilatie-
-/// systeem (balanced D heeft een afwijkende drukverhouding).
+/// systeem (drukverhouding binnen/buiten verschilt per systeemtype).
 ///
-/// **Provisorische waardes** — alleen System D is geverifieerd via de Vabi
-/// DR-fixture (1.10). Voor overige systemen wordt voorlopig 1.0 teruggegeven
-/// (neutrale fallback) totdat NEN 8088-1 Tabel 10 in een opvolg-iteratie
-/// volledig in code is gezet. Zie
-/// `docs/2026-05-12-nen8088-design-dp-verificatie.md` voor de bron.
+/// Volledige tabel uit het **correctieblad NEN 8088-1+C2** (PDF p.8,
+/// PM-geverifieerd 2026-06-10 tegen het bron-PDF):
+///
+/// | Systeem | f_inf |
+/// |---------|-------|
+/// | A       | 0,80  |
+/// | B       | 0,85  |
+/// | C       | 1,0   |
+/// | D       | 1,10  |
+/// | E.1     | 1,05  |
+///
+/// System D (1,10) was eerder al bevestigd via de Vabi DR-fixture; de
+/// overige waardes vervangen de provisorische 1.0-placeholder.
+/// `SystemE` mapt op norm-rij E.1.
+///
+/// NB: dit is bewust een ándere tabel dan ISSO 53 Tabel 4.7
+/// (`isso53-core::tables::ventilation_system::f_inf` — A 0,80 / B 0,85 /
+/// C 1,0 / D 1,15 / E 1,08): verschillende normen, niet consolideren.
 ///
 /// # Returns
-/// `f_inf` dimensieloos. System D = 1.10, overige systemen = 1.0 (TODO).
+/// `f_inf` dimensieloos volgens NEN 8088-1+C2 Tabel 10.
 pub fn f_inf_table_nen8088(system: VentilationSystemType) -> f64 {
     match system {
-        // Vabi DR-fixture (System D) bevestigd: f_inf = 1.10.
+        VentilationSystemType::SystemA => 0.80,
+        VentilationSystemType::SystemB => 0.85,
+        VentilationSystemType::SystemC => 1.0,
         VentilationSystemType::SystemD => 1.10,
-        // TODO: NEN 8088-1 Tabel 10 volledige waardes voor A/B/C/E invullen
-        // zodra brondocument verwerkt is. Tijdelijk safe-default 1.0.
-        VentilationSystemType::SystemA
-        | VentilationSystemType::SystemB
-        | VentilationSystemType::SystemC
-        | VentilationSystemType::SystemE => 1.0,
+        // Norm-rij E.1.
+        VentilationSystemType::SystemE => 1.05,
     }
 }
 
@@ -243,19 +254,16 @@ mod tests {
         assert!((f_y_table_11_13(None) - 1.0).abs() < 1e-9);
     }
 
+    /// NEN 8088-1+C2 Tabel 10 (correctieblad PDF p.8) — alle waardes.
     #[test]
-    fn test_f_inf_nen8088_system_d() {
-        // Vabi DR-fixture bevestigde 1.10 voor balanced ventilation.
-        assert!((f_inf_table_nen8088(VentilationSystemType::SystemD) - 1.10).abs() < 1e-9);
-    }
-
-    #[test]
-    fn test_f_inf_nen8088_other_systems_fallback() {
-        // Voorlopige safe-default 1.0 — placeholder tot Tabel 10 volledig is.
-        assert!((f_inf_table_nen8088(VentilationSystemType::SystemA) - 1.0).abs() < 1e-9);
-        assert!((f_inf_table_nen8088(VentilationSystemType::SystemB) - 1.0).abs() < 1e-9);
+    fn test_f_inf_nen8088_table_10_complete() {
+        assert!((f_inf_table_nen8088(VentilationSystemType::SystemA) - 0.80).abs() < 1e-9);
+        assert!((f_inf_table_nen8088(VentilationSystemType::SystemB) - 0.85).abs() < 1e-9);
         assert!((f_inf_table_nen8088(VentilationSystemType::SystemC) - 1.0).abs() < 1e-9);
-        assert!((f_inf_table_nen8088(VentilationSystemType::SystemE) - 1.0).abs() < 1e-9);
+        // System D was eerder al via de Vabi DR-fixture bevestigd op 1.10.
+        assert!((f_inf_table_nen8088(VentilationSystemType::SystemD) - 1.10).abs() < 1e-9);
+        // SystemE mapt op norm-rij E.1 (1,05).
+        assert!((f_inf_table_nen8088(VentilationSystemType::SystemE) - 1.05).abs() < 1e-9);
     }
 
     #[test]
@@ -265,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)] // 3.14 = Vabi-fit Δp, géén π
     fn test_design_dp_vabi_constant() {
         // Vabi-fit 3.14 Pa (geen norm-bron, empirisch).
         assert!((DESIGN_DP_VABI_PA - 3.14).abs() < 1e-9);

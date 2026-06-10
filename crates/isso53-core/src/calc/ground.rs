@@ -102,29 +102,41 @@ pub fn calculate_h_t_ground(
 
 /// Calculate equivalent U-value for ground element using ISSO 53 formule 4.24.
 ///
-/// Geverifieerde vorm (ref-doc `audit-reports/07-isso53-formules-ref.md` §A4,
-/// gerenderd uit ISSO 53 PDF p.44 + worked example p.65):
+/// Norm-vorm (ISSO 53 PDF p.44, visueel geverifieerd — PM-verificatie
+/// 2026-06-10; de formule staat als gerenderde afbeelding in de PDF):
 ///
 /// ```text
-/// U_equiv,k = a · b / ( c₁·(B')^n₁ + c₂·(U_k + ΔU_TB)^n₂ + c₃·z^n₃ + d )
+/// U_equiv,k = a / ( b + (c₁ + B')^n₁ + (c₂ + z)^n₂ + (c₃ + U_k + ΔU_TB)^n₃ ) + d
 /// ```
 ///
-/// Het is een **quotiëntvorm** (niet de eerdere `a·(…)^b`-machtvorm, die door
-/// de negatieve `b = −7,455` altijd ≈0 opleverde en stilzwijgend op de
-/// U_EQUIV_MIN-clamp landde — een latente bug, want geen enkele fixture raakt
-/// dit pad: alle leveren `uEquivalent` expliciet aan). De tabel-`b` is negatief
-/// en `a·b` dus eveneens; de norm levert echter een positieve U_equiv, dus
-/// nemen we de absolute waarde van de teller. Worked-example check (Vloer,
-/// U_k=2,43, B'≈4,1) → U_equiv ≈ 0,177 W/(m²·K), conform p.65.
+/// De c-parameters zijn **addenden binnen de machten**, `b` is een somterm in
+/// de noemer en `d` staat buiten de breuk. Dit vervangt de eerdere
+/// quotiëntvorm `|a·b| / (c₁·B'^n₁ + c₂·U_k^n₂ + c₃·z^n₃ + d)`, die
+/// structureel fout was: omgekeerde monotonie in U_k (hogere U_k gaf lágere
+/// U_equiv) en een z=0-singulariteit bij wanden. In de norm-vorm bestaan die
+/// artefacten niet: U_equiv stijgt met U_k, daalt met z en (bij vloeren) met
+/// B', en z = 0 is voor zowel vloer als wand een regulier punt.
+///
+/// IJkpunten uit de norm-voorbeelden (beide reproduceren, zie tests):
+/// - **Schilvoorbeeld PDF p.59/60**: vloer Rc = 3,5 → U_k = 1/3,71 ≈ 0,2695,
+///   + ΔU_TB 0,1 (tabel 3.1 "overige situaties", in het voorbeeld overal
+///   `(Uk + 0,1)`); B' = 2·(50·20)/140 = 14,29; z = 0 → U_equiv ≈ 0,181
+///   (norm rekent met 0,18 op p.59 resp. 0,17 op p.60).
+/// - **Detailvoorbeeld PDF p.65**: B' = 12,07, beganegrondvloer U = 0,26
+///   (tabel 6.2-lagen) + ΔU_TB 0,05 (tabel 3.1 "nieuw gebouw, goed
+///   vakmanschap") = 0,31; z = 0 → U_equiv = 0,1774 (norm: 0,177).
+///
+/// ⚠️ De eerdere ijking "U_k = 2,43 → 0,177" was een misread: 2,43 op p.65 is
+/// de **plafond**-U uit de H_T,ia-tabel ("Vertrek boven"), niet de grondvloer.
 ///
 /// Where:
-/// - B' = 2 × A_vl / O (geometric factor), clamped [2, 50]
-/// - z = depth below ground level [0, 5] m
+/// - B' = 2 × A_vl / O (geometric factor), clamped [2, 50] (§4.6, PDF p.43)
+/// - z = depth below ground level, clamped [0, 5] m (formule 4.24, PDF p.44)
 /// - U_k = construction U-value **inclusief** thermal bridge correction ΔU_TB
 ///   (de caller telt ΔU_TB al op vóór deze functie — zie A4-fix)
-/// - Parameters a, b, c1-c3, n1-n3, d from tabel 4.3 for floor/wall
+/// - Parameters a, b, c1-c3, n1-n3, d from tabel 4.3 (PDF p.44) for floor/wall
 ///
-/// Result is clamped to minimum U_equiv ≥ 0.1 W/(m²·K).
+/// Result is clamped to minimum U_equiv ≥ 0.1 W/(m²·K) (§4.6).
 ///
 /// # Arguments
 /// * `area` - Floor area A_vl in m²
@@ -159,25 +171,16 @@ pub fn calculate_u_equivalent(
         ));
     }
 
-    // Calculate B' geometric factor: B' = 2 × A_vl / O
+    // Calculate B' geometric factor: B' = 2 × A_vl / O, clamped [2, 50].
+    // De clamp-ondergrens 2 borgt meteen de norm-voetnoot dat B' bij wanden
+    // niet 0 mag zijn (de wand-term is (0 + B')^0 = 1, gedefinieerd voor B'>0).
     let b_prime = (2.0 * area / perimeter).clamp(B_PRIME_MIN, B_PRIME_MAX);
 
-    // Clamp depth (0 ≤ z ≤ 5).
-    //
-    // Vloer vs wand verschillen fundamenteel in de z-term:
-    // - Vloer: n₃ = +0,9296 (> 0) → z = 0 geeft 0^n₃ = 0, de z-term valt netjes
-    //   weg. z = 0 is een normale maaiveld-grondvloer → geldig, geen guard.
-    // - Wand: n₃ = −0,1406 (< 0) → z = 0 geeft 0^n₃ = +∞ → denom = ∞ →
-    //   U_equiv = 0 → stille clamp op 0,1. Misleidend: een grondwand heeft per
-    //   definitie z > 0 (hij steekt in de grond). z ≤ 0 voor een wand is dus
-    //   degenerate geometrie → expliciete Err i.p.v. een stil-fout 0,1.
-    if is_wall && depth <= 0.0 {
-        return Err(crate::error::Isso53Error::InvalidInput(format!(
-            "grondwand vereist z > 0 (diepte onder maaiveld); kreeg z = {depth}. \
-             Een wand met z ≤ 0 is degenerate geometrie — voor een maaiveld-\
-             grondvloer gebruik je vertical_position = Floor, niet Wall."
-        )));
-    }
+    // Clamp depth: 0 ≤ z ≤ 5 m; z > 5 → z = 5 (formule 4.24, PDF p.44).
+    // z = 0 is in de norm-vorm een regulier punt voor vloer én wand:
+    // (c₂ + 0)^n₂ = c₂^n₂ — geen singulariteit. De oude z=0-wand-Err-guard
+    // was een artefact van de afgeschreven quotiëntvorm (0^n₃ met n₃<0 → ∞)
+    // en is daarom verwijderd.
     let z_clamped = depth.clamp(0.0, Z_DEPTH_MAX);
 
     // Get parameters for floor or wall
@@ -188,21 +191,25 @@ pub fn calculate_u_equivalent(
     };
     let params = ground_params(kind);
 
-    // Form. 4.24 (quotiëntvorm): teller a·b, noemer c₁·B'^n₁ + c₂·U_k^n₂ + c₃·z^n₃ + d.
-    let term1 = params.c1 * b_prime.powf(params.n1); // wanden: c₁=0 → 0 (B' vervalt)
-    let term2 = params.c2 * u_construction.powf(params.n2);
-    let term3 = params.c3 * z_clamped.powf(params.n3);
+    // Formule 4.24 (norm-vorm): noemer b + (c₁+B')^n₁ + (c₂+z)^n₂ + (c₃+U_k)^n₃.
+    let term1 = (params.c1 + b_prime).powf(params.n1); // wanden: (0+B')^0 = 1
+    let term2 = (params.c2 + z_clamped).powf(params.n2);
+    let term3 = (params.c3 + u_construction).powf(params.n3);
 
-    let denom = term1 + term2 + term3 + params.d;
-    if denom.abs() < 1e-9 {
-        // Degeneraat: noemer ~0 → val terug op de norm-ondergrens.
-        return Ok(U_EQUIV_MIN);
+    let denom = params.b + term1 + term2 + term3;
+    if denom <= 1e-9 {
+        // Buiten het geldigheidsdomein van formule 4.24 (komt pas voor bij
+        // fysisch onzinnige invoer, bv. wand-U_k ≳ 27 W/(m²·K)). Expliciete
+        // fout i.p.v. een stilzwijgend onfysisch (negatief/oneindig) resultaat.
+        return Err(crate::error::Isso53Error::InvalidInput(format!(
+            "formule 4.24 buiten geldigheidsdomein: noemer = {denom:.4} ≤ 0 \
+             (B' = {b_prime:.2}, z = {z_clamped:.2}, U_k = {u_construction:.2})"
+        )));
     }
 
-    // a·b is negatief (b < 0); de norm levert een positieve U_equiv → |a·b|.
-    let u_equiv = (params.a * params.b).abs() / denom;
+    let u_equiv = params.a / denom + params.d;
 
-    // Apply minimum constraint (en negatieve noemer-uitkomsten defensief).
+    // Norm-ondergrens §4.6: U_equiv,k ≥ 0,1 W/(m²·K).
     Ok(u_equiv.max(U_EQUIV_MIN))
 }
 
@@ -248,52 +255,109 @@ fn calculate_f_ig_auto(
 mod tests {
     use super::*;
 
-    /// A4: de geverifieerde 4.24 quotiëntvorm heeft GEEN z+d-guard meer.
-    /// Een ondiepe wand (z=0,5) levert nu een geldige, positieve U_equiv.
-    /// (De oude `(z+d)^n₃`-machtvorm crashte hier op een negatieve basis.)
+    /// Norm-vorm 4.24: een ondiepe wand (z=0,5) levert een geldige,
+    /// positieve U_equiv. (B' = 5, U_k = 0,4 → ≈ 0,471.)
     #[test]
     fn test_ground_shallow_wall_no_longer_errors() {
         let result = calculate_u_equivalent(100.0, 40.0, 0.5, 0.4, true);
-        assert!(result.is_ok(), "ondiepe wand mag geen error meer geven: {result:?}");
-        assert!(result.unwrap() >= U_EQUIV_MIN);
+        assert!(result.is_ok(), "ondiepe wand mag geen error geven: {result:?}");
+        let u = result.unwrap();
+        assert!(u >= U_EQUIV_MIN);
+        assert!((u - 0.4714).abs() < 0.002, "wand z=0,5 U_equiv ≈ 0,4714, got {u}");
     }
 
-    /// A4: een normale maaiveld-grondvloer (z=0) is een geldige invoer.
-    /// 0^n₃ = 0 (n₃ > 0) → z-term valt weg, geen guard, geen error.
-    /// (D4 = de z=0-weigering in de ground.rs-callsite hierboven blijft Ronde 4.)
+    /// Norm-vorm 4.24: een normale maaiveld-grondvloer (z=0) is een geldige
+    /// invoer. De z-term wordt (c₂ + 0)^n₂ = c₂^n₂ — regulier punt.
+    /// B' = 5, z = 0, U_k = 0,4 → U_equiv ≈ 0,2727.
     #[test]
     fn test_ground_floor_z_zero_ok() {
         let result = calculate_u_equivalent(100.0, 40.0, 0.0, 0.4, false);
         assert!(result.is_ok(), "z=0 grondvloer moet geldig zijn: {result:?}");
         let u = result.unwrap();
-        // z=0 vs z=1 verschilt alleen via de kleine c₃·z^n₃-term (~0,026).
-        assert!((u - 0.2266).abs() < 0.002, "z=0 floor U_equiv ≈ 0,2266, got {u}");
+        assert!((u - 0.2727).abs() < 0.002, "z=0 floor U_equiv ≈ 0,2727, got {u}");
     }
 
-    /// Review-item 2: een grondWAND met z = 0 mag NIET stilzwijgend 0,1
-    /// teruggeven. Voor wanden is n₃ = −0,1406 → 0^n₃ = +∞ → denom = ∞ →
-    /// U_equiv = 0 → clamp 0,1 (misleidend). De z=0-wand-guard moet i.p.v.
-    /// daarvan een Err geven (degenerate geometrie).
+    /// Norm-vorm 4.24: z = 0 is óók voor een wand een regulier punt —
+    /// (c₂ + 0)^n₂ = 26,586^0,5012, geen singulariteit. De oude Err-guard was
+    /// een artefact van de afgeschreven quotiëntvorm (0^n₃ met n₃ < 0 → ∞).
+    /// B' = 5 (geen invloed), z = 0, U_k = 0,4 → U_equiv ≈ 0,6316.
     #[test]
-    fn test_ground_wall_z_zero_errors_not_silent_clamp() {
+    fn test_ground_wall_z_zero_now_valid() {
         let result = calculate_u_equivalent(100.0, 40.0, 0.0, 0.4, true);
-        assert!(
-            result.is_err(),
-            "z=0 grondwand moet een Err geven, geen stille clamp; kreeg {result:?}"
-        );
-        // Borg dat het oude stille-fout-gedrag (Ok(0,1)) niet terugkomt.
-        if let Ok(u) = result {
-            panic!("z=0 wand gaf stilzwijgend U_equiv = {u} i.p.v. een error");
-        }
+        assert!(result.is_ok(), "z=0 wand is in de norm-vorm geldig: {result:?}");
+        let u = result.unwrap();
+        assert!((u - 0.6316).abs() < 0.002, "z=0 wand U_equiv ≈ 0,6316, got {u}");
     }
 
-    /// Review-item 2 (tegenproef): een wand met z > 0 blijft een geldige,
-    /// positieve U_equiv geven — de guard raakt alleen z ≤ 0.
+    /// Wand met z > 0 geeft een geldige, positieve U_equiv.
     #[test]
     fn test_ground_wall_positive_z_still_ok() {
         let result = calculate_u_equivalent(100.0, 40.0, 1.5, 0.4, true);
         assert!(result.is_ok(), "wand met z>0 moet geldig blijven: {result:?}");
         assert!(result.unwrap() >= U_EQUIV_MIN);
+    }
+
+    /// Monotonie (norm-vorm 4.24): U_equiv **stijgt** met U_k — een slechter
+    /// geïsoleerde vloer verliest méér naar de grond. (De afgeschreven
+    /// quotiëntvorm had hier de omgekeerde, onfysische richting.)
+    #[test]
+    fn test_u_equivalent_monotonic_increasing_in_u_k() {
+        let mut prev = 0.0;
+        for u_k in [0.2, 0.3, 0.4, 0.6, 1.0, 2.0] {
+            let u_eq = calculate_u_equivalent(100.0, 40.0, 0.0, u_k, false).unwrap();
+            assert!(
+                u_eq > prev,
+                "U_equiv moet stijgen met U_k: U_k={u_k} gaf {u_eq} ≤ {prev}"
+            );
+            prev = u_eq;
+        }
+        // Zelfde richting voor wanden.
+        let w_low = calculate_u_equivalent(100.0, 40.0, 1.0, 0.3, true).unwrap();
+        let w_high = calculate_u_equivalent(100.0, 40.0, 1.0, 0.6, true).unwrap();
+        assert!(w_high > w_low, "wand: U_equiv stijgt met U_k ({w_high} !> {w_low})");
+    }
+
+    /// Monotonie (norm-vorm 4.24): U_equiv **daalt** met z — dieper in de
+    /// grond betekent meer gronddemping.
+    #[test]
+    fn test_u_equivalent_monotonic_decreasing_in_z() {
+        let mut prev = f64::INFINITY;
+        for z in [0.0, 0.5, 1.0, 2.5, 5.0] {
+            let u_eq = calculate_u_equivalent(100.0, 40.0, z, 0.4, false).unwrap();
+            assert!(u_eq < prev, "U_equiv moet dalen met z: z={z} gaf {u_eq} ≥ {prev}");
+            prev = u_eq;
+        }
+        // z > 5 wordt geclampt op 5 (norm: indien z > 5 m dan z = 5 m).
+        let at_5 = calculate_u_equivalent(100.0, 40.0, 5.0, 0.4, false).unwrap();
+        let above_5 = calculate_u_equivalent(100.0, 40.0, 8.0, 0.4, false).unwrap();
+        assert!((at_5 - above_5).abs() < 1e-12, "z>5 moet clampen op z=5");
+        // Wanden: zelfde dalende richting.
+        let w_shallow = calculate_u_equivalent(100.0, 40.0, 0.5, 0.4, true).unwrap();
+        let w_deep = calculate_u_equivalent(100.0, 40.0, 3.0, 0.4, true).unwrap();
+        assert!(w_deep < w_shallow, "wand: U_equiv daalt met z ({w_deep} !< {w_shallow})");
+    }
+
+    /// Monotonie (norm-vorm 4.24): U_equiv **daalt** met B' bij vloeren
+    /// (compacter gebouw → relatief minder randverlies); bij wanden heeft B'
+    /// per norm-voetnoot geen invloed ((0+B')^0 = 1).
+    #[test]
+    fn test_u_equivalent_monotonic_decreasing_in_b_prime() {
+        // B' = 2·A/O: variieer de omtrek bij vast oppervlak.
+        let b_small = calculate_u_equivalent(100.0, 80.0, 0.0, 0.4, false).unwrap(); // B'=2,5
+        let b_mid = calculate_u_equivalent(100.0, 40.0, 0.0, 0.4, false).unwrap(); // B'=5
+        let b_large = calculate_u_equivalent(100.0, 10.0, 0.0, 0.4, false).unwrap(); // B'=20
+        assert!(
+            b_small > b_mid && b_mid > b_large,
+            "vloer: U_equiv daalt met B': {b_small}, {b_mid}, {b_large}"
+        );
+
+        // Wand: B'-invariant.
+        let w_a = calculate_u_equivalent(100.0, 80.0, 1.0, 0.4, true).unwrap();
+        let w_b = calculate_u_equivalent(100.0, 10.0, 1.0, 0.4, true).unwrap();
+        assert!(
+            (w_a - w_b).abs() < 1e-12,
+            "wand: B' mag geen invloed hebben ({w_a} vs {w_b})"
+        );
     }
 
     /// D4 (end-to-end): een z=0 maaiveld-grondvloer met auto-U_equiv (perimeter
@@ -338,10 +402,10 @@ mod tests {
         assert!(h_z0.unwrap() > 0.0, "z=0 grondvloer moet positief H_T,ig geven");
 
         // Norm-voorbeelden z = 0 / 0,5 / 5 zijn alle geldig en positief.
-        // In de 4.24-quotiëntvorm zit z in de NOEMER (c₃·z^n₃, n₃>0): grotere z
-        // → grotere noemer → licht láger U_equiv → licht láger H_T,ig. Het
-        // effect is klein (c₃ = 0,0266). We borgen geldigheid + de juiste
-        // (licht dalende) richting, geen weigering op enige z in [0, 5].
+        // In de norm-vorm 4.24 zit z in de noemer via (c₂+z)^n₂ (n₂ > 0):
+        // grotere z → grotere noemer → láger U_equiv → láger H_T,ig (meer
+        // gronddemping). We borgen geldigheid + de juiste (dalende) richting,
+        // geen weigering op enige z in [0, 5].
         let h0 = calculate_h_t_ground(&[&floor_z0], 20.0, &climate, HeatingSystem::default()).unwrap();
         let h_half = calculate_h_t_ground(&[&mk(0.5)], 20.0, &climate, HeatingSystem::default()).unwrap();
         let h_five = calculate_h_t_ground(&[&mk(5.0)], 20.0, &climate, HeatingSystem::default()).unwrap();
@@ -354,29 +418,53 @@ mod tests {
         );
     }
 
-    /// A4 worked example (ref-doc §A4 / ISSO 53 p.65): Vloer, U_k = 2,43,
-    /// geometrie zo dat B' ≈ 4,08 → U_equiv ≈ 0,177 W/(m²·K).
-    /// A=200, O=98 → B' = 2·200/98 = 4,0816.
+    /// IJkpunt 1 — norm-schilvoorbeeld (ISSO 53 PDF p.59/60): kantoorgebouw
+    /// 50×20 m, vloer Rc = 3,5 → U_k = 1/(3,5+0,17+0,04) ≈ 0,2695, + ΔU_TB
+    /// 0,1 (het voorbeeld rekent overal met `(Uk + 0,1)`, tabel 3.1 "overige
+    /// situaties"); B' = 2·1000/140 = 14,29; z = 0. Norm-uitkomst: 0,18
+    /// (p.59) resp. 0,17 (p.60); exacte norm-vorm: 0,18112.
     #[test]
-    fn test_u_equivalent_worked_example_p65() {
-        let u_equiv = calculate_u_equivalent(200.0, 98.0, 0.0, 2.43, false).unwrap();
+    fn test_u_equivalent_worked_example_p59_schil() {
+        let u_k = 1.0 / (3.5 + 0.17 + 0.04) + 0.1; // ≈ 0,36954
+        let u_equiv = calculate_u_equivalent(1000.0, 140.0, 0.0, u_k, false).unwrap();
         assert!(
-            (u_equiv - 0.177).abs() < 0.005,
-            "worked example p.65 verwacht U_equiv ≈ 0,177, kreeg {u_equiv}"
+            (u_equiv - 0.181).abs() < 0.005,
+            "schilvoorbeeld p.59 verwacht U_equiv ≈ 0,181, kreeg {u_equiv}"
         );
     }
 
-    /// A4: smoke — vloer levert een fysisch plausibele U_equiv in [0,1; 1,0].
+    /// IJkpunt 2 — norm-detailvoorbeeld (ISSO 53 PDF p.65): B' = 12,07
+    /// (gebouwniveau), beganegrondvloer U = 0,26 (lagen uit tabel 6.2:
+    /// afwerkvloer + EPS 132 mm + beton) + ΔU_TB 0,05 (tabel 3.1 "nieuw
+    /// gebouw volgens regels goed vakmanschap") = 0,31; z = 0.
+    /// Norm-uitkomst: U_equiv = 0,177 (gebruikt in H_T,ig = 1,45 × 18,7 ×
+    /// 0,177 × 1 × 0,351 = 1,69 W/K); exacte norm-vorm: 0,17741.
+    ///
+    /// NB: de 2,43 die op p.65 vlakbij staat is de **plafond**-U uit de
+    /// H_T,ia-tabel ("Vertrek boven"), niet de grondvloer — de oude ijking
+    /// "U_k = 2,43 → 0,177" was een misread.
+    #[test]
+    fn test_u_equivalent_worked_example_p65_detail() {
+        // A/O zo gekozen dat B' = 2·A/O = 12,07 exact.
+        let u_equiv = calculate_u_equivalent(120.7, 20.0, 0.0, 0.31, false).unwrap();
+        assert!(
+            (u_equiv - 0.177).abs() < 0.005,
+            "detailvoorbeeld p.65 verwacht U_equiv ≈ 0,177, kreeg {u_equiv}"
+        );
+    }
+
+    /// Smoke — vloer levert een fysisch plausibele U_equiv in [0,1; 1,0).
     #[test]
     fn test_u_equivalent_calculation_smoke() {
-        // A=100, O=40 → B'=5 (clamped); z=1; U=0,4; vloer.
+        // A=100, O=40 → B'=5; z=1; U=0,4; vloer. Norm-vorm: ≈ 0,2529.
         let u_equiv = calculate_u_equivalent(100.0, 40.0, 1.0, 0.4, false).unwrap();
         assert!(u_equiv >= U_EQUIV_MIN, "≥ ondergrens, kreeg {u_equiv}");
         assert!(u_equiv < 1.0, "fysisch plausibel, kreeg {u_equiv}");
-        assert!((u_equiv - 0.2264).abs() < 0.002, "verwacht ≈ 0,2264, kreeg {u_equiv}");
+        assert!((u_equiv - 0.2529).abs() < 0.002, "verwacht ≈ 0,2529, kreeg {u_equiv}");
     }
 
-    /// A4: ΔU_TB verhoogt U_k → verlaagt U_equiv (hogere noemer). Borgt dat de
+    /// ΔU_TB verhoogt U_k → verhoogt U_equiv (norm-vorm: (c₃+U_k)^n₃ met
+    /// n₃ < 0 wordt kleiner → noemer kleiner → U_equiv groter). Borgt dat de
     /// thermische-brug-toeslag daadwerkelijk in de 4.24-keten meegaat en de
     /// forfaitair/custom-prioriteit (A6) hetzelfde is als in transmission.rs.
     #[test]
@@ -426,8 +514,8 @@ mod tests {
         let h_both = calculate_h_t_ground(&[&e_both], 20.0, &climate, HeatingSystem::default()).unwrap();
 
         assert!((h_custom - h_both).abs() < 1e-9, "custom moet forfaitaire vlag overrulen: {h_custom} vs {h_both}");
-        // Hogere U_k → lagere U_equiv → lagere H_T,ig.
-        assert!(h_custom < h_none, "ΔU_TB moet U_equiv verlagen: {h_custom} !< {h_none}");
+        // Hogere U_k → hogere U_equiv → hogere H_T,ig (norm-vorm-monotonie).
+        assert!(h_custom > h_none, "ΔU_TB moet U_equiv verhogen: {h_custom} !> {h_none}");
     }
 
     #[test]

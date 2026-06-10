@@ -8,7 +8,8 @@
 - [x] **R3 Vabi-import ✅ (10-06)** — temperature_factor per boundary-type · grondvloer 0W→afgeleide GroundParameters+warnings · dwelling_class Tabel 2.8-afleiding · night_setback default false (geen Vabi-veld) · UnconditionedSpace-mapping · extractor custom_temperature+infiltration_method. cargo 197 + 15 tests, reviews ship.
 - [ ] **R3-besluit: Rust-mapper θ_i-veldkeuze [PM]** — mapper zet Vabi-ontwerptemp in internal_air_temperature (θ_a) maar custom_temperature=None → Rust-import gebruikt mogelijk tabel-θ_i waar Vabi eigen temps had (extractor doet het wél via custom_temperature). Gelijktrekken kan golden-fixtures verschuiven → eerst PM-analyse.
 - [ ] **R3-naverificatie [user/andere machine]** — vabi-importer v2_import-tests (voorweg_210a, 24221) draaien op machine mét de gitignored referentie-.vp's; daarna extractor-fixture-run.
-- [ ] **R4 rekenkern-normvalidatie (PM-normbron eerst):** Ū+ΔU_TB `lib.rs:76` · U_equiv-monotonie `ground.rs:191` · NEN8088 Tabel 10
+- [x] **R4 rekenkern-normvalidatie ✅ (10-06, PM-geverifieerd tegen norm-PDF's op Z:)** — U_equiv 4.24 norm-vorm (oude vorm: omgekeerde monotonie + misread-ijking) reproduceert beide normvoorbeelden · Ū opwarmtoeslag incl. ΔU_TB+grondvloer · NEN8088 Tabel 10 compleet + ISSO53 Tabel 4.7 bevestigd (twee normen, bewust niet geconsolideerd) · Φ_T,iaBE ≥0-clamp. Geen golden-shift. Review ship.
+- [ ] **R4-besluit: isso53 Vabi-compat f_inf [PM, laag]** — compat-pad wijkt af van beide normen (bewust, DR-golden); gedocumenteerd, besluit Vabi-pariteit vs norm bij gelegenheid.
 - [ ] **R5 ventilatie/BBL:** overdrukverdeling · systeem C-eis · BBL per-persoon utiliteit
 - [ ] **R6 test-infra** · **R7 efficiency/UI** · **R8 cleanup** · **R9 niet-onderzocht (aparte audits)**
 

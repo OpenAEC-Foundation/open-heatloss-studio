@@ -73,11 +73,33 @@ pub fn calculate(project: &Project) -> Result<ProjectResult> {
     // alle vertrekken. Stuurt twee dingen:
     //  1. Δθ_v-selectie: delta_v_high (Ū > 0.5) of delta_v_low (Ū ≤ 0.5).
     //  2. Opwarmtoeslag-afkoeling: 2 K nieuwbouw, resp. 1 K bij Ū ≤ 0.5.
+    //
+    // Definitie (ISSO 51:2023 p.44, opmerking bij Afb. 2.7, letterlijk):
+    //   "Ū = oppervlakte gewogen gemiddelde U-waarde (incl. thermische
+    //    bruggen) over de externe scheidingsconstructies (incl. ramen en
+    //    deuren) en de begane grondvloer."
+    // Dus: (a) ΔU_TB telt mee (zelfde resolutie-prioriteit als elders:
+    // custom > forfaitair > 0, zie `tables::thermal_bridge::delta_u_tb`);
+    // (b) de begane grondvloer (BoundaryType::Ground + Floor) weegt mee met
+    // zijn gewone U-waarde — de norm spreekt van "U-waarde", niet van de
+    // equivalente U_e uit Figuur 4.2, dus géén U_equiv hier. Grondwanden
+    // (kelderwanden) noemt de norm niet en blijven buiten de weging.
     let (total_a_ext, total_au_ext) = project.rooms.iter().fold((0.0, 0.0), |(a, au), room| {
         room.constructions
             .iter()
-            .filter(|c| c.boundary_type == model::enums::BoundaryType::Exterior)
-            .fold((a, au), |(a, au), c| (a + c.area, au + c.area * c.u_value))
+            .filter(|c| {
+                c.boundary_type == model::enums::BoundaryType::Exterior
+                    || (c.boundary_type == model::enums::BoundaryType::Ground
+                        && c.vertical_position == model::enums::VerticalPosition::Floor)
+            })
+            .fold((a, au), |(a, au), c| {
+                let u_incl_tb = c.u_value
+                    + tables::thermal_bridge::delta_u_tb(
+                        c.use_forfaitaire_thermal_bridge,
+                        c.custom_delta_u_tb,
+                    );
+                (a + c.area, au + c.area * u_incl_tb)
+            })
     });
     // Fallback bij een lege externe schil (total_a_ext == 0.0 — bv. een puur
     // intern vertrek of een ontaarde test-input): geen division-by-zero, maar
@@ -242,9 +264,16 @@ fn build_summary(
     let phi_hu_building = total_heating_up;
 
     // Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)  (formule 3.11).
+    //
+    // PM-interpretatie 2026-06-10: norm (erratum 2023, kwadratische sommatie)
+    // definieert geen negatieve termen; winst niet als verlies meetellen.
+    // Zelfde clamp als op vertrekniveau (`calc/room_load.rs`): een netto
+    // negatieve Φ_T,iaBE (warmere buren = warmtewinst) zou door het kwadraat
+    // als extra verlies meetellen → clamp ≥ 0 vóór de sommatie. Het rapportage-
+    // veld `phi_t_iabe_building` blijft de ongekclampte (eerlijke) waarde.
     let phi_extra_quadratic = calc::quadratic_sum::quadratic_sum(
         phi_vent_building,
-        phi_t_iabe_building,
+        phi_t_iabe_building.max(0.0),
         phi_hu_building,
     );
 
@@ -738,6 +767,176 @@ mod tests {
             "Φ_hu = {} moet eindig zijn en gelijk aan 22 × A_g = {}",
             r1.heating_up.phi_hu,
             expected_phi_hu
+        );
+    }
+
+    /// Fix 2 (norm-audit 2026-06-10) — Ū-definitie (ISSO 51:2023 p.44,
+    /// opmerking bij Afb. 2.7): oppervlakte-gewogen gemiddelde U **incl.
+    /// thermische bruggen** over externe scheidingsconstructies (incl. ramen
+    /// en deuren) **en de begane grondvloer**. De oude implementatie filterde
+    /// op alleen Exterior en negeerde ΔU_TB → Ū te laag → verkeerde P-klasse.
+    ///
+    /// (a) Een slecht geïsoleerde grondvloer moet de klassegrens Ū = 0,5
+    ///     kunnen verschuiven: wand U=0,4 + grondvloer U=0,8 → Ū = 0,6 > 0,5
+    ///     → afkoeling 2 K → P = 22 W/m² (Tabel 2.10, Z, 2 h).
+    /// (b) Controle: zelfde geometrie met goed geïsoleerde grondvloer U=0,1
+    ///     → Ū = 0,25 ≤ 0,5 → afkoeling 1 K → P = 11 W/m².
+    /// (c) ΔU_TB-aspect: wand U=0,45 forfaitair (+0,1) → Ū = 0,55 > 0,5 →
+    ///     P = 22; zonder forfaitaire vlag Ū = 0,45 ≤ 0,5 → P = 11.
+    #[test]
+    fn test_u_bar_includes_ground_floor_and_delta_u_tb() {
+        use construction::ConstructionElement;
+        use enums::*;
+
+        let mk_element = |id: &str,
+                          area: f64,
+                          u: f64,
+                          boundary: BoundaryType,
+                          position: VerticalPosition,
+                          forfaitair: bool| ConstructionElement {
+            id: id.to_string(),
+            description: id.to_string(),
+            area,
+            u_value: u,
+            boundary_type: boundary,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: position,
+            use_forfaitaire_thermal_bridge: forfaitair,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+            uw_breakdown: None,
+        };
+
+        let mut with_constructions = |constructions: Vec<ConstructionElement>| {
+            let mut project = create_portiekwoning();
+            project.rooms[0].constructions = constructions;
+            calculate(&project).unwrap().rooms[0].heating_up.p
+        };
+
+        // (a) Grondvloer U=0,8 trekt Ū over de 0,5-grens: (10·0,4+10·0,8)/20 = 0,6.
+        let p_bad_floor = with_constructions(vec![
+            mk_element("wand", 10.0, 0.4, BoundaryType::Exterior, VerticalPosition::Wall, false),
+            mk_element("grondvloer", 10.0, 0.8, BoundaryType::Ground, VerticalPosition::Floor, false),
+        ]);
+        assert!(
+            (p_bad_floor - 22.0).abs() < 1e-9,
+            "grondvloer U=0,8 → Ū=0,6 > 0,5 → 2 K → P=22, kreeg {p_bad_floor}"
+        );
+
+        // (b) Goed geïsoleerde grondvloer houdt Ū onder 0,5: (4+1)/20 = 0,25.
+        let p_good_floor = with_constructions(vec![
+            mk_element("wand", 10.0, 0.4, BoundaryType::Exterior, VerticalPosition::Wall, false),
+            mk_element("grondvloer", 10.0, 0.1, BoundaryType::Ground, VerticalPosition::Floor, false),
+        ]);
+        assert!(
+            (p_good_floor - 11.0).abs() < 1e-9,
+            "grondvloer U=0,1 → Ū=0,25 ≤ 0,5 → 1 K → P=11, kreeg {p_good_floor}"
+        );
+
+        // (c) ΔU_TB verschuift de klasse: U=0,45 forfaitair → Ū=0,55 > 0,5.
+        let p_with_tb = with_constructions(vec![
+            mk_element("wand", 10.0, 0.45, BoundaryType::Exterior, VerticalPosition::Wall, true),
+        ]);
+        let p_without_tb = with_constructions(vec![
+            mk_element("wand", 10.0, 0.45, BoundaryType::Exterior, VerticalPosition::Wall, false),
+        ]);
+        assert!(
+            (p_with_tb - 22.0).abs() < 1e-9,
+            "forfaitaire ΔU_TB → Ū=0,55 > 0,5 → P=22, kreeg {p_with_tb}"
+        );
+        assert!(
+            (p_without_tb - 11.0).abs() < 1e-9,
+            "zonder ΔU_TB → Ū=0,45 ≤ 0,5 → P=11, kreeg {p_without_tb}"
+        );
+    }
+
+    /// Fix 4 (norm-audit 2026-06-10) — Φ_T,iaBE in de kwadratische sommatie
+    /// (formule 3.11). Een WARMERE buur (θ_b > θ_i) geeft een negatieve
+    /// Φ_T,iaBE (warmtewinst); vóór de fix werd die gekwadrateerd en telde
+    /// daardoor als extra VERLIES mee. PM-interpretatie 2026-06-10: clamp ≥ 0
+    /// vóór de sommatie — winst niet als verlies meetellen.
+    ///
+    /// Vertrek op θ_i = 12 °C naast een buur op θ_b = 15 °C: Φ_extra mét de
+    /// woningscheidende wand mag NIET hoger zijn dan zónder die wand.
+    #[test]
+    fn test_negative_phi_t_iabe_not_counted_as_loss() {
+        use construction::ConstructionElement;
+        use enums::*;
+
+        let neighbor_wall = ConstructionElement {
+            id: "buurwand".to_string(),
+            description: "Woningscheidende wand naar warmere buur".to_string(),
+            area: 18.0,
+            u_value: 2.0,
+            boundary_type: BoundaryType::AdjacentBuilding,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            catalog_ref: None,
+            uw_breakdown: None,
+        };
+
+        // Variant A: koel vertrek (12 °C) mét warmere buur (θ_b = 15 °C).
+        let mut with_neighbor = create_portiekwoning();
+        with_neighbor.rooms[0].custom_temperature = Some(12.0);
+        with_neighbor.rooms[0]
+            .constructions
+            .retain(|c| c.boundary_type != BoundaryType::AdjacentBuilding);
+        with_neighbor.rooms[0].constructions.push(neighbor_wall);
+
+        // Variant B: identiek, maar zonder de woningscheidende wand.
+        let mut without_neighbor = with_neighbor.clone();
+        without_neighbor.rooms[0]
+            .constructions
+            .retain(|c| c.boundary_type != BoundaryType::AdjacentBuilding);
+
+        let res_with = calculate(&with_neighbor).unwrap();
+        let res_without = calculate(&without_neighbor).unwrap();
+        let r_with = &res_with.rooms[0];
+        let r_without = &res_without.rooms[0];
+
+        // Preconditie: de warmere buur levert daadwerkelijk een negatieve
+        // H_T,iaBE (warmtewinst), anders test deze niets.
+        assert!(
+            r_with.transmission.h_t_adjacent_buildings < 0.0,
+            "warmere buur moet negatieve H_T,iaBE geven, kreeg {}",
+            r_with.transmission.h_t_adjacent_buildings
+        );
+
+        // Kern: Φ_extra mag door de (negatieve) buurterm niet stijgen — de
+        // clamp maakt de bijdrage 0, dus beide varianten zijn gelijk.
+        assert!(
+            r_with.extra_heat_loss <= r_without.extra_heat_loss + 1e-9,
+            "warmere buur mag Φ_extra niet verhogen: met buur = {}, zonder = {}",
+            r_with.extra_heat_loss,
+            r_without.extra_heat_loss
+        );
+        assert!(
+            (r_with.extra_heat_loss - r_without.extra_heat_loss).abs() < 1e-9,
+            "gekclampte buurterm (0) → Φ_extra identiek: {} vs {}",
+            r_with.extra_heat_loss,
+            r_without.extra_heat_loss
+        );
+
+        // Gebouwniveau: dezelfde clamp in build_summary — phi_extra_quadratic
+        // gelijk, terwijl het rapportageveld de negatieve som blijft tonen.
+        assert!(res_with.summary.phi_t_iabe_building < 0.0);
+        assert!(
+            (res_with.summary.phi_extra_quadratic - res_without.summary.phi_extra_quadratic)
+                .abs()
+                < 1e-9,
+            "gebouwniveau: warmere buur mag Φ_extra niet verhogen"
         );
     }
 

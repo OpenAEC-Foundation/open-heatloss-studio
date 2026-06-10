@@ -22,14 +22,32 @@ pub fn f_type_nen8088(building_type: GebouwTypeWinddruk) -> f64 {
     }
 }
 
-/// f_inf volgens NEN 8088-1 Tabel 10 - Ventilatiesysteem correctiefactor
-/// Vabi gebruikt typisch 1,10 voor natuurlijke ventilatie (System A)
+/// f_inf voor het **Vabi-compat-pad** (`InfiltrationMethod::UnknownVabiCompat`).
+///
+/// ⚠️ **Geen norm-waarden.** Deze waardes zijn empirisch afgeleid uit
+/// Vabi-output (reverse-engineering, zie doc-link in de module-header) en
+/// wijken af van BEIDE norm-tabellen (PM-verificatie 2026-06-10 tegen de
+/// bron-PDF's):
+///
+/// | Systeem | hier (Vabi-fit) | NEN 8088-1+C2 Tabel 10 | ISSO 53 Tabel 4.7 |
+/// |---------|-----------------|------------------------|--------------------|
+/// | A       | 1,10            | 0,80                   | 0,80               |
+/// | B       | 1,05            | 0,85                   | 0,85               |
+/// | C       | 1,05            | 1,0                    | 1,0                |
+/// | D       | 1,00            | 1,10                   | 1,15               |
+/// | E       | 1,00            | 1,05 (E.1)             | 1,08               |
+///
+/// De waardes blijven bewust staan: het Vabi-compat-pad reproduceert de
+/// Vabi DR-kantoorwest golden-fixture (System D) en is expliciet als
+/// niet-norm gemarkeerd (audit 02, item T3). Norm-conforme f_inf:
+/// - ISSO 53 §4.2-keten → [`crate::tables::ventilation_system::f_inf`];
+/// - NEN 8088-1+C2 → isso51-core `f_inf_table_nen8088`.
 pub fn f_inf_nen8088(ventilation_type: VentilationSystemType) -> f64 {
     match ventilation_type {
-        VentilationSystemType::SystemA => 1.10, // NEN 8088-1 Tabel 10 — wijkt af van ISSO 53 Tabel 4.7 (0.80); Vabi gebruikt NEN 8088-1
+        VentilationSystemType::SystemA => 1.10, // Vabi-fit — geen norm-waarde (zie tabel hierboven)
         VentilationSystemType::SystemB => 1.05,
         VentilationSystemType::SystemC => 1.05,
-        VentilationSystemType::SystemD => 1.00, // NEN 8088-1 Tabel 10 — wijkt af van ISSO 53 Tabel 4.7 (1.15); Vabi gebruikt NEN 8088-1
+        VentilationSystemType::SystemD => 1.00, // Vabi-fit; geverifieerd via DR-kantoorwest golden
         VentilationSystemType::SystemE => 1.00, // Zone-mix met WTW
     }
 }
