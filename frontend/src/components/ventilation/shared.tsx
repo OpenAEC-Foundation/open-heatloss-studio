@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import {
   BBL_REQUIREMENTS,
   dm3sToM3h,
+  isBblDemandIndicative,
   VENTILATION_SYSTEMS,
   type BblFunctionKey,
   type VentilationSystemKey,
@@ -45,6 +46,36 @@ export function flowLabel(dm3s: number): string {
 /** "45 m³/h" — secundaire weergave. */
 export function m3hLabel(dm3s: number): string {
   return `${formatDecimals(dm3sToM3h(dm3s), 0)} m³/h`;
+}
+
+// ---------------------------------------------------------------------------
+// Indicatief-markering — persoon-gebaseerde functie zonder bezetting
+// ---------------------------------------------------------------------------
+
+/**
+ * Zichtbare markering "indicatief — bezetting invullen" voor een
+ * persoon-gebaseerde gebruiksfunctie (Bbl 4.122 lid 2) zonder ingevulde
+ * bezetting: de getoonde eis is dan een m²-benadering i.p.v. de wettelijke
+ * per-persoon-eis. Rendert niets wanneer de eis niet indicatief is.
+ * Gebruikt door het zijpaneel én de tab (zelfde bron: `isBblDemandIndicative`).
+ */
+export function IndicativeOccupancyBadge({
+  fn,
+  occupancy,
+}: {
+  fn: BblFunctionKey;
+  occupancy?: number;
+}) {
+  const { t } = useTranslation();
+  if (!isBblDemandIndicative(fn, occupancy)) return null;
+  return (
+    <span
+      className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700"
+      title={t("ventilation.indicativeHint")}
+    >
+      {t("ventilation.indicativeBadge")}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------

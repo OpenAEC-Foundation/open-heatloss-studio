@@ -130,9 +130,13 @@ describe("combinedRequirementDm3s — eis-keuze per systeem", () => {
     expect(combinedRequirementDm3s(40, 35, "D")).toBe(40);
   });
 
-  it("systeem C (MV): alleen de afvoer-eis (toevoer natuurlijk)", () => {
+  // BIJGEWERKT (audit-R5 finding 3): de oude verwachting (C = alleen
+  // afvoer-eis) codeerde de oude fout — de MV-box moet in balans óók de via
+  // gevelroosters toegevoerde lucht verwerken, dus eis_C = max(toevoer, afvoer)
+  // (identiek aan de plugin `_get_gecombineerde_eis`).
+  it("systeem C (MV): max(toevoer, afvoer) — afvoer moet de toevoer verwerken (balans)", () => {
     expect(combinedRequirementDm3s(20, 35, "C")).toBe(35);
-    expect(combinedRequirementDm3s(40, 35, "C")).toBe(35);
+    expect(combinedRequirementDm3s(40, 35, "C")).toBe(40);
   });
 
   it("systeem B: alleen de toevoer-eis (afvoer natuurlijk)", () => {
@@ -143,8 +147,9 @@ describe("combinedRequirementDm3s — eis-keuze per systeem", () => {
     expect(combinedRequirementDm3s(40, 35, "A")).toBe(0);
   });
 
-  it("default (undefined) volgt systeem C", () => {
-    expect(combinedRequirementDm3s(40, 35, undefined)).toBe(35);
+  it("default (undefined) volgt systeem C (max-gedrag)", () => {
+    expect(combinedRequirementDm3s(40, 35, undefined)).toBe(40);
+    expect(combinedRequirementDm3s(20, 35, undefined)).toBe(35);
   });
 });
 
@@ -184,6 +189,21 @@ describe("checkUnitCapacity", () => {
     expect(check.satisfied).toBe(false);
     expect(check.shortfallDm3s).toBeCloseTo(10, 5);
     expect(check.marginPct).toBeLessThan(0);
+  });
+
+  it("systeem C met toevoer > afvoer: eis volgt de toevoer (max-gedrag, audit-R5)", () => {
+    // 1× MV 90 m³/h = 25 dm³/s; toevoer-eis 40 > afvoer-eis 20 → eis 40
+    // (de box moet de toegevoerde lucht verwerken) → tekort 15.
+    const check = checkUnitCapacity(
+      units,
+      [{ unitId: "u-mv", aantal: 1 }],
+      40,
+      20,
+      "C",
+    );
+    expect(check.requiredDm3s).toBe(40);
+    expect(check.satisfied).toBe(false);
+    expect(check.shortfallDm3s).toBeCloseTo(15, 5);
   });
 
   it("aantal vermenigvuldigt: 2× MV 90 dekt de eis wél", () => {

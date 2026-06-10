@@ -2,9 +2,10 @@
  * Ventilatiebalans — afgeleide berekeningen (frontend, TypeScript).
  *
  * Pragmatische port van de pyRevit `VentilatieBalans`-plugin: BBL-eis per
- * ruimte (dm³/s), default gebruiksfunctie-classificatie uit de model-room en
- * een eenvoudige (indicatieve) spleet-onder-deur-schatting. NEN 1087-exact
- * komt in delegatie 2.
+ * ruimte (dm³/s), default gebruiksfunctie-classificatie uit de model-room,
+ * overdruk-/overstroomverdeling (`_bereken_overdruk_verdeling`) en een
+ * spleet-onder-deur-schatting, NEN 1087:2001-verankerd (zie
+ * {@link estimateDoorGapAreaCm2}).
  *
  * **Eenheden:** dm³/s intern.
  */
@@ -107,26 +108,125 @@ export function deriveVentilationDemand(
 // ---------------------------------------------------------------------------
 
 /**
- * Indicatieve schatting van de benodigde vrije doorlaat (cm²) van een
- * doorstroomopening (spleet onder de deur) voor een gegeven overstroomdebiet.
+ * Toelaatbaar drukverschil (Pa) over een doorstroomopening — default voor
+ * woonfuncties. NEN 1087:2001 §5.1.3.2.7 (p. 21) hanteert per situatie:
+ *   - toevoer bovendaks: 1 Pa;
+ *   - dwarsventilatie (doorstroming binnen de woning): 1 Pa,
+ *     **2 Pa voor kantoorgebouwen** ({@link DOOR_GAP_DELTA_P_OFFICE_PA});
+ *   - afvoerkanaal: `0,4·Δh + 1` Pa (Δh = hoogteverschil in m).
+ */
+export const DOOR_GAP_DELTA_P_PA = 1.0;
+
+/** Δp-criterium dwarsventilatie kantoorgebouwen (NEN 1087:2001 §5.1.3.2.7). */
+export const DOOR_GAP_DELTA_P_OFFICE_PA = 2.0;
+
+/**
+ * Schatting van de benodigde vrije doorlaat (cm²) van een doorstroomopening
+ * (spleet onder de deur) voor een gegeven overstroomdebiet.
  *
  * Orifice-benadering: `A = q / (C_d · √(2·ΔP/ρ))`, met
  *   - q in m³/s (= dm³/s ÷ 1000),
- *   - C_d ≈ 0,6 (scherprandige opening),
- *   - ΔP ≈ 1,0 Pa (toelaatbaar drukverschil),
- *   - ρ ≈ 1,2 kg/m³ (lucht).
+ *   - C_d = 0,6 (scherprandige opening),
+ *   - ΔP = `deltaPPa` (default {@link DOOR_GAP_DELTA_P_PA} = 1,0 Pa),
+ *   - ρ = 1,2 kg/m³ (lucht).
  *
- * **Indicatief** — de NEN 1087-exacte parameters/formule volgen in delegatie 2.
+ * **Norm-verankering (NEN 1087:2001, PDF-extractie geverifieerd 2026-06-10):**
+ *   - §5.1.3.2.1 (p. 17) geeft de doorlaat-karakteristiek `qv = C·Δp^n`;
+ *     deze orifice-vorm is daarvan het geval `n = 0,5` met
+ *     `C = C_d·A·√(2/ρ)` — turbulente stroming door een scherprandige
+ *     opening, de gangbare aanname voor een spleet onder de deur.
+ *   - §5.1.3.2.7 (p. 21) geeft de Δp-criteria per situatie (zie
+ *     {@link DOOR_GAP_DELTA_P_PA}); voor kantoor-dwarsventilatie geldt 2 Pa —
+ *     geef dan {@link DOOR_GAP_DELTA_P_OFFICE_PA} mee als `deltaPPa`.
+ *
  * Resultaat in cm².
  */
-export function estimateDoorGapAreaCm2(flowDm3s: number): number {
+export function estimateDoorGapAreaCm2(
+  flowDm3s: number,
+  deltaPPa: number = DOOR_GAP_DELTA_P_PA,
+): number {
   if (flowDm3s <= 0) return 0;
   const C_D = 0.6;
-  const DELTA_P = 1.0; // Pa
   const RHO = 1.2; // kg/m³
   const qM3s = flowDm3s / 1000;
-  const aM2 = qM3s / (C_D * Math.sqrt((2 * DELTA_P) / RHO));
+  const aM2 = qM3s / (C_D * Math.sqrt((2 * deltaPPa) / RHO));
   return aM2 * 1e4; // m² → cm²
+}
+
+// ---------------------------------------------------------------------------
+// Overdruk-/overstroomverdeling — toevoer-overschot naar afvoerruimtes
+// ---------------------------------------------------------------------------
+
+/**
+ * Resultaat van {@link computeOverflowDistribution}: het toevoer-overschot
+ * (overdruk) verdeeld over de afvoerruimtes, gekeyed op `room.id`.
+ */
+export interface OverflowDistribution {
+  /**
+   * Extra afvoer-correctie per afvoerruimte in dm³/s (verdeeld
+   * toevoer-overschot, naar rato van oppervlak; 0 voor niet-afvoerruimtes).
+   */
+  exhaustCorrectionDm3s: Record<string, number>;
+  /** Afvoer-totaal per ruimte: afvoer-eis + correctie (dm³/s). */
+  exhaustTotalDm3s: Record<string, number>;
+  /** Verdeeld toevoer-overschot in dm³/s (0 bij balans/onderdruk). */
+  surplusDm3s: number;
+}
+
+/**
+ * Verdeel het toevoer-overschot (overdruk) over de afvoerruimtes, naar rato
+ * van hun vloeroppervlak. Port van `_bereken_overdruk_verdeling` uit de
+ * pyRevit-plugin (`VentilatieBalans.pushbutton/script.py:632-651`):
+ *
+ *   - `overdruk = Σ toevoer-eis − Σ afvoer-eis`; alleen verdelen bij
+ *     overdruk > 0 (onderdruk/balans → alle correcties 0);
+ *   - per afvoerruimte: `correctie = round(overdruk × opp / Σ opp, 1)`
+ *     (zelfde 1-decimaal-afronding als de plugin);
+ *   - `afvoer_totaal = afvoer-eis + correctie` (plugin: `afvoer_totaal`).
+ *
+ * **Verdeelregel = plugin-conventie** — NEN 1087 definieert géén verdeling
+ * van het toevoer-overschot over meerdere afvoerruimtes (§5.1.3.2 geeft alleen
+ * de doorlaat-karakteristiek en Δp-criteria); naar-rato-van-oppervlak is een
+ * engineering-keuze, 1:1 overgenomen uit de plugin.
+ *
+ * De plugin verdeelt per zone; het webmodel kent (nog) geen zones, dus hier
+ * geldt het hele gebouw als één zone.
+ *
+ * @param ventilationRooms per-room ventilatie-state (eisen in dm³/s)
+ * @param areasM2 vloeroppervlak per ruimte-id in m² (`Room.floor_area`)
+ */
+export function computeOverflowDistribution(
+  ventilationRooms: Record<string, VentilationRoomState>,
+  areasM2: Record<string, number>,
+): OverflowDistribution {
+  let totalSupply = 0;
+  let totalExhaust = 0;
+  let exhaustArea = 0;
+  for (const [roomId, vr] of Object.entries(ventilationRooms)) {
+    totalSupply += vr.requiredSupplyDm3s;
+    totalExhaust += vr.requiredExhaustDm3s;
+    if (vr.requiredExhaustDm3s > 0) exhaustArea += areasM2[roomId] ?? 0;
+  }
+  const surplus = totalSupply - totalExhaust;
+
+  const exhaustCorrectionDm3s: Record<string, number> = {};
+  const exhaustTotalDm3s: Record<string, number> = {};
+  for (const [roomId, vr] of Object.entries(ventilationRooms)) {
+    let correction = 0;
+    if (surplus > 0 && vr.requiredExhaustDm3s > 0 && exhaustArea > 0) {
+      // Plugin: round(overdruk * opp / totaal_opp, 1).
+      correction =
+        Math.round(((surplus * (areasM2[roomId] ?? 0)) / exhaustArea) * 10) /
+        10;
+    }
+    exhaustCorrectionDm3s[roomId] = correction;
+    exhaustTotalDm3s[roomId] = vr.requiredExhaustDm3s + correction;
+  }
+  return {
+    exhaustCorrectionDm3s,
+    exhaustTotalDm3s,
+    surplusDm3s: Math.max(0, surplus),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +260,12 @@ export interface OverflowRelation {
   ny: number;
   /** Lengte van de gedeelde edge-overlap in mm. */
   overlapMm: number;
-  /** Indicatief overstroomdebiet in dm³/s (afvoer-eis van de doel-ruimte). */
+  /**
+   * Overstroomdebiet in dm³/s door deze doorstroomopening: het afvoer-totaal
+   * van de doel-ruimte (afvoer-eis + verdeelde overdruk-correctie, zie
+   * {@link computeOverflowDistribution}), gelijk verdeeld over alle
+   * binnenkomende relaties van die doel-ruimte.
+   */
   flowDm3s: number;
 }
 
@@ -275,12 +380,26 @@ function polygonCentroid(poly: Point2D[]): Point2D {
  * Geen interactie met `deriveModelDoors` (die blijft een stub) — de
  * doorstroomopening hangt aan de scheidingswand, niet aan een deur-object.
  *
+ * **Debiet per relatie:** het afvoer-totaal van de doel-ruimte (afvoer-eis +
+ * verdeelde overdruk-correctie uit {@link computeOverflowDistribution}),
+ * gelijk verdeeld over alle binnenkomende relaties van die doel-ruimte —
+ * zodat de spleet-berekening op het verdeelde debiet werkt en niet per
+ * ruimte-paar de volle afvoer-eis dubbel telt. De gelijke verdeling over
+ * meerdere doorstroomopeningen is een engineering-keuze (NEN 1087 definieert
+ * geen verdeling); de overdruk-verdeling zelf volgt de plugin-conventie.
+ * Doel-ruimte zonder afvoer-eis → fallback op de toevoer-eis van de bron
+ * (bv. expliciete `airSourceRoomId` naar een eis-loze ruimte).
+ *
  * @param rooms model-ruimtes (polygonen in wereld-mm)
  * @param ventilationRooms per-room ventilatie-state (eisen + overstroom-bron)
+ * @param distribution gebouwbrede overdruk-verdeling
+ *   ({@link computeOverflowDistribution}); `undefined` → geen correctie
+ *   (afvoer-totaal = afvoer-eis)
  */
 export function deriveOverflowRelations(
   rooms: ModelRoom[],
   ventilationRooms: Record<string, VentilationRoomState>,
+  distribution?: OverflowDistribution,
 ): OverflowRelation[] {
   const out: OverflowRelation[] = [];
   const seen = new Set<string>();
@@ -308,15 +427,6 @@ export function deriveOverflowRelations(
 
       seen.add(pairKey);
 
-      // Overstroomdebiet ≈ afvoer-eis van de doel-ruimte (indicatief); val
-      // terug op de toevoer-eis van de bron als de doel-ruimte geen afvoer heeft.
-      const vrTarget = ventilationRooms[targetId];
-      const vrSource = ventilationRooms[sourceId];
-      const flowDm3s =
-        (vrTarget?.requiredExhaustDm3s ?? 0) > 0
-          ? vrTarget!.requiredExhaustDm3s
-          : (vrSource?.requiredSupplyDm3s ?? 0);
-
       out.push({
         key: pairKey,
         sourceRoomId: sourceId,
@@ -327,8 +437,33 @@ export function deriveOverflowRelations(
         nx: geom.nx,
         ny: geom.ny,
         overlapMm: geom.overlapMm,
-        flowDm3s,
+        flowDm3s: 0, // tweede pass hieronder
       });
+    }
+  }
+
+  // Tweede pass: debiet per relatie = afvoer-totaal van de doel-ruimte
+  // (eis + verdeelde overdruk-correctie), gelijk verdeeld over het aantal
+  // binnenkomende relaties van die doel-ruimte.
+  const incomingCount = new Map<string, number>();
+  for (const rel of out) {
+    incomingCount.set(
+      rel.targetRoomId,
+      (incomingCount.get(rel.targetRoomId) ?? 0) + 1,
+    );
+  }
+  for (const rel of out) {
+    const vrTarget = ventilationRooms[rel.targetRoomId];
+    const exhaustTotal =
+      distribution?.exhaustTotalDm3s[rel.targetRoomId] ??
+      vrTarget?.requiredExhaustDm3s ??
+      0;
+    if (exhaustTotal > 0) {
+      rel.flowDm3s = exhaustTotal / (incomingCount.get(rel.targetRoomId) ?? 1);
+    } else {
+      // Fallback: doel zonder afvoer — gebruik de toevoer-eis van de bron.
+      rel.flowDm3s =
+        ventilationRooms[rel.sourceRoomId]?.requiredSupplyDm3s ?? 0;
     }
   }
   return out;

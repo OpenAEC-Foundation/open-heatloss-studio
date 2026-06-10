@@ -248,6 +248,41 @@ describe("buildVentilationReportData — per-vertrek tabel", () => {
     expect(row[6]).toBe("via gevelroosters");
     expect(row[7]).toBe("natuurlijk");
   });
+
+  it("persoon-gebaseerde functie zonder bezetting: eis gemarkeerd als indicatief", () => {
+    // Onderwijsfunctie (Bbl 4.122 lid 2: 8,5 dm³/s p.p.) zonder bezetting →
+    // m²-fallback (60 × 0,9 = 54) + zichtbare markering; mét bezetting
+    // (30 pers → 255) géén markering.
+    const klaslokaal: VentilationReportRoom = {
+      id: "r5",
+      name: "Klaslokaal",
+      floor_area: 60,
+    };
+    const build = (occupancy?: number) =>
+      buildVentilationReportData({
+        info,
+        rooms: [klaslokaal],
+        ventilationRooms: {
+          r5: {
+            ventilationFunction: "onderwijsfunctie",
+            requiredSupplyDm3s: occupancy ? occupancy * 8.5 : 54,
+            requiredExhaustDm3s: 0,
+            airSourceRoomId: null,
+            ...(occupancy !== undefined ? { occupancy } : {}),
+          },
+        },
+        terminals: [],
+        system: "D",
+      });
+
+    const without = roomTable(build()).rows[0]!;
+    expect(without[5]).toContain("54 dm³/s");
+    expect(without[5]).toContain("indicatief: bezetting invullen");
+
+    const withOcc = roomTable(build(30)).rows[0]!;
+    expect(withOcc[5]).toContain("255 dm³/s");
+    expect(withOcc[5]).not.toContain("indicatief");
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { useCallback, useMemo } from "react";
 
 import { useProjectStore } from "../store/projectStore";
 import {
+  computeOverflowDistribution,
   defaultBblFunction,
   deriveVentilationDemand,
 } from "../lib/ventilationBalance";
@@ -38,6 +39,15 @@ export function useVentilationBalance() {
     () => deriveVentilationDemand(project, ventilation.rooms),
     [project, ventilation.rooms],
   );
+
+  // Gebouwbrede overdruk-verdeling: toevoer-overschot naar afvoerruimtes,
+  // naar rato van oppervlak (plugin `_bereken_overdruk_verdeling`). Voedt de
+  // overstroom-relaties/spleet-berekening in de Modeller.
+  const overflowDistribution = useMemo(() => {
+    const areasM2: Record<string, number> = {};
+    for (const room of project.rooms) areasM2[room.id] = room.floor_area;
+    return computeOverflowDistribution(ventilationRooms, areasM2);
+  }, [project.rooms, ventilationRooms]);
 
   /** Schrijf de gebruiksfunctie-override voor een ruimte. */
   const changeFunction = useCallback(
@@ -115,6 +125,7 @@ export function useVentilationBalance() {
     project,
     ventilation,
     ventilationRooms,
+    overflowDistribution,
     changeFunction,
     changeOccupancy,
     setSystem: setVentilationSystem,

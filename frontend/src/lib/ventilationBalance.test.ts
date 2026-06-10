@@ -4,13 +4,17 @@ import type { ModelRoom } from "../components/modeller/types";
 import {
   bblDemandDm3s,
   DEFAULT_OCCUPANCY_DM3S_PER_PERSON,
+  isBblDemandIndicative,
   type VentilationRoomState,
   type VentilationTerminal,
 } from "../types/ventilation";
 import {
   aggregateVentilationBalance,
+  computeOverflowDistribution,
   computeRoomVentilation,
   deriveOverflowRelations,
+  DOOR_GAP_DELTA_P_OFFICE_PA,
+  estimateDoorGapAreaCm2,
 } from "./ventilationBalance";
 
 /** Twee 5×5 m ruimtes die een verticale wand op x = 5000 delen. */
@@ -74,7 +78,8 @@ describe("deriveOverflowRelations", () => {
     expect(rel.ny).toBeCloseTo(0, 2);
     // Overlap = volledige 5 m wand.
     expect(rel.overlapMm).toBeCloseTo(5000, 0);
-    // Debiet = afvoer-eis van de doel-ruimte.
+    // Zonder meegegeven overdruk-verdeling: afvoer-totaal = afvoer-eis van
+    // de doel-ruimte (geen correctie), één binnenkomende relatie.
     expect(rel.flowDm3s).toBe(21);
   });
 
@@ -111,6 +116,156 @@ describe("deriveOverflowRelations", () => {
     rooms[1]!.polygon = rooms[1]!.polygon.map((p) => ({ x: p.x + 2000, y: p.y }));
     const rels = deriveOverflowRelations(rooms, { "0.01": supply, "0.02": exhaust });
     expect(rels).toHaveLength(0);
+  });
+
+  it("werkt op het verdeelde debiet (afvoer-eis + overdruk-correctie) i.p.v. de volle afvoer-eis", () => {
+    const rooms = twoAdjacentRooms();
+    const vrooms = { "0.01": supply, "0.02": exhaust };
+    // Overdruk = 25 − 21 = 4 → volledig naar de enige afvoerruimte (keuken):
+    // afvoer-totaal = 21 + 4 = 25.
+    const dist = computeOverflowDistribution(vrooms, { "0.01": 25, "0.02": 25 });
+    const rels = deriveOverflowRelations(rooms, vrooms, dist);
+    expect(rels).toHaveLength(1);
+    expect(rels[0]!.flowDm3s).toBeCloseTo(25, 6);
+  });
+
+  it("verdeelt het afvoer-totaal gelijk over meerdere binnenkomende relaties", () => {
+    // Drie ruimtes op een rij: toevoer | afvoer | toevoer — de middelste
+    // afvoerruimte grenst aan twee toevoerruimtes (twee doorstroomopeningen).
+    const [left, middle] = twoAdjacentRooms() as [ModelRoom, ModelRoom];
+    middle.function = "bathroom";
+    const right: ModelRoom = {
+      ...left,
+      id: "0.03",
+      name: "Slaapkamer",
+      polygon: [
+        { x: 10000, y: 0 },
+        { x: 15000, y: 0 },
+        { x: 15000, y: 5000 },
+        { x: 10000, y: 5000 },
+      ],
+    };
+    const vrooms: Record<string, VentilationRoomState> = {
+      "0.01": supply, // toevoer 25
+      "0.02": exhaust, // afvoer 21
+      "0.03": { ...supply }, // toevoer 25
+    };
+    // Overdruk = 50 − 21 = 29 → afvoer-totaal keuken = 50; twee
+    // binnenkomende relaties → 25 per doorstroomopening.
+    const dist = computeOverflowDistribution(vrooms, {
+      "0.01": 25,
+      "0.02": 25,
+      "0.03": 25,
+    });
+    const rels = deriveOverflowRelations([left, middle, right], vrooms, dist);
+    expect(rels).toHaveLength(2);
+    for (const rel of rels) {
+      expect(rel.targetRoomId).toBe("0.02");
+      expect(rel.flowDm3s).toBeCloseTo(25, 6);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Overdruk-verdeling — port van `_bereken_overdruk_verdeling`
+// (VentilatieBalans.pushbutton/script.py:632-651): toevoer-overschot naar
+// afvoerruimtes, naar rato van oppervlak, round(…, 1).
+// ---------------------------------------------------------------------------
+
+describe("computeOverflowDistribution", () => {
+  /** Plugin-fixture: woonkamer toevoer 100; badkamer 8 m² (eis 14) en keuken
+   *  12 m² (eis 21) als afvoer. Overdruk = 100 − 35 = 65 → naar rato opp:
+   *  badkamer 65 × 8/20 = 26,0 en keuken 65 × 12/20 = 39,0. */
+  const vrooms: Record<string, VentilationRoomState> = {
+    woonkamer: {
+      ventilationFunction: "verblijfsruimte",
+      requiredSupplyDm3s: 100,
+      requiredExhaustDm3s: 0,
+      airSourceRoomId: null,
+    },
+    badkamer: {
+      ventilationFunction: "badruimte",
+      requiredSupplyDm3s: 0,
+      requiredExhaustDm3s: 14,
+      airSourceRoomId: null,
+    },
+    keuken: {
+      ventilationFunction: "keuken",
+      requiredSupplyDm3s: 0,
+      requiredExhaustDm3s: 21,
+      airSourceRoomId: null,
+    },
+  };
+  const areas = { woonkamer: 40, badkamer: 8, keuken: 12 };
+
+  it("verdeelt de overdruk naar rato van oppervlak over de afvoerruimtes (plugin-getallen)", () => {
+    const dist = computeOverflowDistribution(vrooms, areas);
+    expect(dist.surplusDm3s).toBeCloseTo(65, 6);
+    expect(dist.exhaustCorrectionDm3s.badkamer).toBeCloseTo(26.0, 6);
+    expect(dist.exhaustCorrectionDm3s.keuken).toBeCloseTo(39.0, 6);
+    expect(dist.exhaustCorrectionDm3s.woonkamer).toBe(0);
+    expect(dist.exhaustTotalDm3s.badkamer).toBeCloseTo(40.0, 6);
+    expect(dist.exhaustTotalDm3s.keuken).toBeCloseTo(60.0, 6);
+    expect(dist.exhaustTotalDm3s.woonkamer).toBe(0);
+  });
+
+  it("rondt de correctie af op 1 decimaal (plugin: round(…, 1))", () => {
+    // Overdruk 10 over twee gelijke afvoerruimtes met opp 3 en 6 m²:
+    // 10 × 3/9 = 3,333… → 3,3 en 10 × 6/9 = 6,666… → 6,7.
+    const v: Record<string, VentilationRoomState> = {
+      s: { ...vrooms.woonkamer!, requiredSupplyDm3s: 45 },
+      a: { ...vrooms.badkamer! }, // 14
+      b: { ...vrooms.keuken! }, // 21
+    };
+    const dist = computeOverflowDistribution(v, { s: 30, a: 3, b: 6 });
+    expect(dist.surplusDm3s).toBeCloseTo(10, 6);
+    expect(dist.exhaustCorrectionDm3s.a).toBeCloseTo(3.3, 6);
+    expect(dist.exhaustCorrectionDm3s.b).toBeCloseTo(6.7, 6);
+  });
+
+  it("geen verdeling bij balans of onderdruk (overdruk ≤ 0)", () => {
+    const v: Record<string, VentilationRoomState> = {
+      s: { ...vrooms.woonkamer!, requiredSupplyDm3s: 20 },
+      a: { ...vrooms.badkamer! }, // 14
+      b: { ...vrooms.keuken! }, // 21 → afvoer 35 > toevoer 20
+    };
+    const dist = computeOverflowDistribution(v, { s: 20, a: 8, b: 12 });
+    expect(dist.surplusDm3s).toBe(0);
+    expect(dist.exhaustCorrectionDm3s.a).toBe(0);
+    expect(dist.exhaustCorrectionDm3s.b).toBe(0);
+    // Afvoer-totaal blijft de kale eis.
+    expect(dist.exhaustTotalDm3s.a).toBe(14);
+    expect(dist.exhaustTotalDm3s.b).toBe(21);
+  });
+
+  it("ontbrekende oppervlakken: ruimte zonder opp krijgt correctie 0", () => {
+    const dist = computeOverflowDistribution(vrooms, { badkamer: 8 });
+    // Alleen badkamer heeft opp → krijgt de volle overdruk.
+    expect(dist.exhaustCorrectionDm3s.badkamer).toBeCloseTo(65.0, 6);
+    expect(dist.exhaustCorrectionDm3s.keuken).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Spleet onder de deur — NEN 1087:2001-verankering (Δp-parameter)
+// ---------------------------------------------------------------------------
+
+describe("estimateDoorGapAreaCm2 — Δp-criteria NEN 1087 §5.1.3.2.7", () => {
+  it("default Δp = 1,0 Pa (woonfunctie-dwarsventilatie)", () => {
+    // A = q / (0,6 · √(2·1,0/1,2)) met q = 0,025 m³/s → ≈ 322,7 cm².
+    const a = estimateDoorGapAreaCm2(25);
+    expect(a).toBeCloseTo(322.7, 0);
+  });
+
+  it("kantoor-dwarsventilatie (2 Pa) geeft een √2 kleinere doorlaat", () => {
+    const a1 = estimateDoorGapAreaCm2(25);
+    const a2 = estimateDoorGapAreaCm2(25, DOOR_GAP_DELTA_P_OFFICE_PA);
+    expect(a2).toBeCloseTo(a1 / Math.SQRT2, 6);
+  });
+
+  it("debiet ≤ 0 → 0 cm²", () => {
+    expect(estimateDoorGapAreaCm2(0)).toBe(0);
+    expect(estimateDoorGapAreaCm2(-5)).toBe(0);
   });
 });
 
@@ -150,6 +305,79 @@ describe("bblDemandDm3s — personen-toeslag", () => {
   it("bezetting 0 of undefined geeft geen toeslag (plugin: alleen personen > 0)", () => {
     expect(bblDemandDm3s(20, "verblijfsruimte", 0)).toBeCloseTo(14, 6);
     expect(bblDemandDm3s(20, "verblijfsruimte", undefined)).toBeCloseTo(14, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Persoon-gebaseerde utiliteitsfuncties — Bbl artikel 4.122 lid 2
+// (eis = personen × personDm3s; NIET de vlakke 4,0 dm³/s pp-toeslag)
+// ---------------------------------------------------------------------------
+
+describe("bblDemandDm3s — per-persoon utiliteit (Bbl 4.122 lid 2)", () => {
+  it("onderwijsfunctie: 30 personen → 30 × 8,5 = 255 dm³/s (niet 30 × 4 = 120)", () => {
+    expect(bblDemandDm3s(60, "onderwijsfunctie", 30)).toBeCloseTo(255, 6);
+  });
+
+  it("bijeenkomstfunctie (kinderopvang): 6,5 dm³/s p.p.", () => {
+    expect(
+      bblDemandDm3s(40, "bijeenkomstfunctie (kinderopvang)", 10),
+    ).toBeCloseTo(65, 6);
+  });
+
+  it("bijeenkomstfunctie (niet-kinderopvang) en winkel: 4 dm³/s p.p.", () => {
+    expect(bblDemandDm3s(40, "bijeenkomstfunctie", 10)).toBeCloseTo(40, 6);
+    expect(bblDemandDm3s(40, "winkelfunctie", 10)).toBeCloseTo(40, 6);
+  });
+
+  it("kantoor/industrie/sport: 6,5 dm³/s p.p.", () => {
+    expect(bblDemandDm3s(40, "kantoorfunctie", 8)).toBeCloseTo(52, 6);
+    expect(bblDemandDm3s(40, "industriefunctie", 8)).toBeCloseTo(52, 6);
+    expect(bblDemandDm3s(40, "sportfunctie", 8)).toBeCloseTo(52, 6);
+  });
+
+  it("gezondheidszorg: bedgebied 12, overig 8,5 dm³/s p.p.", () => {
+    expect(
+      bblDemandDm3s(30, "gezondheidszorgfunctie (bedgebied)", 4),
+    ).toBeCloseTo(48, 6);
+    expect(bblDemandDm3s(30, "gezondheidszorgfunctie", 4)).toBeCloseTo(34, 6);
+  });
+
+  it("minimum blijft de ondergrens bij een kleine bezetting", () => {
+    // 1 persoon winkel → 4 dm³/s < minimum 7 → 7.
+    expect(bblDemandDm3s(2, "winkelfunctie", 1)).toBe(7);
+  });
+
+  it("zonder bezetting: indicatieve m²-fallback (max(opp × 0,9, minimum))", () => {
+    expect(bblDemandDm3s(60, "onderwijsfunctie")).toBeCloseTo(54, 6);
+    expect(bblDemandDm3s(60, "onderwijsfunctie", 0)).toBeCloseTo(54, 6);
+    // Kleine ruimte → ondergrens 7.
+    expect(bblDemandDm3s(5, "kantoorfunctie")).toBe(7);
+  });
+
+  it("woonfunctie blijft ongewijzigd: 4,0-toeslag, nooit indicatief", () => {
+    // 20 m² woonfunctie → max(20 × 0,7; 5 × 4,0; 7) = 20 — identiek aan
+    // het oude gedrag (de vlakke pp-toeslag geldt alléén woonfunctie-achtig).
+    expect(bblDemandDm3s(20, "woonfunctie", 5)).toBeCloseTo(20, 6);
+    expect(bblDemandDm3s(20, "woonfunctie")).toBeCloseTo(14, 6);
+  });
+});
+
+describe("isBblDemandIndicative", () => {
+  it("persoon-gebaseerde functie zonder bezetting → indicatief", () => {
+    expect(isBblDemandIndicative("onderwijsfunctie")).toBe(true);
+    expect(isBblDemandIndicative("onderwijsfunctie", 0)).toBe(true);
+    expect(isBblDemandIndicative("kantoorfunctie", undefined)).toBe(true);
+  });
+
+  it("met bezetting → niet indicatief", () => {
+    expect(isBblDemandIndicative("onderwijsfunctie", 30)).toBe(false);
+  });
+
+  it("oppervlakte-gebaseerde functies zijn nooit indicatief", () => {
+    expect(isBblDemandIndicative("woonfunctie")).toBe(false);
+    expect(isBblDemandIndicative("verblijfsruimte")).toBe(false);
+    expect(isBblDemandIndicative("keuken")).toBe(false);
+    expect(isBblDemandIndicative("badruimte", undefined)).toBe(false);
   });
 });
 
