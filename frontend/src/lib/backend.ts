@@ -7,7 +7,19 @@ import type {
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import type { ProjectV2 } from "../types/projectV2";
+// Type-only import — geen runtime-cycle (importExport importeert `isTauri`
+// uit deze module, maar type-imports worden weggecompileerd).
+import type { ProjectEnvelope } from "./importExport";
 import { API_PREFIX } from "./constants";
+
+/**
+ * Toegestane vormen van `project_data` op de Projects API. Sinds de
+ * envelope-pariteit fix sturen alle save-flows de volledige opslag-envelope
+ * ({@link ProjectEnvelope}); het kale `Project`-type blijft toegestaan voor
+ * legacy pass-through (bv. dupliceren van een oude rij). De backend slaat
+ * het veld op als opake tekst-blob.
+ */
+export type ServerProjectData = Project | ProjectEnvelope;
 
 /** IFC import result from the Python sidecar. */
 export interface IfcSidecarResult {
@@ -366,7 +378,7 @@ export async function fetchProjects(): Promise<ProjectSummary[]> {
 /** POST /projects — Create a new project. */
 export async function createProject(
   name: string,
-  projectData: Project,
+  projectData: ServerProjectData,
 ): Promise<{ id: string; name: string }> {
   const res = await authFetch(`${API_PREFIX}/projects`, {
     method: "POST",
@@ -382,7 +394,7 @@ export async function fetchProject(id: string): Promise<ProjectResponse> {
 }
 
 /** Response from PUT /projects/:id. */
-interface UpdateProjectResponse {
+export interface UpdateProjectResponse {
   ok: boolean;
   updated_at: string;
 }
@@ -390,7 +402,11 @@ interface UpdateProjectResponse {
 /** PUT /projects/:id — Update a project. */
 export async function updateProject(
   id: string,
-  data: { name?: string; project_data?: Project; expected_updated_at?: string },
+  data: {
+    name?: string;
+    project_data?: ServerProjectData;
+    expected_updated_at?: string;
+  },
 ): Promise<UpdateProjectResponse> {
   const res = await authFetch(`${API_PREFIX}/projects/${id}`, {
     method: "PUT",

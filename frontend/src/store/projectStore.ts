@@ -33,6 +33,7 @@ import type {
   VentilationUnitAssignment,
 } from "../types/ventilation";
 import { VENTILATION_SYSTEMS } from "../types/ventilation";
+import { useSaveStatusStore } from "./saveStatusStore";
 
 // ---------------------------------------------------------------------------
 // Undo/Redo history
@@ -270,12 +271,26 @@ interface ProjectStore {
   clearError: () => void;
   /** Set calculating state. */
   setCalculating: (isCalculating: boolean) => void;
-  /** Load a server project atomically (project + id + result in one set). */
+  /**
+   * Load a server project atomically (project + id + result in one set).
+   *
+   * `opts` spiegelt {@link ProjectStore.setProject}: envelope-sidecars
+   * (norm, ISSO 53, sharedExtra, ventilatie) uit de server-`project_data`
+   * worden hersteld i.p.v. naar defaults gereset. Afwezig (legacy kaal
+   * `project_data`) → defaults, exact het oude gedrag.
+   */
   loadServerProject: (
     id: string,
     project: Project,
-    result: ProjectResult | null,
+    result: ProjectResult | Isso53ProjectResult | null,
     updatedAt?: string,
+    opts?: {
+      norm?: ActiveNorm;
+      isso53Building?: Isso53BuildingState;
+      isso53Rooms?: Record<string, Isso53RoomState>;
+      sharedExtra?: SharedExtra;
+      ventilation?: VentilationState;
+    },
   ) => void;
   /** Update the server timestamp after a successful save. */
   setServerUpdatedAt: (updatedAt: string | null) => void;
@@ -608,15 +623,45 @@ export const useProjectStore = create<ProjectStore>()(
           };
         }),
 
-      loadServerProject: (id, project, result, updatedAt) =>
+      loadServerProject: (id, project, result, updatedAt, opts) =>
         set({
           project,
-          // Detecteer de norm uit de verwarmings-shape (zie setProject) —
+          // Expliciete envelope-norm is autoritatief (zelfde semantiek als
+          // setProject). Zonder envelope: detecteer uit de verwarmings-shape —
           // server-projecten met ISSO 53 heating mogen niet naar ISSO 51.
-          norm: detectNormFromProject(project),
-          isso53Building: { ...DEFAULT_ISSO53_BUILDING },
-          isso53Rooms: {},
-          ventilation: { terminals: [], rooms: {} },
+          norm: opts?.norm ?? detectNormFromProject(project),
+          // Sidecars uit de server-envelope herstellen indien meegegeven,
+          // anders defaults (gedrag voor legacy kale `project_data`-rijen).
+          // Backfill-spreads identiek aan setProject zodat nieuwe velden in
+          // toekomstige versies hun default krijgen.
+          sharedExtra: opts?.sharedExtra
+            ? { ...DEFAULT_SHARED_EXTRA, ...opts.sharedExtra }
+            : { ...DEFAULT_SHARED_EXTRA },
+          isso53Building: opts?.isso53Building
+            ? {
+                ...DEFAULT_ISSO53_BUILDING,
+                ...opts.isso53Building,
+                heatingUp: normalizeIsso53HeatingUp(
+                  opts.isso53Building.heatingUp,
+                ),
+              }
+            : { ...DEFAULT_ISSO53_BUILDING },
+          isso53Rooms: opts?.isso53Rooms ?? {},
+          ventilation: opts?.ventilation
+            ? {
+                terminals: opts.ventilation.terminals ?? [],
+                rooms: opts.ventilation.rooms ?? {},
+                ...(opts.ventilation.system
+                  ? { system: opts.ventilation.system }
+                  : {}),
+                ...(opts.ventilation.units
+                  ? { units: opts.ventilation.units }
+                  : {}),
+                ...(opts.ventilation.unitAssignments
+                  ? { unitAssignments: opts.ventilation.unitAssignments }
+                  : {}),
+              }
+            : { terminals: [], rooms: {} },
           activeProjectId: id,
           result,
           isDirty: false,
@@ -641,7 +686,11 @@ export const useProjectStore = create<ProjectStore>()(
       setCalculating: (isCalculating) =>
         set({ isCalculating }),
 
-      reset: () =>
+      reset: () => {
+        // Save-status hoort bij het project dat we sluiten — een stale
+        // "Conflict"/"Offline"/"Fout"-indicator mag niet blijven staan op
+        // het nieuwe (lege) project. Zelfde reset als openServerProject.
+        useSaveStatusStore.getState().resetStatus();
         set({
           project: DEFAULT_PROJECT,
           sharedExtra: { ...DEFAULT_SHARED_EXTRA },
@@ -661,7 +710,8 @@ export const useProjectStore = create<ProjectStore>()(
           currentLocalPath: null,
           _past: [],
           _future: [],
-        }),
+        });
+      },
 
       addRoom: (room) => {
         const snap = takeProjectSnapshot(get());

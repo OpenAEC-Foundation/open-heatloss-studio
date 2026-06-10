@@ -11,14 +11,15 @@ import {
   fetchProject,
   createProject,
   deleteProject,
+  type ServerProjectData,
 } from "../lib/backend";
-import { validateProject, validateProjectResult } from "../lib/importExport";
+import { validateProject } from "../lib/importExport";
+import { openServerProject, saveNewServerProject } from "../lib/serverProjects";
 import type { Project, ProjectSummary } from "../types";
 
 export function Projects() {
   const navigate = useNavigate();
-  const { project, loadServerProject, setActiveProjectId, setProject } =
-    useProjectStore();
+  const { project, setProject } = useProjectStore();
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,32 +46,28 @@ export function Projects() {
   const handleOpen = useCallback(
     async (id: string) => {
       try {
-        const response = await fetchProject(id);
-        const projectData = validateProject(response.project_data);
-        loadServerProject(
-          id,
-          projectData,
-          validateProjectResult(response.result_data),
-          response.updated_at,
-        );
+        // Zelfde import-pad als bestand-openen: envelope-`project_data`
+        // herstelt geometrie + sidecars; legacy kaal `project_data` laadt
+        // met defaults en leegt de modeller (geen stale geometrie).
+        await openServerProject(id);
         navigate("/project");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Kon project niet openen");
       }
     },
-    [navigate, loadServerProject],
+    [navigate],
   );
 
   const handleSaveNew = useCallback(async () => {
     try {
       const name = project.info.name || "Naamloos project";
-      const result = await createProject(name, project);
-      setActiveProjectId(result.id);
+      // Volledige envelope als project_data (pariteit met file-save).
+      await saveNewServerProject(name);
       await loadProjects();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kon project niet opslaan");
     }
-  }, [project, setActiveProjectId, loadProjects]);
+  }, [project, loadProjects]);
 
   const handleImportVabi = useCallback(async () => {
     try {
@@ -92,9 +89,15 @@ export function Projects() {
     async (id: string) => {
       try {
         const response = await fetchProject(id);
-        const sourceData = validateProject(response.project_data);
+        // BEWUST formaat-agnostisch (besluit code-review 2026-06-10):
+        // dupliceren is een verbatim byte-kopie van `project_data` — een
+        // envelope blijft een envelope, een legacy kaal project blijft kaal.
+        // Voeg hier GEEN validateProject/parse-stap toe: validateProject
+        // crasht op een envelope (geen `building` op top-level) en zou een
+        // kale legacy-rij onnodig herschrijven. Het doelformaat normaliseert
+        // vanzelf bij de eerstvolgende save van de kopie (envelope-upgrade).
         const name = `Kopie van ${response.name}`;
-        await createProject(name, sourceData);
+        await createProject(name, response.project_data as ServerProjectData);
         await loadProjects();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Kon project niet dupliceren");

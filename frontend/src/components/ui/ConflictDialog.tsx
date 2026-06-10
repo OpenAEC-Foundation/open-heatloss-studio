@@ -2,8 +2,7 @@ import { useCallback } from "react";
 
 import { Button } from "./Button";
 import { useProjectStore } from "../../store/projectStore";
-import { fetchProject } from "../../lib/backend";
-import { validateProject, validateProjectResult } from "../../lib/importExport";
+import { openServerProject } from "../../lib/serverProjects";
 import { useToastStore } from "../../store/toastStore";
 
 export function ConflictDialog() {
@@ -14,14 +13,9 @@ export function ConflictDialog() {
   const handleReload = useCallback(async () => {
     if (!activeProjectId) return;
     try {
-      const response = await fetchProject(activeProjectId);
-      const projectData = validateProject(response.project_data);
-      useProjectStore.getState().loadServerProject(
-        activeProjectId,
-        projectData,
-        validateProjectResult(response.result_data),
-        response.updated_at,
-      );
+      // Zelfde import-pad als bestand-openen: envelope herstelt geometrie
+      // + sidecars, legacy kaal project_data laadt met defaults.
+      await openServerProject(activeProjectId);
       addToast("Laatste versie geladen", "info", 2000);
     } catch {
       addToast("Kon project niet herladen", "error");

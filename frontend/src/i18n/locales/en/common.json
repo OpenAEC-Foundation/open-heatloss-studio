@@ -56,7 +56,13 @@
     "loginAgain": "Log in again",
     "offline": "No connection — will be saved as soon as you are back online",
     "conflict": "Project was changed elsewhere — reload the project.",
-    "failed": "Save failed: {{detail}}"
+    "failed": "Save failed: {{detail}}",
+    "saving": "Saving…",
+    "savedAt": "Saved {{time}}",
+    "notSavedOffline": "⚠ Not saved — offline",
+    "notSavedError": "⚠ Not saved — error",
+    "conflictShort": "⚠ Conflict — changed elsewhere",
+    "retry": "Retry"
   },
   "sidebar": {
     "calculation": "Calculation",

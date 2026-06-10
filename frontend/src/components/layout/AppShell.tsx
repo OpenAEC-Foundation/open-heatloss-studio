@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
-import { updateProject, createProject, isTauri } from "../../lib/backend";
+import { isTauri } from "../../lib/backend";
+import {
+  saveExistingServerProject,
+  saveNewServerProject,
+} from "../../lib/serverProjects";
 import {
   exportIfcEnergy,
   openProjectFile,
@@ -194,11 +198,8 @@ export function AppShell({ children }: AppShellProps) {
     const state = useProjectStore.getState();
     if (state.activeProjectId && isLoggedIn) {
       try {
-        const resp = await updateProject(state.activeProjectId, {
-          project_data: state.project,
-          expected_updated_at: state.serverUpdatedAt ?? undefined,
-        });
-        useProjectStore.getState().setServerUpdatedAt(resp.updated_at);
+        // Volledige envelope (geometrie + sidecars) — pariteit met file-save.
+        await saveExistingServerProject(state.activeProjectId);
         addToast(i18next.t("savedToServer"), "success");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -213,8 +214,7 @@ export function AppShell({ children }: AppShellProps) {
       );
       if (!name) return;
       try {
-        const resp = await createProject(name, state.project);
-        useProjectStore.getState().setActiveProjectId(resp.id);
+        await saveNewServerProject(name);
         addToast(i18next.t("savedToServer"), "success");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

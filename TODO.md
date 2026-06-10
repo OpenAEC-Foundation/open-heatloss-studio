@@ -369,6 +369,10 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] Dead code verwijderen: `ModellerToolbar.tsx`, `DrawingToolsPanel.tsx` (vervangen door Ribbon)
 - [ ] Store snapshot mist constructie-assignments (undo/redo verliest wall/floor/roof toewijzingen)
 
+## 🌐 Server-opslag
+- [x] **Envelope-pariteit server-save (10-06)** — server-save/-load gebruikt dezelfde volledige envelope als file-save (geometrie + alle sidecars), backward-compat legacy kaal project_data, race-guard projectwissel, persistente save-statusindicator, body-limit 20 MB. Fixt: geometrie-verlies op server + per-pc divergentie. 180/180 + cargo 28 groen.
+- [ ] **Onderlegger (underlay.dataUrl) niet in envelope [besluit]** — bewust uitgesloten (1-10+ MB base64); wordt ook bij file-open niet hersteld. Later: aparte upload/opslag overwegen.
+
 ## Cloud integratie — BACKEND KLAAR
 - [x] `openaec-cloud` dependency (gedeelde Nextcloud cloud crate)
 - [x] Multi-tenant config (`TENANTS_CONFIG`, `DEFAULT_TENANT` env vars)

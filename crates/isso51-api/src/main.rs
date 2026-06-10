@@ -116,7 +116,14 @@ async fn main() {
             "/projects/{id}/calculate",
             post(handlers::calculate_and_save),
         )
-        .route("/report/generate", post(handlers::generate_report));
+        .route("/report/generate", post(handlers::generate_report))
+        // `project_data` is sinds de envelope-pariteit fix de volledige
+        // opslag-envelope (project + result + modeller-geometrie + sidecars).
+        // Grote projecten kunnen daarmee de axum-default van 2 MB
+        // overschrijden; een 413 zou een stille save-failure zijn. De
+        // onderlegger (base64 PDF/afbeelding) blijft bewust uit de envelope —
+        // 20 MB is ruime headroom voor puur project-JSON.
+        .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
 
     // Cloud storage routes (authenticated).
     let cloud_routes = Router::new()

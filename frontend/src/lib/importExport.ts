@@ -73,8 +73,20 @@ interface Isso53Envelope {
   rooms: Record<string, Isso53RoomState>;
 }
 
-/** Envelope format written to disk. */
-interface ProjectEnvelope {
+/**
+ * Envelope format written to disk (`.heatloss.json`) én — sinds de
+ * envelope-pariteit fix — als `project_data` naar de server gestuurd.
+ * Eén gedeeld formaat zodat save→reopen via bestand en via server
+ * identiek gedrag hebben (zelfde builder, zelfde parser).
+ *
+ * Bewust NIET in deze envelope: de modeller-onderlegger
+ * (`modellerStore.underlay`) — die bevat een base64 `dataUrl` (PDF/afbeelding,
+ * vaak meerdere MB's) en is een lokaal tekenhulpmiddel. Meesturen zou de
+ * server-payload over de body-limiet duwen; ook het `.ifcenergy` import-pad
+ * herstelt 'm vandaag niet. Zie ook de doc-comment op
+ * {@link buildProjectEnvelope}.
+ */
+export interface ProjectEnvelope {
   version: string;
   schema: string;
   exported_at: string;
@@ -159,18 +171,28 @@ export interface ImportResult {
 }
 
 /**
- * Export project + result as a downloadable `.heatloss.json` file.
+ * Bouw de volledige opslag-envelope uit het project + result en de huidige
+ * store-state. Dit is DE gedeelde serialisatie voor:
+ *   - de `.heatloss.json` file-export ({@link exportProject})
+ *   - alle server-saves (`project_data` op POST/PUT /projects) via
+ *     `lib/serverProjects.ts`
  *
- * Norm-aware: voor ISSO 51-projecten blijft de output BYTE-GELIJK aan de
- * oude versie (geen `norm`/`isso53`-velden). Alleen wanneer de actieve
- * norm `"isso53"` is worden de norm + sidecar-state (`isso53Building` +
- * `isso53Rooms`) uit de `projectStore` mee-geserialiseerd, zodat de
- * ISSO 53-configuratie een opslaan/heropenen overleeft.
+ * Eén builder = save→reopen-pariteit tussen bestand en server: modeller-
+ * geometrie, project-constructies, norm + ISSO 53-sidecars, sharedExtra en
+ * ventilatie reizen overal mee.
+ *
+ * Over `result`: de envelope draagt het result mee (zelfde gedrag als de
+ * file-export). Het aparte `result_data` API-veld blijft bestaan voor de
+ * server-side rekenroute (`POST /projects/:id/calculate`) en legacy-rijen;
+ * bij het laden wint `envelope.result`, met `result_data` als fallback.
+ *
+ * Bewust uitgesloten: `modellerStore.underlay` (base64 PDF/afbeelding, vaak
+ * meerdere MB's; lokaal tekenhulpmiddel) — zie {@link ProjectEnvelope}.
  */
-export function exportProject(
+export function buildProjectEnvelope(
   project: Project,
   result: ProjectResult | null,
-): void {
+): ProjectEnvelope {
   // Snapshot project constructions and modeller geometry from modellerStore.
   // Both live outside the Project type but are needed for a faithful re-import:
   //   - project_construction_id references on Room.constructions[]
@@ -220,6 +242,23 @@ export function exportProject(
     envelope.ventilation = projectState.ventilation;
   }
 
+  return envelope;
+}
+
+/**
+ * Export project + result as a downloadable `.heatloss.json` file.
+ *
+ * Norm-aware: voor ISSO 51-projecten blijft de output BYTE-GELIJK aan de
+ * oude versie (geen `norm`/`isso53`-velden). Alleen wanneer de actieve
+ * norm `"isso53"` is worden de norm + sidecar-state (`isso53Building` +
+ * `isso53Rooms`) uit de `projectStore` mee-geserialiseerd, zodat de
+ * ISSO 53-configuratie een opslaan/heropenen overleeft.
+ */
+export function exportProject(
+  project: Project,
+  result: ProjectResult | null,
+): void {
+  const envelope = buildProjectEnvelope(project, result);
   const json = JSON.stringify(envelope, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -433,7 +472,49 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
   } catch {
     throw new Error("Ongeldig JSON bestand");
   }
+  return importProjectValue(data, jsonString);
+}
 
+/**
+ * Importeer een serverproject (`project_data` uit GET /projects/:id).
+ *
+ * Loopt door exact hetzelfde import-pad als bestand-openen
+ * ({@link importProject}), inclusief de modeller-store side-effects:
+ *   - envelope-`project_data` → geometrie + project-constructies + sidecars
+ *     worden hersteld;
+ *   - legacy kaal `project_data` (alleen een Project-object, van vóór de
+ *     envelope-pariteit fix) → laadt als vanouds met defaults én leegt de
+ *     modeller-store, zodat geen stale geometrie van een vorig project
+ *     blijft staan.
+ *
+ * Gooit een duidelijke fout wanneer de rij om wat voor reden dan ook een
+ * thermal-importbestand bevat (kan via de UI niet ontstaan).
+ */
+export function importServerProjectData(data: unknown): ImportResult {
+  const imported = importProjectValue(data);
+  if (imported.type === "thermal") {
+    // Tech-detail naar de console; de gebruiker krijgt een begrijpelijke
+    // melding zonder formaat-jargon.
+    // eslint-disable-next-line no-console
+    console.error(
+      "[importServerProjectData] project_data bevat een thermal-importbestand (Revit/IFC-export) — dit formaat hoort niet als serverproject opgeslagen te worden.",
+    );
+    throw new Error(
+      "Dit serverproject kan niet geopend worden: het bevat geen projectgegevens.",
+    );
+  }
+  return imported;
+}
+
+/**
+ * Gedeelde value-based importer voor bestand (na JSON.parse) én server
+ * (`project_data` komt al geparsed binnen). Zie {@link importProject} voor
+ * het geaccepteerde vormenpalet.
+ */
+function importProjectValue(
+  data: unknown,
+  rawJson?: string,
+): ImportResult | ThermalImportDetected {
   if (typeof data !== "object" || data === null) {
     throw new Error("Ongeldig bestandsformaat");
   }
@@ -445,7 +526,7 @@ export function importProject(jsonString: string): ImportResult | ThermalImportD
     typeof obj.source === "string" &&
     (THERMAL_SOURCES as readonly string[]).includes(obj.source)
   ) {
-    return { type: "thermal", rawJson: jsonString };
+    return { type: "thermal", rawJson: rawJson ?? JSON.stringify(data) };
   }
 
   // Detect envelope format.
