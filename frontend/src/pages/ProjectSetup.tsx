@@ -8,7 +8,11 @@ import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { useProjectStore } from "../store/projectStore";
-import { createProject, updateProject as updateProjectApi, ConflictError } from "../lib/backend";
+import { ConflictError } from "../lib/backend";
+import {
+  saveExistingServerProject,
+  saveNewServerProject,
+} from "../lib/serverProjects";
 import { exportIfcEnergy, openProjectFile, extractAndLinkConstructions } from "../lib/importExport";
 import type { ProjectResult } from "../types";
 import { useRunCalculation } from "../hooks/useRunCalculation";
@@ -19,8 +23,7 @@ export function ProjectSetup() {
   const auth = useAuth();
   const {
     project, isCalculating,
-    setError, activeProjectId, setActiveProjectId,
-    serverUpdatedAt,
+    setError, activeProjectId,
   } = useProjectStore();
   const addToast = useToastStore((s) => s.addToast);
   const runCalculation = useRunCalculation();
@@ -37,30 +40,25 @@ export function ProjectSetup() {
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
+      // Gedeelde helpers: volledige envelope als project_data + bijwerken
+      // van isDirty/serverUpdatedAt/activeProjectId en de save-status.
       if (activeProjectId) {
-        const response = await updateProjectApi(activeProjectId, {
-          name: project.info.name || undefined,
-          project_data: project,
-          expected_updated_at: serverUpdatedAt ?? undefined,
-        });
-        useProjectStore.setState({ isDirty: false, serverUpdatedAt: response.updated_at });
+        await saveExistingServerProject(activeProjectId);
       } else {
         const name = project.info.name || "Naamloos project";
-        const result = await createProject(name, project);
-        setActiveProjectId(result.id);
-        useProjectStore.setState({ isDirty: false });
+        await saveNewServerProject(name);
       }
       addToast("Project opgeslagen", "success", 2000);
     } catch (err) {
-      if (err instanceof ConflictError) {
-        useProjectStore.setState({ hasConflict: true });
-      } else {
+      // ConflictError: hasConflict is al gezet door de helper → de
+      // ConflictDialog opent; geen extra toast nodig.
+      if (!(err instanceof ConflictError)) {
         addToast(err instanceof Error ? err.message : "Opslaan mislukt", "error");
       }
     } finally {
       setIsSaving(false);
     }
-  }, [project, activeProjectId, serverUpdatedAt, setActiveProjectId, addToast]);
+  }, [project, activeProjectId, addToast]);
 
   const handleExport = useCallback(() => {
     const { result } = useProjectStore.getState();

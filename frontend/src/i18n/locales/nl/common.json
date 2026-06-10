@@ -56,7 +56,13 @@
     "loginAgain": "Opnieuw inloggen",
     "offline": "Geen verbinding — wordt opgeslagen zodra je weer online bent",
     "conflict": "Project is elders gewijzigd — herlaad het project.",
-    "failed": "Opslaan mislukt: {{detail}}"
+    "failed": "Opslaan mislukt: {{detail}}",
+    "saving": "Opslaan…",
+    "savedAt": "Opgeslagen {{time}}",
+    "notSavedOffline": "⚠ Niet opgeslagen — offline",
+    "notSavedError": "⚠ Niet opgeslagen — fout",
+    "conflictShort": "⚠ Conflict — elders gewijzigd",
+    "retry": "Opnieuw proberen"
   },
   "sidebar": {
     "calculation": "Berekening",

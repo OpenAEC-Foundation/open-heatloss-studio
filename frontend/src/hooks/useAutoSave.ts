@@ -2,19 +2,24 @@
  * Auto-save hook: debounced save to server when project is dirty.
  *
  * Only active when authenticated and a server-side project is loaded.
- * Shows toast notifications for save success/failure and conflict detection.
- * Retries automatically when the browser comes back online after a network error.
+ * Saves the FULL project envelope (geometry + sidecars) via the shared
+ * `saveExistingServerProject` helper — same payload as the file export.
+ * Save state is surfaced persistently through `useSaveStatusStore`
+ * (StatusBar indicator); toasts only cover actionable failures.
+ * Retries automatically when the browser comes back online after a network
+ * error, and exposes a manual retry handler for the StatusBar.
  */
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "./useAuth";
 import { useProjectStore } from "../store/projectStore";
+import { useSaveStatusStore } from "../store/saveStatusStore";
 import { useToastStore } from "../store/toastStore";
-import { updateProject, ConflictError, SessionExpiredError } from "../lib/backend";
+import { saveExistingServerProject } from "../lib/serverProjects";
+import { ConflictError, SessionExpiredError } from "../lib/backend";
 
 const AUTO_SAVE_DELAY_MS = 5_000;
-const SUCCESS_TOAST_DURATION_MS = 2_000;
 
 export function useAutoSave(): void {
   const { t } = useTranslation("common");
@@ -28,7 +33,8 @@ export function useAutoSave(): void {
   const project = useProjectStore((s) => s.project);
   const serverUpdatedAt = useProjectStore((s) => s.serverUpdatedAt);
 
-  // Save function extracted so it can be called from both the timer and the online handler.
+  // Save function extracted so it can be called from the timer, the online
+  // handler and the StatusBar retry button.
   const saveRef = useRef<(() => Promise<void>) | null>(null);
   saveRef.current = async () => {
     const state = useProjectStore.getState();
@@ -36,20 +42,16 @@ export function useAutoSave(): void {
     if (!id || !state.isDirty) return;
 
     try {
-      const response = await updateProject(id, {
-        name: state.project.info.name || undefined,
-        project_data: state.project,
-        expected_updated_at: state.serverUpdatedAt ?? undefined,
-      });
-      useProjectStore.setState((prev) => {
-        if (prev.activeProjectId === id) {
-          return { isDirty: false, serverUpdatedAt: response.updated_at };
-        }
-        return {};
-      });
+      // Stuurt de volledige envelope (modeller-geometrie, sharedExtra,
+      // ISSO 53 + ventilatie-sidecars) — pariteit met de file-save. De
+      // helper werkt isDirty/serverUpdatedAt en de statusindicator bij.
+      await saveExistingServerProject(id);
       pendingRetryRef.current = false;
-      addToast(t("saveStatus.saved"), "success", SUCCESS_TOAST_DURATION_MS);
+      // Geen succes-toast meer: de persistente StatusBar-indicator toont
+      // "opgeslagen HH:MM" — een toast elke 5 s was ruis.
     } catch (err) {
+      // Statusindicator (offline/error/conflict) is al gezet door de helper;
+      // hier alleen de aanvullende, actiegerichte UX.
       if (err instanceof SessionExpiredError) {
         // Authentik session expired — saving to the server is impossible
         // until the user logs in again. A reload triggers the login flow.
@@ -59,8 +61,8 @@ export function useAutoSave(): void {
           onClick: () => window.location.reload(),
         });
       } else if (err instanceof ConflictError) {
+        // hasConflict is door de helper gezet → ConflictDialog opent.
         pendingRetryRef.current = false;
-        useProjectStore.setState({ hasConflict: true });
       } else if (!navigator.onLine) {
         // Network error — mark for retry when online.
         pendingRetryRef.current = true;
@@ -71,6 +73,17 @@ export function useAutoSave(): void {
       }
     }
   };
+
+  // Maak de save handmatig triggerbaar vanuit de StatusBar (retry-knop).
+  useEffect(() => {
+    const store = useSaveStatusStore.getState();
+    store.registerRetryHandler(() => {
+      void saveRef.current?.();
+    });
+    return () => {
+      useSaveStatusStore.getState().registerRetryHandler(null);
+    };
+  }, []);
 
   // Retry on reconnect.
   useEffect(() => {

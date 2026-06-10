@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 
 import {
   isTauri,
-  createProject,
-  updateProject,
   ConflictError,
   SessionExpiredError,
 } from "../../lib/backend";
+import {
+  saveExistingServerProject,
+  saveNewServerProject,
+} from "../../lib/serverProjects";
 import {
   openProjectFile,
   exportIfcEnergy,
@@ -139,10 +141,7 @@ export default function Backstage({
   const project = useProjectStore((s) => s.project);
   const result = useProjectStore((s) => s.result);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
-  const serverUpdatedAt = useProjectStore((s) => s.serverUpdatedAt);
   const setProject = useProjectStore((s) => s.setProject);
-  const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
-  const setServerUpdatedAt = useProjectStore((s) => s.setServerUpdatedAt);
   const setNorm = useProjectStore((s) => s.setNorm);
   const reset = useProjectStore((s) => s.reset);
 
@@ -417,13 +416,10 @@ export default function Backstage({
 
   const handleSave = useCallback(async () => {
     if (activeProjectId && isWeb) {
-      // Server save — update existing project
+      // Server save — update existing project. Stuurt de volledige
+      // envelope (geometrie + sidecars), pariteit met de file-save.
       try {
-        const resp = await updateProject(activeProjectId, {
-          project_data: project,
-          expected_updated_at: serverUpdatedAt ?? undefined,
-        });
-        setServerUpdatedAt(resp.updated_at);
+        await saveExistingServerProject(activeProjectId);
         onClose();
         addToast(t("savedToServer"), "success");
       } catch (err) {
@@ -437,8 +433,7 @@ export default function Backstage({
       );
       if (!name) return;
       try {
-        const resp = await createProject(name, project);
-        setActiveProjectId(resp.id);
+        await saveNewServerProject(name);
         onClose();
         addToast(t("savedToServer"), "success");
       } catch (err) {
@@ -490,9 +485,6 @@ export default function Backstage({
     isWeb,
     project,
     result,
-    serverUpdatedAt,
-    setActiveProjectId,
-    setServerUpdatedAt,
     onClose,
     addToast,
     reportSaveError,
@@ -506,14 +498,13 @@ export default function Backstage({
     );
     if (!name) return;
     try {
-      const resp = await createProject(name, project);
-      setActiveProjectId(resp.id);
+      await saveNewServerProject(name);
       onClose();
       addToast(t("savedToServer"), "success");
     } catch (err) {
       reportSaveError(err);
     }
-  }, [project, setActiveProjectId, onClose, addToast, reportSaveError, t]);
+  }, [project, onClose, addToast, reportSaveError, t]);
 
   const handleSaveAsLocal = useCallback(async () => {
     // "Opslaan als" → altijd save-as dialog, ook als currentLocalPath bekend.

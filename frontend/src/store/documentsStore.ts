@@ -30,6 +30,7 @@ import type {
 import type { UnderlayImage } from "../components/modeller/modellerStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
 import { useProjectStore } from "./projectStore";
+import { useSaveStatusStore } from "./saveStatusStore";
 import type { Project, ProjectResult } from "../types";
 import type { SharedExtra } from "../types/projectV2";
 
@@ -202,6 +203,11 @@ function loadSnapshot(snap: DocumentSnapshot): void {
     _past: snap.modeller.past ?? [],
     _future: snap.modeller.future ?? [],
   } as Partial<ReturnType<typeof useModellerStore.getState>>);
+
+  // Save-status hoort bij het project dat we verlaten — een "Conflict"/
+  // "Offline"/"Fout"-indicator mag niet blijven staan op de tab waarnaar
+  // gewisseld wordt. Zelfde reset als openServerProject/projectStore.reset.
+  useSaveStatusStore.getState().resetStatus();
 }
 
 export const useDocumentsStore = create<DocumentsStore>()(

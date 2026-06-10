@@ -315,8 +315,10 @@ pub async fn calculate_and_save(
         ));
     }
 
-    // Run calculation on blocking thread.
-    let project_json = row.project_data.clone();
+    // Run calculation on blocking thread. `project_data` kan sinds de
+    // envelope-pariteit fix een opslag-envelope zijn — pak dan het kale
+    // Project eruit, want de rekenkern verwacht het kale formaat.
+    let project_json = extract_calculation_input(&row.project_data);
     let result_json = tokio::task::spawn_blocking(move || {
         isso51_core::calculate_from_json(&project_json)
     })
@@ -343,6 +345,30 @@ pub async fn calculate_and_save(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Envelope-marker zoals de frontend die schrijft (`lib/importExport.ts`).
+const ENVELOPE_SCHEMA_ID: &str = "isso51-project-v1";
+
+/// `project_data` is een opake tekst-blob voor deze API, met één
+/// uitzondering: de server-side rekenroute moet het kale Project-JSON aan
+/// `isso51_core` voeren. Sinds de envelope-pariteit fix schrijft de frontend
+/// een opslag-envelope (`{ schema: "isso51-project-v1", project: {...}, ... }`)
+/// als `project_data`; legacy rijen bevatten nog het kale Project-object.
+///
+/// Deze helper pakt het `project`-veld uit wanneer de envelope-marker
+/// aanwezig is en geeft anders de input ongewijzigd terug (legacy rijen en
+/// onparsebare data vallen door naar de bestaande foutafhandeling in de
+/// rekenkern).
+fn extract_calculation_input(project_data: &str) -> String {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(project_data) {
+        if value.get("schema").and_then(|s| s.as_str()) == Some(ENVELOPE_SCHEMA_ID) {
+            if let Some(project) = value.get("project") {
+                return project.to_string();
+            }
+        }
+    }
+    project_data.to_string()
+}
 
 /// Ensure the authenticated user exists in the `users` table (upsert).
 ///
@@ -404,5 +430,49 @@ struct ProjectRow {
 struct ProjectDataRow {
     user_id: String,
     project_data: String,
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::extract_calculation_input;
+
+    #[test]
+    fn envelope_project_data_unwraps_to_bare_project() {
+        let envelope = r#"{
+            "version": "1.0.0",
+            "schema": "isso51-project-v1",
+            "exported_at": "2026-06-10T00:00:00Z",
+            "project": { "info": { "name": "Test" }, "rooms": [] },
+            "result": null,
+            "modeller": { "rooms": [], "windows": [], "doors": [] }
+        }"#;
+        let extracted = extract_calculation_input(envelope);
+        let value: serde_json::Value = serde_json::from_str(&extracted).unwrap();
+        assert_eq!(value["info"]["name"], "Test");
+        assert!(value.get("schema").is_none());
+    }
+
+    #[test]
+    fn legacy_bare_project_data_passes_through_unchanged() {
+        let bare = r#"{ "info": { "name": "Legacy" }, "rooms": [] }"#;
+        assert_eq!(extract_calculation_input(bare), bare);
+    }
+
+    #[test]
+    fn foreign_schema_passes_through_unchanged() {
+        // Andere schema-waarde → geen envelope van ons; niet uitpakken.
+        let other = r#"{ "schema": "iets-anders", "project": {} }"#;
+        assert_eq!(extract_calculation_input(other), other);
+    }
+
+    #[test]
+    fn invalid_json_passes_through_unchanged() {
+        let broken = "geen json";
+        assert_eq!(extract_calculation_input(broken), broken);
+    }
 }
 
