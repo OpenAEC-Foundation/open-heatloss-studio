@@ -6,7 +6,7 @@
 use crate::error::Result;
 use crate::model::{Building, DesignConditions, HeatingUpConfig, Room, VentilationConfig};
 use crate::result::RoomResult;
-use crate::tables::temperature::design_indoor_temperature;
+use crate::tables::temperature::resolve_theta_i;
 use crate::calc::{transmission, infiltration, ventilation, heating_up};
 
 /// Calculate the complete heat loss result for a single room.
@@ -20,9 +20,10 @@ pub fn calculate_room(
     infiltration_method: &infiltration::InfiltrationMethod,
     heating_up_config: &HeatingUpConfig,
 ) -> Result<RoomResult> {
-    // Determine design indoor temperature θ_i
-    let theta_i = room.custom_temperature
-        .unwrap_or_else(|| design_indoor_temperature(room.gebruiks_functie, room.ruimte_type));
+    // Determine design indoor temperature θ_i (tabel 2.2). Via resolve_theta_i
+    // zodat de sentinel TEMPERATURE_IS_EXTERIOR (garage buiten de thermische
+    // schil) wordt vervangen door θ_e en nooit in Φ_V/Φ_hu/RoomResult lekt.
+    let theta_i = resolve_theta_i(room, climate.theta_e);
 
     // Calculate transmission heat loss (with adjacent room resolution)
     let transmission_result = transmission::calculate_transmission(
@@ -186,6 +187,121 @@ mod tests {
         assert!(result.is_ok(), "Adjacent room resolution should work: {:?}", result);
         let transmission = result.unwrap();
         assert!(transmission.h_t_adjacent_rooms > 0.0, "Should have adjacent room transmission");
+    }
+
+    /// Regressie audit 2026-06-10 §2.1 (D1-vervolg op f815c1f): een Garage
+    /// zonder custom_temperature kreeg θ_i = f64::MIN (sentinel
+    /// TEMPERATURE_IS_EXTERIOR) in RoomResult, ventilatie en opwarmtoeslag.
+    /// Via resolve_theta_i moet θ_i = θ_e zijn en alles eindig blijven.
+    #[test]
+    fn test_garage_without_custom_temperature_resolves_to_theta_e() {
+        let mut garage = create_minimal_room();
+        garage.id = "garage".to_string();
+        garage.gebruiks_functie = GebruiksFunctie::Industrie;
+        garage.ruimte_type = RuimteType::Garage;
+        garage.custom_temperature = None;
+        // Buitenschil-element zodat ook Φ_T daadwerkelijk rekent.
+        garage.constructions.push(ConstructionElement {
+            id: "garage_wall".to_string(),
+            description: "Garage buitenwand".to_string(),
+            area: 12.0,
+            u_value: 1.5,
+            boundary_type: BoundaryType::Exterior,
+            adjacent_room_id: None,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        });
+
+        let all_rooms = vec![garage.clone()];
+        let building = create_test_building();
+        let climate = DesignConditions::default();
+        let ventilation = VentilationConfig {
+            system_type: VentilationSystemType::SystemB,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+        let infiltration_method = infiltration::InfiltrationMethod::Known {
+            qv10_kar_class: crate::tables::infiltration::Qv10Class::From040To060,
+        };
+        let heating_up_config = HeatingUpConfig::default();
+
+        let result = calculate_room(
+            &garage, &all_rooms, &building, &climate, &ventilation,
+            &infiltration_method, &heating_up_config
+        ).expect("garage-berekening moet slagen");
+
+        // Sentinel mag nooit lekken: θ_i = θ_e (= -10.0 default).
+        assert_eq!(result.theta_i, climate.theta_e,
+            "Garage zonder custom temperatuur: θ_i moet θ_e zijn, geen sentinel");
+        assert!(result.theta_i.is_finite());
+        // Alle componenten en het totaal eindig en plausibel (θ_i = θ_e → ~0 verlies).
+        assert!(result.phi_t.is_finite(), "Φ_T eindig, was {}", result.phi_t);
+        assert!(result.phi_v.is_finite(), "Φ_V eindig, was {}", result.phi_v);
+        assert!(result.phi_i.is_finite(), "Φ_I eindig, was {}", result.phi_i);
+        assert!(result.phi_hu.is_finite(), "Φ_hu eindig, was {}", result.phi_hu);
+        assert!(result.total_heat_loss.is_finite(),
+            "Totaal eindig, was {}", result.total_heat_loss);
+        assert!(result.total_heat_loss.abs() < 10_000.0,
+            "Totaal plausibel (geen -1.8e308), was {}", result.total_heat_loss);
+    }
+
+    /// Regressie audit 2026-06-10 §2.1: ook een Garage als *buurruimte*
+    /// (adjacent_room_id-lookup in transmission) mag de sentinel niet lekken;
+    /// θ_adj = θ_e → f_ia,k = 1 → element telt als buitenschil.
+    #[test]
+    fn test_adjacent_garage_room_resolves_to_theta_e() {
+        let mut room1 = create_minimal_room();
+        room1.id = "room1".to_string();
+        room1.constructions.push(ConstructionElement {
+            id: "wall_to_garage".to_string(),
+            description: "Wand naar garage".to_string(),
+            area: 10.0,
+            u_value: 0.5,
+            boundary_type: BoundaryType::AdjacentRoom,
+            adjacent_room_id: Some("garage".to_string()),
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        });
+
+        let mut garage = create_minimal_room();
+        garage.id = "garage".to_string();
+        garage.gebruiks_functie = GebruiksFunctie::Industrie;
+        garage.ruimte_type = RuimteType::Garage;
+        garage.custom_temperature = None;
+
+        let all_rooms = vec![room1.clone(), garage];
+        let building = create_test_building();
+        let climate = DesignConditions::default();
+
+        let result = transmission::calculate_transmission(
+            &room1, &all_rooms, &building, &climate
+        ).expect("transmissie met garage-buurruimte moet slagen");
+
+        assert!(result.h_t_adjacent_rooms.is_finite(),
+            "H_T;ia eindig, was {}", result.h_t_adjacent_rooms);
+        // θ_adj = θ_e → f_ia,k = 1 → H = A·U = 10.0 × 0.5 = 5.0 W/K.
+        assert!((result.h_t_adjacent_rooms - 5.0).abs() < 1e-9,
+            "H_T;ia = A·U bij garage-buurruimte, was {}", result.h_t_adjacent_rooms);
+        assert!(result.phi_t.is_finite(), "Φ_T eindig, was {}", result.phi_t);
     }
 
     fn create_minimal_room() -> Room {

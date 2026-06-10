@@ -7,7 +7,9 @@
  *
  * MVP scope:
  * - Snapshots: project + result + currentLocalPath + isDirty + sharedExtra
- *   (projectStore), + alle modellerStore data-velden
+ *   + norm + isso53-/ventilatie-sidecars + server-binding (activeProjectId/
+ *   serverUpdatedAt/hasConflict) uit projectStore, + alle modellerStore
+ *   data-velden
  * - Undo/redo history wordt NIET per-tab bewaard (zou complex zijn).
  *   Bij tab-switch begint de history van die tab opnieuw.
  * - Modeller-tool UI state (huidige tool, view-mode) is global → wordt
@@ -29,10 +31,18 @@ import type {
 } from "../components/modeller/types";
 import type { UnderlayImage } from "../components/modeller/modellerStore";
 import { useModellerStore } from "../components/modeller/modellerStore";
-import { useProjectStore } from "./projectStore";
+import { detectNormFromProject, useProjectStore } from "./projectStore";
 import { useSaveStatusStore } from "./saveStatusStore";
 import type { Project, ProjectResult } from "../types";
-import type { SharedExtra } from "../types/projectV2";
+import type { Isso53ProjectResult } from "../types/isso53Result";
+import {
+  DEFAULT_ISSO53_BUILDING,
+  type ActiveNorm,
+  type Isso53BuildingState,
+  type Isso53RoomState,
+  type SharedExtra,
+} from "../types/projectV2";
+import type { VentilationState } from "../types/ventilation";
 
 export interface TabInfo {
   id: string;
@@ -43,7 +53,11 @@ export interface TabInfo {
 }
 
 /** Mirror van projectStore's interne ProjectSnapshot shape (private type). */
-type ProjectHistoryEntry = { project: Project };
+type ProjectHistoryEntry = {
+  project: Project;
+  isso53Rooms: Record<string, Isso53RoomState>;
+  ventilation: VentilationState;
+};
 /** Mirror van modellerStore's interne Snapshot shape (private type). */
 type ModellerHistoryEntry = {
   rooms: ModelRoom[];
@@ -54,10 +68,32 @@ type ModellerHistoryEntry = {
 
 interface ProjectSnapshot {
   project: Project;
-  result: ProjectResult | null;
+  result: ProjectResult | Isso53ProjectResult | null;
   currentLocalPath: string | null;
   isDirty: boolean;
   sharedExtra: SharedExtra | null;
+  /**
+   * Norm + sidecars (audit 09 §2.1): zonder deze velden bleef bij een
+   * tab-wissel de norm/sidecar-state van de vórige tab staan → foute
+   * rekenkern-routing en sidecar-corruptie bij opslaan.
+   * Optioneel voor legacy persisted snapshots (localStorage van vóór deze
+   * velden) — `loadSnapshot` valt dan terug op defaults.
+   */
+  norm?: ActiveNorm;
+  isso53Building?: Isso53BuildingState;
+  isso53Rooms?: Record<string, Isso53RoomState>;
+  ventilation?: VentilationState;
+  /**
+   * Per-tab server-binding (audit 09 §2.2): elke tab houdt zijn eigen
+   * serverproject-identiteit vast. Vóór deze velden hield `loadSnapshot`
+   * de `activeProjectId` van de vorige tab aan, waardoor een auto-save
+   * van tab B serverproject A kon overschrijven (het tabs-pad omzeilde de
+   * race-guard in `saveExistingServerProject`).
+   * Optioneel voor legacy persisted snapshots — fallback: geen binding.
+   */
+  activeProjectId?: string | null;
+  serverUpdatedAt?: string | null;
+  hasConflict?: boolean;
   /** Undo-stack (max 50 entries, gehandhaafd per tab). */
   past: ProjectHistoryEntry[];
   /** Redo-stack (gewist bij elke nieuwe edit). */
@@ -121,10 +157,17 @@ function makeId(): string {
 function captureSnapshot(): DocumentSnapshot {
   const ps = useProjectStore.getState() as unknown as {
     project: Project;
-    result: ProjectResult | null;
+    result: ProjectResult | Isso53ProjectResult | null;
     currentLocalPath: string | null;
     isDirty: boolean;
     sharedExtra: SharedExtra | undefined;
+    norm: ActiveNorm;
+    isso53Building: Isso53BuildingState;
+    isso53Rooms: Record<string, Isso53RoomState>;
+    ventilation: VentilationState;
+    activeProjectId: string | null;
+    serverUpdatedAt: string | null;
+    hasConflict: boolean;
     _past: ProjectHistoryEntry[];
     _future: ProjectHistoryEntry[];
   };
@@ -149,6 +192,13 @@ function captureSnapshot(): DocumentSnapshot {
       currentLocalPath: ps.currentLocalPath,
       isDirty: ps.isDirty,
       sharedExtra: ps.sharedExtra ?? null,
+      norm: ps.norm,
+      isso53Building: ps.isso53Building,
+      isso53Rooms: ps.isso53Rooms,
+      ventilation: ps.ventilation,
+      activeProjectId: ps.activeProjectId,
+      serverUpdatedAt: ps.serverUpdatedAt,
+      hasConflict: ps.hasConflict,
       past: ps._past ?? [],
       future: ps._future ?? [],
     },
@@ -181,10 +231,23 @@ function loadSnapshot(snap: DocumentSnapshot): void {
     currentLocalPath: snap.project.currentLocalPath,
     isDirty: snap.project.isDirty,
     sharedExtra: snap.project.sharedExtra ?? undefined,
+    // Norm + sidecars per tab herstellen. Legacy snapshots (persisted vóór
+    // deze velden) → norm afleiden uit de verwarmings-shape, sidecars leeg/
+    // default — zelfde fallback-semantiek als setProject zonder opts.
+    norm: snap.project.norm ?? detectNormFromProject(snap.project.project),
+    isso53Building:
+      snap.project.isso53Building ?? { ...DEFAULT_ISSO53_BUILDING },
+    isso53Rooms: snap.project.isso53Rooms ?? {},
+    ventilation: snap.project.ventilation ?? { terminals: [], rooms: {} },
+    // Per-tab server-binding herstellen i.p.v. kaal resetten: de auto-save
+    // van deze tab moet naar zíjn serverproject schrijven. Een stale
+    // debounce-timer van de vórige tab valt nu in de race-guard van
+    // saveExistingServerProject (activeProjectId !== id → no-op).
+    activeProjectId: snap.project.activeProjectId ?? null,
+    serverUpdatedAt: snap.project.serverUpdatedAt ?? null,
+    hasConflict: snap.project.hasConflict ?? false,
     error: null,
     isCalculating: false,
-    serverUpdatedAt: null,
-    hasConflict: false,
     _past: snap.project.past ?? [],
     _future: snap.project.future ?? [],
   } as Partial<ReturnType<typeof useProjectStore.getState>>);
@@ -247,7 +310,11 @@ export const useDocumentsStore = create<DocumentsStore>()(
         const freshSnap = captureSnapshot();
         set({
           tabs: [...state.tabs, newTabInfo],
-          snapshots: { ...state.snapshots, [id]: freshSnap },
+          // `get()` i.p.v. de stale `state` van vóór de eerste set():
+          // anders gaat de zojuist vastgelegde snapshot van de vorige
+          // actieve tab verloren en valt die tab bij terugwisselen terug
+          // op een verouderde snapshot (dataverlies).
+          snapshots: { ...get().snapshots, [id]: freshSnap },
           activeId: id,
           nextNamelessIndex: isFreshTab
             ? state.nextNamelessIndex + 1

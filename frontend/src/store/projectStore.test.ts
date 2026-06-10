@@ -1,7 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { useProjectStore } from "./projectStore";
-import type { ConstructionElement, Project, Room } from "../types";
+import {
+  getProjectInputEpoch,
+  mergePersistedProjectStore,
+  partializeProjectStore,
+  useProjectStore,
+} from "./projectStore";
+import type {
+  ConstructionElement,
+  Project,
+  ProjectResult,
+  Room,
+} from "../types";
+import { DEFAULT_ISSO53_ROOM } from "../types/projectV2";
 import type { VentilationState } from "../types/ventilation";
 
 /**
@@ -283,5 +294,157 @@ describe("removeVentilationUnit — cascade naar toewijzingen", () => {
     v = useProjectStore.getState().ventilation;
     expect(v.units).toEqual([]);
     expect(v.unitAssignments).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setResult — stale-result guard (audit 09 §2.1, run-epoch)
+// ---------------------------------------------------------------------------
+
+/**
+ * Geborgd gedrag: een berekening die startte vóór de laatste edit mag bij
+ * binnenkomst `isDirty` niet op false zetten — anders worden edits tijdens
+ * een lopende berekening als "clean" gemarkeerd met een stale result en
+ * stopt de auto-save stil. Het result wordt wél getoond (het is het meest
+ * recente dat bestaat); alleen de dirty-vlag blijft staan.
+ */
+
+function makeResult(totalHeatLoss: number): ProjectResult {
+  return {
+    rooms: [],
+    summary: { total_heat_loss: totalHeatLoss },
+  } as unknown as ProjectResult;
+}
+
+describe("setResult — stale-result guard", () => {
+  it("laat isDirty staan wanneer de input wijzigde tijdens de berekening", () => {
+    seedProject([makeRoom("r1", [])]);
+    const runEpoch = getProjectInputEpoch();
+    useProjectStore.getState().setCalculating(true);
+
+    // Edit terwijl de (async) berekening nog loopt.
+    useProjectStore.getState().updateRoom("r1", { floor_area: 33 });
+    expect(useProjectStore.getState().isDirty).toBe(true);
+
+    const result = makeResult(4321);
+    useProjectStore.getState().setResult(result, runEpoch);
+
+    const state = useProjectStore.getState();
+    expect(state.result).toBe(result); // result wél getoond …
+    expect(state.isDirty).toBe(true); // … maar niet als clean gemarkeerd
+    expect(state.isCalculating).toBe(false);
+  });
+
+  it("zet isDirty op false bij een ongewijzigde input (epoch-match)", () => {
+    seedProject([makeRoom("r1", [])]);
+    const runEpoch = getProjectInputEpoch();
+    useProjectStore.getState().setCalculating(true);
+
+    useProjectStore.getState().setResult(makeResult(100), runEpoch);
+
+    expect(useProjectStore.getState().isDirty).toBe(false);
+    expect(useProjectStore.getState().isCalculating).toBe(false);
+  });
+
+  it("zonder runEpoch blijft het oude gedrag: onvoorwaardelijk clean (importflows)", () => {
+    seedProject([makeRoom("r1", [])]);
+    useProjectStore.getState().updateRoom("r1", { floor_area: 50 });
+
+    useProjectStore.getState().setResult(makeResult(200));
+
+    expect(useProjectStore.getState().isDirty).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Undo na removeRoom — per-ruimte sidecars hersteld (audit 09 §2.1)
+// ---------------------------------------------------------------------------
+
+describe("undo na removeRoom — per-ruimte sidecars hersteld", () => {
+  it("herstelt isso53Rooms + ventilatie-config van de verwijderde ruimte", () => {
+    seedProject([makeRoom("r1", []), makeRoom("r2", [])]);
+    useProjectStore.getState().setVentilation(makeVentilationWithUnits());
+    useProjectStore
+      .getState()
+      .updateIsso53Room("r1", { ...DEFAULT_ISSO53_ROOM, gebruiksFunctie: "kantoor" });
+
+    useProjectStore.getState().removeRoom("r1");
+
+    let s = useProjectStore.getState();
+    expect(s.isso53Rooms.r1).toBeUndefined();
+    expect(s.ventilation.rooms.r1).toBeUndefined();
+    expect(s.ventilation.terminals.map((t) => t.id)).toEqual(["t2"]);
+
+    useProjectStore.getState().undo();
+
+    s = useProjectStore.getState();
+    expect(s.project.rooms.map((r) => r.id)).toEqual(["r1", "r2"]);
+    // Sidecars terug — vóór de snapshot-uitbreiding was deze config stil weg.
+    expect(s.isso53Rooms.r1?.gebruiksFunctie).toBe("kantoor");
+    expect(s.ventilation.rooms.r1).toBeDefined();
+    expect(s.ventilation.terminals.map((t) => t.id)).toEqual(["t1", "t2"]);
+    // Gebouw-niveau ventilatievelden onaangetast.
+    expect(s.ventilation.system).toBe("D");
+    expect(s.ventilation.unitAssignments).toEqual([
+      { unitId: "u-wtw", aantal: 2 },
+    ]);
+
+    // Redo verwijdert de ruimte inclusief sidecars opnieuw.
+    useProjectStore.getState().redo();
+    s = useProjectStore.getState();
+    expect(s.project.rooms.map((r) => r.id)).toEqual(["r2"]);
+    expect(s.isso53Rooms.r1).toBeUndefined();
+    expect(s.ventilation.rooms.r1).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Persist/rehydrate — isDirty + serverbinding overleven een reload
+// (audit 09 §2.2: geen stil-stoppende auto-save na "herlaad om in te loggen")
+// ---------------------------------------------------------------------------
+
+describe("persist — isDirty + serverbinding overleven een reload", () => {
+  it("partialize neemt isDirty, activeProjectId en serverUpdatedAt op", () => {
+    const slim = partializeProjectStore(useProjectStore.getState()) as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(slim)).toEqual(
+      expect.arrayContaining(["isDirty", "activeProjectId", "serverUpdatedAt"]),
+    );
+    // hasConflict bewust niet gepersisteerd: wordt bij de eerste save na
+    // reload opnieuw gedetecteerd via serverUpdatedAt.
+    expect(Object.keys(slim)).not.toContain("hasConflict");
+  });
+
+  it("merge herstelt de gepersisteerde vlaggen (dirty werk + serverbinding)", () => {
+    const current = useProjectStore.getState();
+    const merged = mergePersistedProjectStore(
+      {
+        project: current.project,
+        isDirty: true,
+        activeProjectId: "proj-X",
+        serverUpdatedAt: "2026-06-10 09:00:00",
+      },
+      current,
+    );
+
+    expect(merged.isDirty).toBe(true);
+    expect(merged.activeProjectId).toBe("proj-X");
+    expect(merged.serverUpdatedAt).toBe("2026-06-10 09:00:00");
+    // Conflict-vlag start altijd schoon na een reload.
+    expect(merged.hasConflict).toBe(false);
+  });
+
+  it("legacy persisted state zonder de vlaggen → isDirty true (veilige kant)", () => {
+    const current = useProjectStore.getState();
+    const merged = mergePersistedProjectStore(
+      { project: current.project },
+      current,
+    );
+
+    expect(merged.isDirty).toBe(true);
+    expect(merged.activeProjectId).toBeNull();
+    expect(merged.serverUpdatedAt).toBeNull();
   });
 });
