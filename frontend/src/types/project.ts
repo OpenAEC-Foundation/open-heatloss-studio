@@ -276,6 +276,24 @@ export interface ConstructionElement {
   uw_breakdown?: UwBreakdown;
 }
 
+/**
+ * Een zone: een door de gebruiker (of de Revit-import) gedefinieerde
+ * groep ruimten binnen het gebouw. Puur een datalaag-concept — heeft
+ * (nog) geen effect op de rekenkern. Komt uit de Revit thermal-export
+ * (`rooms[].zone`) of wordt handmatig aangemaakt.
+ *
+ * NOTE: Dit type is HANDMATIG toegevoegd buiten de JSON-schema generatie
+ * om (zie header comment bovenaan, zelfde situatie als
+ * `default_heating_system`). Frontend-only: project-JSON reist als
+ * opaque blob door de server-save (`serde_json::Value`) en de Tauri
+ * file-save; `/calculate` leest het project alleen en negeert onbekende
+ * velden (geen `deny_unknown_fields` in de Rust structs).
+ */
+export interface Zone {
+  id: string;
+  name: string;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -297,6 +315,14 @@ export interface Room {
    *  `supply_air_temperature` op basis van bron-kamer's θ_i. */
   air_source_room_id?: string | null;
   clamp_positive?: boolean;
+  /**
+   * Optionele verwijzing naar een `Zone.id` in `Building.zones`.
+   * `undefined` = ruimte hoort bij geen enkele zone (default; legacy
+   * JSONs zonder dit veld laden ongewijzigd). Naamgeving sluit aan op de
+   * bestaande zone-ready placeholder `VentilationUnitAssignment.zoneId`
+   * in `types/ventilation.ts`.
+   */
+  zoneId?: string;
 }
 
 export interface Building {
@@ -358,6 +384,12 @@ export interface Building {
    * `per_exterior_area` (legacy 2017) wanneer afwezig.
    */
   infiltration_method?: InfiltrationMethod;
+  /**
+   * Optionele lijst van zones waarin de ruimten van het gebouw kunnen
+   * worden ingedeeld. Zie `Zone`. `Room.zoneId` verwijst naar `Zone.id`.
+   * Afwezig/leeg = geen zone-indeling (legacy projecten laden schoon).
+   */
+  zones?: Zone[];
 }
 
 export interface DesignConditions {

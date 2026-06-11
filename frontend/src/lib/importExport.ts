@@ -798,6 +798,11 @@ export function validateProject(data: unknown): Project {
     project.building.infiltration_method = "per_exterior_area";
   }
 
+  // NB: `building.zones` + `room.zoneId` (zone-datalaag) zijn optioneel en
+  // hebben bewust GEEN backfill — legacy JSONs zonder deze velden laden
+  // schoon met `undefined` (geen zone-indeling), en de Rust rekenkern
+  // negeert onbekende velden (geen `deny_unknown_fields`).
+
   return project;
 }
 

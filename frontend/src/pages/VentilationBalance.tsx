@@ -10,10 +10,12 @@
  * PageHeader + Cards op een ruim canvas met volledige tabelbreedte.
  * Visuele referentie: `mockups/pages/ventilation-balance.html`.
  *
- * **Eenheden:** dm³/s intern; m³/h alleen als afgeleide weergave.
+ * **Eenheden:** dm³/s intern; weergave omschakelbaar dm³/s ↔ m³/h via de
+ * persistente toggle in de header (`FlowUnitToggle` / `ventilationUiStore`) —
+ * conversie alleen aan de UI-rand, de store blijft dm³/s.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "../components/ui/Button";
@@ -24,9 +26,12 @@ import { generateReportDirect } from "../lib/reportClient";
 import { buildVentilationReportData } from "../lib/ventilationReportBuilder";
 import { useToastStore } from "../store/toastStore";
 import {
+  FLOW_UNIT_LABELS,
   ventilationSystemOf,
   type BblFunctionKey,
+  type FlowDisplayUnit,
   type VentilationRoomState,
+  type VentilationSystemInfo,
 } from "../types/ventilation";
 import {
   aggregateVentilationBalance,
@@ -35,14 +40,21 @@ import {
 import {
   BuildingBalanceSummary,
   FUNCTION_OPTIONS,
+  FlowUnitToggle,
   IndicativeOccupancyBadge,
   StatusBadge,
   SystemSelector,
   UnitCapacitySummary,
-  flowLabel,
-  m3hLabel,
+  flowDisplayLabel,
+  flowSecondaryLabel,
 } from "../components/ventilation/shared";
 import { UnitsCard } from "../components/ventilation/UnitsCard";
+import { useVentilationUiStore } from "../components/ventilation/ventilationUiStore";
+import {
+  groupRoomsByZone,
+  sumZoneBalance,
+  type ZoneSubtotal,
+} from "../components/ventilation/zoneGrouping";
 import { formatArea } from "../lib/formatNumber";
 import type { Room } from "../types";
 
@@ -65,6 +77,8 @@ export function VentilationBalance() {
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Weergave-eenheid (persistent UI-voorkeur) — puur display; store blijft dm³/s.
+  const flowUnit = useVentilationUiStore((s) => s.flowUnit);
 
   const balance = useMemo(
     () =>
@@ -76,6 +90,17 @@ export function VentilationBalance() {
     [ventilationRooms, ventilation.terminals, ventilation.system],
   );
   const sys = ventilationSystemOf(ventilation);
+
+  // Zone-groepering — alleen actief wanneer het project zones heeft.
+  // `null` = geen zones gedefinieerd → exact de bestaande platte weergave.
+  const zones = project.building.zones;
+  const zoneGroups = useMemo(
+    () =>
+      zones !== undefined && zones.length > 0
+        ? groupRoomsByZone(project.rooms, zones)
+        : null,
+    [project.rooms, zones],
+  );
 
   // Zelfstandig ventilatiebalans-rapport — zelfde UX-patroon als de
   // uw/rc-rapport-knoppen (UwCalculator.handleGenerateReport).
@@ -113,22 +138,46 @@ export function VentilationBalance() {
     }
   }, [project, ventilationRooms, ventilation, addToast, t]);
 
+  // Eén rij per vertrek — gedeeld tussen de platte en de zone-gegroepeerde
+  // weergave (zelfde props, alleen de omringende structuur verschilt).
+  const renderRoomRow = (room: Room) => {
+    const vr = ventilationRooms[room.id];
+    const row = balance.rooms[room.id];
+    if (!vr || !row) return null;
+    return (
+      <RoomTableRow
+        key={room.id}
+        room={room}
+        vr={vr}
+        row={row}
+        unit={flowUnit}
+        supplyMechanical={sys.supplyMechanical}
+        exhaustMechanical={sys.exhaustMechanical}
+        onChangeFunction={(fn) => changeFunction(room.id, fn)}
+        onChangeOccupancy={(n) => changeOccupancy(room.id, n)}
+      />
+    );
+  };
+
   return (
     <div>
       <PageHeader
         title="Ventilatiebalans"
         subtitle="BBL afd. 3.6 — eis per vertrek + gebouwbalans"
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleGenerateReport}
-            disabled={isGenerating || project.rooms.length === 0}
-          >
-            {isGenerating
-              ? t("ventilation.generating")
-              : t("ventilation.report")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <FlowUnitToggle />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleGenerateReport}
+              disabled={isGenerating || project.rooms.length === 0}
+            >
+              {isGenerating
+                ? t("ventilation.generating")
+                : t("ventilation.report")}
+            </Button>
+          </div>
         }
       />
 
@@ -156,8 +205,8 @@ export function VentilationBalance() {
 
           {/* Gebouwbalans */}
           <Card title="Gebouwbalans">
-            <BuildingBalanceSummary balance={balance} />
-            <UnitCapacitySummary check={unitCapacity} />
+            <BuildingBalanceSummary balance={balance} unit={flowUnit} />
+            <UnitCapacitySummary check={unitCapacity} unit={flowUnit} />
           </Card>
         </div>
 
@@ -167,6 +216,7 @@ export function VentilationBalance() {
             <UnitsCard
               ventilation={ventilation}
               unitCapacity={unitCapacity}
+              unit={flowUnit}
               onAssignCatalogUnit={assignCatalogUnit}
               onAddCustomUnit={addCustomUnit}
               onUpdateUnit={updateUnit}
@@ -199,29 +249,165 @@ export function VentilationBalance() {
                 </tr>
               </thead>
               <tbody>
-                {project.rooms.map((room) => {
-                  const vr = ventilationRooms[room.id];
-                  const row = balance.rooms[room.id];
-                  if (!vr || !row) return null;
-                  return (
-                    <RoomTableRow
-                      key={room.id}
-                      room={room}
-                      vr={vr}
-                      row={row}
-                      supplyMechanical={sys.supplyMechanical}
-                      exhaustMechanical={sys.exhaustMechanical}
-                      onChangeFunction={(fn) => changeFunction(room.id, fn)}
-                      onChangeOccupancy={(n) => changeOccupancy(room.id, n)}
+                {zoneGroups === null ? (
+                  project.rooms.map(renderRoomRow)
+                ) : (
+                  <>
+                    {zoneGroups.map((group) => {
+                      const name = group.zone?.name ?? "Niet ingedeeld";
+                      const subtotal = sumZoneBalance(
+                        group.rooms.map((r) => r.id),
+                        balance.rooms,
+                      );
+                      return (
+                        <Fragment key={group.zone?.id ?? "__unassigned__"}>
+                          {/* Zone-kopregel */}
+                          <tr className="border-b border-[var(--oaec-border)] bg-surface-alt">
+                            <td
+                              colSpan={8}
+                              className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-on-surface-muted"
+                            >
+                              {name}
+                              <span className="ml-2 font-normal normal-case tracking-normal text-scaffold-gray">
+                                ({group.rooms.length} vertrek
+                                {group.rooms.length === 1 ? "" : "ken"})
+                              </span>
+                            </td>
+                          </tr>
+                          {group.rooms.map(renderRoomRow)}
+                          <SubtotalRow
+                            label={`Subtotaal ${name}`}
+                            subtotal={subtotal}
+                            unit={flowUnit}
+                            sys={sys}
+                          />
+                        </Fragment>
+                      );
+                    })}
+                    {/* Gebouwtotaal onder de zone-subtotalen */}
+                    <SubtotalRow
+                      label="Totaal gebouw"
+                      subtotal={{
+                        requiredSupplyDm3s: balance.totalRequiredSupplyDm3s,
+                        requiredExhaustDm3s: balance.totalRequiredExhaustDm3s,
+                        presentSupplyDm3s: balance.totalPresentSupplyDm3s,
+                        presentExhaustDm3s: balance.totalPresentExhaustDm3s,
+                      }}
+                      unit={flowUnit}
+                      sys={sys}
+                      emphasized
                     />
-                  );
-                })}
+                  </>
+                )}
               </tbody>
             </table>
           )}
         </Card>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Zone-subtotaal / gebouwtotaal-rij (alleen bij zone-groepering)
+// ---------------------------------------------------------------------------
+
+/**
+ * Toevoer + afvoer gestapeld in één cel (eis- of aanwezig-kolom). Een
+ * natuurlijke kant van het systeem toont — net als de vertrek-rijen — geen
+ * ventiel-som maar een gedimde "via gevelroosters"/"natuurlijk"-tekst.
+ */
+function SupplyExhaustCell({
+  supplyDm3s,
+  exhaustDm3s,
+  unit,
+  supplyNatural = false,
+  exhaustNatural = false,
+}: {
+  supplyDm3s: number;
+  exhaustDm3s: number;
+  /** Weergave-eenheid voor debieten (store blijft dm³/s). */
+  unit: FlowDisplayUnit;
+  supplyNatural?: boolean;
+  exhaustNatural?: boolean;
+}) {
+  return (
+    <div className="leading-snug">
+      <div>
+        <span className="text-[10px] text-scaffold-gray">toevoer </span>
+        {supplyNatural ? (
+          <span className="text-xs text-scaffold-gray">via gevelroosters</span>
+        ) : (
+          <span className="font-medium text-on-surface">
+            {flowDisplayLabel(supplyDm3s, unit)}
+          </span>
+        )}
+      </div>
+      <div>
+        <span className="text-[10px] text-scaffold-gray">afvoer </span>
+        {exhaustNatural ? (
+          <span className="text-xs text-scaffold-gray">natuurlijk</span>
+        ) : (
+          <span className="font-medium text-on-surface">
+            {flowDisplayLabel(exhaustDm3s, unit)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Subtotaal-rij per zone (of het gebouwtotaal, `emphasized`). Toont de
+ * eis- en aanwezig-sommen per richting in de Eis-/Aanwezig-kolommen;
+ * respecteert de eenheden-toggle via `unit`.
+ */
+function SubtotalRow({
+  label,
+  subtotal,
+  unit,
+  sys,
+  emphasized = false,
+}: {
+  label: string;
+  subtotal: ZoneSubtotal;
+  /** Weergave-eenheid voor debieten (store blijft dm³/s). */
+  unit: FlowDisplayUnit;
+  sys: VentilationSystemInfo;
+  emphasized?: boolean;
+}) {
+  return (
+    <tr
+      className={`border-b-2 border-[var(--oaec-border)] ${
+        emphasized ? "bg-primary/5" : ""
+      }`}
+    >
+      <td
+        colSpan={5}
+        className={`px-2 py-1.5 text-right text-xs text-on-surface ${
+          emphasized ? "font-bold" : "font-semibold"
+        }`}
+      >
+        {label}
+      </td>
+      <td className="px-2 py-1.5 text-right text-xs tabular-nums">
+        <SupplyExhaustCell
+          supplyDm3s={subtotal.requiredSupplyDm3s}
+          exhaustDm3s={subtotal.requiredExhaustDm3s}
+          unit={unit}
+        />
+      </td>
+      <td className="px-2 py-1.5 text-right text-xs tabular-nums">
+        <SupplyExhaustCell
+          supplyDm3s={subtotal.presentSupplyDm3s}
+          exhaustDm3s={subtotal.presentExhaustDm3s}
+          unit={unit}
+          supplyNatural={!sys.supplyMechanical}
+          exhaustNatural={!sys.exhaustMechanical}
+        />
+      </td>
+      <td />
+    </tr>
   );
 }
 
@@ -233,6 +419,7 @@ function RoomTableRow({
   room,
   vr,
   row,
+  unit,
   supplyMechanical,
   exhaustMechanical,
   onChangeFunction,
@@ -241,6 +428,8 @@ function RoomTableRow({
   room: Room;
   vr: VentilationRoomState;
   row: RoomVentilationBalance;
+  /** Weergave-eenheid voor debieten (store blijft dm³/s). */
+  unit: FlowDisplayUnit;
   supplyMechanical: boolean;
   exhaustMechanical: boolean;
   onChangeFunction: (fn: BblFunctionKey) => void;
@@ -329,10 +518,10 @@ function RoomTableRow({
         {isSupply || isExhaust ? (
           <>
             <span className="font-medium text-on-surface">
-              {flowLabel(required)}
+              {flowDisplayLabel(required, unit)}
             </span>{" "}
             <span className="text-xs text-scaffold-gray">
-              ({m3hLabel(required)})
+              ({flowSecondaryLabel(required, unit)})
             </span>
             <IndicativeOccupancyBadge
               fn={vr.ventilationFunction}
@@ -350,15 +539,15 @@ function RoomTableRow({
           mechanical ? (
             <>
               <span className="font-medium text-on-surface">
-                {flowLabel(present)}
+                {flowDisplayLabel(present, unit)}
               </span>{" "}
               <span className="text-xs text-scaffold-gray">
-                ({m3hLabel(present)})
+                ({flowSecondaryLabel(present, unit)})
               </span>
               {row.missingFlowCount > 0 && (
                 <div
                   className="text-[10px] font-medium text-amber-600"
-                  title="Ventielen zonder debiet tellen als 0 dm³/s"
+                  title={`Ventielen zonder debiet tellen als 0 ${FLOW_UNIT_LABELS[unit]}`}
                 >
                   ⚠ {row.missingFlowCount} ventiel
                   {row.missingFlowCount > 1 ? "en" : ""} zonder debiet
@@ -382,6 +571,7 @@ function RoomTableRow({
           isExhaust={isExhaust}
           mechanical={mechanical}
           deficit={deficit}
+          unit={unit}
         />
       </td>
     </tr>

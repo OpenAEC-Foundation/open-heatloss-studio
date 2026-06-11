@@ -7,7 +7,7 @@ import {
   createRoom,
 } from "../../lib/roomDefaults";
 import { useProjectStore } from "../../store/projectStore";
-import type { ConstructionElement, Room } from "../../types";
+import type { ConstructionElement, Room, Zone } from "../../types";
 import { useModellerStore } from "../modeller/modellerStore";
 import { getProjectConstructionUValue } from "../modeller/projectConstructionUtils";
 import type { ProjectConstruction } from "../modeller/types";
@@ -106,6 +106,36 @@ export function RoomTable() {
   );
 }
 
+/**
+ * Compacte zone-dropdown in de vertrek-kopregel — alleen zichtbaar wanneer
+ * het project zones heeft (geen zones → geen extra UI, tabel blijft exact
+ * zoals voorheen). Schrijft via de undo-aware store-action `setRoomZone`.
+ */
+function RoomZoneSelect({ room, zones }: { room: Room; zones: Zone[] }) {
+  const setRoomZone = useProjectStore((s) => s.setRoomZone);
+  return (
+    <label
+      className="flex shrink-0 items-center gap-1.5"
+      onClick={(e) => e.stopPropagation()}
+      title="Zone-indeling (groepeert de ventilatiebalans)"
+    >
+      <span className="font-medium text-on-surface-muted">Zone</span>
+      <select
+        value={room.zoneId ?? ""}
+        onChange={(e) => setRoomZone(room.id, e.target.value || undefined)}
+        className="max-w-40 rounded border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-1.5 py-0.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+      >
+        <option value="">— geen zone —</option>
+        {zones.map((z) => (
+          <option key={z.id} value={z.id}>
+            {z.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 interface RoomGroupProps {
   room: Room;
   onUpdateRoom: (partial: Partial<Room>) => void;
@@ -126,6 +156,7 @@ function RoomGroup({
   onUpdateConstruction,
   onRemoveConstruction,
 }: RoomGroupProps) {
+  const zones = useProjectStore((s) => s.project.building.zones);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [collapsed, setCollapsed] = useState(
@@ -215,7 +246,12 @@ function RoomGroup({
           onClick={toggleCollapse}
           className="cursor-pointer px-2 py-1 text-xs text-on-surface-muted"
         >
-          {summaryLabel}
+          <div className="flex items-center justify-between gap-2">
+            <span>{summaryLabel}</span>
+            {zones !== undefined && zones.length > 0 && (
+              <RoomZoneSelect room={room} zones={zones} />
+            )}
+          </div>
         </td>
         <td />
       </tr>

@@ -66,6 +66,8 @@
 - [x] **NEN 1087-exacte spleetformule ✅ (R5)** — C_d=0,6/Δp=1,0 Pa/n=0,5 verankerd in norm (Z: PDF gelezen), kantoor-Δp=2 Pa als constante (`OFFICE_DOOR_GAP_DELTA_P_PA`). Geen extra normpagina's nodig.
 - [ ] **pyRevit "Export naar web" + import-keten [M]** — `ventilation.json`-export in `pyrevit-gis2bim` + web-import met merge (revit overschrijven, manual behouden). Apart spoor (revit-bim-specialist).
 - [ ] **`deriveModelDoors` blijft stub** — overstroom hangt aan gedeelde wanden; deur-objecten later.
+- [ ] **Modeller-zijpaneel eenheden-toggle** — Modeller-zijpaneel laten meeschakelen met eenheden-toggle (`unit`-prop doorgeven in VentilationBalancePanel).
+- [ ] **Unit-toewijzing per zone** — unit-toewijzing `zoneId` activeren nu zones bestaan (UnitsCard per zone ipv gebouwniveau).
 
 ---
 
