@@ -352,6 +352,8 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] Vabi vrijstaande woning test fixture (9 kamers, 110 constructies, verwachte resultaten)
 - [x] DR Engineering woningbouw test fixture
 - [x] ISSO 51 portiekwoning test fixture
+- [ ] ISSO 53 voorbeeld 6.2 input-rebuild (modulenkantoor, PDF p.60-62, gedetailleerde methode — past bij engine) + tolerance_pct→tolerancePct keyfix in voorbeeld_62_expected.json
+- [ ] ISSO 53 voorbeeld 6.1 vereist schilmethode-uitbreiding engine (shell.rs te grof: 0,5 ACH hardcoded, geen WTW-f_v) — pas daarna input-rebuild zinvol
 - [ ] Referentieberekeningen cross-valideren met python-hvac (EN 12831)
 - [ ] Kwadratische sommatie unit test: sqrt(101² + 651²) = 659 W
 
