@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Verouderde runs op dezelfde branch/PR annuleren zodra een nieuwe start.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust workspace tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # --exclude isso51-desktop: de Tauri-app-crate (src-tauri) vereist
+      # systeem-deps (webkit2gtk e.d.) op Linux en heeft geen eigen tests.
+      # De Vabi-verificatieprojecten in tests/verification/ draaien hier mee
+      # via o.a. crates/isso51-core/tests/integration_test.rs (±2W/±2%),
+      # de isso53-goldens en de koellast-tests — dat is het hoofddoel van
+      # deze workflow.
+      - name: cargo test
+        run: cargo test --workspace --exclude isso51-desktop
+
+  frontend:
+    name: Frontend typecheck + vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      # Drie pre-existing legacy testfiles gebruiken het oude
+      # runAllTests-patroon zonder vitest describe/it-suites; vitest faalt
+      # daarop met "No test suite found" (exit 1). Bewust hier ge-exclude
+      # in plaats van de testfiles zelf aan te passen.
+      - name: vitest
+        run: >-
+          npx vitest run
+          --exclude "src/lib/expressionInput.test.ts"
+          --exclude "src/lib/rcCalculation.test.ts"
+          --exclude "src/lib/uwCalculation.test.ts"
