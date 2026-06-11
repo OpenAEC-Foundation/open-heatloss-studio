@@ -12,15 +12,20 @@
  * deze kaart niet. De catalogus-filter volgt het voorkeurs-type van het
  * systeem (D → WTW, B/C → MV) maar is door de gebruiker omschakelbaar.
  *
- * **Eenheden:** capaciteit in m³/h (fabrikant-conventie); de toets toont
- * dm³/s primair, conform de rest van de module.
+ * **Eenheden:** capaciteit wordt **opgeslagen** in m³/h (fabrikant-conventie,
+ * afgerond op hele m³/h); de weergave en het invoerveld volgen de
+ * UI-eenheidstoggle (`unit`-prop, zie `ventilationUiStore`).
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
+  FLOW_UNIT_LABELS,
+  dm3sToM3h,
+  m3hToDm3s,
   ventilationSystemOf,
+  type FlowDisplayUnit,
   type VentilationState,
   type VentilationUnit,
   type VentilationUnitType,
@@ -33,7 +38,7 @@ import {
 } from "../../lib/ventilationUnits";
 import { formatDecimals } from "../../lib/formatNumber";
 import { Button } from "../ui/Button";
-import { UnitCapacitySummary, flowLabel } from "./shared";
+import { UnitCapacitySummary, flowDisplayLabel } from "./shared";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -44,6 +49,8 @@ interface UnitsCardProps {
   ventilation: VentilationState;
   /** Uitkomst van de capaciteitstoets (uit `useVentilationBalance`). */
   unitCapacity: UnitCapacityCheck;
+  /** Weergave-eenheid voor capaciteiten/debieten (opslag blijft m³/h resp. dm³/s). */
+  unit: FlowDisplayUnit;
   /** Wijs een catalogus-unit toe (kopieert snapshot + zet aantal). */
   onAssignCatalogUnit: (catalogId: string, aantal: number) => void;
   /** Voeg een custom unit toe (en wijs direct toe). */
@@ -63,11 +70,12 @@ interface UnitsCardProps {
 // Custom-unit formulierstate
 // ---------------------------------------------------------------------------
 
-interface UnitFormState {
+export interface UnitFormState {
   type: VentilationUnitType;
   fabrikant: string;
   model: string;
-  capaciteitM3h: string;
+  /** Capaciteit in de actieve weergave-eenheid (string, vrij invoerveld). */
+  capaciteit: string;
   rendementPct: string;
   geluidDb: string;
 }
@@ -76,18 +84,37 @@ const EMPTY_FORM: UnitFormState = {
   type: "wtw",
   fabrikant: "",
   model: "",
-  capaciteitM3h: "",
+  capaciteit: "",
   rendementPct: "",
   geluidDb: "",
 };
 
-function formToUnit(
+/**
+ * Opgeslagen capaciteit (m³/h) → invoerveld-string in de weergave-eenheid.
+ * dm³/s op max 2 decimalen: ruim genoeg dat ×3,6 + afronding op hele m³/h
+ * weer exact op de opgeslagen waarde uitkomt (max fout 0,005 × 3,6 < 0,5).
+ */
+export function capacityToFormValue(
+  m3h: number,
+  unit: FlowDisplayUnit,
+): string {
+  return unit === "m3h"
+    ? String(Math.round(m3h))
+    : String(Number(m3hToDm3s(m3h).toFixed(2)));
+}
+
+export function formToUnit(
   form: UnitFormState,
+  unit: FlowDisplayUnit,
 ): Omit<VentilationUnit, "id" | "source"> | null {
   // Verdediging in de diepte (naast de input-attributen): ongeldige invoer
   // levert `null` — de submit-knop blijft dan disabled en er wordt géén unit
-  // aangemaakt. Capaciteit wordt op hele m³/h afgerond bij opslag.
-  const capaciteitM3h = Math.round(Number(form.capaciteitM3h));
+  // aangemaakt. Invoer is in de weergave-eenheid; opslag blijft m³/h
+  // (fabrikant-conventie), afgerond op hele m³/h.
+  const entered = Number(form.capaciteit);
+  const capaciteitM3h = Math.round(
+    unit === "m3h" ? entered : dm3sToM3h(entered),
+  );
   if (!form.model.trim() || !Number.isFinite(capaciteitM3h) || capaciteitM3h <= 0) {
     return null;
   }
@@ -119,12 +146,15 @@ function formToUnit(
   };
 }
 
-function unitToForm(unit: VentilationUnit): UnitFormState {
+function unitToForm(
+  unit: VentilationUnit,
+  displayUnit: FlowDisplayUnit,
+): UnitFormState {
   return {
     type: unit.type,
     fabrikant: unit.fabrikant,
     model: unit.model,
-    capaciteitM3h: String(unit.capaciteitM3h),
+    capaciteit: capacityToFormValue(unit.capaciteitM3h, displayUnit),
     rendementPct:
       unit.rendement !== undefined ? String(Math.round(unit.rendement * 100)) : "",
     geluidDb: unit.geluidDb !== undefined ? String(unit.geluidDb) : "",
@@ -138,6 +168,7 @@ function unitToForm(unit: VentilationUnit): UnitFormState {
 export function UnitsCard({
   ventilation,
   unitCapacity,
+  unit,
   onAssignCatalogUnit,
   onAddCustomUnit,
   onUpdateUnit,
@@ -159,6 +190,25 @@ export function UnitsCard({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  // Het capaciteit-invoerveld is in de weergave-eenheid; wisselt de toggle
+  // terwijl het formulier open staat, reken de getypte waarde dan mee om
+  // zodat de betekenis niet stilzwijgend verandert.
+  const prevUnitRef = useRef(unit);
+  useEffect(() => {
+    const from = prevUnitRef.current;
+    if (from === unit) return;
+    prevUnitRef.current = unit;
+    setForm((f) => {
+      const n = Number(f.capaciteit);
+      if (f.capaciteit === "" || !Number.isFinite(n)) return f;
+      const m3h = from === "m3h" ? n : dm3sToM3h(n);
+      return { ...f, capaciteit: capacityToFormValue(m3h, unit) };
+    });
+  }, [unit]);
+
+  /** Opgeslagen capaciteit (m³/h) → weergave-label in de actieve eenheid. */
+  const capacityLabel = (m3h: number) => flowDisplayLabel(m3hToDm3s(m3h), unit);
+
   const catalogUnits = useMemo(
     () => getCatalogUnits().filter((u) => u.type === typeFilter),
     [typeFilter],
@@ -173,12 +223,12 @@ export function UnitsCard({
     type === "wtw" ? t("ventilation.units.typeWtw") : t("ventilation.units.typeMv");
 
   const handleSubmitForm = () => {
-    const unit = formToUnit(form);
-    if (!unit) return;
+    const parsed = formToUnit(form, unit);
+    if (!parsed) return;
     if (editingId) {
-      onUpdateUnit(editingId, unit);
+      onUpdateUnit(editingId, parsed);
     } else {
-      onAddCustomUnit(unit);
+      onAddCustomUnit(parsed);
     }
     setForm(EMPTY_FORM);
     setEditingId(null);
@@ -221,7 +271,7 @@ export function UnitsCard({
             <option value="">{t("ventilation.units.choose")}</option>
             {catalogUnits.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.fabrikant} {u.model} — {u.capaciteitM3h} m³/h
+                {u.fabrikant} {u.model} — {capacityLabel(u.capaciteitM3h)}
                 {u.rendement !== undefined
                   ? ` · η ${Math.round(u.rendement * 100)}%`
                   : ""}
@@ -309,14 +359,14 @@ export function UnitsCard({
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-scaffold-gray">
-              {t("ventilation.units.capacity")} *
+              {t("ventilation.units.colCapacity")} ({FLOW_UNIT_LABELS[unit]}) *
               <input
                 type="number"
-                min={1}
-                step={1}
-                value={form.capaciteitM3h}
+                min={unit === "m3h" ? 1 : 0.1}
+                step={unit === "m3h" ? 1 : 0.1}
+                value={form.capaciteit}
                 onChange={(e) =>
-                  setForm({ ...form, capaciteitM3h: e.target.value })
+                  setForm({ ...form, capaciteit: e.target.value })
                 }
                 className="w-24 rounded border border-primary/20 bg-surface px-1.5 py-1 text-right text-xs tabular-nums text-on-surface"
               />
@@ -351,7 +401,7 @@ export function UnitsCard({
             <Button
               variant="secondary"
               size="sm"
-              disabled={formToUnit(form) === null}
+              disabled={formToUnit(form, unit) === null}
               onClick={handleSubmitForm}
             >
               {editingId
@@ -386,36 +436,36 @@ export function UnitsCard({
             </tr>
           </thead>
           <tbody>
-            {assigned.map(({ unit, aantal }) => (
+            {assigned.map(({ unit: u, aantal }) => (
               <tr
-                key={unit.id}
+                key={u.id}
                 className="border-b border-[var(--oaec-border-subtle)]"
               >
                 <td className="px-2 py-1.5 text-on-surface">
                   <span className="font-medium">
-                    {unit.fabrikant} {unit.model}
+                    {u.fabrikant} {u.model}
                   </span>
-                  {unit.rendement !== undefined && (
+                  {u.rendement !== undefined && (
                     <span className="ml-1 text-xs text-scaffold-gray">
-                      η {Math.round(unit.rendement * 100)}%
+                      η {Math.round(u.rendement * 100)}%
                     </span>
                   )}
-                  {unit.geluidDb !== undefined && (
+                  {u.geluidDb !== undefined && (
                     <span className="ml-1 text-xs text-scaffold-gray">
-                      · {formatDecimals(unit.geluidDb, 0)} dB
+                      · {formatDecimals(u.geluidDb, 0)} dB
                     </span>
                   )}
-                  {unit.source === "custom" && (
+                  {u.source === "custom" && (
                     <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-scaffold-gray">
                       {t("ventilation.units.customBadge")}
                     </span>
                   )}
                 </td>
                 <td className="px-2 py-1.5 text-xs text-on-surface">
-                  {typeLabel(unit.type)}
+                  {typeLabel(u.type)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-xs tabular-nums text-on-surface">
-                  {formatDecimals(unit.capaciteitM3h, 0)} m³/h
+                  {capacityLabel(u.capaciteitM3h)}
                 </td>
                 <td className="px-2 py-1.5 text-right">
                   <input
@@ -426,22 +476,22 @@ export function UnitsCard({
                     onChange={(e) => {
                       const n = Math.floor(Number(e.target.value));
                       if (Number.isFinite(n) && n >= 1) {
-                        onSetAssignment(unit.id, n);
+                        onSetAssignment(u.id, n);
                       }
                     }}
                     className="w-14 rounded border border-primary/20 bg-surface px-1.5 py-0.5 text-right text-xs tabular-nums text-on-surface"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-right text-xs tabular-nums text-on-surface">
-                  {formatDecimals(unit.capaciteitM3h * aantal, 0)} m³/h
+                  {capacityLabel(u.capaciteitM3h * aantal)}
                 </td>
                 <td className="px-2 py-1.5 text-right">
-                  {unit.source === "custom" && (
+                  {u.source === "custom" && (
                     <button
                       className="mr-2 text-xs text-primary hover:underline"
                       onClick={() => {
-                        setForm(unitToForm(unit));
-                        setEditingId(unit.id);
+                        setForm(unitToForm(u, unit));
+                        setEditingId(u.id);
                         setShowForm(true);
                       }}
                     >
@@ -450,7 +500,7 @@ export function UnitsCard({
                   )}
                   <button
                     className="text-xs text-red-600 hover:underline"
-                    onClick={() => onRemoveUnit(unit.id)}
+                    onClick={() => onRemoveUnit(u.id)}
                   >
                     {t("ventilation.units.remove")}
                   </button>
@@ -463,12 +513,12 @@ export function UnitsCard({
 
       {/* Capaciteitstoets */}
       {assigned.length > 0 ? (
-        <UnitCapacitySummary check={unitCapacity} />
+        <UnitCapacitySummary check={unitCapacity} unit={unit} />
       ) : (
         unitCapacity.requiredDm3s > 0 && (
           <p className="text-xs text-on-surface-muted">
             {t("ventilation.units.requirementHint", {
-              flow: flowLabel(unitCapacity.requiredDm3s),
+              flow: flowDisplayLabel(unitCapacity.requiredDm3s, unit),
             })}
           </p>
         )

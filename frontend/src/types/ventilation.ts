@@ -26,6 +26,56 @@ export function m3hToDm3s(m3h: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Weergave-eenheid (UI-voorkeur) — store blijft ALTIJD dm³/s
+// ---------------------------------------------------------------------------
+
+/**
+ * Weergave-eenheid voor luchtdebieten in de UI. Puur een **weergave**-keuze
+ * (persistent via `components/ventilation/ventilationUiStore.ts`): de store en
+ * alle berekeningen blijven in dm³/s, conversie gebeurt uitsluitend aan de
+ * UI-rand via {@link flowToDisplay} / {@link flowFromDisplay}.
+ */
+export type FlowDisplayUnit = "dm3s" | "m3h";
+
+/** Eenheid-labels voor weergave. */
+export const FLOW_UNIT_LABELS: Record<FlowDisplayUnit, string> = {
+  dm3s: "dm³/s",
+  m3h: "m³/h",
+};
+
+/**
+ * Weergave-decimalen per eenheid: dm³/s op 1 decimaal (bestaande conventie,
+ * zie `flowLabel`), m³/h op hele getallen (bestaande conventie, zie
+ * `m3hLabel`). Alleen voor **weergave** — store-waarden niet afronden.
+ */
+export const FLOW_UNIT_DECIMALS: Record<FlowDisplayUnit, number> = {
+  dm3s: 1,
+  m3h: 0,
+};
+
+/** De andere eenheid (voor secundaire weergave tussen haakjes). */
+export function otherFlowUnit(unit: FlowDisplayUnit): FlowDisplayUnit {
+  return unit === "dm3s" ? "m3h" : "dm3s";
+}
+
+/**
+ * Store-waarde (dm³/s) → weergavewaarde in de gekozen eenheid. **Onafgerond**
+ * — afronden gebeurt pas bij het formatteren ({@link FLOW_UNIT_DECIMALS}).
+ */
+export function flowToDisplay(dm3s: number, unit: FlowDisplayUnit): number {
+  return unit === "m3h" ? dm3sToM3h(dm3s) : dm3s;
+}
+
+/**
+ * Invoerwaarde in de gekozen eenheid → store-waarde (dm³/s). **Onafgerond**:
+ * de exacte deling door 3,6 gaat de store in, zodat invoer in m³/h bij
+ * terugschakelen exact dezelfde dm³/s-waarde oplevert (geen afrondingsdrift).
+ */
+export function flowFromDisplay(value: number, unit: FlowDisplayUnit): number {
+  return unit === "m3h" ? m3hToDm3s(value) : value;
+}
+
+// ---------------------------------------------------------------------------
 // Terminal (ventiel / rooster)
 // ---------------------------------------------------------------------------
 
