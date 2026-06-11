@@ -415,6 +415,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] PDF rapportgeneratie
 - [x] Conflict detectie (optimistic locking)
 - [x] Auto-save + dark/light theme
+- [x] In-app help-sectie — gebruik, formules, afwijkingen + live Vabi-verificatie
 - [ ] Materialen: inline bewerken, lambda nat, zoekwoorden
 - [x] U_w kozijn-calculator Fase 1: `uw_breakdown`-datamodel + `Spacer`-enum (`7727e79`)
 - [x] U_w kozijn-calculator Fase 2: `uwCalculation.ts` + spacer-tabel + `/uw`-calculatorpagina
@@ -422,6 +423,7 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [x] U_w kozijn-calculator: fabrikant-catalogus (profiel/glas) + Ψ_g-correctie naar EN-ISO 10077-1 Annex E-richtwaarde
 - [x] U_w kozijn-calculator: afronding — setTimeout-cleanup, edit-param-feedback, catalogus-herkomst persistent in rapport
 - [x] #21 rekenexpressies (=1,5*2,6) in numerieke tabelcellen
+- [ ] Help verificatie-sectie uitbreiden met isso53/koellast-projecten + woonhuis-A zodra input/expected compleet
 
 ## Modeller features
 - [x] 2D/3D modeller met pan/zoom, grid, polygonen, wanden, ramen, deuren

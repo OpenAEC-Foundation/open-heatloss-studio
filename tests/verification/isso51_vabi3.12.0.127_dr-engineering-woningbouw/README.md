@@ -18,7 +18,7 @@ Cross-validatie ISSO 51:2024 + erratum 2023 (kwadratische zone-sommatie i.p.v. l
 
 ## Bekende afwijkingen
 
-- `build_summary` in `lib.rs` gebruikt nog lineaire som op gebouwniveau — connection_capacity test verwacht ~6700 W maar engine geeft ~8121 W. Niet maskeren met tolerantie-verbreding.
+- **Opgelost (2026-06-10):** `build_summary` in `crates/isso51-core/src/lib.rs` sommeert op gebouwniveau nu kwadratisch conform erratum 2023 (`Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu²)`, zie `phi_extra_quadratic` rond regel 274-291). De eerdere lineaire som gaf ~8.121 W; met de kwadratische sommatie komt `connection_capacity` uit op het verwachte ~6.700 W (= `building.phi_hl_build`).
 
 ## Files
 

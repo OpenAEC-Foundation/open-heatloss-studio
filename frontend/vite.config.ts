@@ -40,6 +40,15 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      fs: {
+        // De Help-sectie "Verificatie" importeert input/expected JSON
+        // rechtstreeks uit tests/verification/ (repo-root, buiten de
+        // Vite-root) — zie src/content/help/verificationData.ts. De
+        // dev-server serveert die via /@fs/ en heeft daar expliciet
+        // toestemming voor nodig. Production build bundelt de JSON
+        // compile-time mee; daar speelt fs.allow geen rol.
+        allow: [__dirname, resolve(__dirname, "../tests/verification")],
+      },
       proxy: {
         // Report generation → OpenAEC Reports API
         // Pad matcht /api/v1/report/* zodat het consistent is met de Rust backend.

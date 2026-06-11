@@ -79,6 +79,7 @@
     "materials": "Materials",
     "projects": "Projects",
     "warmteverliesInstellingen": "Settings",
+    "help": "Help & documentation",
     "unsaved": "Unsaved",
     "saved": "Saved",
     "groups": {
@@ -87,7 +88,8 @@
       "ventilatie": "Ventilation",
       "tojuli": "Summer overheating",
       "rcwaarde": "R-value",
-      "library": "Library"
+      "library": "Library",
+      "help": "Help"
     },
     "ventilationBalance": "Ventilation balance",
     "tojuli": {
