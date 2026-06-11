@@ -15,7 +15,13 @@ jobs:
     name: Rust workspace tests
     runs-on: ubuntu-latest
     steps:
+      # submodules: libs/openaec-reports is een git-submodule; cargo moet
+      # álle workspace-manifests kunnen laden (ook dat van isso51-desktop,
+      # óók met --exclude) en die heeft een path-dep op openaec-layout
+      # in die submodule.
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -38,7 +44,11 @@ jobs:
       run:
         working-directory: frontend
     steps:
+      # Niet strikt nodig voor de frontend, maar goedkoop en voorkomt
+      # verrassingen als frontend ooit iets uit libs/ importeert.
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v4
         with:
