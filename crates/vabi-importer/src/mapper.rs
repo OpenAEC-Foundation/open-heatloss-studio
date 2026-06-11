@@ -371,5 +371,6 @@ fn create_isso53_calcs(
         isso51: None,
         tojuli: None,
         isso53: Some(isso53),
+        isso74: None,
     })
 }

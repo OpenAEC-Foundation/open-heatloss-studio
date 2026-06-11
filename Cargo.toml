@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/isso51-core",
     "crates/isso53-core",
+    "crates/isso74-core",
     "crates/isso51-ifcx",
     "crates/isso51-api",
     "crates/nta8800-automation",

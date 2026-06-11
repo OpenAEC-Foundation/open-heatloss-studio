@@ -151,6 +151,7 @@ mod tests {
             isso53: Some(Iso53Inputs {
                 legacy: isso53_json,
             }),
+            isso74: None,
         };
 
         let project = to_isso53_project(&v2).unwrap();

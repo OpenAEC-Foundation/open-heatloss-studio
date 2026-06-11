@@ -2281,6 +2281,7 @@ dependencies = [
  "isso51-core",
  "isso51-ifcx",
  "isso53-core",
+ "isso74-core",
  "nta8800-cooling",
  "nta8800-model",
  "nta8800-tables",
@@ -2323,6 +2324,7 @@ dependencies = [
  "image",
  "isso51-core",
  "isso53-core",
+ "isso74-core",
  "lopdf 0.39.0",
  "nta8800-cooling",
  "nta8800-model",
@@ -2353,6 +2355,17 @@ dependencies = [
 
 [[package]]
 name = "isso53-core"
+version = "0.2.0"
+dependencies = [
+ "approx",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "isso74-core"
 version = "0.2.0"
 dependencies = [
  "approx",

@@ -33,6 +33,10 @@ pub struct Calcs {
     /// ISSO 53 warmteverlies-inputs (utiliteitsgebouwen ≤ 4m).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isso53: Option<Iso53Inputs>,
+
+    /// ISSO 74 thermisch-comfort / oververhittingstoets-inputs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isso74: Option<Isso74Inputs>,
 }
 
 /// ISSO 51-specifieke inputs die niet uit `shared`/`geometry` afgeleid
@@ -82,6 +86,28 @@ pub struct Iso53Inputs {
     pub legacy: serde_json::Value,
 }
 
+/// ISSO 74-specifieke inputs (thermisch-comfort / oververhittingstoets).
+///
+/// V2 placeholder, parallel aan [`TojuliInputs`]. De toets-laag draait op een
+/// CSV met uurlijkse operatieve binnentemperaturen (uit een externe dynamische
+/// simulatie) plus een config-blok (klasse, ATG-variant, gebruiksuren, PMV).
+/// Beide worden hier als blob bewaard zodat `openaec-project-shared` geen harde
+/// dependency op `isso74-core` nodig heeft (mirror van het `quick_check`-blob
+/// patroon). De daadwerkelijke berekening loopt via de `isso74_calculate`
+/// command / `/isso74/calculate` route die `isso74_core::Isso74Request`
+/// reconstrueert.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+pub struct Isso74Inputs {
+    /// Ruwe CSV-inhoud (uurlijks): tijd/uur, T_buiten, dan θ_o per ruimte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub csv: Option<String>,
+
+    /// `isso74_core::Isso74Config` als JSON-blob (klasse, ATG-variant,
+    /// gebruiksuren, PMV-parameters). `None` ⇒ default-config.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
 impl Calcs {
     /// Welke calc is actief? Geeft de "primaire" calc terug —
     /// die met daadwerkelijke input, ISSO 51 als default fallback.
@@ -125,6 +151,7 @@ mod tests {
             }),
             tojuli: None,
             isso53: None,
+            isso74: None,
         };
         assert_eq!(calcs.active_norm(), ActiveNorm::Isso51);
     }
@@ -137,6 +164,7 @@ mod tests {
             isso53: Some(Iso53Inputs {
                 legacy: serde_json::json!({"info": {"name": "test isso53"}}),
             }),
+            isso74: None,
         };
         assert_eq!(calcs.active_norm(), ActiveNorm::Isso53);
     }
@@ -151,6 +179,7 @@ mod tests {
             isso53: Some(Iso53Inputs {
                 legacy: serde_json::json!({"info": {"name": "test isso53"}}),
             }),
+            isso74: None,
         };
         // Multi-calc fallback: ISSO 51 heeft voorrang
         assert_eq!(calcs.active_norm(), ActiveNorm::Isso51);
