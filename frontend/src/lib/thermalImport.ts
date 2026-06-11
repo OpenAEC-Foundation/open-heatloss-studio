@@ -30,6 +30,14 @@ export interface ThermalRoom {
   height_m?: number;
   volume_m3?: number;
   boundary_polygon?: [number, number][];
+  /**
+   * Optionele zonenaam uit de Revit-export (alleen aanwezig wanneer het
+   * zone-veld in Revit gevuld is). Bij import vertaald naar een
+   * find-or-create `Zone` op `building.zones` + `room.zoneId` — zie
+   * `applyEditsToProject`. De Rust `/import/thermal` endpoint negeert dit
+   * veld (geen `deny_unknown_fields`); de mapping gebeurt client-side.
+   */
+  zone?: string;
 }
 
 export interface ThermalConstructionLayer {
@@ -310,6 +318,14 @@ export function toImportedBoundaries(
  * `catalogUValues` is keyed by `CatalogEntry.id`. Every `ConstructionElement`
  * with a matching `catalog_ref` receives the calculated U-value, so a single
  * edit in the LayerEditor fans out to every room that uses that construction.
+ *
+ * Zones: rooms in de Revit-export kunnen een optionele `zone`-naam dragen.
+ * Per unieke naam (case-sensitive exact match) wordt één `Zone` aangemaakt
+ * op `building.zones` (of hergebruikt wanneer het project er al een met die
+ * naam heeft) en krijgt de bijbehorende project-room `zoneId`. Rooms zonder
+ * `zone`-veld blijven `zoneId: undefined`. Project-room ids zijn identiek
+ * aan de thermal-room ids (de Rust mapper behoudt ze — zelfde aanname als
+ * `roomTypeMap` hierboven gebruikt).
  */
 export function applyEditsToProject(
   project: Project,
@@ -326,8 +342,30 @@ export function applyEditsToProject(
       .map((o) => [o.id, o.u_value!]),
   );
 
+  // Zones: find-or-create op naam, alleen voor thermal rooms die ook echt
+  // als project-room bestaan (pseudo-rooms als outside/ground/water zijn
+  // door de backend niet gemapt en mogen geen lege zones achterlaten).
+  const projectRoomIds = new Set(project.rooms.map((r) => r.id));
+  const zones = [...(project.building.zones ?? [])];
+  const zoneIdByName = new Map(zones.map((z) => [z.name, z.id]));
+  const roomZoneMap = new Map<string, string>(); // thermal room id → zone id
+  for (const r of editedRooms) {
+    if (!r.zone || !projectRoomIds.has(r.id)) continue;
+    let zoneId = zoneIdByName.get(r.zone);
+    if (zoneId === undefined) {
+      zoneId = `zone-${crypto.randomUUID()}`;
+      zones.push({ id: zoneId, name: r.zone });
+      zoneIdByName.set(r.zone, zoneId);
+    }
+    roomZoneMap.set(r.id, zoneId);
+  }
+
   return {
     ...project,
+    building:
+      zones.length > 0
+        ? { ...project.building, zones }
+        : project.building,
     rooms: project.rooms.map((room) => {
       const editedType = roomTypeMap.get(room.id);
 
@@ -335,6 +373,12 @@ export function applyEditsToProject(
       let updatedRoom = room;
       if (editedType === "unheated" && room.function !== "storage") {
         updatedRoom = { ...room, function: "storage" };
+      }
+
+      // Zone-koppeling uit de Revit-export (zie doc-comment).
+      const zoneId = roomZoneMap.get(room.id);
+      if (zoneId !== undefined) {
+        updatedRoom = { ...updatedRoom, zoneId };
       }
 
       // Update U-values on constructions from LayerEditor and openings

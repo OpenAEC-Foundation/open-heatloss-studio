@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { AlgemeenTab } from "../components/projectSetup/AlgemeenTab";
+import { ZonesCard } from "../components/projectSetup/ZonesCard";
 
 import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -140,8 +141,9 @@ export function ProjectSetup() {
         }
       />
 
-      <div className="p-6">
+      <div className="space-y-6 p-6">
         <AlgemeenTab />
+        <ZonesCard />
       </div>
 
       <input

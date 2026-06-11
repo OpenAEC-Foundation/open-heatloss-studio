@@ -24,6 +24,7 @@ export type {
   VerticalPosition,
   VentilationConfig,
   VentilationSystemType,
+  Zone,
 } from "./project";
 
 export type {

@@ -451,6 +451,98 @@ describe("persist — isDirty + serverbinding overleven een reload", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Zones — datalaag (add/rename/remove/setRoomZone, incl. room-cleanup + undo)
+// ---------------------------------------------------------------------------
+
+describe("zones — store-actions", () => {
+  it("addZone maakt een zone aan met gegenereerd id en geeft het id terug", () => {
+    seedProject([makeRoom("r1", [])]);
+
+    const id = useProjectStore.getState().addZone("Zone 1");
+
+    const zones = useProjectStore.getState().project.building.zones;
+    expect(id).toMatch(/^zone-/);
+    expect(zones).toEqual([{ id, name: "Zone 1" }]);
+  });
+
+  it("renameZone hernoemt alleen de zone met het gegeven id", () => {
+    seedProject([]);
+    const a = useProjectStore.getState().addZone("Zone 1");
+    const b = useProjectStore.getState().addZone("Zone 2");
+
+    useProjectStore.getState().renameZone(a, "Begane grond");
+
+    const zones = useProjectStore.getState().project.building.zones!;
+    expect(zones.find((z) => z.id === a)?.name).toBe("Begane grond");
+    expect(zones.find((z) => z.id === b)?.name).toBe("Zone 2");
+  });
+
+  it("setRoomZone koppelt en ontkoppelt een ruimte", () => {
+    seedProject([makeRoom("r1", []), makeRoom("r2", [])]);
+    const id = useProjectStore.getState().addZone("Zone 1");
+
+    useProjectStore.getState().setRoomZone("r1", id);
+
+    let rooms = useProjectStore.getState().project.rooms;
+    expect(rooms.find((r) => r.id === "r1")?.zoneId).toBe(id);
+    expect(rooms.find((r) => r.id === "r2")?.zoneId).toBeUndefined();
+
+    useProjectStore.getState().setRoomZone("r1", undefined);
+
+    rooms = useProjectStore.getState().project.rooms;
+    expect(rooms.find((r) => r.id === "r1")?.zoneId).toBeUndefined();
+  });
+
+  it("removeZone verwijdert de zone én zet zoneId van betrokken rooms op undefined", () => {
+    seedProject([makeRoom("r1", []), makeRoom("r2", []), makeRoom("r3", [])]);
+    const a = useProjectStore.getState().addZone("Zone 1");
+    const b = useProjectStore.getState().addZone("Zone 2");
+    useProjectStore.getState().setRoomZone("r1", a);
+    useProjectStore.getState().setRoomZone("r2", a);
+    useProjectStore.getState().setRoomZone("r3", b);
+
+    useProjectStore.getState().removeZone(a);
+
+    const s = useProjectStore.getState().project;
+    expect(s.building.zones).toEqual([{ id: b, name: "Zone 2" }]);
+    // Betrokken rooms ontkoppeld, andere zone-koppeling onaangetast.
+    expect(s.rooms.find((r) => r.id === "r1")?.zoneId).toBeUndefined();
+    expect(s.rooms.find((r) => r.id === "r2")?.zoneId).toBeUndefined();
+    expect(s.rooms.find((r) => r.id === "r3")?.zoneId).toBe(b);
+  });
+
+  it("removeZone is undo-aware: één undo herstelt zone + room-koppelingen", () => {
+    seedProject([makeRoom("r1", [])]);
+    const id = useProjectStore.getState().addZone("Zone 1");
+    useProjectStore.getState().setRoomZone("r1", id);
+
+    useProjectStore.getState().removeZone(id);
+    expect(useProjectStore.getState().project.building.zones).toEqual([]);
+
+    useProjectStore.getState().undo();
+
+    const s = useProjectStore.getState().project;
+    expect(s.building.zones).toEqual([{ id, name: "Zone 1" }]);
+    expect(s.rooms[0]!.zoneId).toBe(id);
+  });
+
+  it("addZone is undo-aware en raakt rooms niet aan", () => {
+    seedProject([makeRoom("r1", [])]);
+    const id = useProjectStore.getState().addZone("Zone 1");
+    expect(
+      useProjectStore.getState().project.building.zones,
+    ).toEqual([{ id, name: "Zone 1" }]);
+
+    useProjectStore.getState().undo();
+
+    expect(
+      useProjectStore.getState().project.building.zones,
+    ).toBeUndefined();
+    expect(useProjectStore.getState().project.rooms[0]!.zoneId).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // clearServerBinding — logout / definitief verlopen sessie (R1)
 // ---------------------------------------------------------------------------
 

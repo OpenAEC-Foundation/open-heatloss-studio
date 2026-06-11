@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import RibbonButton from "./RibbonButton";
 import RibbonGroup from "./RibbonGroup";
-import { plusIcon, calculatorIcon } from "./icons";
+import { plusIcon, calculatorIcon, buildingIcon } from "./icons";
 import { useProjectStore } from "../../store/projectStore";
 import { createRoom } from "../../lib/roomDefaults";
 import { useRunCalculation } from "../../hooks/useRunCalculation";
@@ -43,6 +43,19 @@ export default function VertrekkenTab() {
           icon={plusIcon}
           label={t("vertrekken.addRoom")}
           onClick={handleAddRoom}
+        />
+      </RibbonGroup>
+      {/* Zone-beheer leeft op de Project-pagina (ZonesCard); toekenning per
+          vertrek zit in de Vertrekken-tabel zelf. Dit is de snelkoppeling. */}
+      <RibbonGroup label={t("vertrekken.zones", "Zones")}>
+        <RibbonButton
+          icon={buildingIcon}
+          label={t("vertrekken.manageZones", "Zones beheren")}
+          title={t(
+            "vertrekken.manageZonesTitle",
+            "Zones aanmaken/hernoemen/verwijderen (Project-pagina)",
+          )}
+          onClick={() => navigate("/project")}
         />
       </RibbonGroup>
       <RibbonGroup label={t("vertrekken.calculation")}>

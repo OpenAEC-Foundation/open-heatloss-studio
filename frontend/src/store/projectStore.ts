@@ -11,6 +11,7 @@ import type {
   ProjectResult,
   Room,
   VerticalPosition,
+  Zone,
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import { isIsso53Heating } from "../lib/normSwitch";
@@ -360,6 +361,25 @@ interface ProjectStore {
 
   /** Apply a heating_system to all rooms in the project in one mutation (with undo). */
   applyHeatingSystemToAllRooms: (system: HeatingSystem) => void;
+
+  // -- Zones (datalaag; UI volgt in een vervolg-delegatie) --
+  /**
+   * Voeg een zone toe aan `building.zones` (genereert een id) en geef het
+   * id terug. Undo-aware.
+   */
+  addZone: (name: string) => string;
+  /** Hernoem een zone op id. No-op wanneer het id niet bestaat. Undo-aware. */
+  renameZone: (zoneId: string, name: string) => void;
+  /**
+   * Verwijder een zone op id en zet `zoneId` van alle ruimten die ernaar
+   * verwijzen op `undefined` (geen dangling referenties). Undo-aware.
+   */
+  removeZone: (zoneId: string) => void;
+  /**
+   * Koppel een ruimte aan een zone (`zoneId`) of ontkoppel haar
+   * (`undefined`). Undo-aware.
+   */
+  setRoomZone: (roomId: string, zoneId: string | undefined) => void;
 
   /**
    * Propageer een bewerkte ProjectConstruction naar álle room-elementen die
@@ -894,6 +914,88 @@ export const useProjectStore = create<ProjectStore>()(
                     ),
                   }
                 : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
+      // -- Zones (datalaag; UI volgt in een vervolg-delegatie) --
+      addZone: (name) => {
+        const id = `zone-${crypto.randomUUID()}`;
+        const snap = takeProjectSnapshot(get());
+        set((state) => {
+          const zone: Zone = { id, name };
+          return {
+            project: {
+              ...state.project,
+              building: {
+                ...state.project.building,
+                zones: [...(state.project.building.zones ?? []), zone],
+              },
+            },
+            isDirty: true,
+            error: null,
+            _past: [...state._past, snap].slice(-MAX_HISTORY),
+            _future: [],
+          };
+        });
+        return id;
+      },
+
+      renameZone: (zoneId, name) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            building: {
+              ...state.project.building,
+              zones: (state.project.building.zones ?? []).map((z) =>
+                z.id === zoneId ? { ...z, name } : z,
+              ),
+            },
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
+      removeZone: (zoneId) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            building: {
+              ...state.project.building,
+              zones: (state.project.building.zones ?? []).filter(
+                (z) => z.id !== zoneId,
+              ),
+            },
+            // Dangling room-referenties opruimen — zelfde cascade-patroon
+            // als removeVentilationUnit → unitAssignments.
+            rooms: state.project.rooms.map((r) =>
+              r.zoneId === zoneId ? { ...r, zoneId: undefined } : r,
+            ),
+          },
+          isDirty: true,
+          error: null,
+          _past: [...state._past, snap].slice(-MAX_HISTORY),
+          _future: [],
+        }));
+      },
+
+      setRoomZone: (roomId, zoneId) => {
+        const snap = takeProjectSnapshot(get());
+        set((state) => ({
+          project: {
+            ...state.project,
+            rooms: state.project.rooms.map((r) =>
+              r.id === roomId ? { ...r, zoneId } : r,
             ),
           },
           isDirty: true,

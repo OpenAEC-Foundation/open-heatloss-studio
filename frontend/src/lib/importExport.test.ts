@@ -176,6 +176,42 @@ describe("exportProject — ISSO 51 byte-compat", () => {
 });
 
 // ---------------------------------------------------------------------------
+// (a2) Zones — optionele datalaag: legacy laadt schoon, round-trip behoudt
+// ---------------------------------------------------------------------------
+
+describe("importProject — zones (optionele datalaag)", () => {
+  it("legacy JSON zonder zones/zoneId laadt schoon (geen backfill)", () => {
+    const project = makeIsso51Project();
+    useProjectStore.setState({ norm: "isso51" });
+
+    exportProject(project, makeResult());
+    const imported = importProject(lastBlobContent) as ImportResult;
+
+    expect(imported.project.building.zones).toBeUndefined();
+    expect(imported.project.rooms[0]!.zoneId).toBeUndefined();
+  });
+
+  it("round-trip behoudt building.zones + room.zoneId exact", () => {
+    const project = makeIsso51Project();
+    project.building.zones = [
+      { id: "zone-a", name: "Zone 1" },
+      { id: "zone-b", name: "Zone 2" },
+    ];
+    project.rooms[0]!.zoneId = "zone-a";
+    useProjectStore.setState({ norm: "isso51" });
+
+    exportProject(project, makeResult());
+    const imported = importProject(lastBlobContent) as ImportResult;
+
+    expect(imported.project.building.zones).toEqual([
+      { id: "zone-a", name: "Zone 1" },
+      { id: "zone-b", name: "Zone 2" },
+    ]);
+    expect(imported.project.rooms[0]!.zoneId).toBe("zone-a");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // (b) ISSO 53 — sidecars round-trip
 // ---------------------------------------------------------------------------
 
