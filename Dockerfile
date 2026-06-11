@@ -60,6 +60,12 @@ RUN echo "frontend source hash: ${SOURCE_HASH}" > /tmp/.source_hash
 # Copy frontend source and schemas (needed for type generation)
 COPY frontend/ .
 COPY schemas/ /build/schemas/
+# Verification data (needed at build time): the Help "Verificatie" section
+# imports input/expected JSON directly from tests/verification/ — resolved
+# relative to /build/frontend/src/content/help/ as ../../../../tests/verification/
+# (see frontend/src/content/help/verificationData.ts). Without this COPY the
+# Vite/TS build fails with TS2307 on those imports.
+COPY tests/verification/ /build/tests/verification/
 
 # OIDC config passed at build time for Vite
 ARG VITE_OIDC_ISSUER
