@@ -1,9 +1,27 @@
 use std::path::Path;
 use vabi_importer::{extract_elements_database, import_vabi_project_v2};
 
+/// Reference `.vp` files in `tests/references/` are gitignored (klantdata,
+/// publieke repo) en bestaan alleen op dev-machines. Skip de test netjes als
+/// het bestand ontbreekt (bv. in CI); faal hard op importfouten als het er wél is.
+fn reference_exists(vp_path: &Path) -> bool {
+    if vp_path.exists() {
+        true
+    } else {
+        eprintln!(
+            "SKIPPED: reference file ontbreekt (gitignored, alleen lokaal): {}",
+            vp_path.display()
+        );
+        false
+    }
+}
+
 #[test]
 fn tr03_houtfabriek_imports_to_v2() {
     let vp_path = Path::new("../../tests/references/TR03 - Houtfabriek.vp.zip");
+    if !reference_exists(vp_path) {
+        return;
+    }
     let (db_path, _temp) = extract_elements_database(vp_path).expect("zip extract should succeed");
 
     let project = import_vabi_project_v2(&db_path).expect("V2 import should succeed");
@@ -28,6 +46,9 @@ fn tr03_houtfabriek_imports_to_v2() {
 #[test]
 fn vabi_24221_opdc_imports_to_v2() {
     let vp_path = Path::new("../../tests/references/24221-20250618.vp");
+    if !reference_exists(vp_path) {
+        return;
+    }
     let (db_path, _temp) = extract_elements_database(vp_path).expect("zip extract should succeed");
 
     let project = import_vabi_project_v2(&db_path).expect("V2 import should succeed");
