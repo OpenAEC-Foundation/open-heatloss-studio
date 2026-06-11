@@ -2,6 +2,8 @@
 
 use isso51_core::model::Project;
 use isso51_core::result::ProjectResult;
+use isso74_core::model::Isso74Request;
+use isso74_core::result::Isso74Result;
 use nta8800_cooling::{
     calculate_simplified_cooling, SimplifiedAreaInput, SimplifiedCoolingResult,
     SimplifiedLoadInput,
@@ -208,4 +210,16 @@ pub struct TojuliCalculateRequest {
 #[tauri::command]
 pub fn tojuli_calculate(req: TojuliCalculateRequest) -> Result<TojuliResult, String> {
     compute_tojuli_full(&req.project, &req.inputs).map_err(|e| e.to_string())
+}
+
+/// ISSO 74 thermisch-comfort / oververhittingstoets.
+///
+/// Toets-laag: de engineer levert uurlijkse operatieve binnentemperaturen per
+/// ruimte aan via CSV (uit een externe dynamische simulatie). Berekent RMOT,
+/// ATG-toets, TO-uren en GTO-weeguren en geeft een verdict + plot-data terug.
+///
+/// Called from the frontend via `invoke("isso74_calculate", { req })`.
+#[tauri::command]
+pub fn isso74_calculate(req: Isso74Request) -> Result<Isso74Result, String> {
+    isso74_core::assess_request(&req).map_err(|e| e.to_string())
 }

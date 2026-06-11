@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 isso51-core = { path = "../crates/isso51-core", features = ["vabi-import"] }
 isso53-core = { path = "../crates/isso53-core" }
+isso74-core = { path = "../crates/isso74-core" }
 nta8800-cooling = { path = "../crates/nta8800-cooling" }
 nta8800-model = { path = "../crates/nta8800-model" }
 nta8800-tables = { path = "../crates/nta8800-tables" }

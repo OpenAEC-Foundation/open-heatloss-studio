@@ -2,6 +2,7 @@
 
 mod calculation;
 mod cloud;
+mod comfort;
 mod cooling;
 mod ifc_import;
 mod ifcx;
@@ -11,6 +12,7 @@ mod thermal_import;
 mod user;
 
 pub use calculation::{calculate, calculate_v2, get_schema, health, list_schemas};
+pub use comfort::isso74_calculate;
 pub use cooling::{simplified_cooling, tojuli_calculate};
 pub use cloud::{
     cloud_list_calculations, cloud_list_models, cloud_list_projects, cloud_save_calculation,

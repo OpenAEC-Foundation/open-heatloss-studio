@@ -55,6 +55,7 @@ pub fn run() {
             commands::import_vabi,
             commands::simplified_cooling,
             commands::tojuli_calculate,
+            commands::isso74_calculate,
             launched_with_file,
             reports::generate_report_pdf,
             reports::generate_report_pdf_bytes,
