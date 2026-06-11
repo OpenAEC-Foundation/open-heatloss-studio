@@ -14,6 +14,11 @@
  *   geserveerd; daarvoor is `server.fs.allow` in `vite.config.ts`
  *   uitgebreid met `../tests/verification`.
  * - **Vitest (node-env):** resolvet dezelfde imports via de Vite-pipeline.
+ * - **Docker (`Dockerfile`, node-builder stage):** de builder kopieert
+ *   standaard alleen `frontend/` + `schemas/`; daarom staat er expliciet
+ *   `COPY tests/verification/ /build/tests/verification/` vóór
+ *   `RUN npm run build`. Die COPY NIET verwijderen — zonder faalt de
+ *   container-build met TS2307 op onderstaande imports.
  */
 import type { Project } from "../../types";
 import type { VerificationExpected } from "../../lib/verificationCompare";
