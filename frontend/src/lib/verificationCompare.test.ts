@@ -1,19 +1,30 @@
 /**
  * Unit-tests voor de pure vergelijklogica van de verificatie-sectie.
  *
- * Toleranties moeten 1-op-1 sporen met de Rust-integratietests
- * (`crates/isso51-core/tests/integration_test.rs::close_enough`):
- * PASS bij `|Δ| ≤ max(2 W abs; 2 % rel)`.
+ * - ISSO 51: toleranties 1-op-1 met de Rust-integratietests
+ *   (`crates/isso51-core/tests/integration_test.rs::close_enough`):
+ *   PASS bij `|Δ| ≤ max(2 W abs; 2 % rel)`.
+ * - ISSO 53: per-metric relatieve toleranties, spiegel van `close()` in de
+ *   Rust golden-tests (`crates/isso53-core/tests/vabi_*_golden.rs`), incl.
+ *   de absolute 1 W-grens bij verwacht 0.
  */
 import { describe, expect, it } from "vitest";
 
 import {
   BUILDING_ROW_NAME,
   closeEnough,
+  closeEnoughPct,
+  compareIsso53Results,
   compareResults,
   expectedOnlyRows,
+  isso53ExpectedOnlyRows,
+  type Isso53ExpectedMetric,
   type VerificationExpected,
 } from "./verificationCompare";
+import type {
+  Isso53ProjectResult,
+  Isso53RoomResult,
+} from "../types/isso53Result";
 import type { ProjectResult, RoomResult } from "../types/result";
 
 // Echte verificatiedata — zelfde bestanden als de Rust-tests en de Help-UI.
@@ -216,6 +227,168 @@ describe("expectedOnlyRows", () => {
     expect(rooms[0]?.expectedW).toBe(245);
     expect(building.expectedW).toBe(9160);
     expect(building.thetaI).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ISSO 53 — fixtures
+// ---------------------------------------------------------------------------
+
+/** Minimale Isso53RoomResult — alleen de vergeleken velden zijn echt. */
+function isso53Room(
+  roomId: string,
+  vals: Partial<Pick<Isso53RoomResult, "phiT" | "phiV" | "phiI" | "phiHu">>,
+): Isso53RoomResult {
+  return {
+    roomId,
+    roomName: roomId,
+    thetaI: 20,
+    phiT: 0,
+    phiV: 0,
+    phiI: 0,
+    phiHu: 0,
+    phiSystem: 0,
+    phiGain: 0,
+    totalHeatLoss: 0,
+    hTExterior: 0,
+    hTAdjacentRooms: 0,
+    hTUnheated: 0,
+    hTAdjacentBuildings: 0,
+    hTGround: 0,
+    hV: 0,
+    hI: 0,
+    qV: 0,
+    ...vals,
+  };
+}
+
+function isso53Result(rooms: Isso53RoomResult[]): Isso53ProjectResult {
+  return {
+    rooms,
+    summary: {
+      totalTransmissionLoss: 0,
+      totalVentilationLoss: 0,
+      totalVentilationFlow: 0,
+      totalInfiltrationLoss: 0,
+      totalHeatingUp: 0,
+      totalSystemLosses: 0,
+      totalInternalGains: 0,
+      totalBuildingHeatLoss: 0,
+      connectionCapacityIndividual: 0,
+      connectionCapacityCollective: 0,
+      shellHeatLoss: 0,
+      infiltrationReductionFactorZ: 1,
+      heatingUpSimultaneityFactor: 1,
+      infiltrationMethodOrigin: "isso53Norm",
+    },
+  };
+}
+
+/** Spiegel van de 3floors-metrics voor room 1.10a (toleranties uit expected.json). */
+const ISSO53_METRICS: Isso53ExpectedMetric[] = [
+  { roomId: "1.10a", roomLabel: "Bedrijfsruimte", metric: "phiT", expectedW: 1514, tolerancePct: 5.5 },
+  { roomId: "1.10a", roomLabel: "Bedrijfsruimte", metric: "phiV", expectedW: 0, tolerancePct: 0 },
+  { roomId: "1.10a", roomLabel: "Bedrijfsruimte", metric: "phiI", expectedW: 1337, tolerancePct: 4.0 },
+  { roomId: "1.10a", roomLabel: "Bedrijfsruimte", metric: "phiHu", expectedW: 538, tolerancePct: 5.0 },
+  { roomId: "1.10a", roomLabel: "Bedrijfsruimte", metric: "total", expectedW: 3389, tolerancePct: 2.5 },
+];
+
+// ---------------------------------------------------------------------------
+// closeEnoughPct — spiegel van Rust `close()` in vabi_*_golden.rs
+// ---------------------------------------------------------------------------
+
+describe("closeEnoughPct", () => {
+  it("hanteert een relatieve grens in %", () => {
+    // 5,5% van 1514 ≈ 83,3 W.
+    expect(closeEnoughPct(1516, 1514, 5.5)).toBe(true);
+    expect(closeEnoughPct(1514 + 84, 1514, 5.5)).toBe(false);
+    expect(closeEnoughPct(1514 - 84, 1514, 5.5)).toBe(false);
+  });
+
+  it("valt bij verwacht 0 terug op de absolute 1 W-grens (tolerantie-onafhankelijk)", () => {
+    expect(closeEnoughPct(0, 0, 0)).toBe(true);
+    expect(closeEnoughPct(0.99, 0, 0)).toBe(true);
+    expect(closeEnoughPct(1.0, 0, 100)).toBe(false);
+  });
+
+  it("is een strikte grens (< tol, niet ≤) zoals de Rust-assert", () => {
+    // Rust: diff < tol_pct → exact op de grens is FAIL.
+    expect(closeEnoughPct(102, 100, 2.0)).toBe(false);
+    expect(closeEnoughPct(101.9, 100, 2.0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compareIsso53Results
+// ---------------------------------------------------------------------------
+
+describe("compareIsso53Results", () => {
+  it("vergelijkt per metric met de eigen tolerantie en reconstrueert het totaal", () => {
+    const result = isso53Result([
+      isso53Room("1.10a", { phiT: 1516, phiV: 0, phiI: 1290, phiHu: 538 }),
+    ]);
+    const cmp = compareIsso53Results(ISSO53_METRICS, result);
+
+    expect(cmp.rows).toHaveLength(5);
+    const byMetric = Object.fromEntries(cmp.rows.map((r) => [r.metric, r]));
+
+    expect(byMetric.phiT?.actualW).toBe(1516);
+    expect(byMetric.phiT?.pass).toBe(true); // +0,1% < 5,5%
+
+    expect(byMetric.phiV?.pass).toBe(true); // 0 vs 0 → abs 1 W-grens
+    expect(byMetric.phiV?.deltaPct).toBeNull(); // verwacht 0 → geen %
+
+    expect(byMetric.phiI?.actualW).toBe(1290);
+    expect(byMetric.phiI?.pass).toBe(true); // −3,5% < 4,0%
+
+    // Totaal = Φ_T + Φ_V + Φ_I + Φ_hu (Vabi-conventie), niet totalHeatLoss.
+    expect(byMetric.total?.actualW).toBe(1516 + 0 + 1290 + 538);
+    expect(byMetric.total?.pass).toBe(true); // 3344 vs 3389 = −1,3% < 2,5%
+
+    expect(cmp.passed).toBe(5);
+    expect(cmp.total).toBe(5);
+    expect(cmp.allPass).toBe(true);
+  });
+
+  it("markeert metrics buiten tolerantie als fail", () => {
+    const result = isso53Result([
+      // Φ_I −10% (buiten 4%), Φ_V 5 W (buiten abs 1 W-grens).
+      isso53Room("1.10a", { phiT: 1516, phiV: 5, phiI: 1203, phiHu: 538 }),
+    ]);
+    const cmp = compareIsso53Results(ISSO53_METRICS, result);
+    const byMetric = Object.fromEntries(cmp.rows.map((r) => [r.metric, r]));
+
+    expect(byMetric.phiI?.pass).toBe(false);
+    expect(byMetric.phiV?.pass).toBe(false);
+    expect(cmp.allPass).toBe(false);
+  });
+
+  it("laat ontbrekende vertrekken leeg (geen crash, pass = null)", () => {
+    const cmp = compareIsso53Results(ISSO53_METRICS, isso53Result([]));
+    for (const row of cmp.rows) {
+      expect(row.actualW).toBeNull();
+      expect(row.deltaW).toBeNull();
+      expect(row.pass).toBeNull();
+    }
+    expect(cmp.passed).toBe(0);
+    expect(cmp.allPass).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isso53ExpectedOnlyRows — staat vóór de eerste run
+// ---------------------------------------------------------------------------
+
+describe("isso53ExpectedOnlyRows", () => {
+  it("levert rijen met alleen verwachte waarden en stabiele keys", () => {
+    const rows = isso53ExpectedOnlyRows(ISSO53_METRICS);
+    expect(rows).toHaveLength(5);
+    for (const row of rows) {
+      expect(row.actualW).toBeNull();
+      expect(row.pass).toBeNull();
+    }
+    expect(rows[0]?.rowKey).toBe("1.10a:phiT");
+    expect(rows[4]?.expectedW).toBe(3389);
   });
 });
 

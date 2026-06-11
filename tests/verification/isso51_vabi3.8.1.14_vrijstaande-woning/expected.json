@@ -1,6 +1,8 @@
 {
   "description": "Verwachte resultaten Vabi Elements Vrijstaande woning (Vabi 3.8.1.14, rekenkern Warmteverlies 2.30)",
   "notes": [
+    "STATUS (2026-06-11): INFORMATIEF, GEEN REFERENTIE — rapport is ISSO 51:2017, engine rekent ISSO 51:2023 incl. erratum. Per vertrek +4-8%, gebouwtotaal -20% (andere sommatiemethode); normversie-verschillen, geen rekenfouten.",
+    "Rust-fixture staat op #[ignore] (crates/isso51-core/tests/integration_test.rs); Help-UI toont dit project zonder pass/fail-verdicts.",
     "Bron: Vabi Elements rapport, ISSO 51/53/57 (2017)",
     "Theta_e = -9.0°C (basis -10 + 1K correctie zware bouw tau=99.7h)",
     "Ventilatie systeem C, continu bedrijf (geen nachtverlaging)",
