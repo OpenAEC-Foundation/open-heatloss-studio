@@ -120,6 +120,16 @@ function IconClipboardList({ className }: { className?: string }) {
   );
 }
 
+function IconHelpCircle({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
 function IconChevron({ className, expanded }: { className?: string; expanded: boolean }) {
   return (
     <svg
@@ -142,7 +152,14 @@ function IconChevron({ className, expanded }: { className?: string; expanded: bo
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
-type GroupKey = "project" | "warmteverlies" | "ventilatie" | "tojuli" | "rcwaarde" | "library";
+type GroupKey =
+  | "project"
+  | "warmteverlies"
+  | "ventilatie"
+  | "tojuli"
+  | "rcwaarde"
+  | "library"
+  | "help";
 
 type NavItemSpec = {
   to: string;
@@ -231,6 +248,14 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     items: [
       { to: "/materialen", labelKey: "sidebar.materials", Icon: IconSwatches },
       { to: "/library", labelKey: "sidebar.library", Icon: IconBook },
+    ],
+  },
+  {
+    key: "help",
+    titleKey: "sidebar.groups.help",
+    defaultCollapsed: true,
+    items: [
+      { to: "/help", labelKey: "sidebar.help", Icon: IconHelpCircle },
     ],
   },
 ];

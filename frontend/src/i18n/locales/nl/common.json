@@ -79,6 +79,7 @@
     "materials": "Materialen",
     "projects": "Projecten",
     "warmteverliesInstellingen": "Instellingen",
+    "help": "Help & documentatie",
     "unsaved": "Niet opgeslagen",
     "saved": "Opgeslagen",
     "groups": {
@@ -87,7 +88,8 @@
       "ventilatie": "Ventilatie",
       "tojuli": "TO-juli",
       "rcwaarde": "Rc-waarde",
-      "library": "Bibliotheek"
+      "library": "Bibliotheek",
+      "help": "Help"
     },
     "ventilationBalance": "Ventilatiebalans",
     "tojuli": {

@@ -18,6 +18,7 @@ import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { Rapport } from "./pages/Rapport";
 import { Ifc } from "./pages/Ifc";
+import { Help } from "./pages/Help";
 import { ThermalImportWizard } from "./components/import/ThermalImportWizard";
 
 /**
@@ -55,6 +56,7 @@ export function App() {
             <Route path="/ifc" element={<Ifc />} />
             <Route path="/rapport" element={<Rapport />} />
             <Route path="/import/thermal" element={<ThermalImportWizard />} />
+            <Route path="/help" element={<Help />} />
             <Route path="/projects" element={<Projects />} />
           </Routes>
         </AppShell>
