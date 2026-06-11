@@ -45,8 +45,12 @@ fn close(label: &str, got: f64, want: f64, tolerance_pct: f64) {
     );
 }
 
-/// Test against ISSO 53 voorbeeld 6.1 (simplified per-room calculation)
-// BLOCKED: expected-values zijn placeholders. Zie tests/PDF_GAPS.md.
+/// Test against ISSO 53 voorbeeld 6.1 (schilberekening kantoorgebouw 50x20x21 m)
+// BLOCKED: expected-values zijn nu de ECHTE normwaarden (PDF p.59-60, zie
+// `_source` in voorbeeld_61_expected.json), maar voorbeeld_61_input.json is
+// geen transcriptie van par. 6.1 — het modelleert een enkel 20 m2 vertrek
+// i.p.v. het gebouw uit de schilberekening (engine ~1,6 kW vs norm 236,1 kW).
+// Activeren kan pas na een input-rebuild. Zie tests/PDF_GAPS.md.
 #[test]
 #[ignore]
 fn voorbeeld_61() {
