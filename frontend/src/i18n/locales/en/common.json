@@ -92,6 +92,7 @@
       "help": "Help"
     },
     "ventilationBalance": "Ventilation balance",
+    "doorGap": "Door gap calculator",
     "tojuli": {
       "comingSoon": "Coming soon",
       "quick": "Quick check (dwellings)",
@@ -466,5 +467,36 @@
       "capacityOk": "sufficient",
       "capacityShortfall": "shortfall"
     }
+  },
+  "doorGap": {
+    "title": "Door gap calculator",
+    "subtitle": "Transfer opening under the door — NEN 1087 §5.1.3.2",
+    "inputTitle": "Input",
+    "resultTitle": "Result (per door)",
+    "flow": "Transfer airflow",
+    "doorWidth": "Door width",
+    "doorCount": "Number of doors",
+    "doorCountHint": "The airflow is divided equally over the doors.",
+    "deltaP": "Pressure difference Δp",
+    "deltaPResidential": "1 Pa — residential",
+    "deltaPOffice": "2 Pa — office",
+    "flowPerDoor": "Airflow per door",
+    "requiredArea": "Required free area",
+    "gapHeight": "Gap height (rounded up)",
+    "ruleOfThumb": "Rule of thumb ({{rule}} cm² per dm³/s)",
+    "ruleOfThumbNote": "The exact formula yields 12.9 cm² per dm³/s at Δp = 1 Pa; the practical rule of thumb of 12 cm² is rounded slightly tighter.",
+    "adviceOk": "Feasible as a gap under the door.",
+    "adviceGrille": "Gap height > {{threshold}} mm — no longer practical as a door undercut. Apply a door grille (see proposal).",
+    "adviceAcoustic": "Acoustic option selected — apply an acoustic door grille; an open gap is acoustically undesirable (see proposal).",
+    "acoustic": "Acoustic",
+    "acousticHint": "When sound insulation between rooms is required, an open gap is undesirable — an acoustic door grille is then always advised.",
+    "grilleTitle": "Door grille proposal (indicative)",
+    "grilleRequiredNet": "Required net free area",
+    "grilleSuggestion": "Size suggestion",
+    "grilleSuggestionValue": "{{n}}× {{width}}×{{height}} mm (net ≈ {{net}} cm² per grille)",
+    "grilleTotalNet": "Total net free area (indicative)",
+    "grilleAcousticNote": "Acoustic grilles provide less net free area per cm² of face size — the suggestion uses a conservative net fraction (25% instead of 40%).",
+    "grilleDisclaimer": "Indicative — generic sizes with a conservative net free-area fraction, no manufacturer data. Always check the product sheet of the selected grille.",
+    "normRef": "Orifice approximation per NEN 1087:2001 §5.1.3.2: A = q / (C_d·√(2·Δp/ρ)) with C_d = 0.6 and ρ = 1.2 kg/m³. Indicative — not a substitute for a ventilation design."
   }
 }
