@@ -108,6 +108,17 @@ function IconWind({ className }: { className?: string }) {
   );
 }
 
+function IconDoor({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 21V4a1 1 0 011-1h10a1 1 0 011 1v17" />
+      <line x1="3" y1="21" x2="21" y2="21" />
+      <circle cx="14.5" cy="12" r="0.5" />
+      <line x1="8" y1="19" x2="16" y2="19" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -208,6 +219,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     defaultCollapsed: false,
     items: [
       { to: "/ventilation", labelKey: "sidebar.ventilationBalance", Icon: IconWind },
+      { to: "/tools/deurspleet", labelKey: "sidebar.doorGap", Icon: IconDoor },
     ],
   },
   {
