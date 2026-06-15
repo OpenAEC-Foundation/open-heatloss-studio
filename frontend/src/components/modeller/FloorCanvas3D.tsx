@@ -98,8 +98,11 @@ const FUNCTION_COLORS: Record<string, number> = {
 const SELECTED_COLOR = 0xf59e0b;
 const WINDOW_COLOR = 0x3b82f6;
 const UNASSIGNED_COLOR = 0xcccccc;
-const SURFACE_OPACITY = 0.55;
-const SELECTED_OPACITY = 0.7;
+// Construction surfaces (room-box walls/floors/ceilings + real construction
+// faces) are rendered OPAQUE — no opacity constants needed. Transparency for
+// those many overlapping DoubleSide faces is fundamentally broken (per-object
+// sort popping / one-sided faces vs. depthWrite hiding the scene). Glass panes
+// and the thin estimated boundary overlays keep their own local opacity values.
 const WINDOW_SILL_H = 0.8;  // m
 const WINDOW_HEAD_H = 2.1;  // m
 const DOOR_HEAD_H = 2.1;    // m
@@ -115,10 +118,9 @@ const BOUNDARY_CONDITION_COLORS: Record<ImportedBoundary["boundaryCondition"], n
   unheated: 0xff9800,
   adjacent: 0x666666,
 };
+// Thin estimated boundary overlays (vlissgevels / surfaces without real
+// vertices) stay transparent — they are indication-only.
 const BOUNDARY_OPACITY = 0.3;
-// Real construction faces (v1.1 vertices): a touch more opaque + depth-written
-// so near-coplanar interior-partition sides read as solid and don't flicker.
-const REAL_SURFACE_OPACITY = 0.55;
 const BOUNDARY_EDGE_COLOR = 0x333333;
 
 // ---------------------------------------------------------------------------
@@ -442,14 +444,19 @@ export function FloorCanvas3D({
       const hideCeilBody = isImported && realHorizontalByRoom.ceilings.has(room.id);
 
       // --- Floor surface ---
-      // When hidden (real construction floor present) the mesh is rendered fully
-      // transparent (opacity 0) rather than `visible=false`, so it stays a
-      // raycast target for room selection while showing no double layer.
+      // Visible floor bodies are OPAQUE (per-pixel depth → always visible, no
+      // popping). When hidden (a REAL construction floor exists) the mesh is
+      // rendered fully transparent (opacity 0) rather than `visible=false`, so
+      // it stays a raycast target for room selection while showing no double
+      // layer. raycaster.intersectObjects hits transparent-but-present meshes;
+      // visible:false would drop them from picking.
       const floorColor = getSurfaceColor(renderMode, false, baseColor, floorConstructions[room.id], catalogueUValues);
       const floorGeom = createPolygonGeometry(poly);
       const floorMat = new THREE.MeshStandardMaterial({
-        color: floorColor, side: THREE.DoubleSide, transparent: true,
-        opacity: hideFloorBody ? 0 : SURFACE_OPACITY,
+        color: floorColor, side: THREE.DoubleSide,
+        transparent: hideFloorBody,
+        opacity: hideFloorBody ? 0 : 1,
+        depthWrite: !hideFloorBody,
         polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
       });
       const floorMesh = new THREE.Mesh(floorGeom, floorMat);
@@ -458,11 +465,15 @@ export function FloorCanvas3D({
       surfaceMeshMapRef.current.set(floorMesh, { roomId: room.id, type: "floor" });
 
       // --- Ceiling surface ---
+      // Same pattern as the floor: visible bodies opaque, hidden ones kept as
+      // invisible (opacity 0) raycast targets for room selection.
       const ceilColor = getSurfaceColor(renderMode, false, baseColor, roofConstructions[room.id], catalogueUValues);
       const ceilGeom = createPolygonGeometry(poly);
       const ceilMat = new THREE.MeshStandardMaterial({
-        color: ceilColor, side: THREE.DoubleSide, transparent: true,
-        opacity: hideCeilBody ? 0 : SURFACE_OPACITY,
+        color: ceilColor, side: THREE.DoubleSide,
+        transparent: hideCeilBody,
+        opacity: hideCeilBody ? 0 : 1,
+        depthWrite: !hideCeilBody,
       });
       const ceilMesh = new THREE.Mesh(ceilGeom, ceilMat);
       ceilMesh.position.y = floorY + h;
@@ -516,12 +527,14 @@ export function FloorCanvas3D({
 
         for (const piece of pieces) {
           const geom = createWallSurfaceGeom(ax, az, bx, bz, piece);
+          // Opaque (same reasoning as the real construction faces): per-pixel
+          // depth → always visible both sides, no popping, nothing drops out.
           const mat = new THREE.MeshStandardMaterial({
             color: wallColor,
             side: THREE.DoubleSide,
-            transparent: true,
-            opacity: isWallSelected ? SELECTED_OPACITY : SURFACE_OPACITY,
-            depthWrite: false,
+            transparent: false,
+            opacity: 1,
+            depthWrite: true,
           });
           const mesh = new THREE.Mesh(geom, mat);
           mesh.position.y = floorY;
@@ -641,19 +654,20 @@ export function FloorCanvas3D({
       if (realVerts && realVerts.length >= 3 && importTransform) {
         const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
         if (surfGeom) {
-          // Real construction faces: interior partitions are exported as TWO
-          // sides ~6 cm apart (each its own construction.id — kept for the φ_T
-          // heatmap, NOT deduplicated). These are transparent, so they MUST NOT
-          // write depth: a transparent depth-writer occludes everything drawn
-          // behind it (regressie 5e57af1 — halve scene viel weg). Their ~6 cm
-          // separation + back-to-front transparency sort houden ze stabiel; de
-          // polygonOffset-bias en iets hogere opacity laten ze solide lezen.
+          // Real construction faces are OPAQUE. Transparent rendering of these
+          // many overlapping DoubleSide faces is fundamentally broken: per-object
+          // transparency sort pops faces in/out by camera angle and shows some
+          // faces from only one side, while depthWrite:true on a transparent
+          // material hides everything behind it (regressie 5e57af1). Opaque
+          // resolves all of this — the per-pixel depth buffer makes every face
+          // always visible from both sides, no popping, nothing drops out. The
+          // ~6 cm twin partition sides + polygonOffset keep them flicker-free.
           const mat = new THREE.MeshStandardMaterial({
             color,
             side: THREE.DoubleSide,
-            transparent: true,
-            opacity: REAL_SURFACE_OPACITY,
-            depthWrite: false,
+            transparent: false,
+            opacity: 1,
+            depthWrite: true,
             polygonOffset: true,
             polygonOffsetFactor: 1,
             polygonOffsetUnits: 1,
