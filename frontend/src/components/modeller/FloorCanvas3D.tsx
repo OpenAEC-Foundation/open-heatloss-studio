@@ -26,6 +26,39 @@ import {
 } from "../../lib/deriveRoomGeometry";
 
 // ---------------------------------------------------------------------------
+// COORDINATE CONVENTION (Revit → Three.js world)  — single source of truth
+// ---------------------------------------------------------------------------
+// Revit/import horizontal frame is right-handed with Z up; Three.js world is
+// right-handed with Y up. The plan footprint (polygon, in mm) and the import
+// transform output use a horizontal (X, Y) pair where:
+//
+//   Revit X  → East   → world +X
+//   Revit Y  → North  → world −Z      ← NOTE the sign flip
+//   elevation/Z       → world +Y
+//
+// Mapping horizontal-Y onto world +Z would put Revit-North toward the camera,
+// which renders the plan mirrored in the N/S direction (the import looks like a
+// mirror image of the real Revit model). To keep the building un-mirrored,
+// EVERY 3D geometry path must map horizontal-Y to world −Z. The helper
+// `polyYToWorldZ` below is the one place that flip lives; all geometry builders
+// route through it (or apply the identical `-y` inline) so room boxes, real
+// construction faces, wireframes, labels and boundary meshes stay EXACTLY
+// aligned with each other.
+//
+// IMPORTANT: this flip lives ONLY in the 3D world mapping. The raw polygon, the
+// 2D canvas and the Rust calc core consume the un-flipped polygon and MUST NOT
+// change. Do NOT compensate for this in deriveRoomGeometry (the rotation sign on
+// line 170 there is intentionally left alone — see commit dbdcc9a/03cfdd5).
+// ---------------------------------------------------------------------------
+
+/** Map a horizontal polygon/world-frame Y (meters) to its Three.js world Z.
+ * The sole sign-flip that un-mirrors the Revit import (Revit-North → world −Z).
+ */
+function polyYToWorldZ(yMeters: number): number {
+  return -yMeters;
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -262,7 +295,9 @@ export function FloorCanvas3D({
     for (const room of rooms) {
       for (const p of room.polygon) {
         const x = p.x / 1000;
-        const z = p.y / 1000;
+        // polyY → world −Z (see COORDINATE CONVENTION): bounds must use the
+        // actual world Z so the section-Z slider + north arrow corner match.
+        const z = polyYToWorldZ(p.y / 1000);
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (z < minZ) minZ = z;
@@ -288,8 +323,9 @@ export function FloorCanvas3D({
     let cx = 0, cz = 0;
     for (const room of rooms) {
       const c = polygonCenter(room.polygon);
+      // polyY → world −Z (see COORDINATE CONVENTION).
       cx += c.x / 1000;
-      cz += c.y / 1000;
+      cz += polyYToWorldZ(c.y / 1000);
     }
     cx /= rooms.length;
     cz /= rooms.length;
@@ -474,8 +510,9 @@ export function FloorCanvas3D({
         // Generate wall pieces around openings
         const pieces = computeWallPieces(h, edgeOpenings);
 
-        const ax = a.x / 1000, az = a.y / 1000;
-        const bx = b.x / 1000, bz = b.y / 1000;
+        // polyY → world −Z (see COORDINATE CONVENTION); ax/bx pass through.
+        const ax = a.x / 1000, az = polyYToWorldZ(a.y / 1000);
+        const bx = b.x / 1000, bz = polyYToWorldZ(b.y / 1000);
 
         for (const piece of pieces) {
           const geom = createWallSurfaceGeom(ax, az, bx, bz, piece);
@@ -519,10 +556,11 @@ export function FloorCanvas3D({
       const edgePositions: number[] = [];
       for (let i = 0; i < n; i++) {
         const ni = (i + 1) % n;
+        // polyY → world −Z (see COORDINATE CONVENTION).
         const ax = poly[i]!.x / 1000;
-        const az = poly[i]!.y / 1000;
+        const az = polyYToWorldZ(poly[i]!.y / 1000);
         const bx = poly[ni]!.x / 1000;
-        const bz = poly[ni]!.y / 1000;
+        const bz = polyYToWorldZ(poly[ni]!.y / 1000);
 
         // Bottom edge
         edgePositions.push(ax, floorY, az, bx, floorY, bz);
@@ -544,7 +582,8 @@ export function FloorCanvas3D({
       // --- Room label ---
       const center = polygonCenter(poly);
       const sprite = createLabelSprite(room.id, room.name, isRoomSelected);
-      sprite.position.set(center.x / 1000, floorY + h / 2, center.y / 1000);
+      // polyY → world −Z (see COORDINATE CONVENTION).
+      sprite.position.set(center.x / 1000, floorY + h / 2, polyYToWorldZ(center.y / 1000));
       sprite.scale.set(2, 1, 1);
       group.add(sprite);
     }
@@ -602,23 +641,57 @@ export function FloorCanvas3D({
       if (realVerts && realVerts.length >= 3 && importTransform) {
         const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
         if (surfGeom) {
-          // Real construction faces: interior partitions are exported as TWO
-          // sides ~6 cm apart (each its own construction.id — kept for the φ_T
-          // heatmap, NOT deduplicated). These are transparent, so they MUST NOT
-          // write depth: a transparent depth-writer occludes everything drawn
-          // behind it (regressie 5e57af1 — halve scene viel weg). Their ~6 cm
-          // separation + back-to-front transparency sort houden ze stabiel; de
-          // polygonOffset-bias en iets hogere opacity laten ze solide lezen.
+          // Real construction faces — DEPTH PRE-PASS (two meshes per surface).
+          //
+          // Problem: with ~151 large, near-coplanar, intersecting transparent
+          // faces, Three.js sorts transparent objects per-object by camera
+          // distance. That ordering is unstable for overlapping faces → faces
+          // pop in/out depending on camera angle (BUG B).
+          //
+          // We can't simply set depthWrite:true on a transparent material: a
+          // transparent depth-writer occludes everything drawn behind it before
+          // its own alpha is blended (regressie 5e57af1 — halve scene viel weg).
+          //
+          // Fix: render each surface twice.
+          //  Pass 1 (depth-only): opaque, colorWrite:false, depthWrite:true.
+          //    Writes ONLY depth — no color, so nothing is hidden by color, but
+          //    the depth buffer now holds the nearest surface at every pixel.
+          //    Opaque materials render before transparent ones, so the whole
+          //    depth buffer is populated before any colour is blended.
+          //  Pass 2 (colour): transparent, depthWrite:false, depthTest:true with
+          //    depthFunc LEQUAL. Colour is blended only where a face is at (or in
+          //    front of) the recorded depth → faces behind a nearer surface are
+          //    correctly occluded and stop popping, while transparency (the Vabi
+          //    look) is preserved.
+          // Both meshes share `surfGeom`. clearGroup disposes each child's
+          // geometry; a second dispose() on the same BufferGeometry is a Three.js
+          // no-op, so the shared buffer is safe.
+          const depthMat = new THREE.MeshBasicMaterial({
+            side: THREE.DoubleSide,
+            colorWrite: false,
+            depthWrite: true,
+            depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+          });
+          const depthMesh = new THREE.Mesh(surfGeom, depthMat);
+          depthMesh.renderOrder = 2; // before the coloured pass
+          bGroup.add(depthMesh);
+
           const mat = new THREE.MeshStandardMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: REAL_SURFACE_OPACITY,
             depthWrite: false,
+            depthTest: true,
+            depthFunc: THREE.LessEqualDepth,
             polygonOffset: true,
             polygonOffsetFactor: 1,
             polygonOffsetUnits: 1,
           });
+          // Reuse the same geometry for the colour pass.
           const mesh = new THREE.Mesh(surfGeom, mat);
           mesh.renderOrder = 3;
           registerSurface(mesh, boundary.id);
@@ -647,13 +720,13 @@ export function FloorCanvas3D({
         registerSurface(mesh, boundary.id);
         bGroup.add(mesh);
 
-        // Wireframe edge for the floor polygon
+        // Wireframe edge for the floor polygon. polyY → world −Z (CONVENTION).
         const edgePositions: number[] = [];
         for (let i = 0; i < n; i++) {
           const ni = (i + 1) % n;
           edgePositions.push(
-            poly[i]!.x / 1000, floorY + 0.003, poly[i]!.y / 1000,
-            poly[ni]!.x / 1000, floorY + 0.003, poly[ni]!.y / 1000,
+            poly[i]!.x / 1000, floorY + 0.003, polyYToWorldZ(poly[i]!.y / 1000),
+            poly[ni]!.x / 1000, floorY + 0.003, polyYToWorldZ(poly[ni]!.y / 1000),
           );
         }
         const edgeGeom = new THREE.BufferGeometry();
@@ -677,13 +750,13 @@ export function FloorCanvas3D({
         registerSurface(mesh, boundary.id);
         bGroup.add(mesh);
 
-        // Wireframe edge for the ceiling polygon
+        // Wireframe edge for the ceiling polygon. polyY → world −Z (CONVENTION).
         const edgePositions: number[] = [];
         for (let i = 0; i < n; i++) {
           const ni = (i + 1) % n;
           edgePositions.push(
-            poly[i]!.x / 1000, floorY + h + 0.003, poly[i]!.y / 1000,
-            poly[ni]!.x / 1000, floorY + h + 0.003, poly[ni]!.y / 1000,
+            poly[i]!.x / 1000, floorY + h + 0.003, polyYToWorldZ(poly[i]!.y / 1000),
+            poly[ni]!.x / 1000, floorY + h + 0.003, polyYToWorldZ(poly[ni]!.y / 1000),
           );
         }
         const edgeGeom = new THREE.BufferGeometry();
@@ -714,10 +787,11 @@ export function FloorCanvas3D({
           // Wall height for this edge (area / width), capped to room height
           const wallH = Math.min(edgeArea / edgeLenM, h);
 
+          // polyY → world −Z (see COORDINATE CONVENTION).
           const ax = a.x / 1000;
-          const az = a.y / 1000;
+          const az = polyYToWorldZ(a.y / 1000);
           const bx = b.x / 1000;
-          const bz = b.y / 1000;
+          const bz = polyYToWorldZ(b.y / 1000);
 
           const positions = new Float32Array([
             ax, 0, az,
@@ -1189,12 +1263,16 @@ function createWallSurfaceGeom(
 // ---------------------------------------------------------------------------
 
 function createPolygonGeometry(polygon: { x: number; y: number }[]): THREE.BufferGeometry {
+  // Build the shape in the XY plane, then rotateX(-90°) lays it flat:
+  // a shape point (x, S) becomes world (x, 0, -S). We need world-Z =
+  // polyYToWorldZ(polyY) = -polyY, so the shape-Y must be S = +polyY (the
+  // `-S` from the rotation then yields -polyY). See COORDINATE CONVENTION.
   const shape = new THREE.Shape();
   const p0 = polygon[0]!;
-  shape.moveTo(p0.x / 1000, -p0.y / 1000);
+  shape.moveTo(p0.x / 1000, p0.y / 1000);
   for (let i = 1; i < polygon.length; i++) {
     const p = polygon[i]!;
-    shape.lineTo(p.x / 1000, -p.y / 1000);
+    shape.lineTo(p.x / 1000, p.y / 1000);
   }
   shape.closePath();
   const geom = new THREE.ShapeGeometry(shape);
@@ -1211,18 +1289,18 @@ function createPolygonGeometry(polygon: { x: number; y: number }[]): THREE.Buffe
  * scene world frame.
  *
  * The transform yields `(tx, ty, tz)` in the shared meters frame (tx/ty =
- * mirrored+rotated+offset horizontal, tz = elevation − originZM). The scene
- * maps the horizontal Y to world Z (see createPolygonGeometry: polygon-Y →
- * world +Z) and the elevation to world Y. So: worldX = tx, worldY = tz,
- * worldZ = ty. This is the EXACT same mapping the room boxes use, so surfaces
- * land on the rooms.
+ * rotated+offset horizontal, tz = elevation − originZM). The scene maps the
+ * horizontal Y to world −Z (see COORDINATE CONVENTION + createPolygonGeometry)
+ * and the elevation to world Y. So: worldX = tx, worldY = tz,
+ * worldZ = polyYToWorldZ(ty) = −ty. This is the EXACT same mapping the room
+ * boxes use, so surfaces land on the rooms.
  */
 function worldFromVertex(
   v: [number, number, number],
   t: ImportTransform,
 ): THREE.Vector3 {
   const [tx, ty, tz] = applyImportTransform3D(v[0], v[1], v[2], t);
-  return new THREE.Vector3(tx, tz, ty);
+  return new THREE.Vector3(tx, tz, polyYToWorldZ(ty));
 }
 
 /**
