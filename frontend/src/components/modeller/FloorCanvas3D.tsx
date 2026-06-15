@@ -641,57 +641,23 @@ export function FloorCanvas3D({
       if (realVerts && realVerts.length >= 3 && importTransform) {
         const surfGeom = createSurfaceGeomFromVertices(realVerts, importTransform);
         if (surfGeom) {
-          // Real construction faces — DEPTH PRE-PASS (two meshes per surface).
-          //
-          // Problem: with ~151 large, near-coplanar, intersecting transparent
-          // faces, Three.js sorts transparent objects per-object by camera
-          // distance. That ordering is unstable for overlapping faces → faces
-          // pop in/out depending on camera angle (BUG B).
-          //
-          // We can't simply set depthWrite:true on a transparent material: a
-          // transparent depth-writer occludes everything drawn behind it before
-          // its own alpha is blended (regressie 5e57af1 — halve scene viel weg).
-          //
-          // Fix: render each surface twice.
-          //  Pass 1 (depth-only): opaque, colorWrite:false, depthWrite:true.
-          //    Writes ONLY depth — no color, so nothing is hidden by color, but
-          //    the depth buffer now holds the nearest surface at every pixel.
-          //    Opaque materials render before transparent ones, so the whole
-          //    depth buffer is populated before any colour is blended.
-          //  Pass 2 (colour): transparent, depthWrite:false, depthTest:true with
-          //    depthFunc LEQUAL. Colour is blended only where a face is at (or in
-          //    front of) the recorded depth → faces behind a nearer surface are
-          //    correctly occluded and stop popping, while transparency (the Vabi
-          //    look) is preserved.
-          // Both meshes share `surfGeom`. clearGroup disposes each child's
-          // geometry; a second dispose() on the same BufferGeometry is a Three.js
-          // no-op, so the shared buffer is safe.
-          const depthMat = new THREE.MeshBasicMaterial({
-            side: THREE.DoubleSide,
-            colorWrite: false,
-            depthWrite: true,
-            depthTest: true,
-            polygonOffset: true,
-            polygonOffsetFactor: 1,
-            polygonOffsetUnits: 1,
-          });
-          const depthMesh = new THREE.Mesh(surfGeom, depthMat);
-          depthMesh.renderOrder = 2; // before the coloured pass
-          bGroup.add(depthMesh);
-
+          // Real construction faces: interior partitions are exported as TWO
+          // sides ~6 cm apart (each its own construction.id — kept for the φ_T
+          // heatmap, NOT deduplicated). These are transparent, so they MUST NOT
+          // write depth: a transparent depth-writer occludes everything drawn
+          // behind it (regressie 5e57af1 — halve scene viel weg). Their ~6 cm
+          // separation + back-to-front transparency sort houden ze stabiel; de
+          // polygonOffset-bias en iets hogere opacity laten ze solide lezen.
           const mat = new THREE.MeshStandardMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: REAL_SURFACE_OPACITY,
             depthWrite: false,
-            depthTest: true,
-            depthFunc: THREE.LessEqualDepth,
             polygonOffset: true,
             polygonOffsetFactor: 1,
             polygonOffsetUnits: 1,
           });
-          // Reuse the same geometry for the colour pass.
           const mesh = new THREE.Mesh(surfGeom, mat);
           mesh.renderOrder = 3;
           registerSurface(mesh, boundary.id);

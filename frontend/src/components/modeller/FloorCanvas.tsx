@@ -174,15 +174,27 @@ export function FloorCanvas({
     img.onload = () => setUnderlayImg(img);
   }, [underlay?.dataUrl]);
 
-  // Group transform: world mm → screen px
+  // Group transform: world mm → screen px.
+  //
+  // NORTH-UP CONVENTION (matches the 3D view): world +Y is Revit-North and must
+  // point UP on screen. A Konva stage is y-down, so the render Group below uses
+  // scaleY={-zoom} (note the minus). With that flip the world→screen map is:
+  //   screenX = groupX + worldX * zoom
+  //   screenY = groupY - worldY * zoom      (−zoom from the Group scaleY)
+  // Centering viewCenter in the viewport gives groupY = height/2 + cy*zoom.
+  // This is a PRESENTATION-only flip: world/stored coordinates, deriveRoom
+  // geometry and the calc core are untouched. screenToWorld + every other
+  // screen↔world conversion below inverts the SAME minus so pointer math,
+  // snapping and selection keep landing on the correct world point.
   const groupX = size.width / 2 - viewCenter.x * zoom;
-  const groupY = size.height / 2 - viewCenter.y * zoom;
+  const groupY = size.height / 2 + viewCenter.y * zoom;
 
-  // Screen ↔ World conversion
+  // Screen ↔ World conversion (inverse of the north-up render map: note +Y is
+  // negated so a click higher on screen → larger world Y).
   const screenToWorld = useCallback(
     (sx: number, sy: number): Point2D => ({
       x: (sx - size.width / 2) / zoom + viewCenter.x,
-      y: (sy - size.height / 2) / zoom + viewCenter.y,
+      y: -(sy - size.height / 2) / zoom + viewCenter.y,
     }),
     [viewCenter, zoom, size],
   );
@@ -361,11 +373,12 @@ export function FloorCanvas({
     const factor = e.evt.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.005, Math.min(0.5, oldZoom * factor));
 
-    // Zoom toward cursor
+    // Zoom toward cursor. World Y is negated (north-up render flip) so the
+    // point under the cursor stays put while zooming.
     const wx = (pointer.x - size.width / 2) / oldZoom + viewCenter.x;
-    const wy = (pointer.y - size.height / 2) / oldZoom + viewCenter.y;
+    const wy = -(pointer.y - size.height / 2) / oldZoom + viewCenter.y;
     const wx2 = (pointer.x - size.width / 2) / newZoom + viewCenter.x;
-    const wy2 = (pointer.y - size.height / 2) / newZoom + viewCenter.y;
+    const wy2 = -(pointer.y - size.height / 2) / newZoom + viewCenter.y;
 
     setViewCenter({ x: viewCenter.x + (wx - wx2), y: viewCenter.y + (wy - wy2) });
     setZoom(newZoom);
@@ -384,7 +397,9 @@ export function FloorCanvas({
     if (isPanningRef.current) {
       const dx = (e.evt.clientX - panStartRef.current.sx) / zoom;
       const dy = (e.evt.clientY - panStartRef.current.sy) / zoom;
-      setViewCenter({ x: panStartRef.current.cx - dx, y: panStartRef.current.cy - dy });
+      // World Y is negated (north-up render flip), so the Y-pan sign is too:
+      // dragging the mouse down moves the view toward larger world Y.
+      setViewCenter({ x: panStartRef.current.cx - dx, y: panStartRef.current.cy + dy });
       return;
     }
 
@@ -699,9 +714,12 @@ export function FloorCanvas({
           <GridShape width={size.width} height={size.height} viewCenter={viewCenter} zoom={zoom} />
         </Layer>
 
-        {/* World-coordinate layer */}
+        {/* World-coordinate layer. scaleY is NEGATIVE: world +Y (Revit-North)
+            renders UP, matching the 3D view. Every <Text> inside this group is
+            individually counter-flipped (scaleY={-1}) so labels stay readable —
+            see the `flipText` note on each. */}
         <Layer>
-          <Group x={groupX} y={groupY} scaleX={zoom} scaleY={zoom}>
+          <Group x={groupX} y={groupY} scaleX={zoom} scaleY={-zoom}>
             {/* Underlay */}
             {underlay && underlayImg && (
               <UnderlayShape ul={underlay} img={underlayImg} />
@@ -730,6 +748,7 @@ export function FloorCanvas({
                   <Text
                     x={polygonCenter(room.polygon).x}
                     y={polygonCenter(room.polygon).y}
+                    scaleY={-1} /* counter-flip: keep text upright under north-up Group */
                     text={room.name}
                     fontSize={9 * invZoom}
                     fontFamily="Inter, system-ui, sans-serif"
@@ -890,6 +909,7 @@ export function FloorCanvas({
                     key={`u-${room.id}-${wi}`}
                     x={mx + Math.cos(angle - Math.PI / 2) * off}
                     y={my + Math.sin(angle - Math.PI / 2) * off}
+                    scaleY={-1} /* counter-flip text (north-up Group) */
                     text={`U=${uVal.toFixed(2)}`}
                     fontSize={9 * invZoom}
                     fontFamily="Inter, system-ui, sans-serif"
@@ -965,6 +985,7 @@ export function FloorCanvas({
                   <Text
                     x={mx}
                     y={my - 18 * invZoom}
+                    scaleY={-1} /* counter-flip text (north-up Group) */
                     text={`${(dist / 1000).toFixed(3)} m`}
                     fontSize={12 * invZoom}
                     fontStyle="bold"
@@ -991,6 +1012,7 @@ export function FloorCanvas({
                   <Text
                     x={mx}
                     y={my - 18 * invZoom}
+                    scaleY={-1} /* counter-flip text (north-up Group) */
                     text={`${(dist / 1000).toFixed(3)} m`}
                     fontSize={11 * invZoom}
                     fontStyle="bold"
@@ -1082,6 +1104,7 @@ export function FloorCanvas({
                   <Text
                     x={(center.x + cursorWorld.x) / 2}
                     y={(center.y + cursorWorld.y) / 2 - 16 * invZoom}
+                    scaleY={-1} /* counter-flip text (north-up Group) */
                     text={`r=${(radius / 1000).toFixed(2)} m`}
                     fontSize={10 * invZoom}
                     fontStyle="bold"
@@ -1159,9 +1182,10 @@ export function FloorCanvas({
         const b = room.polygon[(editingDim.wallIndex + 1) % room.polygon.length]!;
         const mx = (a.x + b.x) / 2;
         const my = (a.y + b.y) / 2;
-        // Convert world to screen
+        // Convert world to screen (north-up flip: world Y is negated, see
+        // screenToWorld).
         const sx = (mx - viewCenter.x) * zoom + size.width / 2;
-        const sy = (my - viewCenter.y) * zoom + size.height / 2;
+        const sy = -(my - viewCenter.y) * zoom + size.height / 2;
         return (
           <div className="absolute z-30" style={{ left: sx - 40, top: sy - 14 }}>
             <input
@@ -1617,6 +1641,7 @@ function VentilationLayer({
             {flowLabel && (
               <Text
                 text={flowLabel}
+                scaleY={-1} /* counter-flip text (north-up Group) */
                 fontSize={11 * invZoom}
                 fill={color}
                 x={-r * 3}
@@ -1680,6 +1705,7 @@ function VentilationLayer({
               {rel.flowDm3s > 0 && (
                 <Text
                   text={`r.v. ${areaCm2.toFixed(0)} cm²`}
+                  scaleY={-1} /* counter-flip text (north-up Group) */
                   fontSize={10 * invZoom}
                   fill="#92400e"
                   x={-600 * invZoom}
@@ -1700,8 +1726,11 @@ function RoomLabel({ room, invZoom, isSelected }: { room: ModelRoom; invZoom: nu
   const center = useMemo(() => polygonCenter(room.polygon), [room.polygon]);
   const area = useMemo(() => polygonArea(room.polygon) / 1e6, [room.polygon]);
 
+  // The parent world Group is north-up (scaleY negative). Counter-flip the whole
+  // label block once via this inner Group so all three text lines stay upright
+  // AND keep their relative vertical stacking (id \u2192 name \u2192 area top-to-bottom).
   return (
-    <Group x={center.x} y={center.y} listening={false}>
+    <Group x={center.x} y={center.y} scaleY={-1} listening={false}>
       <Text
         text={room.id}
         fontSize={11 * invZoom}
@@ -1786,6 +1815,7 @@ function DimensionAnnotations({ room, invZoom, onSelectWall, onStartEdit }: { ro
             <Text
               x={mx + nx * 1.8}
               y={my + ny * 1.8}
+              scaleY={-1} /* counter-flip text (north-up Group) */
               text={(seg.length / 1000).toFixed(2)}
               fontSize={10 * invZoom}
               fontStyle="bold"
@@ -1824,6 +1854,7 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, numericInput
         <Text
           x={x + w / 2}
           y={y - 20 * invZoom}
+          scaleY={-1} /* counter-flip text (north-up Group) */
           text={`${(w / 1000).toFixed(2)} m`}
           fontSize={11 * invZoom}
           fontStyle="bold"
@@ -1837,6 +1868,7 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, numericInput
         <Text
           x={x + w + 8 * invZoom}
           y={y + h / 2}
+          scaleY={-1} /* counter-flip text (north-up Group) */
           text={`${(h / 1000).toFixed(2)} m`}
           fontSize={11 * invZoom}
           fontStyle="bold"
@@ -1874,6 +1906,7 @@ function DrawPreview({ tool, points, cursor, invZoom, snapGridSize, numericInput
           if (len < 100) return null;
           return (
             <Text key={`len-${i}`} x={(p.x + next.x) / 2} y={(p.y + next.y) / 2 - 14 * invZoom}
+              scaleY={-1} /* counter-flip text (north-up Group) */
               text={`${(len / 1000).toFixed(2)} m`} fontSize={10 * invZoom} fontStyle="bold"
               fontFamily="Inter, system-ui, sans-serif" fill="#d97706" align="center"
               offsetX={25 * invZoom} width={50 * invZoom} />
@@ -1894,7 +1927,12 @@ function UnderlayShape({ ul, img }: { ul: UnderlayImage; img: HTMLImageElement }
     imageRef.current?.cache();
   }, [img]);
 
-  // Use Konva.Image via Shape with sceneFunc since react-konva Image needs special handling
+  // Use Konva.Image via Shape with sceneFunc since react-konva Image needs special handling.
+  //
+  // The parent world Group is north-up (scaleY negative), which would render the
+  // bitmap upside-down. We counter-flip the image about its own vertical centre
+  // (scale 1,-1) so it stays upright while its world rect (ul.x/ul.y/w/h) still
+  // lands in the flipped world frame, keeping it aligned with the polygons.
   return (
     <Shape
       sceneFunc={(ctx) => {
@@ -1905,9 +1943,13 @@ function UnderlayShape({ ul, img }: { ul: UnderlayImage; img: HTMLImageElement }
           const cy = ul.y + ul.height / 2;
           ctx.translate(cx, cy);
           ctx.rotate((ul.rotation * Math.PI) / 180);
+          ctx.scale(1, -1); // counter the north-up Group flip (local image space)
           ctx.drawImage(img, -ul.width / 2, -ul.height / 2, ul.width, ul.height);
         } else {
-          ctx.drawImage(img, ul.x, ul.y, ul.width, ul.height);
+          const cy = ul.y + ul.height / 2;
+          ctx.translate(0, cy);
+          ctx.scale(1, -1); // counter the north-up Group flip about the image centre
+          ctx.drawImage(img, ul.x, -ul.height / 2, ul.width, ul.height);
         }
         ctx.restore();
       }}
