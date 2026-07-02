@@ -1200,7 +1200,13 @@ fn map_rooms(conn: &Connection, theta_e: f64, warnings: &mut Vec<String>) -> Res
             id: room_number.clone(),
             name: room_name,
             function: RoomFunction::LivingRoom, // TODO: map from Vabi room types in Phase 3
-            custom_temperature: None,
+            // Pin de Vabi-ontwerptemperatuur als custom_temperature: `function`
+            // is (nog) hardcoded LivingRoom, dus zonder deze override zou
+            // `Room::design_temperature()` de functie-default (22 °C sinds
+            // ISSO 51:2023 Tabel 2.11) teruggeven i.p.v. de daadwerkelijke
+            // Vabi-temp uit `DesignTemperatures.TemperatureDay`. Dat maskeerde
+            // eerder het dataverlies omdat de oude default óók 20 °C was.
+            custom_temperature: Some(theta_i),
             floor_area,
             height,
             constructions,
@@ -1211,7 +1217,14 @@ fn map_rooms(conn: &Connection, theta_e: f64, warnings: &mut Vec<String>) -> Res
             fraction_outside_air: 1.0,
             supply_air_temperature: None,
             air_source_room_id: None,
-            internal_air_temperature: Some(theta_i),
+            // θ_a (brontemperatuur voor bijgemengde retourlucht) heeft alleen
+            // effect in de ventilatie-takken met `fraction_outside_air < 1.0`
+            // (formule 4.7) of `== 0.0` (formule 4.6b) — zie
+            // `calc/room_load.rs`. Bij de Vabi-default `fraction_outside_air =
+            // 1.0` ("alle lucht van buiten") wordt θ_a nooit gelezen; de oude
+            // `Some(theta_i)` was bovendien semantisch fout (θ_a is de
+            // brón-kamertemperatuur, niet de eigen ontwerptemp). Daarom None.
+            internal_air_temperature: None,
             clamp_positive: true,
         };
 

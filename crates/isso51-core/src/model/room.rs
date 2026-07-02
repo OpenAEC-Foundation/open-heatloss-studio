@@ -151,7 +151,8 @@ mod tests {
             internal_air_temperature: None,
             clamp_positive: true,
         };
-        assert_eq!(room.design_temperature(), 20.0);
+        // LivingRoom = verblijfsruimte → 22 °C (ISSO 51:2023 Tabel 2.11).
+        assert_eq!(room.design_temperature(), 22.0);
     }
 
     #[test]

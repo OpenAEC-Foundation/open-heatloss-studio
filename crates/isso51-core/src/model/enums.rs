@@ -28,45 +28,53 @@ pub enum BoundaryType {
 }
 
 /// Room function determines the design indoor temperature (θ_i).
-/// Values from ISSO 51 Table 2.11.
+/// Values from ISSO 51:2023 Tabel 2.11 (p.46) — minimale ontwerptemperaturen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RoomFunction {
-    /// Living room / verblijfsruimte (20°C)
+    /// Living room / verblijfsruimte (22°C)
     LivingRoom,
-    /// Kitchen / keuken (20°C)
+    /// Kitchen / keuken (22°C — verblijfsruimte)
     Kitchen,
-    /// Bedroom / slaapkamer (20°C)
+    /// Bedroom / slaapkamer (22°C — verblijfsruimte)
     Bedroom,
     /// Bathroom / badkamer (22°C)
     Bathroom,
-    /// Toilet / toiletruimte (15°C)
+    /// Toilet / toiletruimte (18°C)
     Toilet,
-    /// Hallway / entree/gang (15°C)
+    /// Hallway / entree/gang (20°C — verkeersruimte)
     Hallway,
-    /// Landing / overloop (15°C)
+    /// Landing / overloop (20°C — verkeersruimte)
     Landing,
-    /// Storage room / bergruimte (5°C if frost protection needed)
+    /// Storage room / bergruimte (15°C). Voetnoot 18: alléén 5°C indien de
+    /// ruimte enkel vorstvrij wordt gehouden — dat wordt dan via
+    /// `Room::custom_temperature` gezet, niet als functie-default.
     Storage,
-    /// Attic / zolder used as living space (20°C)
+    /// Attic / onbenoemde ruimte in open verbinding met verkeersruimte (20°C)
     Attic,
-    /// Custom temperature
+    /// Custom temperature (wordt overschreven via `custom_temperature`)
     Custom,
 }
 
 impl RoomFunction {
     /// Returns the design indoor temperature θ_i in °C.
-    /// ISSO 51 Table 2.11.
+    /// ISSO 51:2023 Tabel 2.11 (p.46) — minimale ontwerptemperaturen.
     pub fn design_temperature(&self) -> f64 {
         match self {
-            RoomFunction::LivingRoom => 20.0,
-            RoomFunction::Kitchen => 20.0,
-            RoomFunction::Bedroom => 20.0,
+            // Verblijfsruimten
+            RoomFunction::LivingRoom => 22.0,
+            RoomFunction::Kitchen => 22.0,
+            RoomFunction::Bedroom => 22.0,
             RoomFunction::Bathroom => 22.0,
-            RoomFunction::Toilet => 15.0,
-            RoomFunction::Hallway => 15.0,
-            RoomFunction::Landing => 15.0,
-            RoomFunction::Storage => 5.0,
+            // Toiletruimte
+            RoomFunction::Toilet => 18.0,
+            // Verkeersruimten
+            RoomFunction::Hallway => 20.0,
+            RoomFunction::Landing => 20.0,
+            // Bergruimte (voetnoot 18: 5°C alléén bij enkel vorstvrij houden →
+            // dan via custom_temperature, niet als default)
+            RoomFunction::Storage => 15.0,
+            // Onbenoemde ruimte in open verbinding met verkeersruimte
             RoomFunction::Attic => 20.0,
             RoomFunction::Custom => 20.0, // default, should be overridden
         }
@@ -423,11 +431,16 @@ mod tests {
 
     #[test]
     fn test_room_function_temperatures() {
-        assert_eq!(RoomFunction::LivingRoom.design_temperature(), 20.0);
+        // ISSO 51:2023 Tabel 2.11 (p.46) — minimale ontwerptemperaturen.
+        assert_eq!(RoomFunction::LivingRoom.design_temperature(), 22.0);
+        assert_eq!(RoomFunction::Kitchen.design_temperature(), 22.0);
+        assert_eq!(RoomFunction::Bedroom.design_temperature(), 22.0);
         assert_eq!(RoomFunction::Bathroom.design_temperature(), 22.0);
-        assert_eq!(RoomFunction::Hallway.design_temperature(), 15.0);
-        assert_eq!(RoomFunction::Toilet.design_temperature(), 15.0);
-        assert_eq!(RoomFunction::Storage.design_temperature(), 5.0);
+        assert_eq!(RoomFunction::Toilet.design_temperature(), 18.0);
+        assert_eq!(RoomFunction::Hallway.design_temperature(), 20.0);
+        assert_eq!(RoomFunction::Landing.design_temperature(), 20.0);
+        assert_eq!(RoomFunction::Storage.design_temperature(), 15.0);
+        assert_eq!(RoomFunction::Attic.design_temperature(), 20.0);
     }
 
     #[test]

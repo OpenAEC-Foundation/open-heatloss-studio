@@ -344,7 +344,9 @@ describe("computeDeltaT — unheated_space f_k", () => {
 describe("computeDeltaT — adjacent_room norm-aware resolver", () => {
   const adjacent = makeRoom({ id: "K02", function: "bedroom" });
 
-  it("zonder resolver → ISSO 51 room.function (bedroom = 20 °C) → ΔT 0", () => {
+  it("zonder resolver → ISSO 51 room.function (bedroom = 22 °C) → ΔT −2", () => {
+    // ISSO 51:2023 Tabel 2.11: verblijfsruimte (slaapkamer) = 22 °C.
+    // Self-θ_i = 20 °C → ΔT = 20 − 22 = −2.
     const dT = computeDeltaT(
       "adjacent_room",
       THETA_I,
@@ -352,7 +354,7 @@ describe("computeDeltaT — adjacent_room norm-aware resolver", () => {
       { adjacent_room_id: "K02" },
       ctx([adjacent]),
     );
-    expect(dT).toBeCloseTo(0, 12);
+    expect(dT).toBeCloseTo(-2, 12);
   });
 
   it("met ISSO 53-resolver → gebruikt resolver-θ (18 °C) → ΔT 2", () => {
@@ -398,6 +400,7 @@ describe("computeDeltaT — adjacent_room norm-aware resolver", () => {
       { adjacent_room_id: "K02" },
       c,
     );
-    expect(dT).toBeCloseTo(0, 12);
+    // Fallback op ISSO 51:2023 Tabel 2.11: slaapkamer 22 °C → ΔT = 20 − 22 = −2.
+    expect(dT).toBeCloseTo(-2, 12);
   });
 });

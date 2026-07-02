@@ -415,6 +415,12 @@ mod tests {
     }
 
     /// Room 1: Woonkamer (living room), θ_i = 20°C
+    ///
+    /// Reproduceert het ISSO 51-boekvoorbeeld (portiekwoning), waarvan de
+    /// verwachte H_T/Φ_v/Φ_T-waarden op 20 °C zijn berekend. De ontwerptemp
+    /// wordt daarom expliciet gepind via `custom_temperature`, zodat de
+    /// referentievergelijking geldig blijft na de update van de
+    /// RoomFunction-default naar 22 °C (Tabel 2.11 2023).
     fn create_room1_woonkamer() -> Room {
         use construction::ConstructionElement;
         use enums::*;
@@ -423,7 +429,7 @@ mod tests {
             id: "r1".to_string(),
             name: "Woonkamer".to_string(),
             function: RoomFunction::LivingRoom,
-            custom_temperature: None,
+            custom_temperature: Some(20.0),
             floor_area: 28.2,
             height: 2.6,
             constructions: vec![

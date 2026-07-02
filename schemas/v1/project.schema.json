@@ -930,24 +930,24 @@
       "type": "object"
     },
     "RoomFunction": {
-      "description": "Room function determines the design indoor temperature (θ_i). Values from ISSO 51 Table 2.11.",
+      "description": "Room function determines the design indoor temperature (θ_i). Values from ISSO 51:2023 Tabel 2.11 (p.46) — minimale ontwerptemperaturen.",
       "oneOf": [
         {
-          "description": "Living room / verblijfsruimte (20°C)",
+          "description": "Living room / verblijfsruimte (22°C)",
           "enum": [
             "living_room"
           ],
           "type": "string"
         },
         {
-          "description": "Kitchen / keuken (20°C)",
+          "description": "Kitchen / keuken (22°C — verblijfsruimte)",
           "enum": [
             "kitchen"
           ],
           "type": "string"
         },
         {
-          "description": "Bedroom / slaapkamer (20°C)",
+          "description": "Bedroom / slaapkamer (22°C — verblijfsruimte)",
           "enum": [
             "bedroom"
           ],
@@ -961,42 +961,42 @@
           "type": "string"
         },
         {
-          "description": "Toilet / toiletruimte (15°C)",
+          "description": "Toilet / toiletruimte (18°C)",
           "enum": [
             "toilet"
           ],
           "type": "string"
         },
         {
-          "description": "Hallway / entree/gang (15°C)",
+          "description": "Hallway / entree/gang (20°C — verkeersruimte)",
           "enum": [
             "hallway"
           ],
           "type": "string"
         },
         {
-          "description": "Landing / overloop (15°C)",
+          "description": "Landing / overloop (20°C — verkeersruimte)",
           "enum": [
             "landing"
           ],
           "type": "string"
         },
         {
-          "description": "Storage room / bergruimte (5°C if frost protection needed)",
+          "description": "Storage room / bergruimte (15°C). Voetnoot 18: alléén 5°C indien de ruimte enkel vorstvrij wordt gehouden — dat wordt dan via `Room::custom_temperature` gezet, niet als functie-default.",
           "enum": [
             "storage"
           ],
           "type": "string"
         },
         {
-          "description": "Attic / zolder used as living space (20°C)",
+          "description": "Attic / onbenoemde ruimte in open verbinding met verkeersruimte (20°C)",
           "enum": [
             "attic"
           ],
           "type": "string"
         },
         {
-          "description": "Custom temperature",
+          "description": "Custom temperature (wordt overschreven via `custom_temperature`)",
           "enum": [
             "custom"
           ],

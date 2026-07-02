@@ -13,7 +13,7 @@ import type {
   Isso53RoomState,
 } from "../../types/projectV2";
 import { CONSTRUCTION_CATEGORY_COLORS } from "../../lib/chartColors";
-import { DEFAULT_THETA_WATER } from "../../lib/constants";
+import { DEFAULT_THETA_WATER, ROOM_FUNCTION_TEMPERATURES } from "../../lib/constants";
 import {
   TEMPERATURE_IS_EXTERIOR,
   design_indoor_temperature,
@@ -332,24 +332,12 @@ export function ConstructionLossChart({
 // ---------------------------------------------------------------------------
 
 /**
- * Default interne temperaturen per room-function voor chart-weergave.
- * Wijken (bewust) licht af van `ROOM_FUNCTION_TEMPERATURES`: deze tabel
- * is historisch gebonden aan de visualisatie en wordt alleen gebruikt
- * voor `thetaI` van de "self"-ruimte in de chart.
+ * Default interne temperatuur (θ_i) van de "self"-ruimte voor chart-weergave.
+ * Loopt via de single source of truth `ROOM_FUNCTION_TEMPERATURES`
+ * (ISSO 51:2023 Tabel 2.11), zodat de chart dezelfde θ_i toont als de
+ * berekening. Eerder stond hier een losse, afwijkende kopie — dat gaf een
+ * andere ΔT in de grafiek dan in de rekenkern.
  */
-const DEFAULT_TEMPERATURES: Record<string, number> = {
-  living_room: 20,
-  kitchen: 20,
-  bedroom: 20,
-  bathroom: 24,
-  toilet: 20,
-  hallway: 15,
-  landing: 15,
-  storage: 15,
-  attic: 15,
-  custom: 20,
-};
-
 function defaultTemperature(fn: string): number {
-  return DEFAULT_TEMPERATURES[fn] ?? 20;
+  return ROOM_FUNCTION_TEMPERATURES[fn] ?? 20;
 }

@@ -18,20 +18,27 @@ export const ROOM_FUNCTION_LABELS: Record<string, string> = {
 };
 
 /**
- * Single source of truth voor design-temperatures per functie (ISSO 51).
+ * Single source of truth voor design-temperatures per functie.
+ * Ontwerp-binnentemperaturen conform ISSO 51:2023 Tabel 2.11 (p.46).
  * Importeer deze constante; creëer géén lokale kopieën. Wijzigingen hier
  * propageren automatisch naar chart-componenten (`components/charts/deltaT.ts`)
  * en PDF-rapport SVG's (`lib/reportCharts.ts`).
+ *
+ * Tabel 2.11 minimale ontwerp-binnentemperaturen: verblijfsruimte 22,
+ * badruimte 22, verkeersruimte 20, toiletruimte 18, technische/bergruimte 15.
+ * Voetnoot: 5 °C geldt uitsluitend indien een ruimte enkel vorstvrij gehouden
+ * hoeft te worden — dat is voortaan een bewuste `custom` temperatuur, geen
+ * functie-default meer.
  */
 export const ROOM_FUNCTION_TEMPERATURES: Record<string, number> = {
-  living_room: 20,
-  kitchen: 20,
-  bedroom: 20,
+  living_room: 22,
+  kitchen: 22,
+  bedroom: 22,
   bathroom: 22,
-  toilet: 15,
-  hallway: 15,
-  landing: 15,
-  storage: 5,
+  toilet: 18,
+  hallway: 20,
+  landing: 20,
+  storage: 15,
   attic: 20,
 };
 

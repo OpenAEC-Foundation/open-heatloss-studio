@@ -4,7 +4,7 @@
     "project_number": "ISSO-51-V1",
     "date": "2024-01-01",
     "engineer": "3BM Bouwkunde",
-    "notes": "Tussenliggende portiekwoning eerste etage"
+    "notes": "Tussenliggende portiekwoning eerste etage. ISSO 51-boekvoorbeeld: de referentie-uitkomst (portiekwoning_result.json) is berekend met de ontwerptemperaturen uit de oorspronkelijke publicatie. Elke kamer pint daarom zijn ontwerptemp expliciet via custom_temperature, zodat de referentievergelijking geldig blijft ongeacht latere wijzigingen van de RoomFunction-defaults (Tabel 2.11 2023)."
   },
   "building": {
     "building_type": "porch",
@@ -32,6 +32,7 @@
       "id": "r1",
       "name": "Woonkamer",
       "function": "living_room",
+      "custom_temperature": 20.0,
       "floor_area": 28.2,
       "height": 2.6,
       "constructions": [
@@ -184,6 +185,7 @@
       "id": "r2",
       "name": "Keuken",
       "function": "kitchen",
+      "custom_temperature": 20.0,
       "floor_area": 14.94,
       "height": 2.6,
       "constructions": [
@@ -301,6 +303,7 @@
       "id": "r3",
       "name": "Badkamer",
       "function": "bathroom",
+      "custom_temperature": 22.0,
       "floor_area": 4.77,
       "height": 2.6,
       "constructions": [
@@ -399,6 +402,7 @@
       "id": "r4",
       "name": "Slaapkamer 1",
       "function": "bedroom",
+      "custom_temperature": 20.0,
       "floor_area": 8.76,
       "height": 2.6,
       "constructions": [
@@ -505,6 +509,7 @@
       "id": "r5",
       "name": "Slaapkamer 2",
       "function": "bedroom",
+      "custom_temperature": 20.0,
       "floor_area": 12.9,
       "height": 2.6,
       "constructions": [
@@ -600,6 +605,7 @@
       "id": "r6",
       "name": "Slaapkamer 3",
       "function": "bedroom",
+      "custom_temperature": 20.0,
       "floor_area": 13.67,
       "height": 2.6,
       "constructions": [
@@ -706,6 +712,7 @@
       "id": "r7",
       "name": "Entree",
       "function": "hallway",
+      "custom_temperature": 15.0,
       "floor_area": 6.24,
       "height": 2.6,
       "constructions": [
@@ -827,6 +834,7 @@
       "id": "r8",
       "name": "Toilet",
       "function": "toilet",
+      "custom_temperature": 15.0,
       "floor_area": 1.32,
       "height": 2.6,
       "constructions": [

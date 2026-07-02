@@ -1,5 +1,19 @@
 # TODO
 
+## 🔍 Audit 2026-07-02 (norm + code + infra) — fix-rondes
+- [x] **F1 ✅ (02-07)** — C1 ontwerpbinnentemperaturen naar ISSO 51:2023 Tabel 2.11 (`enums.rs`, `constants.ts`, divergente kopie `ConstructionLossChart.tsx` opgeruimd) · C2 Vabi-mapper pint eigen ontwerptemp via `custom_temperature` i.p.v. `internal_air_temperature`. cargo/clippy/tsc/vitest 318/318 groen, golden-fixtures: portiekwoning gepind, woonboot herijkt (+6,7%).
+- [ ] **M1 [PM-normverificatie gedaan]** — Φ_vent = Φ_v − Φ_i voor systeem A/C, form. 4.4 p.65 + 4.9 p.67 (`crates/isso51-core/src/calc/room_load.rs:227`).
+- [ ] **M2** — aluminium spacer Ψ_g 0,06→0,08 EN-ISO 10077-1 (`frontend/src/lib/spacerTable.ts:39`) + 3 legacy testfiles naar vitest + CI-exclude weg.
+- [ ] **M3** — SQLite WAL/busy_timeout (`crates/isso51-api/src/main.rs:48`).
+- [ ] **M4** — ISSO 53 §6.1-fixture rebuild.
+- [ ] **M5** — CVE-bumps (sqlx 0.8.1, quick-xml, lopdf, react-router).
+- [ ] **M6** — CI-actions SHA-pinnen.
+- [ ] **M7** — forward-auth defense-in-depth.
+- [ ] **M8** — verbatim ISSO-transcripties uit publieke docs.
+- [ ] **Minors** — zones-naam-dedup, importExport Array.isArray-guard, .dockerignore, rate-limit compute-routes, migratie-versietabel.
+
+---
+
 ## 🔍 Fable 5 full-audit (10-06) — fix-rondes
 > Bron: `audit-reports/09-fable5-full-audit-2026-06-10.md` (62 bevestigd: 4 critical / 33 major / 25 minor). Rondes daar in §7.
 - [x] **R1 stille corruptie ✅ (10-06)** — garage-sentinel isso53 (2 call-sites incl. extra vondst transmission.rs adjacent) · tab-snapshot sidecars+serverbinding · newTab stale-snapshot (bonus-dataverlies-bug) · setResult run-epoch · persist isDirty/serverbinding · undo sidecars. cargo 145 + vitest 191 groen, 2 reviews ship.
