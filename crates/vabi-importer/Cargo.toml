@@ -9,7 +9,7 @@ description = "Vabi Elements .vp import → ProjectV2 (multi-norm)"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 zip = "0.6"
 tempfile = "3.8"
 openaec-project-shared = { path = "../openaec-project-shared" }

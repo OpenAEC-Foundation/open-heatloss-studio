@@ -19,14 +19,14 @@ jobs:
       # álle workspace-manifests kunnen laden (ook dat van isso51-desktop,
       # óók met --exclude) en die heeft een path-dep op openaec-layout
       # in die submodule.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           submodules: recursive
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable branch (moving)
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       # --exclude isso51-desktop: de Tauri-app-crate (src-tauri) vereist
       # systeem-deps (webkit2gtk e.d.) op Linux en heeft geen eigen tests.
@@ -46,11 +46,11 @@ jobs:
     steps:
       # Niet strikt nodig voor de frontend, maar goedkoop en voorkomt
       # verrassingen als frontend ooit iets uit libs/ importeert.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           submodules: recursive
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm

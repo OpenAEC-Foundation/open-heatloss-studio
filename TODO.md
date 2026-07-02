@@ -4,15 +4,17 @@
 - [x] **F1 ✅ (02-07)** — C1 ontwerpbinnentemperaturen naar ISSO 51:2023 Tabel 2.11 (`enums.rs`, `constants.ts`, divergente kopie `ConstructionLossChart.tsx` opgeruimd) · C2 Vabi-mapper pint eigen ontwerptemp via `custom_temperature` i.p.v. `internal_air_temperature`. cargo/clippy/tsc/vitest 318/318 groen, golden-fixtures: portiekwoning gepind, woonboot herijkt (+6,7%).
 - [x] **M1 ✅ (02-07)** — Φ_vent = Φ_v − Φ_i (clamp 0) voor systeem A/C, form. 4.4 p.65 + 4.9 p.67 (`crates/isso51-core/src/calc/room_load.rs`); B/D blijft Φ_v, E conservatief Φ_v. Goldens portiekwoning/woonboot geregenereerd (vertrekniveau −3…−14%, gebouwniveau ongewijzigd). 6 nieuwe unit-tests.
 - [x] **M2 ✅ (02-07)** — aluminium spacer Ψ_g 0,06→0,08 EN-ISO 10077-1 Annex E (`frontend/src/lib/spacerTable.ts` + 2 UI-defaults `UwCalculator.tsx`) + 3 legacy testfiles naar vitest (318→365 groen) + CI-exclude weg.
-- [ ] **M3** — SQLite WAL/busy_timeout (`crates/isso51-api/src/main.rs:48`).
+- [x] **M3 ✅ (02-07)** — SQLite-pool via SqliteConnectOptions: WAL + busy_timeout 5s + synchronous Normal (`crates/isso51-api/src/main.rs`), was default rollback-journal + 0ms timeout → SQLITE_BUSY bij gelijktijdige saves.
 - [ ] **M4 deels (02-07)** — ISSO 53 §6.1/§6.2-fixtures norm-getrouw getranscribeerd uit PDF (p.63-65); activatie blokkeert op 2 engine-gaten, test blijft `#[ignore]` (`crates/isso53-core/tests/golden.rs`, zie `PDF_GAPS.md`):
   - [ ] **M4a** — f_ia temperature_factor op adjacentRoom niet gehonoreerd in isso53-engine.
   - [ ] **M4b** — ontbrekende per-ruimte `ventilation_rate` in isso53-model.
-- [ ] **M5** — CVE-bumps (sqlx 0.8.1, quick-xml, lopdf, react-router).
-- [ ] **M6** — CI-actions SHA-pinnen.
+- [x] **M5 grotendeels ✅ (02-07)** — sqlx 0.8.0→0.8.6 (RUSTSEC-2024-0363) + resolver-vereiste rusqlite 0.31→0.32 in isso51-core/vabi-importer (libsqlite3-sys unified 0.30.1), quinn-proto→0.11.15, lopdf dev-dep→0.42.0, react-router(-dom) 7.14.1→7.18.1 (7 CVE's, prod-runtime) + fast-xml-parser/picomatch/postcss/@babel/core. cargo audit 9→6, npm audit 12→5. **Rest:** lopdf@0.31 via printpdf-pin, quick-xml via openaec-cloud-pin + tauri-plist, rsa geen fix beschikbaar; npm 5 resterend = dev-only vitest-toolchain (vereist vitest@4 major-upgrade, aparte chore-ronde).
+- [x] **M6 ✅ (02-07)** — alle 6 workflows: 22 action-refs gepind op commit-SHA met tag-comment; reusable `deploy-site.yml` @main → SHA `b86eaa2`. Let op: `rust-toolchain@stable` en overige @main-refs op branch-HEAD gepind, niet op tag — bij upgrade handmatig herresolven.
 - [ ] **M7** — forward-auth defense-in-depth.
 - [ ] **M8** — verbatim ISSO-transcripties uit publieke docs.
 - [ ] **Minors** — zones-naam-dedup, importExport Array.isArray-guard, .dockerignore, rate-limit compute-routes, migratie-versietabel.
+- [ ] **chore: vitest 2→4 major-upgrade** (dev-only vulns, resterend na M5 npm audit).
+- [ ] **server: rrsync forced-command op DEPLOY_SSH_KEY** (aanbeveling M7-verwant, infra-actie op deploy-key scope).
 
 ---
 

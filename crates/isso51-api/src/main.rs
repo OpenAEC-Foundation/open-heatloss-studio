@@ -14,12 +14,16 @@ mod state;
 
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
 use axum::extract::DefaultBodyLimit;
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::Router;
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::sqlite::{
+    SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous,
+};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -45,9 +49,23 @@ async fn main() {
     let config = Config::from_env();
 
     // --- Database ---
+    // WAL + busy_timeout zijn essentieel voor concurrency: met de default
+    // (rollback journal, 0 ms busy timeout) geeft een tweede gelijktijdige
+    // schrijver direct `SQLITE_BUSY` i.p.v. te wachten, wat als HTTP 500 —
+    // een stille save-failure — bij de client belandt. WAL laat lezers en
+    // één schrijver parallel toe; de busy_timeout laat concurrente schrijvers
+    // tot 5 s wachten op de write-lock i.p.v. meteen te falen.
+    // `create_if_missing(true)` is het equivalent van `?mode=rwc` in de URL.
+    let connect_options = SqliteConnectOptions::from_str(&config.database_url)
+        .expect("Invalid DATABASE_URL")
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .busy_timeout(Duration::from_secs(5))
+        .synchronous(SqliteSynchronous::Normal);
+
     let db = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&config.database_url)
+        .connect_with(connect_options)
         .await
         .expect("Failed to connect to database");
 

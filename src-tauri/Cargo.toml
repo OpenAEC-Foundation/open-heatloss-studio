@@ -35,4 +35,7 @@ image = "0.25"
 base64 = "0.22"
 
 [dev-dependencies]
-lopdf = "0.39"
+# 0.42+ verhelpt RUSTSEC-2026-0187 (stack overflow bij diep geneste PDF-objecten).
+# Alleen als test-dep gebruikt (`Document::load_mem`); de printpdf-keten pint
+# nog lopdf 0.31 en kan niet mee-bumpen zonder printpdf-major-refactor.
+lopdf = "0.42"

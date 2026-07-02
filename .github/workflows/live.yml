@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   deploy:
-    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@main
+    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@b86eaa20b5cd10a1139c72daf7cf4bd0dcf7b00c # main (2026-03-25)
     with:
       deploy_host: ${{ vars.DEPLOY_HOST }}
       deploy_port: ${{ vars.DEPLOY_PORT }}
