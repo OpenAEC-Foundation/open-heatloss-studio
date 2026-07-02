@@ -10,6 +10,7 @@ mod config;
 mod cors;
 mod error;
 mod handlers;
+mod ratelimit;
 mod state;
 
 use std::collections::HashSet;
@@ -31,7 +32,16 @@ use tracing_subscriber::EnvFilter;
 use openaec_cloud::TenantsRegistry;
 
 use crate::config::Config;
+use crate::ratelimit::RateLimiter;
 use crate::state::AppState;
+
+/// Body-limiet voor de publieke reken-routes. De grootste realistische
+/// thermal-import-fixture (`tests/fixtures/thermal-import-v11-geometry.json`) is
+/// ~190 KB; 2 MB geeft daar ruime hoofdruimte boven (~10×) en begrenst tegelijk
+/// het geheugen dat één ongeauthenticeerd verzoek kan claimen. Voorheen liep dit
+/// op de impliciete axum-default van 2 MB; nu expliciet zodat de grens niet
+/// meebeweegt met framework-defaults.
+const COMPUTE_BODY_LIMIT: usize = 2 * 1024 * 1024;
 
 #[tokio::main]
 async fn main() {
@@ -107,16 +117,31 @@ async fn main() {
     );
 
     // --- Routes ---
-    let public = Router::new()
-        .route("/health", get(handlers::health))
+    // Publieke reken-routes: geen auth (bewust — publieke reken-API), maar
+    // CPU-intensief. Daarom een eigen, strak begrensd `DefaultBodyLimit` plus
+    // een per-IP rate-limit (default 30/min, env `COMPUTE_RATE_LIMIT_PER_MIN`).
+    // Zie `crate::ratelimit`. Layer-volgorde: de rate-limit staat als laatste
+    // (= buitenste), zodat een geweigerd verzoek al 429 krijgt vóór de body
+    // gelezen of de handler geraakt wordt.
+    let rate_limiter = RateLimiter::from_env();
+    let compute = Router::new()
         .route("/calculate", post(handlers::calculate))
         .route("/calculate_v2", post(handlers::calculate_v2))
         .route("/calculate/ifcx", post(handlers::calculate_ifcx_handler))
         .route("/import/thermal", post(handlers::thermal_import_handler))
         .route("/cooling/simplified", post(handlers::simplified_cooling))
         .route("/tojuli/calculate", post(handlers::tojuli_calculate))
+        .layer(DefaultBodyLimit::max(COMPUTE_BODY_LIMIT))
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limiter.clone(),
+            ratelimit::rate_limit,
+        ));
+
+    let public = Router::new()
+        .route("/health", get(handlers::health))
         .route("/schemas", get(handlers::list_schemas))
-        .route("/schemas/{name}", get(handlers::get_schema));
+        .route("/schemas/{name}", get(handlers::get_schema))
+        .merge(compute);
 
     let protected = Router::new()
         .route("/me", get(handlers::get_profile))

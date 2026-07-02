@@ -4,6 +4,7 @@ import {
   exportProject,
   importProject,
   openProjectFile,
+  validateProject,
   type ImportResult,
 } from "./importExport";
 import {
@@ -613,5 +614,35 @@ describe("ventilatie-units — save→reopen (beide envelopes)", () => {
     const state = useProjectStore.getState();
     expect(state.ventilation.units).toBeUndefined();
     expect(state.ventilation.unitAssignments).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateProject — building.zones guard (corrupt JSON)
+// ---------------------------------------------------------------------------
+
+describe("validateProject — building.zones guard", () => {
+  it("stript een niet-array `building.zones` (bv. string) i.p.v. te crashen", () => {
+    const project = makeIsso51Project() as unknown as Record<string, unknown>;
+    (project.building as Record<string, unknown>).zones = "kapot";
+
+    const validated = validateProject(project);
+
+    // Veld gestript → project laadt schoon zonder zone-indeling (undefined),
+    // en `groupRoomsByZone` krijgt later nooit een niet-array binnen.
+    expect(validated.building.zones).toBeUndefined();
+  });
+
+  it("laat een geldige `building.zones`-array intact", () => {
+    const project = makeIsso51Project() as unknown as Record<string, unknown>;
+    (project.building as Record<string, unknown>).zones = [
+      { id: "zone-a", name: "Begane grond" },
+    ];
+
+    const validated = validateProject(project);
+
+    expect(validated.building.zones).toEqual([
+      { id: "zone-a", name: "Begane grond" },
+    ]);
   });
 });

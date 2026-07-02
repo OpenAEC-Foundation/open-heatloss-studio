@@ -2,6 +2,8 @@
 
 **Datum:** 2026-05-12
 **Doel:** numerieke validatie-bronnen voor isso51-core (`C:/GitHub/warmteverliesberekening`)
+
+_Redactie 2026-07-02: letterlijke erratum-tekstwijzigingen (zoekronde 2) vervangen door verwijzing (auteursrecht ISSO); volledige transcriptie lokaal bij 3BM. Vabi-voorbeeldoutput (derden-rapporten) blijft staan._
 **Resultaat:** **1 echt erratum-conform Vabi-voorbeeld gevonden** (DR Engineering 2025, ISSO 51:2024). Daarnaast 5 Vabi-voorbeelden van ISSO 51:2017-vintage die als indicatieve / partiële validatie kunnen dienen, en 1 vergelijkende effectenstudie (warmteverliesberekeningen.nl) die wel de 2023-versie aanhaalt maar geen absolute Watt-getallen publiceert.
 
 Het beoogde getal van 11 is **niet** gehaald — publieke Vabi-output op het post-erratum 2023/2024 normenniveau is op het open net dun gezaaid. De meeste praktijkrapporten uit ingenieursbureaus zijn nog ISSO 51:2017 (laatste deploys zijn vooral 2019-2022), en nieuwe 2024-projecten zitten klantvertrouwelijk achter offer-eisen.
@@ -278,23 +280,13 @@ Het beoogde getal van 11 is **niet** gehaald — publieke Vabi-output op het pos
 #### NORM-BRON: Officiële ISSO 51:2023 erratum-tekst (paragrafen waarop Tabel 2.8 in audit-rapport ge-extrapoleerd wordt)
 
 - **URL:** https://documenten.isso.nl/s/rXyirFGw20gnnLF7s91CR7teJ4UDuFeq/23.09.01%20Erratum%20ISSO%2051_2023.pdf
-- **Status:** WebFetch faalde op deze PDF (binary), maar via WebSearch metadata zijn de relevante tekstuele wijzigingen **wel** beschikbaar:
-
-  **Par. 3.2.1 Warmteverlies door infiltratie:**
-  > Factor 1200 → factor 1,2. Eenheid m³ → dm³. Tekst van par. 3.2.1 wordt gewijzigd.
-
-  **Par. 3.2.2/3.2.3 Ventilatie:**
-  > qv = 0,45 · ΣAg [dm³/s] voor alle systemen, waarbij ΣAg = gebruiksoppervlak van alle verblijfsgebieden.
-
-  **Par. 4.2.1 Infiltratiewarmteverlies:**
-  > Wijzig overal Φi' door Φi (zonder apostrof). Formule 4.1: Φi = zi · Hi · (θi – θe).
-
-  **Par. 4.2.2 Ventilatiewarmteverlies:**
-  > Formule 4.3 wordt: Hv = 1,2 · qv · fv. Voeg omschrijving factor fv toe.
-
-  **Tabel-verwijzing wind drukverdeling:**
-  > In ISSO 51 (2017) was dit Tabel 4.5. In ISSO 51 (2023) is dit **Tabel 2.6**, niet Tabel 2.8. (Audit moet hierop check — als de audit "Tabel 2.8" noemt voor infiltratie, klopt het tabelnummer mogelijk niet, gezien de erratum-bronvermelding.)
-- **Waarde voor isso51-core:** dit zijn de **letterlijke formule-wijzigingen** uit het erratum die de audit Issue C noemt. Sterk genoeg om als bronvermelding in inline code-comments te gebruiken bij de infiltratie/ventilatie-modules. Aanrader: extracteer deze paragrafen via PDF-OCR (de WebFetch binary-fail betekent niet dat het beeldscan is — `pdf_extract_text` MCP tool moet het wel pakken).
+- **Status:** WebFetch faalde op deze PDF (binary). _Redactie 2026-07-02: de letterlijke erratum-tekstwijzigingen zijn hier verwijderd (auteursrecht ISSO); volledige transcriptie lokaal bij 3BM._ Samengevat (eigen bevindingen over de aard van de wijzigingen):
+  - **Par. 3.2.1 (infiltratie):** factor 1200 → 1,2; eenheid m³ → dm³.
+  - **Par. 3.2.2/3.2.3 (ventilatie):** forfaitaire ventilatievolumestroom als functie van ΣAg (gebruiksoppervlak verblijfsgebieden).
+  - **Par. 4.2.1 (infiltratie):** symbool Φi' → Φi; rekenrelatie `Φi = zi · Hi · (θi − θe)`.
+  - **Par. 4.2.2 (ventilatie):** `Hv = 1,2 · qv · fv`; omschrijving factor fv toegevoegd.
+  - **Tabel-verwijzing winddrukverdeling:** in ISSO 51:2017 Tabel 4.5, in 2023 hernummerd naar Tabel 2.6 (niet 2.8) — audit-aandachtspunt voor het juiste tabelnummer bij infiltratie.
+- **Waarde voor isso51-core:** deze wijzigingen zijn de basis voor de Issue C-verificatie; gebruik ze als **bronverwijzing** (paragraaf + erratumnummer) in code-comments, niet als letterlijk citaat.
 
 #### Buildwise HeatLoad — Belgisch counterpart (informatief, geen worked example)
 

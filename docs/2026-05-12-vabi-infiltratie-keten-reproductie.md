@@ -8,6 +8,8 @@
 - Vabi DR-Engineering rapport (`tests/references/dr-engineering-woningbouw-isso51-2024.pdf`, Vabi 3.12.0.127).
 - Vabi Vrijstaande woning rapport 2017 (`tests/references/vrijstaande-woning-isso51-2017.pdf`, Vabi 3.8.1.14).
 
+_Redactie 2026-07-02: letterlijke ISSO 51-tabeltranscripties (Tabel 2.5/2.6/2.7/2.8) vervangen door verwijzingen (auteursrecht ISSO); volledige transcripties lokaal bij 3BM. Vabi-rapportcijfers (eigen/derden-data) en eigen ketenafleidingen blijven staan._
+
 ---
 
 ## 1. ISSO 51:2023 formule 2.35 — volledig (letterlijk)
@@ -28,55 +30,23 @@ Definities (p.38) van de drie correctiefactoren:
 
 ### 1.2 Tabel 2.5 — `f_inf` (p.39)
 
-| Systeem | `f_inf` |
-|---|---|
-| A — natuurlijke toe- en afvoer | 0,80 |
-| B — mechanische toevoer + natuurlijke afvoer | 0,85 |
-| C — natuurlijke toevoer + mechanische afvoer | 1,0 |
-| **D — mechanische toe- en afvoer** | **1,10** |
-| E — zones met lokale WTW, CO₂-sturing | 1,05 |
+_Geverifieerd tegen ISSO 51:2023 Tabel 2.5, p.39 (bron lokaal: `Z:\...\98_normen`)._ f_inf per ventilatiesysteem A t/m E: van 0,80 (A) via 1,0 (C) tot **1,10 (D)**, met 1,05 voor E. Voor de DR-fixture (systeem D) is f_inf = **1,10** — die waarde is nodig voor de keten-afleiding hieronder.
 
 ### 1.3 Tabel 2.6 — `f_type2` (p.39)
 
-| Gebouwtype | `f_type2` |
-|---|---|
-| Eenlaags grondgebonden — kap | 1,0 |
-| Eenlaags grondgebonden — platdak | 1,0 |
-| Meer lagen — Standaard | 1,0 |
-| Meer lagen — Volgevel binnengalerij één zijde | 0,94 |
-| Meer lagen — Dubbele huidgevel onderbroken | 0,90 |
-| Meer lagen — Dubbele huidgevel doorlopend | 0,30 |
+_Geverifieerd tegen ISSO 51:2023 Tabel 2.6, p.39._ f_type2 (winddrukverdeling): grondgebonden en meerlaags-standaard = 1,0; meerlaagse varianten met (dubbele) huidgevel lopen af tot 0,30. Voor alle drie fixtures geldt f_type2 = 1,0.
 
 ### 1.4 Tabel 2.7 — `f_tp` (p.40, voor `qv,10,spec` via formule 2.37)
 
-| Situatie | `f_tp` |
-|---|---|
-| Eengezins met kap — tussenligging | 1,0 |
-| Eengezins met kap — kop/eind/hoek | 1,2 |
-| **Eengezins met kap — vrijstaand puntdak** | **1,4** |
-| Eengezins met kap — vrijstaand half platdak | 1,2 |
-| Eengezins platdak — tussenligging | 1,0 |
-| Eengezins platdak — vrijstaand | 1,4 |
-| Flat/portiek — tussenligging | 1,0 |
-| Flat/portiek — kop/eind/hoek onderste of tussen | 1,3 |
-| Flat/portiek — tussenligging bovenste verdieping | 1,2 |
-| Flat/portiek — kop/eind/hoek bovenste verdieping | 1,4 |
-| Schilberekening (gehele gebouw) | 1,2 |
+_Geverifieerd tegen ISSO 51:2023 Tabel 2.7, p.40._ Liggings-/dakcorrectie f_tp per situatie, van 1,0 (tussenligging) tot **1,4** (vrijstaand puntdak / kop-hoek bovenste verdieping); schilberekening 1,2. Voor de DR-fixture (vrijstaand met kap) is f_tp = 1,4.
 
 ### 1.5 Tabel 2.8 — `q_i,spec` (p.41, bij NEN 8088-1)
 
-> **Tabel 2.8 Waarden voor de volumestroom infiltratie q_i,spec in dm³/s per m² gebruiksoppervlak [NEN 8088-1]**
-
-| Gebouwtype | `q_i,spec` [dm³/(s·m²)] |
-|---|---|
-| Eengezinswoning en kap of half platdak | **1,0** |
-| Eengezinswoningen met platdak | **0,7** |
-| Etages van flat- en portiekwoningen | **0,5** |
+_Geverifieerd tegen ISSO 51:2023 Tabel 2.8, p.41 (bron lokaal: `Z:\...\98_normen`; volledige tabel niet gereproduceerd)._ 3-rijige gebouwtype-lookup, per m² gebruiksoppervlak: eengezins kap/half platdak **1,0**, eengezins platdak **0,7**, etages flat/portiek **0,5** dm³/(s·m²). Deze drie waarden zijn nodig om de forfaitaire keten en de code-discrepantie te tonen.
 
 ### 1.6 Formule 2.37 — `qv,10,spec` (p.39–40)
 
-> Indien geen opgave bekend: **`qv,10,spec = f_tp · f_jaar · q_i,spec`**
-> (`f_jaar` via formule 2.38, met grenzen 0,7 ≤ `f_jaar` ≤ 4,3.)
+_Geverifieerd tegen ISSO 51:2023 §2.5.6, formule 2.37/2.38, p.39-40._ Zonder opgave geldt `qv,10,spec = f_tp · f_jaar · q_i,spec`, met f_jaar via formule 2.38 (grenzen 0,7 ≤ f_jaar ≤ 4,3).
 
 Daarmee is de **volledige forfaitaire keten** (geen meting):
 

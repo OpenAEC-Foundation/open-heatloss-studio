@@ -5,6 +5,8 @@
 **Status bron:** vervallen sinds NTA 8800 (2020+), maar Vabi-software gebruikt nog steeds deze rekenmethode voor warmteverlies-infiltratie
 **Bedoeld om:** laatste open vraag uit `2026-05-12-nta8800-infiltratie-verificatie.md` te beantwoorden — herkomst Vabi-factor **0,461**
 
+_Redactie 2026-07-02: letterlijke norm-transcripties (NEN 8088-1) vervangen door verwijzingen (auteursrecht NEN); volledige transcripties lokaal bij 3BM._
+
 ## Scope & beperking
 
 Het beschikbare PDF is het **correctieblad** (NEN 8088-1+C1/C2), niet de oorspronkelijke NEN 8088-1:2011. Het correctieblad bevat alleen *vervangingen* op pagina-/paragraaf-niveau. Hierdoor staat de **volledige** formule-context (incl. waarde van `f_wind`) niet woordelijk in dit document, maar de gewijzigde formule (5.25) en alle vervangen tabellen (9, 10) staan er wél in.
@@ -13,14 +15,7 @@ Het beschikbare PDF is het **correctieblad** (NEN 8088-1+C1/C2), niet de oorspro
 
 **Geen expliciete design-Δp van 3,14 Pa (of ~3 Pa) gevonden.**
 
-Het correctieblad vermeldt drukverschillen alleen in de context van **luchtdrukgestuurde toevoer-roosters** (∆p over rooster):
-- `Δp ≤ 1 Pa` (categorie a)
-- `1 Pa < Δp ≤ 5 Pa` (categorie b)
-- `5 Pa < Δp ≤ 10 Pa` (categorie c)
-
-> Pagina 4, Tabel 3 (vervangen): _"C.2a Luchtdrukgestuurde toevoer ∆p ≤ 1 Pa 0,83 1,10"_, idem A.2a/b/c.
-
-Deze ∆p-waarden zijn rooster-classificaties voor het selecteren van een correctiefactor, **niet** een design-Δp voor infiltratie-berekening op gebouwniveau. Zoekterm `3,14` levert **0 hits**.
+Het correctieblad vermeldt drukverschillen alleen in de context van **luchtdrukgestuurde toevoer-roosters** (∆p over rooster), in drie categorieën (≤ 1 Pa / 1–5 Pa / 5–10 Pa). Deze ∆p-waarden zijn rooster-classificaties voor het selecteren van een correctiefactor (NEN 8088-1 Tabel 3, p.4), **niet** een design-Δp voor infiltratie-berekening op gebouwniveau. Zoekterm `3,14` levert **0 hits**.
 
 ## 2. n_lea = 0,67
 
@@ -30,11 +25,7 @@ Zoekterm `0,67` levert 2 hits, beide in Tabel 3 (pagina 5) als kolomwaarde voor 
 
 ## 3. Conversie q_v10 → q_v;inf — volledige formule
 
-Pagina 7, paragraaf 5.8.1.1, vervangen formule (5.25):
-
-> _"q\_ve;inf = f\_wind · f\_type2 · f\_inf · (0,23 · q\_v10;spec) · A\_g    (5.25)"_
->
-> _"OPMERKING q\_v10;spec · A\_g = de gemeten waarde bij een blowerdoor-test."_
+_Geverifieerd tegen NEN 8088-1+C2, §5.8.1.1, formule 5.25, p.7 (bron lokaal: bureau-archief)._ De vervangen formule 5.25 luidt in de kern `q_ve;inf = f_wind · f_type2 · f_inf · (0,23 · q_v10;spec) · A_g`, met de opmerking dat `q_v10;spec · A_g` de gemeten waarde bij een blowerdoor-test is. Componenten:
 
 | Symbool | Betekenis | Bron in correctieblad |
 |---------|-----------|----------------------|
@@ -52,17 +43,7 @@ Pagina 7, paragraaf 5.8.1.1, vervangen formule (5.25):
 
 **JA, `f_inf = 1,10` komt direct uit NEN 8088-1 Tabel 10.** Geen ISSO 51:2023-specifieke factor.
 
-Pagina 8, Tabel 10 (vervangen versie):
-
-| Ventilatievoorziening | f_inf |
-|----------------------|-------|
-| A Natuurlijke toe- en afvoer | 0,80 |
-| B Mechanische toevoer, natuurlijke afvoer | 0,85 |
-| C Natuurlijke toevoer, mechanische afvoer | 1,00 |
-| **D Mechanische toe- en afvoer; gebalanceerde ventilatie** | **1,10** |
-| E.1 Combinatie C+D met decentrale WTW+CO₂-sturing | 1,05 |
-
-Vabi gebruikt waarschijnlijk standaard **D-systeem** (gebalanceerd) → `f_inf = 1,10` is dan correct.
+_Geverifieerd tegen NEN 8088-1+C2 Tabel 10, p.8 (bron lokaal: bureau-archief; volledige tabel niet gereproduceerd, auteursrecht NEN)._ Tabel 10 geeft f_inf per ventilatievoorziening (A t/m E), oplopend van 0,80 (systeem A) naar 1,10 voor **systeem D (mechanische toe- en afvoer, gebalanceerd)**, met 1,05 voor E.1 (C+D met decentrale WTW + CO₂-sturing). Deze reeks is identiek aan ISSO 51 Tabel 2.5. Vabi gebruikt waarschijnlijk standaard **D-systeem** (gebalanceerd) → `f_inf = 1,10` is dan correct.
 
 ## 5. Eindconclusie
 

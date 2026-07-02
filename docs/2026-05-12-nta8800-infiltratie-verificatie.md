@@ -4,6 +4,8 @@
 **Bron:** `Z:/50_projecten/7_3BM_bouwkunde/000_Documentatie/98_normen/NTA 8800_2025+C1_2026 nl.pdf` (1162 p., NEN, NTA 8800:2025+C1:2026)
 **Bedoeld om:** open Vabi-factor 0.461 te verklaren + correctiefactoren-tabellen voor infiltratie te identificeren + onze nta8800-* crates te toetsen.
 
+_Redactie 2026-07-02: letterlijke norm-transcripties (NTA 8800 tabellen 11.1–11.14, definitietekst) vervangen door verwijzingen (auteursrecht NEN); volledige transcripties lokaal bij 3BM. Rekenrelaties (formules) en eigen afleidingen blijven staan._
+
 > ISSO 51:2023 §2.5.6 verwijst voor `qv,10,spec` naar NEN 8088-1. NEN 8088-1 is vervangen door **NTA 8800 hoofdstuk 11** (zie referentielijst NTA 8800 p.1160; ook expliciet: *"NEN 8088-1, Ventilatie en luchtdoorlatendheid van gebouwen – Bepalingsmethode voor de toevoerluchttemperatuur gecorrigeerde ventilatie- en infiltratieluchtvolumestromen voor energieprestatieberekeningen – Deel 1: Rekenmethode"*). De getalswaardes en tabel-architectuur zitten dus daar.
 
 ---
@@ -38,36 +40,22 @@
 | 11.2.5.1 + Tabel 11.13 | p.486 | Bouwjaarcorrectiefactor `f_y` |
 | 11.2.5.2 + Tabel 11.14 | p.487–489 | Rekenwaarde `qv10;spec;calc` + correctiefactor `f_type` per gebouwtype |
 
-Definitie infiltratie (p.32): *"luchtstroom door infiltratie q_v10;spec ... gezamenlijke luchtvolumestroom door de ventilatievoorziening en door luchtlekken in de gebouwschil verminderd met zijn waarde bij afwezigheid van gebouwlekken"*.
+Definitie infiltratie (NTA 8800 p.32, geparafraseerd): infiltratie `q_v10;spec` is de gezamenlijke luchtvolumestroom via ventilatievoorziening én gebouwschil-lekken, verminderd met de waarde bij afwezigheid van lekken.
 
 ---
 
 ## 2. Hoofdformule: van qv,10 naar effectieve infiltratie
 
-### 2.1 Letterlijke formules uit NTA 8800
+### 2.1 Rekenrelaties (NTA 8800 hfdst. 11)
 
-**Formule (11.84)** [p.485]:
-> `C_lea = q_v1;lea;ref / (Δp)^n`
+_Geverifieerd tegen NTA 8800:2025+C1 §11.2.1/§11.2.5, p.446 en p.485._ De relevante rekenrelaties (kern-formules, als feit weergegeven):
 
-waarin Δp = 1 Pa en n = 0.67.
+- **(11.84)** `C_lea = q_v1;lea;ref / (Δp)^n`, met Δp = 1 Pa en n = 0.67.
+- **(11.85)** `q_v1;lea;ref = q_v10;lea;ref × (1/10)^n_lea × A_g × 3.6` — q_v1 in m³/h bij 1 Pa; q_v10 in dm³/(s·m²) bij 10 Pa; n_lea = 0.67; A_g rekenzone [m²]; 3.6 = dm³/s → m³/h.
+- **(11.86)** (alleen zonder meting) `q_v10;lea;ref = f_type × f_y × q_v10;spec;reken`.
+- **(11.19)** (werkelijk design-debiet) `q_V = C × Δp^n`.
 
-**Formule (11.85)** [p.485]:
-> `q_v1;lea;ref = q_v10;lea;ref × (1/10)^n_lea × A_g × 3.6`
-
-waarin:
-- `q_v1;lea;ref` luchtdoorlatendheid bij 1 Pa, in m³/h
-- `q_v10;lea;ref` specifieke luchtdoorlatendheid bij 10 Pa, in dm³/(s·m²)
-- `n_lea = 0.67`
-- `A_g` gebruiksoppervlakte rekenzone, in m²
-- 3.6 = conversie dm³/s → m³/h
-
-**Numerieke factor:** `(1/10)^0.67 = 0.2138` → q_v1 ≈ q_v10 × 0.2138 × A_g × 3.6 = q_v10 × 0.770 × A_g
-
-**Formule (11.86)** [p.485, alleen als geen meting]:
-> `q_v10;lea;ref = f_type × f_y × q_v10;spec;reken`
-
-**Formule (11.19)** [p.446 — werkelijke design-debiet]:
-> `q_V = C × Δp^n`
+**Numerieke factor:** `(1/10)^0.67 = 0.2138` → q_v1 ≈ q_v10 × 0.2138 × A_g × 3.6 = q_v10 × 0.770 × A_g.
 
 Het werkelijke binnenkomende infiltratiedebiet hangt dus af van het **actuele drukverschil** Δp dat uit de massabalans (iteratief `p_z;ref` zoeken via bisectie) volgt. Bij design-conditie (storm, koude, hoge wind) ligt dat Δp **boven** de 1 Pa referentie.
 
@@ -87,67 +75,25 @@ Het werkelijke binnenkomende infiltratiedebiet hangt dus af van het **actuele dr
 
 ## 3. Correctiefactoren in NTA 8800
 
-### 3.1 `f_type` — Tabel 11.14 (p.487–488)
+### 3.1 `f_type` + `q_v10;spec;calc` — Tabel 11.14 (p.487–488)
 
-> **Tabel 11.14 — Rekenwaarde voor de specifieke luchtdoorlatendheid per gebouwtype en de bijbehorende correctiefactor voor de uitvoeringsvariant**
-
-| Gebouwtype | `q_v10;spec;calc` [dm³/(s·m²)] | Uitvoeringsvariant | `f_type` |
-|---|---|---|---|
-| **Eengezinswoningen met kap** + enkellaagse utiliteit met kap | **1.0** | Tussenligging | **1.0** |
-| | | Kop-, eind- of hoekligging | **1.2** |
-| | | Vrijstaand gebouw, hellend dak | **1.4** |
-| | | Vrijstaand gebouw, deels plat dak | **1.2** |
-| **Eengezinswoningen met plat dak** + overige enkellaagse utiliteit | **0.7** | Tussenligging | **1.0** |
-| | | Kop-, eind- of hoekligging | **1.2** |
-| | | Vrijstaand gebouw, plat dak | **1.4** |
-| **Etages van meerlaagse utiliteit, flat- en portiekwoningen** | **0.5** | Tussenligging op onderste/tussen verdieping | **1.0** |
-| | | Kop-, eind- of hoekligging op onderste/tussen | **1.3** |
-| | | Tussenligging op bovenste verdieping | **1.2** |
-| | | Kop-, eind- of hoekligging op bovenste | **1.4** |
+_Geverifieerd tegen NTA 8800 Tabel 11.14, p.487-488 (bron lokaal: `Z:\...\98_normen`; volledige tabel niet gereproduceerd)._ Tabel 11.14 geeft per gebouwtype de rekenwaarde `q_v10;spec;calc` (eengezins met kap **1.0**, met plat dak **0.7**, etages meerlaags/flat/portiek **0.5** dm³/(s·m²)) plus een uitvoeringsvariant-correctie `f_type` die loopt van **1.0** (tussenligging) tot **1.4** (vrijstaand hellend dak / kop-hoek bovenste verdieping). De losse waarden (1.0/0.7/0.5 en de 1.0/1.4-bandbreedte) zijn hier nodig voor de Vabi-afleiding in §4.
 
 ### 3.2 `f_y` — Tabel 11.13 (p.486)
 
-> **Tabel 11.13 — Bouwjaarcorrectiefactor voor de rekenwaarde van de luchtdoorlatendheid**
-
-| Bouwjaar / renovatiejaar j | F_j |
-|---|---|
-| j < 1970 | **3.0** |
-| 1970 ≤ j < 1980 | **2.5** |
-| 1980 ≤ j < 1990 | **2.0** |
-| 1990 ≤ j < 2000 | **1.5** |
-| 2000 ≤ j < 2010 | **1.0** |
-| j ≥ 2010 | **0.7** |
+_Geverifieerd tegen NTA 8800 Tabel 11.13, p.486._ Bouwjaarcorrectiefactor voor de rekenwaarde van de luchtdoorlatendheid, aflopend van **3.0** (bouwjaar vóór 1970) naar **0.7** (bouwjaar ≥ 2010).
 
 ### 3.3 `C_p` (winddrukcoëfficiënt) — Tabel 11.3 (p.440)
 
-| Hoogte luchtstroom | Loefzijde | Lijzijde | Dak | Vloer |
-|---|---|---|---|---|
-| Laag h < 15 m | **+0.25** | **−0.50** | **−0.60** | **−0.20** |
-| Middel 15 ≤ h < 50 m | +0.45 | −0.50 | −0.60 | – |
-| Hoog h ≥ 50 m | +0.80 | −0.70 | −0.70 | – |
+_Geverifieerd tegen NTA 8800 Tabel 11.3, p.440._ Winddrukcoëfficiënten per hoogteklasse en vlak (loef/lij/dak/vloer): voor lage gebouwen (h < 15 m) loef +0.25, lij/dak/vloer negatief; voor hogere klassen loopt loef op tot +0.80. Niet verder relevant voor de 0.461-afleiding.
 
 ### 3.4 `n_lea` (stromingsexponent) — Tabel 11.2 (p.439)
 
-| Situatie | Waarde |
-|---|---|
-| Lekverliezen `n_lea` | **0.67** |
-| Ventilatietoevoervoorzieningen `n_vent` | 0.5 |
-| Verplichte spuivoorzieningen `n_argI` | 0.5 |
-| Open verbrandingstoestellen `n_comb` | 0.5 |
+_Geverifieerd tegen NTA 8800 Tabel 11.2, p.439._ Stromingsexponent lekverliezen **n_lea = 0.67**; ventilatietoevoer/spui/verbranding gebruiken n = 0.5. Deze n_lea = 0.67 is de kern-exponent voor de 0.461-conversie.
 
 ### 3.5 Tabel 11.1 — verdeling C_lea over gevel/dak/vloer (p.430–433)
 
-Voor H<15m, bouwjaar<1992, met kruipruimte:
-| Luchtstroom | Loefzijde | Lijzijde | Dak | Vloer |
-|---|---|---|---|---|
-| Infiltratie luchtstroomzone 1 | 0.35 × C_lea | 0.35 × C_lea | 0.15 × C_lea | 0.15 × C_lea |
-
-Voor overige H<15m (modern bouwjaar / geen kruipruimte):
-| Luchtstroom | Loefzijde | Lijzijde | Dak |
-|---|---|---|---|
-| Infiltratie luchtstroomzone 1 | 0.4 × C_lea | 0.4 × C_lea | 0.2 × C_lea |
-
-**Som = 1.0 in beide gevallen — dit is een verdeling, geen reductie.**
+_Geverifieerd tegen NTA 8800 Tabel 11.1, p.430-433._ Tabel 11.1 verdeelt C_lea over loef/lij/dak(/vloer) met gevel-fracties rond 0.35–0.40 en dak/vloer rond 0.15–0.20, afhankelijk van hoogte/bouwjaar/kruipruimte. **Som = 1.0 — dit is een verdeling, geen reductie.**
 
 ### 3.6 GEEN tegenhanger voor ISSO 51 `f_inf` / `f_type2` / `f_wind`
 

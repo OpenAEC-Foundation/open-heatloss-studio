@@ -10,11 +10,15 @@
   - [ ] **M4b** — ontbrekende per-ruimte `ventilation_rate` in isso53-model.
 - [x] **M5 grotendeels ✅ (02-07)** — sqlx 0.8.0→0.8.6 (RUSTSEC-2024-0363) + resolver-vereiste rusqlite 0.31→0.32 in isso51-core/vabi-importer (libsqlite3-sys unified 0.30.1), quinn-proto→0.11.15, lopdf dev-dep→0.42.0, react-router(-dom) 7.14.1→7.18.1 (7 CVE's, prod-runtime) + fast-xml-parser/picomatch/postcss/@babel/core. cargo audit 9→6, npm audit 12→5. **Rest:** lopdf@0.31 via printpdf-pin, quick-xml via openaec-cloud-pin + tauri-plist, rsa geen fix beschikbaar; npm 5 resterend = dev-only vitest-toolchain (vereist vitest@4 major-upgrade, aparte chore-ronde).
 - [x] **M6 ✅ (02-07)** — alle 6 workflows: 22 action-refs gepind op commit-SHA met tag-comment; reusable `deploy-site.yml` @main → SHA `b86eaa2`. Let op: `rust-toolchain@stable` en overige @main-refs op branch-HEAD gepind, niet op tag — bij upgrade handmatig herresolven.
-- [ ] **M7** — forward-auth defense-in-depth.
-- [ ] **M8** — verbatim ISSO-transcripties uit publieke docs.
-- [ ] **Minors** — zones-naam-dedup, importExport Array.isArray-guard, .dockerignore, rate-limit compute-routes, migratie-versietabel.
+- [x] **M7 ✅ (02-07)** — forward-auth trust-boundary geverifieerd (`docs/2026-07-02-forward-auth-trust-boundary.md`). Bijvangst: produktie-Caddy had CVE GHSA-7r4p-vjf4-gxv4 (copy_headers stripte client-identity-headers niet) → server geüpdatet naar Caddy v2.11.4 (server-actie, geen repo-wijziging). Open: shared-secret header Caddy↔backend.
+- [x] **M8 ✅ (02-07)** — 6 docs geredigeerd: verbatim ISSO/NEN-tabel- en paginatranscripties (~200 regels) vervangen door bronverwijzingen, eigen verificatie-conclusies behouden, redactieregel bovenaan elk doc. HEAD geredigeerd; oude versies in git-history = aparte afweging.
+- [x] **Minors ✅ (02-07)** — zones-naam-dedup (`zoneNames.ts` nieuw + ZonesCard + rename-pad, 6 tests), importExport `Array.isArray`-guard op building.zones + zoneGrouping-guard (3 tests), deurspleet invoer-UX (lokale tekststate, blur/Enter-normalisatie), compute-routes: expliciete 2MB body-limit + dependency-vrije per-IP rate-limiter (`ratelimit.rs` nieuw, 30/min default, env-override, 6 tests, ook `/calculate/ifcx`), `.dockerignore` (isso51.db, tenants.json, examples/, tests/ met `!tests/verification/`).
+- [ ] **M4 blijft open** — engine-gaten M4a (f_ia temperature_factor op adjacentRoom) + M4b (ontbrekende per-ruimte ventilation_rate in isso53-model), blokkeert activatie ISSO 53 §6.1/§6.2-fixtures.
 - [ ] **chore: vitest 2→4 major-upgrade** (dev-only vulns, resterend na M5 npm audit).
 - [ ] **server: rrsync forced-command op DEPLOY_SSH_KEY** (aanbeveling M7-verwant, infra-actie op deploy-key scope).
+- [ ] **docs-history-afweging [PM]** — M8 redigeerde alleen HEAD; oude verbatim-transcripties blijven in git-history bereikbaar. Besluit nodig of dat acceptabel is.
+- [ ] **[USER] pachi-fork** — contact opnemen of GitHub-takedown starten (uit F5-audit, geen repo-actie mogelijk vanuit hier).
+- [ ] **[USER] GitHub Support cache-purge** — voor beide repos (uit F5-audit, geen repo-actie mogelijk vanuit hier).
 
 ---
 

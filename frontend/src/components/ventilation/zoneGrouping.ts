@@ -32,7 +32,11 @@ export function groupRoomsByZone<R extends { zoneId?: string }>(
   rooms: R[],
   zones: Zone[],
 ): ZoneGroup<R>[] {
-  const groups: ZoneGroup<R>[] = zones.map((zone) => ({ zone, rooms: [] }));
+  // Defensief: een corrupt project-JSON (of een niet-getypte caller) kan een
+  // niet-array als `zones` binnenlaten. `importExport.validateProject` stript
+  // dat al bij import, maar deze guard voorkomt hoe dan ook een `.map`-crash.
+  const zoneList = Array.isArray(zones) ? zones : [];
+  const groups: ZoneGroup<R>[] = zoneList.map((zone) => ({ zone, rooms: [] }));
   const byZoneId = new Map(groups.map((g) => [g.zone!.id, g]));
   const unassigned: ZoneGroup<R> = { zone: undefined, rooms: [] };
 

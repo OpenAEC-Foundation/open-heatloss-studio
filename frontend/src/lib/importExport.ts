@@ -756,6 +756,21 @@ export function validateProject(data: unknown): Project {
     throw new Error("Verplicht veld 'rooms' ontbreekt of is geen array");
   }
 
+  // Guard: `building.zones` (zone-datalaag) is optioneel maar MOET een array
+  // zijn. Een corrupt/handmatig bewerkt bestand kan er een niet-array van maken
+  // (bv. een string), wat later in `groupRoomsByZone` crasht op `zones.map`.
+  // Defensief strippen + waarschuwen i.p.v. de import laten klappen; het
+  // project laadt dan schoon zonder zone-indeling (zelfde eindtoestand als een
+  // legacy JSON zonder zones).
+  const building = obj.building as Record<string, unknown>;
+  if (building.zones !== undefined && !Array.isArray(building.zones)) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[validateProject] 'building.zones' is geen array — veld genegeerd.",
+    );
+    delete building.zones;
+  }
+
   // Ensure info exists.
   if (!obj.info || typeof obj.info !== "object") {
     (obj as Record<string, unknown>).info = { name: "" };

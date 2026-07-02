@@ -13,6 +13,14 @@ STATUS.md
 SESSION_STATUS.md
 TODO.md
 .env
+isso51.db
+tenants.json
+examples/
+tests/
+# node-builder stage COPYs this subdirectory explicitly (Dockerfile:68,
+# frontend help "Verificatie" section imports from it at build time) —
+# re-include it after the blanket tests/ exclusion above.
+!tests/verification/
 # Root .env.production is excluded (API secrets, loaded via docker-compose env_file)
 # frontend/.env.production is NOT excluded (contains public VITE_ vars for the build)
 /.env.production

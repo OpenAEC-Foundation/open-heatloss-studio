@@ -3,6 +3,8 @@
 **Datum:** 2026-05-12
 **Bron:** `C:/GitHub/warmteverliesberekening/tests/references/erratum-isso51-2023.pdf` (12 pagina's, ISSO publicatiedatum 1 september 2023)
 
+_Redactie 2026-07-02: letterlijke norm-/erratum-transcripties vervangen door verwijzingen (auteursrecht ISSO); volledige transcripties lokaal bij 3BM._
+
 > **Methodologische voorbehoud.** Dit document is een **erratum** — een lijst van wijzigingen op de basis-publicatie ISSO 51:2023. Het bevat alleen patches op specifieke tabellen, niet de volledige basis-tabellen. Tabel 2.12, 2.14, 2.16 en 2.18 worden volledig vervangen en zijn dus letterlijk overgenomen. Tabel 2.6 en 2.8 krijgen alleen tekstuele puntcorrecties — de waardes-rijen in die tabellen staan **niet in dit PDF** en moeten uit de basis-publicatie komen.
 
 ---
@@ -28,11 +30,7 @@
 
 ### 1.2 qi,spec-tabel — definitieve toewijzing
 
-Letterlijk uit erratum p.12, Formule E.5 onder Par. E.2.2:
-
-> `H_i = 1,2 · q_i;spec · z · ΣA_g`
-> *waarin:*
-> *q_i;spec = specifieke luchtvolumestroom infiltratie per m2 gebruiksoppervlak **conform tabel 2.8** [dm³/s per m2]*
+Geverifieerd tegen erratum p.12, formule E.5 onder Par. E.2.2: de symboolverklaring bij E.5 definieert `q_i;spec` als specifieke luchtvolumestroom infiltratie per m² gebruiksoppervlak **conform tabel 2.8** (eenheid dm³/(s·m²)). De rekenrelatie is `H_i = 1,2 · q_i;spec · z · ΣA_g`. Dit koppelt qi,spec definitief aan Tabel 2.8, niet aan Tabel 2.6.
 
 **Conclusie tabel-toewijzing:**
 
@@ -67,15 +65,9 @@ Erratum p.2 wijzigt alleen de omschrijving van Tabel 2.8 ("verwijder: afhankelij
 
 ## 2. Formule 3.11 — kwadratische sommatie
 
-### 2.1 Letterlijke tekst uit erratum (p.7)
+### 2.1 Bevinding (erratum p.7, Par. 3.5.2)
 
-> *Par. 3.5.2 Warmteverliezen die niet altijd of niet altijd gelijktijdig optreden*
-> *Voeg het gelijkteken (=) toe aan formule 3.11:*
-> **Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu,i²)**
-
-(De wortel staat impliciet via de subscript-notatie "²" + "²" + "²" met groepering — erratum-PDF rendert het zonder expliciet wortelteken in de uitgepakte tekst, maar contextueel is dit kwadratische sommatie.)
-
-> **Letterlijk gerenderd (zonder layout):** `Φ extra = (Φ vent 2 + Φ T,iaBE 2 + Φ hu,i 2)`
+_Geverifieerd tegen erratum ISSO 51:2023 Par. 3.5.2, p.7._ Het erratum voegt het gelijkteken toe aan formule 3.11 en bevestigt de **kwadratische sommatie** `Φ_extra = √(Φ_vent² + Φ_T,iaBE² + Φ_hu,i²)` op gebouwniveau (§3.5.2, "warmteverliezen die niet altijd of niet gelijktijdig optreden").
 
 ### 2.2 Op welk niveau van toepassing?
 
@@ -94,16 +86,13 @@ Erratum p.2 wijzigt alleen de omschrijving van Tabel 2.8 ("verwijder: afhankelij
 
 ## 3. Formule 3.3 — Φ_vent = Φ_v − Φ_i
 
-### 3.1 Letterlijke tekst uit erratum (p.7)
+### 3.1 Bevinding (erratum p.7, Par. 3.2.3)
 
-> *Par. 3.2.3 In rekening te brengen warmteverlies door ventilatie*
-> *Wijzig formule 3.3 als volgt:* **Φ_vent = Φ_v − Φ_i**
-> *Verander de verwijzing: volgens paragraaf 2.5.6 in: volgens paragraaf 3.2.1*
+_Geverifieerd tegen erratum ISSO 51:2023 Par. 3.2.3, p.7._ Het erratum wijzigt formule 3.3 naar `Φ_vent = Φ_v − Φ_i` (gebouwniveau) en verlegt de paragraaf-verwijzing van 2.5.6 naar 3.2.1.
 
 ### 3.2 Vergelijkbare bepaling op vertrekniveau (p.9)
 
-> *Er geldt voor het in rekening te brengen ventilatiewarmteverlies:* **Φ_vent = Φ_v** *.*
-> (Dit staat onder Par. 4.2.2 in context "Centrale mechanische afvoer en toevoer via de verblijfsruimten")
+_Geverifieerd tegen erratum ISSO 51:2023 Par. 4.2.2, p.9._ In de context "centrale mechanische afvoer en toevoer via de verblijfsruimten" geldt op vertrekniveau `Φ_vent = Φ_v` (geen aftrek).
 
 ### 3.3 Op welk niveau?
 
@@ -130,7 +119,7 @@ Concreet voor `docs/2026-05-12-isso51-norm-conformiteit-audit.md`:
 | "Tabel 2.6 bevat infiltratie-volumestroom" (zoekagent-claim) | **INCORRECT** — Tabel 2.6 bevat `qv,10,spec` (luchtdoorlatendheid bij 10 Pa) | Verwijderen of corrigeren naar Tabel 2.8 |
 | "qi_spec heeft 4 klassen (0.04–0.16)" | **NIET TE VERIFIËREN UIT ERRATUM** | Toevoegen disclaimer: "exacte klassen vereist verificatie tegen basis-publicatie ISSO 51:2023; niet aanwezig in erratum-PDF" |
 | "Formule 3.11 = kwadratische sommatie op gebouwniveau" | **CORRECT** — Par. 3.5.2 erratum p.7 | Behouden |
-| "Formule 3.3 (Φ_vent = Φ_v − Φ_i) is gebouwniveau-correctie" | **CORRECT** — Par. 3.2.3 erratum p.7 | Behouden, evt. uitbreiden met letterlijk citaat |
+| "Formule 3.3 (Φ_vent = Φ_v − Φ_i) is gebouwniveau-correctie" | **CORRECT** — Par. 3.2.3 erratum p.7 | Behouden, evt. uitbreiden met bronverwijzing (geen letterlijk citaat) |
 | "Onze code mist gebouwniveau-aggregatie" | **Ondersteund door norm** — erratum bevestigt expliciet onderscheid §3.x (gebouw) vs §4.x (vertrek) | Behouden |
 
 ---

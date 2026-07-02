@@ -71,6 +71,20 @@ describe("groupRoomsByZone", () => {
     expect(groups[0]!.zone).toBeUndefined();
     expect(groups[0]!.rooms.map((r) => r.id)).toEqual(["r1", "r2"]);
   });
+
+  it("crasht niet op een niet-array `zones` (corrupt JSON) — restgroep", () => {
+    const rooms: TestRoom[] = [{ id: "r1", zoneId: "zone-a" }, { id: "r2" }];
+
+    // Simuleer een corrupt project-JSON waarin `zones` een string is.
+    const groups = groupRoomsByZone(
+      rooms,
+      "kapot" as unknown as Zone[],
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.zone).toBeUndefined();
+    expect(groups[0]!.rooms.map((r) => r.id)).toEqual(["r1", "r2"]);
+  });
 });
 
 describe("sumZoneBalance", () => {

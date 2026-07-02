@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { Card } from "../ui/Card";
 import { useProjectStore } from "../../store/projectStore";
 import type { Zone } from "../../types";
+import { normalizeZoneName, zoneNameExists } from "./zoneNames";
 
 export function ZonesCard() {
   const { t } = useTranslation();
@@ -27,6 +28,7 @@ export function ZonesCard() {
   const removeZone = useProjectStore((s) => s.removeZone);
 
   const [newName, setNewName] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   const zoneList = zones ?? [];
 
@@ -36,12 +38,24 @@ export function ZonesCard() {
     [rooms],
   );
 
+  const duplicateMsg = t(
+    "projectSetup.fields.zoneDuplicate",
+    "Er bestaat al een zone met deze naam.",
+  );
+
   const handleAdd = useCallback(() => {
-    const name = newName.trim();
+    const name = normalizeZoneName(newName);
     if (!name) return;
+    // Case-insensitieve dedup: geen tweede zone met dezelfde naam (zie
+    // `zoneNames.ts` — voorkomt niet-deterministische Revit-import-mapping).
+    if (zoneNameExists(zoneList, name)) {
+      setAddError(duplicateMsg);
+      return;
+    }
     addZone(name);
     setNewName("");
-  }, [newName, addZone]);
+    setAddError(null);
+  }, [newName, addZone, zoneList, duplicateMsg]);
 
   const handleRemove = useCallback(
     (zone: Zone) => {
@@ -77,6 +91,7 @@ export function ZonesCard() {
               roomCount={roomCountFor(zone.id)}
               onRename={(name) => renameZone(zone.id, name)}
               onRemove={() => handleRemove(zone)}
+              isDuplicateName={(name) => zoneNameExists(zoneList, name, zone.id)}
             />
           ))}
         </ul>
@@ -86,7 +101,10 @@ export function ZonesCard() {
         <input
           type="text"
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={(e) => {
+            setNewName(e.target.value);
+            if (addError) setAddError(null);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdd();
           }}
@@ -99,12 +117,19 @@ export function ZonesCard() {
         <button
           type="button"
           onClick={handleAdd}
-          disabled={newName.trim() === ""}
+          disabled={
+            normalizeZoneName(newName) === "" ||
+            zoneNameExists(zoneList, newName)
+          }
           className="rounded border border-[var(--oaec-border)] px-3 py-1.5 text-xs font-medium text-on-surface-secondary hover:bg-[var(--oaec-hover)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t("projectSetup.fields.addZone", "+ Zone toevoegen")}
         </button>
       </div>
+
+      {addError && (
+        <p className="mt-1.5 text-[11px] text-red-400">{addError}</p>
+      )}
     </Card>
   );
 }
@@ -119,11 +144,14 @@ function ZoneRow({
   roomCount,
   onRename,
   onRemove,
+  isDuplicateName,
 }: {
   zone: Zone;
   roomCount: number;
   onRename: (name: string) => void;
   onRemove: () => void;
+  /** True als `name` (trim, case-insensitief) al een ándere zone is. */
+  isDuplicateName: (name: string) => boolean;
 }) {
   const [draft, setDraft] = useState(zone.name);
 
@@ -134,7 +162,9 @@ function ZoneRow({
 
   const commit = () => {
     const name = draft.trim();
-    if (name === "" || name === zone.name) {
+    // Leeg, ongewijzigd, óf duplicaat van een andere zone → revert (geen
+    // rename). Zelfde dedup-regel als het toevoeg-pad.
+    if (name === "" || name === zone.name || isDuplicateName(name)) {
       setDraft(zone.name);
       return;
     }

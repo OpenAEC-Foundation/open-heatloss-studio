@@ -15,7 +15,7 @@
  * Testbaarheid: optionele `initial`-prop voor de begin-invoer, naar het
  * patroon van `Help.initialSection` (`pages/Help.tsx`).
  */
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Card } from "../components/ui/Card";
@@ -69,6 +69,33 @@ export function DoorGapCalculator({ initial }: { initial?: DoorGapInitial } = {}
   const flowUnit = useVentilationUiStore((s) => s.flowUnit);
 
   const [flowDm3s, setFlowDm3s] = useState(initial?.flowDm3s ?? 7);
+
+  // Debiet-invoer: aparte tekststate zodat het veld tijdens het typen NIET
+  // herschreven wordt (de oude `toFixed`-binding sloopte decimalen mid-invoer,
+  // bv. "1.05" → "1"). De canonieke waarde blijft `flowDm3s`; deze tekst wordt
+  // alleen genormaliseerd bij blur/Enter of wanneer de waarde/eenheid extern
+  // wijzigt (via het effect hieronder, alleen als het veld géén focus heeft).
+  const flowDisplayString = useCallback(
+    (dm3s: number) =>
+      String(
+        Number(
+          flowToDisplay(dm3s, flowUnit).toFixed(FLOW_UNIT_DECIMALS[flowUnit] + 1),
+        ),
+      ),
+    [flowUnit],
+  );
+  const [flowText, setFlowText] = useState(() =>
+    flowDisplayString(initial?.flowDm3s ?? 7),
+  );
+  const [flowFocused, setFlowFocused] = useState(false);
+
+  useEffect(() => {
+    // Alleen resyncen wanneer de gebruiker niet actief in het veld typt —
+    // anders zou de eenheid-toggle of een externe wijziging de invoer alsnog
+    // overschrijven tijdens het typen.
+    if (!flowFocused) setFlowText(flowDisplayString(flowDm3s));
+  }, [flowDm3s, flowFocused, flowDisplayString]);
+
   const [doorWidthMm, setDoorWidthMm] = useState(initial?.doorWidthMm ?? 880);
   const [deltaPPreset, setDeltaPPreset] = useState<DeltaPPreset>(
     initial?.deltaPPreset ?? "residential",
@@ -117,18 +144,31 @@ export function DoorGapCalculator({ initial }: { initial?: DoorGapInitial } = {}
                 type="number"
                 min={0}
                 step="any"
-                value={Number(
-                  flowToDisplay(flowDm3s, flowUnit).toFixed(
-                    FLOW_UNIT_DECIMALS[flowUnit] + 1,
-                  ),
-                )}
+                value={flowText}
+                onFocus={() => setFlowFocused(true)}
                 onChange={(e) => {
-                  const n = parseFloat(e.target.value);
+                  const raw = e.target.value;
+                  setFlowText(raw);
+                  // Live meerekenen op de exacte invoer, maar de tekst niet
+                  // aanraken (geen decimaal-verlies tijdens typen).
+                  const n = parseFloat(raw);
+                  if (Number.isFinite(n) && n >= 0) {
+                    setFlowDm3s(flowFromDisplay(n, flowUnit));
+                  }
+                }}
+                onBlur={() => {
+                  setFlowFocused(false);
+                  const n = parseFloat(flowText);
                   setFlowDm3s(
                     Number.isFinite(n) && n >= 0
                       ? flowFromDisplay(n, flowUnit)
                       : 0,
                   );
+                  // Tekst-normalisatie gebeurt via het effect (focus is nu weg).
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter")
+                    (e.currentTarget as HTMLInputElement).blur();
                 }}
                 className={inputClass}
               />
