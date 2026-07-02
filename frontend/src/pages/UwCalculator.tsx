@@ -41,7 +41,7 @@ const DEFAULT_INPUT: UwInput = {
   u_g: 1.1,
   u_f: 1.4,
   spacer: "aluminium",
-  psi_g: 0.06,
+  psi_g: 0.08,
   psi_g_is_manual: false,
 };
 
@@ -99,7 +99,7 @@ export function UwCalculator() {
   const [spacer, setSpacer] = useState<Spacer>("aluminium");
   const [psiGIsManual, setPsiGIsManual] = useState<boolean>(false);
   const [psiGManual, setPsiGManual] = useState<number>(
-    spacerPsiG("aluminium") ?? 0.06,
+    spacerPsiG("aluminium") ?? 0.08,
   );
 
   // Effectieve invoer

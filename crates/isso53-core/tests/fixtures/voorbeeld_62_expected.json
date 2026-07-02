@@ -1,26 +1,46 @@
 {
-  "tolerance_pct": 999.0,
+  "_source": {
+    "norm": "ISSO-publicatie 53 (2016), Warmteverliesberekening voor utiliteitsgebouwen met vertrekhoogten tot 4 meter",
+    "paragraaf": "6.2 Gedetailleerde berekening — beganegrond tussenmoduul",
+    "pdf": "Z:/50_projecten/7_3BM_bouwkunde/000_Documentatie/98_normen/ISSO-publicatie 53 ...pdf",
+    "paginas": "PDF-index 63-65 (boekpagina's 64-66, formules 6.8-6.16)",
+    "transcriptie_datum": "2026-07-02",
+    "gebouw": "Middelgroot modulenkantoor 65,5 x 14,8 x 22,8 m, 210 kantoormodulen over 7 verdiepingen, mechanische ventilatie + WTW 80%, lt-radiatoren, theta_i = 20 C, gewichtsklasse licht. Beschouwd: het volledig uitgewerkte beganegrond-tussenmoduul (inwendig 5,5 x 3,4 x 2,7 m)."
+  },
+  "_gepubliceerde_tussenwaarden": {
+    "theta_e_ontwerp_C": { "waarde": -8.5, "bron": "PDF p.64", "opmerking": "tau = Ceff/H = 2,3027e9 / 4639,71 = 137,9 h; delta_theta_e = 0,016*137,9-0,8 = 1,5; theta_e = -10 + 1,5 = -8,5. Gebouwbrede afleiding; engine kent geen tau-afgeleide theta_e, daarom is climate.thetaE = -8,5 in de input gepind." },
+    "HT_ie_W_per_K": { "waarde": 11.97, "bron": "PDF p.64", "opmerking": "buitenwand 5,70*(0,2+0,1) + raam 5,70*(1,7+0,1) = 1,71 + 10,26" },
+    "HT_ia_W_per_K": { "waarde": 4.77, "bron": "PDF p.64", "opmerking": "plafond naar bovenliggend moduul: 18,7 * 2,43 * fiak(0,105). fiak=0,105 is een gepubliceerde tussenvloer-factor, NIET uit een temperatuurverschil (bovenliggend vertrek is 20 C, gelijk). Zie _gaps." },
+    "HT_ig_W_per_K": { "waarde": 1.69, "bron": "PDF p.64", "opmerking": "1,45 * 18,7 * 0,177 * 1 * 0,351; B'=12,07 gebouwbreed" },
+    "Phi_T_W": { "waarde": 525.0, "bron": "PDF p.64", "opmerking": "(11,97 + 4,77 + 1,69) * 28,5 K" },
+    "Phi_i_W": { "waarde": 246.0, "bron": "PDF p.64", "opmerking": "qi=0,00063 m3/(s*m2gevel) uit tabel 4.4 bij hoogte 20 m; Hi=0,0072*1200=8,64; Phi_i=8,64*28,5" },
+    "Phi_vent_W": { "waarde": 190.0, "bron": "PDF p.65", "opmerking": "GEGEVEN qv=100 m3/h=27,8e-3 m3/s (groter dan Bbl-minimum 13e-3); theta_t=14 C na WTW 80%; fv=0,2; Hv=27,8e-3*1200*0,2=6,672; Phi_vent=6,672*28,5" },
+    "Phi_hu_W": { "waarde": 378.0, "bron": "PDF p.65", "opmerking": "Phi_op=5,8*3,5*28=568 W (hart-op-hart moduulvloer 20,3 m2, NIET de inwendige 18,7 m2); ventilatie uit tijdens opwarmen (a=1) -> Phi_hu = Phi_op - Hv*(theta_i-theta_e) = 568 - 6,672*28,5 = 568 - 190 = 378" },
+    "buitenluchttoetreding_W": { "waarde": 436.0, "bron": "PDF p.65", "opmerking": "Phi_i + Phi_vent = 246 + 190" },
+    "totaal_te_installeren_W": { "waarde": 1339.0, "bron": "PDF p.65", "opmerking": "Phi_T + buitenluchttoetreding + Phi_hu = 525 + 436 + 378" }
+  },
+  "_gaps": {
+    "blokkade": "De engine reproduceert dit moduul NIET binnen tolerantie (empirische run 2026-07-02: Phi_T 389,7 W / Phi_vent 88,9 W / Phi_hu 434,7 W / totaal 1159 W). De test blijft daarom op #[ignore]. Alleen Phi_i matcht (245,8 vs 246 W, -0,1%).",
+    "gap_1_transmissie": "Plafond-fiak=0,105 (HT,ia=4,77 W/K, ~26% van Phi_T) is een gepubliceerde tussenvloer-correctiefactor die NIET uit een temperatuurverschil volgt (bovenliggend moduul is 20 C). De engine berekent HT,ia uit (theta_i - theta_adj)/(theta_i - theta_e) en negeert de temperatureFactor-override op boundaryType=adjacentRoom -> hTAdjacentRooms=0. Fix vereist: engine moet temperature_factor honoreren op adjacentRoom, of een aparte tussenvloer-factor-tabel krijgen.",
+    "gap_2_ventilatie": "Het voorbeeld gebruikt een GEGEVEN qv=100 m3/h (27,8 dm3/s). De engine heeft geen per-ruimte ventilatievolume-override in het ISSO-53 room-model en valt terug op het Bbl-minimum (13 dm3/s) -> Phi_vent 88,9 i.p.v. 190 W. Fix vereist: Room.ventilation_rate-veld (zoals isso51-core al heeft).",
+    "gap_3_opwarmtoeslag": "Phi_hu stapelt gap_2 (verkeerde Hv in de a*Hv*dtheta-aftrek) plus een area-basis-inconsistentie in de publicatie zelf: Phi_op gebruikt de hart-op-hart moduulvloer 20,3 m2, terwijl ventilatie/grond de inwendige 18,7 m2 gebruiken. Een floorArea-veld kan beide niet eren.",
+    "activatie_voorwaarde": "Verwijder #[ignore] zodra gap_1 (temperature_factor op adjacentRoom) en gap_2 (per-ruimte ventilatie-override) in isso53-core zijn opgelost. Zet dan tolerancePct op een gemotiveerde waarde (~2-3% voor norm-afronding) en herzie de per-term expected tegen de dan geldende engine-output."
+  },
+  "tolerancePct": 2.0,
   "summary": {
-    "totalBuildingHeatLoss": 0.0,
-    "shellHeatLoss": 0.0,
-    "totalTransmissionLoss": 0.0,
-    "totalVentilationLoss": 0.0,
-    "totalInfiltrationLoss": 0.0
+    "totalBuildingHeatLoss": 1339.0,
+    "shellHeatLoss": null,
+    "totalTransmissionLoss": 525.0,
+    "totalVentilationLoss": 190.0,
+    "totalInfiltrationLoss": 246.0
   },
   "rooms": [
     {
-      "roomId": "R001",
-      "phiT": 0.0,
-      "phiV": 0.0,
-      "phiI": 0.0,
-      "totalHeatLoss": 0.0
-    },
-    {
-      "roomId": "R002",
-      "phiT": 0.0,
-      "phiV": 0.0,
-      "phiI": 0.0,
-      "totalHeatLoss": 0.0
+      "roomId": "BG-T",
+      "phiT": 525.0,
+      "phiV": 190.0,
+      "phiI": 246.0,
+      "totalHeatLoss": 1339.0
     }
   ]
 }

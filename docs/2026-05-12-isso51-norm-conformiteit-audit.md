@@ -5,11 +5,33 @@
 **Referenties:** ISSO 51:2023 (dr-engineering 2024 publ.) + erratum 2023 + 2 worked examples (vrijstaande woning 2017, Vabi Janssen 2017)
 **Mode:** read-only audit, geen code aangepast.
 
+---
+
+> ## ⚠️ CORRECTIE 2026-07-02
+>
+> **Dit auditrapport claimt op meerdere plaatsen (regels 12, 64, 113 hieronder) dat op VERTREKNIVEAU (hoofdstuk 4) generiek `Φ_vent = Φ_v` geldt, en dat de aftrek `Φ_v − Φ_i` alleen op gebouwniveau (hoofdstuk 3, formule 3.3) hoort. Dat is ONJUIST.**
+>
+> Verificatie tegen de ISSO 51:2023-PDF (2026-07-02, PDF-index 62-68) toont dat hoofdstuk 4 wél degelijk **per ventilatiesysteem differentieert**:
+>
+> | Systeem | Regel (H4) | Φ_vent |
+> |---|---|---|
+> | A | formule 4.4 (p.65) | **Φ_v − Φ_i**, met "indien Φvent < 0 dan Φvent = 0" |
+> | C | formule 4.9 (p.67) | **Φ_v − Φ_i**, clamp 0 |
+> | B | p.67 | Φ_v |
+> | D | p.68-69 | Φ_v |
+> | E | p.69 | per ruimte het toepasselijke systeem |
+>
+> De audit-auteur citeerde één B/D-instantie ("Er geldt … Φvent = Φv", de zgn. "regel 528") en generaliseerde die ten onrechte naar heel hoofdstuk 4. Natuurlijke toevoer (A/C) telt infiltratie als onderdeel van de toevoerstroom → aftrekken tegen dubbeltelling; mechanische toevoer (B/D) loopt apart → geen aftrek.
+>
+> **Fix doorgevoerd:** `crates/isso51-core/src/calc/room_load.rs` (`phi_vent` is nu een `match` op `vent_config.system_type`: A/C → `(phi_v − phi_i).max(0)`, B/D/E → `phi_v.max(0)`), met 6 regressie-unit-tests. Portiekwoning- en woonboot-goldens (beide systeem C) neerwaarts geregenereerd; gebouw-`connection_capacity` bleef ongewijzigd omdat `build_summary` de A/C-aftrek al toepaste. Zie de room-level fix voor detail.
+
+---
+
 ## Samenvatting
 
 - **De rekenkern dekt het erratum 2023 goed af op vertrekniveau** — alle vier expliciete aandachtspunten (θ_b=17°C, kwadratische sommatie, ρ·cp=1.2, qi_spec dm³/s/m²) zijn correct geïmplementeerd in de modules en zichtbaar in `formulas.rs` constanten.
 - **Echter: `build_summary` (gebouwsamenvatting) telt verliezen lineair op in plaats van kwadratisch.** Dit overschat het gebouw-aansluitvermogen en verschilt van het gedrag op vertrekniveau. Hiaat t.o.v. erratum §10 en §16. [`lib.rs:171-176`]
-- **Φ_vent = Φ_v op gebouwniveau** in plaats van `Φ_v − Φ_i` zoals erratum formule 3.3 (par. 3.2.3) voorschrijft voor hoofdstuk 3 (gebouw). Per-vertrek (hoofdstuk 4) is `Φ_vent = Φ_v` wel toegestaan. Discrepantie tussen norm-conventie en gebouwsamenvatting.
+- **Φ_vent = Φ_v op gebouwniveau** in plaats van `Φ_v − Φ_i` zoals erratum formule 3.3 (par. 3.2.3) voorschrijft voor hoofdstuk 3 (gebouw). ~~Per-vertrek (hoofdstuk 4) is `Φ_vent = Φ_v` wel toegestaan.~~ **⚠️ CORRECTIE 2026-07-02: onjuist voor systeem A/C — op vertrekniveau geldt formule 4.4/4.9 `Φ_vent = Φ_v − Φ_i` (clamp 0); alleen B/D gebruiken `Φ_v`. Zie correctie-blok bovenaan.** Discrepantie tussen norm-conventie en gebouwsamenvatting.
 - **Tabel 2.12 erratum is 1-op-1 geïmplementeerd** (14 verwarmingssystemen × Δθ₁/Δθ₂/Δθ_v_high/Δθ_v_low) — bewezen door codestructuur match met erratum-samenvatting tabel.
 - **`InfiltrationMethod::PerExteriorArea` is default** maar erratum formule E.5 (par. E.2.2) schrijft expliciet voor: `qi_spec per m² gebruiksoppervlak` (Tabel 2.8). De `PerFloorArea` methode is dus erratum-conform; de default `PerExteriorArea` (Tabel 4.3) is een legacy ISSO 51:2017 pad. Voor 2024-projecten levert de default andere getallen dan Vabi 3.12.
 
@@ -61,7 +83,7 @@
 - **Status:** ✓ grotendeels conform. Drie specifieke punten:
 - **Voetnoot 2 Tabel 2.12 (vide-correctie)** correct geïmplementeerd in `height_factor()` regel 39-45 met threshold `> 4.0 m` en lineair `h/4` — bewezen met regressie-tests regel 387-463.
 - **Δθ_v selectie** (regel 132-133): op gebouwniveau Ū berekend in `lib.rs:75-82`, dan per-vertrek doorgegeven. ✓
-- **Issue ⚠ (regel 195-198):** comment "ventilation loss, independent of infiltration" met `phi_vent = phi_v.max(0.0)`. Op vertrekniveau (Hoofdstuk 4) zegt erratum regel 528: *"Er geldt voor het in rekening te brengen ventilatiewarmteverlies: Φvent = Φv"* dus dit is **correct voor par. 4**. Maar op gebouwniveau (Hoofdstuk 3 formule 3.3): `Φ_vent = Φ_v − Φ_i`. Build_summary doet niet deze subtractie. Zie 🔴 hierboven.
+- **Issue ⚠ (regel 195-198):** comment "ventilation loss, independent of infiltration" met `phi_vent = phi_v.max(0.0)`. ~~Op vertrekniveau (Hoofdstuk 4) zegt erratum regel 528: *"Er geldt voor het in rekening te brengen ventilatiewarmteverlies: Φvent = Φv"* dus dit is **correct voor par. 4**.~~ **⚠️ CORRECTIE 2026-07-02: FOUT. Die "regel 528" is de systeem-B/D-variant; die geldt NIET generiek voor hoofdstuk 4. Systeem A (formule 4.4, p.65) en C (formule 4.9, p.67) schrijven op vertrekniveau `Φvent = Φv − Φi` (clamp 0) voor. `phi_vent = phi_v.max(0)` was dus fout voor A/C — gefixt in `room_load.rs` (per-systeem `match`). Zie correctie-blok bovenaan.** Op gebouwniveau (Hoofdstuk 3 formule 3.3): `Φ_vent = Φ_v − Φ_i`. Build_summary doet niet deze subtractie. Zie 🔴 hierboven.
 - **Issue ⚠ (regel 252-262):** R_c berekening uit U-waarde voor system losses gebruikt vaste `R_si=0.17` (wand+vloer) en `R_si=0.14` (plafond) plus `R_se=0.04` (exterior) of `R_se=0.0` (ground/water). Norm NEN-EN ISO 6946 schrijft R_si=0.13 voor wanden, 0.10 voor plafond opwaartse, 0.17 voor neerwaartse warmtestroom. Engineer-aanname documenteer of corrigeer.
 
 ## Per-tables bevindingen
@@ -111,6 +133,7 @@
 | #13 Ventilatiesysteem E | ⚠ | `enums.rs:130` (`SystemE` enum) — runtime ondersteuning **niet aanwezig** | Lokaal D + centraal C per ruimte mengvorm bestaat alleen als label, geen per-ruimte routing |
 | #14 Overige (formule 2.29 B', PMW→PMV) | n/a | — | Niet-rekenkern wijzigingen |
 | Form. 3.3 `Φ_vent = Φ_v − Φ_i` (gebouw) | ✗ | `lib.rs:166` (gebouwniveau) telt `phi_v` op, geen aftrek | Gebouwsamenvatting wijkt af van norm-conventie |
+| Form. 4.4/4.9 `Φ_vent = Φ_v − Φ_i` (vertrek, A/C) | ✅ **gefixt 2026-07-02** | `room_load.rs` — per-systeem `match` (A/C aftrek + clamp; B/D/E `Φ_v`) | ⚠️ CORRECTIE: audit claimde eerder onterecht dat H4 generiek `Φ_v` is; zie correctie-blok bovenaan |
 | Form. E.5 `H_i = 1.2 · qi,spec · z · ΣA_g` | ✓ | `infiltration.rs:35-37` (Hi) + `room_load.rs:115-120` (PerFloorArea pad) | Maar default = PerExteriorArea (Tabel 4.3 legacy) |
 
 ## Vier expliciete aandachtspunten

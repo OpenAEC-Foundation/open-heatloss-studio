@@ -27,16 +27,18 @@ import type { Spacer } from "../types/project";
  * Ψ_g-waarde per randafstandhouder-type in W/(m·K) — engineering-richtwaarden
  * voor HR++ dubbelglas, geïnspireerd op het EN-ISO 10077-1 Annex E-kader.
  *
- * - `aluminium` — conventionele metalen afstandhouder.
- * - `stainless` — RVS afstandhouder; in deze richttabel dezelfde 0,06 als
- *   aluminium, omdat het verschil tussen beide metalen afstandhouders binnen
- *   de onzekerheidsmarge van deze simplificatie valt. Voor een fijnmaziger
- *   onderscheid: de handmatige Ψ_g-override.
+ * - `aluminium` — conventionele aluminium/metalen afstandhouder. EN-ISO
+ *   10077-1 Annex E geeft voor een niet-thermisch-onderbroken metalen spacer
+ *   bij dubbelglas ≈ 0,08 W/(m·K); dat is de norm-conservatieve richtwaarde
+ *   voor het meest voorkomende geval.
+ * - `stainless` — RVS afstandhouder; iets lagere geleiding dan aluminium,
+ *   richtwaarde 0,06. Voor een fijnmaziger onderscheid: de handmatige
+ *   Ψ_g-override.
  * - `warm_edge_polymer` — kunststof "warm edge" afstandhouder.
  * - `warm_edge_foam` — schuim "warm edge" afstandhouder (laagste warmtelek).
  */
 export const SPACER_PSI_G: Record<Spacer, number> = {
-  aluminium: 0.06,
+  aluminium: 0.08,
   stainless: 0.06,
   warm_edge_polymer: 0.04,
   warm_edge_foam: 0.02,

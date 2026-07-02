@@ -2,10 +2,12 @@
 
 ## 🔍 Audit 2026-07-02 (norm + code + infra) — fix-rondes
 - [x] **F1 ✅ (02-07)** — C1 ontwerpbinnentemperaturen naar ISSO 51:2023 Tabel 2.11 (`enums.rs`, `constants.ts`, divergente kopie `ConstructionLossChart.tsx` opgeruimd) · C2 Vabi-mapper pint eigen ontwerptemp via `custom_temperature` i.p.v. `internal_air_temperature`. cargo/clippy/tsc/vitest 318/318 groen, golden-fixtures: portiekwoning gepind, woonboot herijkt (+6,7%).
-- [ ] **M1 [PM-normverificatie gedaan]** — Φ_vent = Φ_v − Φ_i voor systeem A/C, form. 4.4 p.65 + 4.9 p.67 (`crates/isso51-core/src/calc/room_load.rs:227`).
-- [ ] **M2** — aluminium spacer Ψ_g 0,06→0,08 EN-ISO 10077-1 (`frontend/src/lib/spacerTable.ts:39`) + 3 legacy testfiles naar vitest + CI-exclude weg.
+- [x] **M1 ✅ (02-07)** — Φ_vent = Φ_v − Φ_i (clamp 0) voor systeem A/C, form. 4.4 p.65 + 4.9 p.67 (`crates/isso51-core/src/calc/room_load.rs`); B/D blijft Φ_v, E conservatief Φ_v. Goldens portiekwoning/woonboot geregenereerd (vertrekniveau −3…−14%, gebouwniveau ongewijzigd). 6 nieuwe unit-tests.
+- [x] **M2 ✅ (02-07)** — aluminium spacer Ψ_g 0,06→0,08 EN-ISO 10077-1 Annex E (`frontend/src/lib/spacerTable.ts` + 2 UI-defaults `UwCalculator.tsx`) + 3 legacy testfiles naar vitest (318→365 groen) + CI-exclude weg.
 - [ ] **M3** — SQLite WAL/busy_timeout (`crates/isso51-api/src/main.rs:48`).
-- [ ] **M4** — ISSO 53 §6.1-fixture rebuild.
+- [ ] **M4 deels (02-07)** — ISSO 53 §6.1/§6.2-fixtures norm-getrouw getranscribeerd uit PDF (p.63-65); activatie blokkeert op 2 engine-gaten, test blijft `#[ignore]` (`crates/isso53-core/tests/golden.rs`, zie `PDF_GAPS.md`):
+  - [ ] **M4a** — f_ia temperature_factor op adjacentRoom niet gehonoreerd in isso53-engine.
+  - [ ] **M4b** — ontbrekende per-ruimte `ventilation_rate` in isso53-model.
 - [ ] **M5** — CVE-bumps (sqlx 0.8.1, quick-xml, lopdf, react-router).
 - [ ] **M6** — CI-actions SHA-pinnen.
 - [ ] **M7** — forward-auth defense-in-depth.

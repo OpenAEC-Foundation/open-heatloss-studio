@@ -21,13 +21,52 @@ Deze file documenteert de verschillen tussen de ISSO 53 PDF voorbeelden (p.59-75
 ### Risico bij negeren
 Zonder norm-getallen is het rekenresultaat van isso53-core niet onafhankelijk geverifieerd. Wel: alle formules zijn doc-comment-verwijzingen naar de spec, en de calc-primitieven hebben handberekende smoke-tests (batch 2b).
 
-## Voorbeeld 6.1 Gaps
+## Voorbeeld 6.1 Gaps (bijgewerkt 2026-07-02)
 
-*TBD na handmatige PDF-extractie - fixture bevat placeholder-input*
+PDF geëxtraheerd (PDF-index 58-59, boekpagina's 59-60). De engine HEEFT een
+schilmethode (`calc::shell::calculate_shell` → `summary.shellHeatLoss`), maar
+het voorbeeld is niet 1-op-1 reproduceerbaar:
 
-## Voorbeeld 6.2 Gaps  
+1. **Dak-exclusie (publicatie-anomalie).** De gepubliceerde ΣH_T,ie = 2452 W/K
+   telt alleen de gevels; het dak (Rc=6, 1000 m²) ontbreekt bewust. Een engine
+   die het dak wél meerekent overschat de 236,1 kW. Gedocumenteerd in
+   `voorbeeld_61_expected.json` → `_gepubliceerde_tussenwaarden.H_T_ie_W_per_K`.
+2. **τ-afgeleide θ_e.** τ=84,3 h → θ_e = -9,5 °C. Engine neemt θ_e als input.
 
-*TBD na handmatige PDF-extractie - fixture bevat placeholder-input*
+`voorbeeld_61_input.json` modelleert nog een enkel 20 m²-vertrek i.p.v. de
+gebouwschil. Input-rebuild (schil als één "room", dak conform publicatie
+weggelaten) = apart werkpakket. Test blijft `#[ignore]`.
+
+## Voorbeeld 6.2 Gaps (bijgewerkt 2026-07-02)
+
+PDF geëxtraheerd (PDF-index 63-65, boekpagina's 64-66, formules 6.8-6.16).
+`voorbeeld_62_input.json` is nu een getrouwe transcriptie van het beganegrond-
+tussenmoduul; `voorbeeld_62_expected.json` bevat de gepubliceerde waarden
+(Φ_T 525 / Φ_i 246 / Φ_vent 190 / Φ_hu 378 / totaal 1339 W) met bronnen.
+
+**Empirische engine-run 2026-07-02** (via `isso53-cli`):
+
+| Term | Publicatie | Engine | Afwijking | Status |
+|------|-----------|--------|-----------|--------|
+| Φ_i (infiltratie) | 246 W | 245,8 W | -0,1% | OK — hoogte-tabel 4.4 matcht |
+| Φ_T (transmissie) | 525 W | 389,7 W | -25,8% | gap_1 |
+| Φ_vent (ventilatie) | 190 W | 88,9 W | -53% | gap_2 |
+| Φ_hu (opwarming) | 378 W | 434,7 W | +15% | gap_3 |
+| **Totaal** | **1339 W** | **1159 W** | **-13,4%** | geblokkeerd |
+
+- **gap_1 (transmissie):** plafond-fiak=0,105 (H_T,ia=4,77 W/K) is een
+  gepubliceerde tussenvloer-factor naar een gelijk-temperatuur moduul (20 °C),
+  niet uit ΔT herleidbaar. Engine negeert `temperature_factor` op
+  `boundaryType=adjacentRoom` → `hTAdjacentRooms=0`. **Fix:** engine moet
+  `temperature_factor` honoreren op adjacentRoom (of tussenvloer-factor-tabel).
+- **gap_2 (ventilatie):** voorbeeld gebruikt gegeven qv=100 m³/h; engine heeft
+  geen per-ruimte ventilatie-override en pakt Bbl-minimum (13 dm³/s). **Fix:**
+  `Room.ventilation_rate`-veld toevoegen (isso51-core heeft dit al).
+- **gap_3 (opwarmtoeslag):** stapelt gap_2 in de a·H_v·Δθ-aftrek, plus
+  publicatie-interne area-inconsistentie (Φ_op op 20,3 m² vs 18,7 m² elders).
+
+**Activatie:** verwijder `#[ignore]` op `voorbeeld_62` zodra gap_1 + gap_2 zijn
+opgelost; herzie dan de per-term expected tegen de engine-output.
 
 ## Mogelijke structurele limitaties
 

@@ -4,7 +4,9 @@
 use crate::error::Result;
 use crate::model::building::Building;
 use crate::model::climate::DesignConditions;
-use crate::model::enums::{BoundaryType, InfiltrationMethod, ThermalMass, VerticalPosition};
+use crate::model::enums::{
+    BoundaryType, InfiltrationMethod, ThermalMass, VentilationSystemType, VerticalPosition,
+};
 use crate::model::room::Room;
 use crate::model::ventilation::VentilationConfig;
 use crate::result::{
@@ -221,10 +223,31 @@ pub fn calculate_room(
 
     let phi_v = ventilation::phi_ventilation(h_v, theta_i, theta_e);
 
-    // ISSO 51:2024 / Vabi: Φ_vent = Φ_v (ventilation loss, independent of infiltration)
-    // Both Φ_i (in basis) and Φ_vent (in extra/quadratic) are counted separately,
-    // because mechanical ventilation and infiltration are non-simultaneous events.
-    let phi_vent = phi_v.max(0.0);
+    // ISSO 51:2023 §4.2.4 — het in rekening te brengen ventilatiewarmteverlies Φ_vent.
+    // Systeem A (formule 4.4, p.65) en systeem C (formule 4.9, p.67) hebben
+    // NATUURLIJKE toevoer: de infiltratielucht maakt deel uit van diezelfde
+    // toevoerstroom, dus wordt Φ_i afgetrokken om dubbeltelling te voorkomen:
+    //   Φ_vent = Φ_v − Φ_i.
+    // Systeem B (p.67) en D (p.68-69) hebben MECHANISCHE toevoer: de infiltratie
+    // loopt fysiek apart en zit al volledig in Φ_basis → géén aftrek: Φ_vent = Φ_v.
+    // In alle gevallen geldt per vertrek: "Indien Φvent < 0 dan Φvent = 0".
+    //
+    // Systeem E (p.69) is een combinatie van systemen binnen één woning waarbij
+    // per ruimte het toepasselijke systeem geldt. Het model kent het ventilatie-
+    // systeem echter alleen gebouwbreed (`vent_config.system_type`; `Room` heeft
+    // geen eigen systeem-veld), dus systeem E valt hier terug op de mechanische-
+    // toevoer-conventie Φ_vent = Φ_v (conservatief: geen aftrek → hoger, veiliger
+    // vermogen). Dit is consistent met de gebouwsommatie in `lib.rs::build_summary`.
+    // Beperking staat in het auditrapport / TODO: per-ruimte systeem E vereist een
+    // extra `Room.ventilation_system`-veld.
+    let phi_vent = match vent_config.system_type {
+        VentilationSystemType::SystemA | VentilationSystemType::SystemC => {
+            (phi_v - phi_i).max(0.0)
+        }
+        VentilationSystemType::SystemB
+        | VentilationSystemType::SystemD
+        | VentilationSystemType::SystemE => phi_v.max(0.0),
+    };
 
     // --- Heating-up allowance (ISSO 51:2023 §2.5.8 / §4.3, Formule 4.15) ---
     // Φ_hu,i = P × A_g, met A_g = room.floor_area (per verblijfsruimte, §4.3.1)
@@ -452,6 +475,189 @@ mod tests {
     #[test]
     fn test_height_factor_below_standard() {
         assert_eq!(height_factor(1.5), 1.0);
+    }
+
+    // -----------------------------------------------------------------------
+    // ISSO 51:2023 §4.2.4 — Φ_vent per ventilatiesysteem.
+    //
+    // Systeem A (formule 4.4) en C (formule 4.9): Φ_vent = Φ_v − Φ_i (clamp ≥ 0).
+    // Systeem B en D: Φ_vent = Φ_v. Regressie voor de fix 2026-07-02 die de
+    // eerdere `Φ_vent = Φ_v.max(0)`-tak voor álle systemen corrigeerde
+    // (systeem A/C telde infiltratie dubbel).
+    // -----------------------------------------------------------------------
+
+    use crate::model::building::Building;
+    use crate::model::climate::DesignConditions;
+    use crate::model::enums::{
+        AggregationMethod, BuildingType, HeatingControlType, HeatingSystem, RoomFunction,
+        SecurityClass,
+    };
+    use crate::model::room::Room;
+    use crate::model::ventilation::VentilationConfig;
+
+    /// Bouw een minimaal gebouw met `PerFloorArea`-infiltratie zodat Φ_i
+    /// onafhankelijk is van het ventilatiesysteem (de norm-methoden VabiCompat/
+    /// Nta8800Strict/MeasuredQv10 lezen `system_type` via `f_inf` tabel 2.5, wat
+    /// de assertie zou vervuilen).
+    fn phi_vent_test_building() -> Building {
+        Building {
+            building_type: BuildingType::Terraced,
+            qv10: 100.0,
+            total_floor_area: 30.0,
+            security_class: SecurityClass::B,
+            has_night_setback: false,
+            warmup_time: 2.0,
+            building_height: None,
+            num_floors: 1,
+            infiltration_method: InfiltrationMethod::PerFloorArea,
+            dwelling_class: None,
+            construction_variant: None,
+            construction_year: None,
+            aggregation_method: AggregationMethod::VabiCompat,
+            heating_control_type: HeatingControlType::PerZone,
+            c_eff: None,
+            built_after_2015: true,
+            all_floor_heating: false,
+        }
+    }
+
+    fn phi_vent_test_climate() -> DesignConditions {
+        DesignConditions {
+            theta_e: -10.0,
+            theta_b_residential: 17.0,
+            theta_b_non_residential: 14.0,
+            wind_factor: 1.0,
+            theta_water: 5.0,
+            theta_ground: 10.0,
+        }
+    }
+
+    /// Woonkamer met alle toevoerlucht van buiten (`fraction_outside_air = 1.0`)
+    /// en een expliciete volumestroom zodat Φ_v > Φ_i > 0.
+    fn phi_vent_test_room() -> Room {
+        Room {
+            id: "r1".to_string(),
+            name: "Woonkamer".to_string(),
+            function: RoomFunction::LivingRoom,
+            custom_temperature: None,
+            floor_area: 30.0,
+            height: 2.6,
+            constructions: vec![],
+            heating_system: HeatingSystem::RadiatorLt,
+            ventilation_rate: Some(30.0),
+            has_mechanical_exhaust: false,
+            has_mechanical_supply: false,
+            fraction_outside_air: 1.0,
+            supply_air_temperature: None,
+            air_source_room_id: None,
+            internal_air_temperature: None,
+            clamp_positive: true,
+        }
+    }
+
+    fn phi_vent_config(system: VentilationSystemType) -> VentilationConfig {
+        VentilationConfig {
+            system_type: system,
+            has_heat_recovery: false,
+            heat_recovery_efficiency: None,
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        }
+    }
+
+    fn run_phi_vent(system: VentilationSystemType) -> crate::result::RoomResult {
+        let room = phi_vent_test_room();
+        let building = phi_vent_test_building();
+        let climate = phi_vent_test_climate();
+        let vent = phi_vent_config(system);
+        calculate_room(
+            &room,
+            std::slice::from_ref(&room),
+            &building,
+            &climate,
+            &vent,
+            0.0,
+            ThermalMass::Heavy,
+            false,
+            false,
+        )
+        .expect("calculate_room should succeed")
+    }
+
+    /// Systeem A: Φ_vent = Φ_v − Φ_i (natuurlijke toevoer, formule 4.4).
+    #[test]
+    fn test_phi_vent_system_a_subtracts_infiltration() {
+        let r = run_phi_vent(VentilationSystemType::SystemA);
+        let expected = (r.ventilation.phi_v - r.infiltration.phi_i).max(0.0);
+        assert!(r.infiltration.phi_i > 0.0, "sanity: Φ_i moet > 0 zijn");
+        assert!(
+            r.ventilation.phi_v > r.infiltration.phi_i,
+            "sanity: Φ_v moet > Φ_i zodat de aftrek zichtbaar is"
+        );
+        assert!(
+            (r.ventilation.phi_vent - expected).abs() < 1e-9,
+            "systeem A: Φ_vent = {}, verwacht Φ_v−Φ_i = {}",
+            r.ventilation.phi_vent,
+            expected
+        );
+        assert!(
+            r.ventilation.phi_vent < r.ventilation.phi_v,
+            "systeem A: Φ_vent moet lager zijn dan Φ_v"
+        );
+    }
+
+    /// Systeem C: Φ_vent = Φ_v − Φ_i (natuurlijke toevoer, formule 4.9).
+    #[test]
+    fn test_phi_vent_system_c_subtracts_infiltration() {
+        let r = run_phi_vent(VentilationSystemType::SystemC);
+        let expected = (r.ventilation.phi_v - r.infiltration.phi_i).max(0.0);
+        assert!(
+            (r.ventilation.phi_vent - expected).abs() < 1e-9,
+            "systeem C: Φ_vent = {}, verwacht Φ_v−Φ_i = {}",
+            r.ventilation.phi_vent,
+            expected
+        );
+        assert!(r.ventilation.phi_vent < r.ventilation.phi_v);
+    }
+
+    /// Systeem B: Φ_vent = Φ_v (mechanische toevoer, géén aftrek).
+    #[test]
+    fn test_phi_vent_system_b_equals_phi_v() {
+        let r = run_phi_vent(VentilationSystemType::SystemB);
+        assert!(
+            (r.ventilation.phi_vent - r.ventilation.phi_v.max(0.0)).abs() < 1e-9,
+            "systeem B: Φ_vent = {}, verwacht Φ_v = {}",
+            r.ventilation.phi_vent,
+            r.ventilation.phi_v
+        );
+    }
+
+    /// Systeem D: Φ_vent = Φ_v (mechanische toevoer, géén aftrek).
+    #[test]
+    fn test_phi_vent_system_d_equals_phi_v() {
+        let r = run_phi_vent(VentilationSystemType::SystemD);
+        assert!(
+            (r.ventilation.phi_vent - r.ventilation.phi_v.max(0.0)).abs() < 1e-9,
+            "systeem D: Φ_vent = {}, verwacht Φ_v = {}",
+            r.ventilation.phi_vent,
+            r.ventilation.phi_v
+        );
+    }
+
+    /// A/C moeten strikt lager uitkomen dan B/D bij identieke room-input,
+    /// precies met het bedrag Φ_i (de dubbeltelling die de fix wegneemt).
+    #[test]
+    fn test_phi_vent_ac_lower_than_bd_by_infiltration() {
+        let a = run_phi_vent(VentilationSystemType::SystemA);
+        let b = run_phi_vent(VentilationSystemType::SystemB);
+        let delta = b.ventilation.phi_vent - a.ventilation.phi_vent;
+        assert!(
+            (delta - a.infiltration.phi_i).abs() < 1e-9,
+            "verschil B−A ({delta}) moet gelijk zijn aan Φ_i ({})",
+            a.infiltration.phi_i
+        );
     }
 
     /// Tabulated Δθ₁ × height_factor must match the expected product

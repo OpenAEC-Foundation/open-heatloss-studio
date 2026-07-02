@@ -1,29 +1,30 @@
 {
   "info": {
-    "name": "ISSO 53 Voorbeeld 6.2 - Meerdere ruimtes",
-    "projectNumber": "ISSO-6.2",
+    "name": "ISSO 53 Voorbeeld 6.2 - Beganegrond tussenmoduul (gedetailleerde methode)",
+    "projectNumber": "ISSO-6.2-BGtussen",
     "address": null,
     "client": "ISSO",
     "date": "2016-01-01",
     "engineer": "Norm Voorbeeld",
-    "notes": "Voorbeeld uit ISSO 53 publicatie p.62-75"
+    "notes": "Getrouwe transcriptie van het volledig uitgewerkte beganegrond-tussenmoduul uit ISSO 53 par. 6.2 (PDF p.60-65, afb. 6.2). LET OP: de bijbehorende test staat op #[ignore] omdat de engine dit moduul niet binnen tolerantie reproduceert; zie voorbeeld_62_expected.json (_gaps) en PDF_GAPS.md voor de exacte oorzaken. Dit is een norm-transcriptie, GEEN passerende golden."
   },
   "building": {
     "buildingShape": "meerlaags",
     "constructionYear": 2015,
-    "buildingPosition": "meerlaagsTussen",
-    "ventilationSystem": "systemC",
-    "thermalMass": "zwaar",
-    "windPressureType": "meerlaagsStandaard"
+    "buildingPosition": "meerlaagsOnder",
+    "ventilationSystem": "systemD",
+    "thermalMass": "licht",
+    "windPressureType": "meerlaagsStandaard",
+    "buildingHeight": 20.0
   },
   "climate": {
-    "thetaE": -10.0,
+    "thetaE": -8.5,
     "thetaMe": 9.0
   },
   "ventilation": {
-    "systemType": "systemC",
+    "systemType": "systemD",
     "hasHeatRecovery": true,
-    "heatRecoveryEfficiency": 0.75,
+    "heatRecoveryEfficiency": 0.8,
     "frostProtection": null,
     "supplyTemperature": null,
     "hasPreheating": false,
@@ -31,173 +32,76 @@
   },
   "rooms": [
     {
-      "id": "R001",
-      "name": "Kantoor 101",
+      "id": "BG-T",
+      "name": "Beganegrond tussenmoduul",
       "gebruiksFunctie": "kantoor",
       "ruimteType": "verblijfsruimte",
-      "floorArea": 25.0,
-      "height": 3.2,
-      "customTemperature": null,
+      "floorArea": 18.7,
+      "height": 2.7,
+      "customTemperature": 20.0,
       "constructions": [
         {
-          "id": "wall-n-1",
-          "description": "Buitenwand noord K101",
-          "area": 16.0,
+          "id": "buitenwand",
+          "description": "Buitenwand ondoorzichtig (5,70 m2, U=0,20)",
+          "area": 5.70,
           "uValue": 0.20,
           "boundaryType": "exterior",
           "materialType": "masonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
           "verticalPosition": "wall",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": null,
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
+          "useForfaitaireThermalBridge": true
         },
         {
-          "id": "raam-n-1",
-          "description": "Raam noord K101",
-          "area": 4.0,
-          "uValue": 1.1,
+          "id": "raam",
+          "description": "Raamsysteem kozijn+beglazing (5,71 m2, U=1,70)",
+          "area": 5.71,
+          "uValue": 1.70,
           "boundaryType": "exterior",
           "materialType": "nonMasonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
           "verticalPosition": "wall",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": null,
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
+          "useForfaitaireThermalBridge": true
         },
         {
-          "id": "vloer-1",
-          "description": "Vloer op grond K101",
-          "area": 25.0,
-          "uValue": 0.25,
-          "boundaryType": "ground",
-          "materialType": "masonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
-          "verticalPosition": "floor",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": {
-            "uEquivalent": 0.20,
-            "groundWaterFactor": 1.0,
-            "fIg": 1.0
-          },
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
-        }
-      ],
-      "bezetting": {
-        "personen": 4,
-        "persorenPerM2Default": null
-      },
-      "infiltrationReductionZ": 1.0
-    },
-    {
-      "id": "R002",
-      "name": "Kantoor 102",
-      "gebruiksFunctie": "kantoor",
-      "ruimteType": "verblijfsruimte",
-      "floorArea": 30.0,
-      "height": 3.2,
-      "customTemperature": null,
-      "constructions": [
-        {
-          "id": "wall-o-2",
-          "description": "Buitenwand oost K102",
-          "area": 19.2,
-          "uValue": 0.20,
-          "boundaryType": "exterior",
-          "materialType": "masonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
-          "verticalPosition": "wall",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": null,
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
-        },
-        {
-          "id": "raam-o-2",
-          "description": "Raam oost K102",
-          "area": 5.0,
-          "uValue": 1.1,
-          "boundaryType": "exterior",
-          "materialType": "nonMasonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
-          "verticalPosition": "wall",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": null,
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
-        },
-        {
-          "id": "vloer-2",
-          "description": "Vloer op grond K102",
-          "area": 30.0,
-          "uValue": 0.25,
-          "boundaryType": "ground",
-          "materialType": "masonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": null,
-          "adjacentTemperature": null,
-          "verticalPosition": "floor",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": {
-            "uEquivalent": 0.20,
-            "groundWaterFactor": 1.0,
-            "fIg": 1.0
-          },
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
-        },
-        {
-          "id": "wall-tussen",
-          "description": "Tussenwand naar R001",
-          "area": 15.0,
-          "uValue": 0.8,
+          "id": "plafond",
+          "description": "Plafond naar bovenliggend moduul (tussenvloer U=2,43). Publicatie gebruikt fiak=0,105 -> HT,ia=4,77 W/K. Zie _gaps: engine honoreert temperatureFactor niet op adjacentRoom.",
+          "area": 18.7,
+          "uValue": 2.43,
           "boundaryType": "adjacentRoom",
           "materialType": "masonry",
-          "temperatureFactor": null,
-          "adjacentRoomId": "R001",
-          "adjacentTemperature": null,
-          "verticalPosition": "wall",
-          "useForfaitaireThermalBridge": true,
-          "customDeltaUTb": null,
-          "groundParams": null,
-          "hasEmbeddedHeating": false,
-          "unheatedSpace": null
+          "temperatureFactor": 0.105,
+          "adjacentTemperature": 20.0,
+          "verticalPosition": "ceiling",
+          "useForfaitaireThermalBridge": false
+        },
+        {
+          "id": "vloer",
+          "description": "Beganegrondvloer op grond (18,7 m2). Uequiv=0,177, fig=0,351, B'=12,07 (gebouwbreed).",
+          "area": 18.7,
+          "uValue": 0.20,
+          "boundaryType": "ground",
+          "materialType": "masonry",
+          "verticalPosition": "floor",
+          "useForfaitaireThermalBridge": false,
+          "groundParams": {
+            "uEquivalent": 0.177,
+            "groundWaterFactor": 1.0,
+            "fIg": 0.351
+          }
         }
       ],
-      "bezetting": {
-        "personen": 5,
-        "persorenPerM2Default": null
-      },
+      "bezetting": { "personen": 2 },
       "infiltrationReductionZ": 1.0
     }
   ],
   "infiltrationMethod": {
     "known": {
-      "qv10_kar_class": "From060To080"
+      "qv10_kar_class": "From020To040"
     }
   },
   "heatingUp": {
     "setbackActive": true,
-    "pWPerM2": 8.0,
-    "warmupMinutes": 120.0
+    "pWPerM2Override": 28.0,
+    "mechanicalSupplyOff": true,
+    "warmupHoursWeekday": 2.0,
+    "warmupHoursWeekend": 4.0
   }
 }

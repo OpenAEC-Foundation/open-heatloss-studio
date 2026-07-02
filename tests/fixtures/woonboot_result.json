@@ -1,632 +1,632 @@
 {
   "rooms": [
     {
-      "room_id": "room-0",
-      "room_name": "Slaapkamer",
-      "theta_i": 22.0,
-      "transmission": {
-        "h_t_exterior": 1.81,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
-        "h_t_adjacent_buildings": 0.0,
-        "h_t_ground": 0.0,
-        "h_t_water": 0.0,
-        "phi_t": 57.92,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_2",
-          "ISSO_51_2023_formule4_3a",
-          "ISSO_51_2023_formule4_6",
-          "ISSO_51_2023_formule4_14",
-          "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 1.7376000000000003,
-        "z_i": 1.0,
-        "phi_i": 55.60320000000001,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
-      },
-      "ventilation": {
-        "h_v": 12.042,
-        "f_v": 1.0,
-        "q_v": 10.035,
-        "q_v_minimum": 10.035,
-        "phi_v": 385.344,
-        "phi_vent": 385.344,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_3_erratum",
-          "ISSO_51_2023_formule4_6a_erratum",
-          "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+      "basis_heat_loss": 113.5232,
+      "extra_heat_loss": 329.7408,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 11.15,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 1.7376000000000005,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 55.60320000000001,
+        "z_i": 1.0
+      },
+      "room_id": "room-0",
+      "room_name": "Slaapkamer",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 498.8672,
-      "basis_heat_loss": 113.5232,
-      "extra_heat_loss": 385.344
-    },
-    {
-      "room_id": "room-1",
-      "room_name": "Mk",
       "theta_i": 22.0,
+      "total_heat_loss": 443.264,
       "transmission": {
-        "h_t_exterior": 0.364,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 1.81,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 11.648,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 0.3494399999999999,
-        "z_i": 1.0,
-        "phi_i": 11.182079999999997,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 57.92
       },
       "ventilation": {
-        "h_v": 8.4,
         "f_v": 1.0,
-        "q_v": 7.0,
-        "q_v_minimum": 7.0,
-        "phi_v": 268.8,
-        "phi_vent": 268.8,
+        "h_v": 12.042,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 385.344,
+        "phi_vent": 329.7408,
+        "q_v": 10.035,
+        "q_v_minimum": 10.035
+      }
+    },
+    {
+      "basis_heat_loss": 22.830079999999995,
+      "extra_heat_loss": 257.61792,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 0.69,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 0.3494399999999999,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 11.182079999999996,
+        "z_i": 1.0
+      },
+      "room_id": "room-1",
+      "room_name": "Mk",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 291.63008,
-      "basis_heat_loss": 22.830079999999995,
-      "extra_heat_loss": 268.8
-    },
-    {
-      "room_id": "room-2",
-      "room_name": "Finse sauna",
       "theta_i": 22.0,
+      "total_heat_loss": 280.44800000000004,
       "transmission": {
-        "h_t_exterior": 3.3527406000000006,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 0.364,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 107.28769920000002,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 1.2825600000000001,
-        "z_i": 1.0,
-        "phi_i": 41.041920000000005,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 11.648
       },
       "ventilation": {
-        "h_v": 8.4,
         "f_v": 1.0,
-        "q_v": 7.0,
-        "q_v_minimum": 7.0,
-        "phi_v": 268.8,
-        "phi_vent": 268.8,
+        "h_v": 8.4,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 268.8,
+        "phi_vent": 257.61792,
+        "q_v": 7.0,
+        "q_v_minimum": 7.0
+      }
+    },
+    {
+      "basis_heat_loss": 148.32961920000002,
+      "extra_heat_loss": 227.75808,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 4.48,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 1.28256,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 41.041920000000005,
+        "z_i": 1.0
+      },
+      "room_id": "room-2",
+      "room_name": "Finse sauna",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 417.12961920000004,
-      "basis_heat_loss": 148.32961920000002,
-      "extra_heat_loss": 268.8
-    },
-    {
-      "room_id": "room-3",
-      "room_name": "Badkamer 1",
       "theta_i": 22.0,
+      "total_heat_loss": 376.0876992,
       "transmission": {
-        "h_t_exterior": 1.497,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 3.3527406000000006,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 47.904,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 1.4371200000000002,
-        "z_i": 1.0,
-        "phi_i": 45.987840000000006,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 107.28769920000002
       },
       "ventilation": {
-        "h_v": 8.64,
         "f_v": 1.0,
-        "q_v": 7.2,
-        "q_v_minimum": 7.2,
-        "phi_v": 276.48,
-        "phi_vent": 276.48,
+        "h_v": 8.4,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 268.8,
+        "phi_vent": 227.75808,
+        "q_v": 7.0,
+        "q_v_minimum": 7.0
+      }
+    },
+    {
+      "basis_heat_loss": 93.89184,
+      "extra_heat_loss": 230.49216,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 8.0,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 1.4371200000000002,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 45.987840000000006,
+        "z_i": 1.0
+      },
+      "room_id": "room-3",
+      "room_name": "Badkamer 1",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 370.37184,
-      "basis_heat_loss": 93.89184,
-      "extra_heat_loss": 276.48
-    },
-    {
-      "room_id": "room-4",
-      "room_name": "Werkkamer",
       "theta_i": 22.0,
+      "total_heat_loss": 324.384,
       "transmission": {
-        "h_t_exterior": 2.9890000000000003,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 1.497,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 95.64800000000001,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 2.86944,
-        "z_i": 1.0,
-        "phi_i": 91.82208,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 47.904
       },
       "ventilation": {
-        "h_v": 17.388,
         "f_v": 1.0,
-        "q_v": 14.490000000000002,
-        "q_v_minimum": 14.490000000000002,
-        "phi_v": 556.416,
-        "phi_vent": 556.416,
+        "h_v": 8.64,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 276.48,
+        "phi_vent": 230.49216,
+        "q_v": 7.2,
+        "q_v_minimum": 7.2
+      }
+    },
+    {
+      "basis_heat_loss": 187.47008,
+      "extra_heat_loss": 464.59392,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 16.1,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 2.86944,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 91.82208,
+        "z_i": 1.0
+      },
+      "room_id": "room-4",
+      "room_name": "Werkkamer",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 743.88608,
-      "basis_heat_loss": 187.47008,
-      "extra_heat_loss": 556.416
-    },
-    {
-      "room_id": "room-5",
-      "room_name": "Gastenverblijf",
       "theta_i": 22.0,
+      "total_heat_loss": 652.0640000000001,
       "transmission": {
-        "h_t_exterior": 2.044,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 2.9890000000000003,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 65.408,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 1.9622399999999995,
-        "z_i": 1.0,
-        "phi_i": 62.791679999999985,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 95.648
       },
       "ventilation": {
-        "h_v": 9.903599999999999,
         "f_v": 1.0,
-        "q_v": 8.253,
-        "q_v_minimum": 8.253,
-        "phi_v": 316.91519999999997,
-        "phi_vent": 316.91519999999997,
+        "h_v": 17.388,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 556.416,
+        "phi_vent": 464.59392,
+        "q_v": 14.490000000000002,
+        "q_v_minimum": 14.490000000000002
+      }
+    },
+    {
+      "basis_heat_loss": 128.19968,
+      "extra_heat_loss": 254.12352,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 9.17,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 1.9622399999999995,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 62.791679999999985,
+        "z_i": 1.0
+      },
+      "room_id": "room-5",
+      "room_name": "Gastenverblijf",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 445.11487999999997,
-      "basis_heat_loss": 128.19968,
-      "extra_heat_loss": 316.91519999999997
-    },
-    {
-      "room_id": "room-6",
-      "room_name": "Entree/Hal/",
       "theta_i": 22.0,
+      "total_heat_loss": 382.3232,
       "transmission": {
-        "h_t_exterior": 2.399,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 2.044,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 76.768,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 2.3030399999999998,
-        "z_i": 1.0,
-        "phi_i": 73.69727999999999,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 65.408
       },
       "ventilation": {
-        "h_v": 12.96,
         "f_v": 1.0,
-        "q_v": 10.8,
-        "q_v_minimum": 10.8,
-        "phi_v": 414.72,
-        "phi_vent": 414.72,
+        "h_v": 9.9036,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 316.91519999999997,
+        "phi_vent": 254.12352,
+        "q_v": 8.253,
+        "q_v_minimum": 8.253
+      }
+    },
+    {
+      "basis_heat_loss": 150.46528,
+      "extra_heat_loss": 341.02272000000005,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 12.0,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 2.30304,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 73.69727999999999,
+        "z_i": 1.0
+      },
+      "room_id": "room-6",
+      "room_name": "Entree/Hal/",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 565.18528,
-      "basis_heat_loss": 150.46528,
-      "extra_heat_loss": 414.72
-    },
-    {
-      "room_id": "room-7",
-      "room_name": "Toilet/Douche",
       "theta_i": 22.0,
+      "total_heat_loss": 491.48800000000006,
       "transmission": {
-        "h_t_exterior": 1.0950000000000002,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 2.399,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 35.040000000000006,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 1.0512,
-        "z_i": 1.0,
-        "phi_i": 33.6384,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 76.768
       },
       "ventilation": {
-        "h_v": 8.4,
         "f_v": 1.0,
-        "q_v": 7.0,
-        "q_v_minimum": 7.0,
-        "phi_v": 268.8,
-        "phi_vent": 268.8,
+        "h_v": 12.96,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 414.72,
+        "phi_vent": 341.02272000000005,
+        "q_v": 10.8,
+        "q_v_minimum": 10.8
+      }
+    },
+    {
+      "basis_heat_loss": 68.67840000000001,
+      "extra_heat_loss": 235.1616,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 2.72,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 1.0512,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 33.6384,
+        "z_i": 1.0
+      },
+      "room_id": "room-7",
+      "room_name": "Toilet/Douche",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 337.4784,
-      "basis_heat_loss": 68.67840000000001,
-      "extra_heat_loss": 268.8
-    },
-    {
-      "room_id": "room-8",
-      "room_name": "Zithoek",
       "theta_i": 22.0,
+      "total_heat_loss": 303.84000000000003,
       "transmission": {
-        "h_t_exterior": 2.114,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 1.0950000000000002,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 67.648,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 2.02944,
-        "z_i": 1.0,
-        "phi_i": 64.94208,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 35.040000000000006
       },
       "ventilation": {
-        "h_v": 20.6172,
         "f_v": 1.0,
-        "q_v": 17.181,
-        "q_v_minimum": 17.181,
-        "phi_v": 659.7504,
-        "phi_vent": 659.7504,
+        "h_v": 8.4,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 268.8,
+        "phi_vent": 235.1616,
+        "q_v": 7.0,
+        "q_v_minimum": 7.0
+      }
+    },
+    {
+      "basis_heat_loss": 132.59008,
+      "extra_heat_loss": 594.80832,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 19.09,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 2.02944,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 64.94208,
+        "z_i": 1.0
+      },
+      "room_id": "room-8",
+      "room_name": "Zithoek",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 792.3404800000001,
-      "basis_heat_loss": 132.59008,
-      "extra_heat_loss": 659.7504
-    },
-    {
-      "room_id": "room-9",
-      "room_name": "Leefkeuken",
       "theta_i": 22.0,
+      "total_heat_loss": 727.3984,
       "transmission": {
-        "h_t_exterior": 3.3920000000000003,
-        "h_t_adjacent_rooms": 0.0,
-        "h_t_unheated": 0.0,
         "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 2.114,
         "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
         "h_t_water": 0.0,
-        "phi_t": 108.54400000000001,
         "norm_refs": [
           "ISSO_51_2023_formule4_2",
           "ISSO_51_2023_formule4_3a",
           "ISSO_51_2023_formule4_6",
           "ISSO_51_2023_formule4_14",
           "ISSO_51_2023_formule4_18"
-        ]
-      },
-      "infiltration": {
-        "h_i": 3.25632,
-        "z_i": 1.0,
-        "phi_i": 104.20224,
-        "norm_refs": [
-          "ISSO_51_2023_formule4_1_erratum",
-          "ISSO_51_2023_formule_e5_erratum"
-        ]
+        ],
+        "phi_t": 67.648
       },
       "ventilation": {
-        "h_v": 31.773600000000002,
         "f_v": 1.0,
-        "q_v": 26.478,
-        "q_v_minimum": 26.478,
-        "phi_v": 1016.7552000000001,
-        "phi_vent": 1016.7552000000001,
+        "h_v": 20.6172,
         "norm_refs": [
           "ISSO_51_2023_formule4_3_erratum",
           "ISSO_51_2023_formule4_6a_erratum",
           "ISSO_51_2023_formule3_3_erratum"
-        ]
-      },
+        ],
+        "phi_v": 659.7504,
+        "phi_vent": 594.80832,
+        "q_v": 17.181,
+        "q_v_minimum": 17.181
+      }
+    },
+    {
+      "basis_heat_loss": 212.74624,
+      "extra_heat_loss": 912.55296,
       "heating_up": {
-        "phi_hu": 0.0,
-        "p": 0.0,
         "a_g": 29.42,
         "norm_refs": [
           "ISSO_51_2023_parag4_3"
-        ]
+        ],
+        "p": 0.0,
+        "phi_hu": 0.0
       },
+      "infiltration": {
+        "h_i": 3.25632,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_1_erratum",
+          "ISSO_51_2023_formule_e5_erratum"
+        ],
+        "phi_i": 104.20224,
+        "z_i": 1.0
+      },
+      "room_id": "room-9",
+      "room_name": "Leefkeuken",
       "system_losses": {
-        "phi_floor_loss": 0.0,
-        "phi_wall_loss": 0.0,
+        "norm_refs": [],
         "phi_ceiling_loss": 0.0,
+        "phi_floor_loss": 0.0,
         "phi_system_total": 0.0,
-        "norm_refs": []
+        "phi_wall_loss": 0.0
       },
-      "total_heat_loss": 1229.50144,
-      "basis_heat_loss": 212.74624,
-      "extra_heat_loss": 1016.7552000000001
+      "theta_i": 22.0,
+      "total_heat_loss": 1125.2992000000002,
+      "transmission": {
+        "h_t_adjacent_buildings": 0.0,
+        "h_t_adjacent_rooms": 0.0,
+        "h_t_exterior": 3.3920000000000003,
+        "h_t_ground": 0.0,
+        "h_t_unheated": 0.0,
+        "h_t_water": 0.0,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_2",
+          "ISSO_51_2023_formule4_3a",
+          "ISSO_51_2023_formule4_6",
+          "ISSO_51_2023_formule4_14",
+          "ISSO_51_2023_formule4_18"
+        ],
+        "phi_t": 108.544
+      },
+      "ventilation": {
+        "f_v": 1.0,
+        "h_v": 31.7736,
+        "norm_refs": [
+          "ISSO_51_2023_formule4_3_erratum",
+          "ISSO_51_2023_formule4_6a_erratum",
+          "ISSO_51_2023_formule3_3_erratum"
+        ],
+        "phi_v": 1016.7552,
+        "phi_vent": 912.55296,
+        "q_v": 26.478,
+        "q_v_minimum": 26.478
+      }
     }
   ],
   "summary": {
-    "total_envelope_loss": 673.8156992,
-    "total_neighbor_loss": 0.0,
-    "total_ventilation_loss": 4432.7808,
-    "total_heating_up": 0.0,
-    "total_system_losses": 0.0,
-    "connection_capacity": 5106.596499200001,
+    "aggregation_method": "vabi_compat",
     "collective_contribution": 5106.596499200001,
-    "phi_basis_total": 1258.7244992,
-    "phi_vent_building": 3847.8720000000003,
-    "phi_t_iabe_building": 0.0,
-    "phi_hu_building": 0.0,
-    "phi_extra_quadratic": 3847.8720000000003,
+    "connection_capacity": 5106.596499200001,
     "phi_basis_build": 1258.7244992,
+    "phi_basis_total": 1258.7244992,
+    "phi_extra_quadratic": 3847.872,
     "phi_hl_build": 5106.596499200001,
     "phi_hl_verdeler": 5106.596499200001,
-    "aggregation_method": "vabi_compat"
+    "phi_hu_building": 0.0,
+    "phi_t_iabe_building": 0.0,
+    "phi_vent_building": 3847.872,
+    "total_envelope_loss": 673.8156992,
+    "total_heating_up": 0.0,
+    "total_neighbor_loss": 0.0,
+    "total_system_losses": 0.0,
+    "total_ventilation_loss": 4432.7808
   }
 }

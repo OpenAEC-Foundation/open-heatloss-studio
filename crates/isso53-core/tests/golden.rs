@@ -46,11 +46,21 @@ fn close(label: &str, got: f64, want: f64, tolerance_pct: f64) {
 }
 
 /// Test against ISSO 53 voorbeeld 6.1 (schilberekening kantoorgebouw 50x20x21 m)
-// BLOCKED: expected-values zijn nu de ECHTE normwaarden (PDF p.59-60, zie
-// `_source` in voorbeeld_61_expected.json), maar voorbeeld_61_input.json is
-// geen transcriptie van par. 6.1 — het modelleert een enkel 20 m2 vertrek
-// i.p.v. het gebouw uit de schilberekening (engine ~1,6 kW vs norm 236,1 kW).
-// Activeren kan pas na een input-rebuild. Zie tests/PDF_GAPS.md.
+//
+// BLOCKED (blijft #[ignore]). De engine HEEFT een schilmethode
+// (`calc::shell::calculate_shell` → `summary.shellHeatLoss`), maar het
+// gepubliceerde voorbeeld is niet 1-op-1 reproduceerbaar door twee
+// publicatie-anomalieën die in `voorbeeld_61_expected.json`
+// (`_gepubliceerde_tussenwaarden`) staan gedocumenteerd:
+//   1. De gepubliceerde ΣH_T,ie (2452 W/K) telt ALLEEN de gevels — het dak
+//      (Rc=6, 1000 m²) ontbreekt bewust in de norm-som. Een engine die het
+//      dak wél meerekent komt hoger uit dan de 236,1 kW.
+//   2. θ_e is tijdconstante-afgeleid (τ=84,3 h → θ_e=-9,5 °C); de engine
+//      neemt θ_e als directe input i.p.v. het uit τ te herleiden.
+// Bovendien modelleert `voorbeeld_61_input.json` nog een enkel 20 m²-vertrek
+// i.p.v. de gebouwschil — een input-rebuild (schil als één "room" met alle
+// envelop-constructies, dak bewust weggelaten conform de publicatie) is een
+// apart werkpakket. Zie tests/PDF_GAPS.md §6.1.
 #[test]
 #[ignore]
 fn voorbeeld_61() {
@@ -105,8 +115,24 @@ fn voorbeeld_61() {
     }
 }
 
-/// Test against ISSO 53 voorbeeld 6.2 (extended example)
-// BLOCKED: expected-values zijn placeholders. Zie tests/PDF_GAPS.md.
+/// Test against ISSO 53 voorbeeld 6.2 (gedetailleerde methode — beganegrond tussenmoduul)
+//
+// BLOCKED (blijft #[ignore]). `voorbeeld_62_input.json` is nu een GETROUWE
+// transcriptie van het volledig uitgewerkte beganegrond-tussenmoduul
+// (PDF-index 63-65) en `voorbeeld_62_expected.json` bevat de gepubliceerde
+// waarden (Φ_T 525 W, Φ_i 246 W, Φ_vent 190 W, Φ_hu 378 W, totaal 1339 W)
+// mét bronverwijzingen. De engine reproduceert dit moduul echter NIET binnen
+// tolerantie (empirische run 2026-07-02: Φ_T 389,7 / Φ_vent 88,9 / Φ_hu 434,7
+// / totaal 1159 W; alleen Φ_i matcht op -0,1%). Drie structurele engine-gaten,
+// gedocumenteerd in `voorbeeld_62_expected.json` (`_gaps`):
+//   gap_1: plafond-fiak=0,105 (tussenvloer naar gelijk-temp moduul) wordt
+//          niet gehonoreerd — engine negeert temperature_factor op
+//          boundaryType=adjacentRoom → H_T,ia=0 i.p.v. 4,77 W/K.
+//   gap_2: geen per-ruimte ventilatievolume-override in het isso53 room-model;
+//          engine valt terug op Bbl-minimum i.p.v. de gegeven qv=100 m³/h.
+//   gap_3: Φ_hu stapelt gap_2 + een publicatie-interne area-inconsistentie
+//          (Φ_op op 20,3 m² hart-op-hart vs 18,7 m² inwendig elders).
+// Activeren pas na engine-fixes gap_1 + gap_2 (zie _gaps.activatie_voorwaarde).
 #[test]
 #[ignore]
 fn voorbeeld_62() {

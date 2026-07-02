@@ -62,13 +62,5 @@ jobs:
       - name: Typecheck
         run: npx tsc -b
 
-      # Drie pre-existing legacy testfiles gebruiken het oude
-      # runAllTests-patroon zonder vitest describe/it-suites; vitest faalt
-      # daarop met "No test suite found" (exit 1). Bewust hier ge-exclude
-      # in plaats van de testfiles zelf aan te passen.
       - name: vitest
-        run: >-
-          npx vitest run
-          --exclude "src/lib/expressionInput.test.ts"
-          --exclude "src/lib/rcCalculation.test.ts"
-          --exclude "src/lib/uwCalculation.test.ts"
+        run: npx vitest run
