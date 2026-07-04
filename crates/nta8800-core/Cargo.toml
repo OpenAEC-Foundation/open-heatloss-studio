@@ -1,0 +1,26 @@
+[package]
+name = "nta8800-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "NTA 8800 unified facade — JSON in/uit orchestratie van de volledige energieprestatie-keten (demand -> diensten -> EP-score)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+thiserror = "2"
+nta8800-model = { path = "../nta8800-model" }
+nta8800-tables = { path = "../nta8800-tables" }
+nta8800-transmission = { path = "../nta8800-transmission" }
+nta8800-ventilation = { path = "../nta8800-ventilation" }
+nta8800-demand = { path = "../nta8800-demand" }
+nta8800-heating = { path = "../nta8800-heating" }
+nta8800-cooling = { path = "../nta8800-cooling" }
+nta8800-dhw = { path = "../nta8800-dhw" }
+nta8800-lighting = { path = "../nta8800-lighting" }
+nta8800-pv = { path = "../nta8800-pv" }
+nta8800-ep = { path = "../nta8800-ep" }
+
+[dev-dependencies]
+approx = "0.5"

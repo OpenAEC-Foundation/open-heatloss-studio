@@ -1,0 +1,102 @@
+{
+  "info": {
+    "name": "w03 Appartement volledig elektrisch",
+    "description": null
+  },
+  "building": {
+    "usage_function": "woonfunctie",
+    "floor_area_m2": 55.0,
+    "volume_m3": 148.5,
+    "construction_year": 1985,
+    "thermal_mass": "heavy"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 18,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-z",
+          "area_m2": 5.0,
+          "u_value": 1.4,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 18,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-n",
+          "area_m2": 3.0,
+          "u_value": 1.4,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "wand-trappenhuis",
+      "description": "wand-trappenhuis",
+      "area_m2": 20,
+      "u_value": 0.8,
+      "boundary": {
+        "type": "unheated_space",
+        "id": "trappenhuis"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 90.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "mechanical_exhaust"
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "radiator_low_temp"
+    },
+    "generation": {
+      "type": "electric_resistance"
+    },
+    "distribution_efficiency": 1.0,
+    "control_factor": 0.97
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "electric_boiler",
+      "storage_loss_factor": 0.9
+    },
+    "emission": {
+      "type": "woning_default"
+    },
+    "distribution_efficiency": 1.0,
+    "shower_heat_recovery": null
+  },
+  "lighting": null,
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

@@ -17,7 +17,6 @@ use nta8800_model::{
     location::Orientation,
     time::{Month, MonthlyProfile},
 };
-use nta8800_tables::climate::de_bilt::DE_BILT_MONTH_LENGTHS_HOURS;
 
 use crate::{
     errors::PvError,
@@ -99,7 +98,6 @@ pub fn calculate_pv_yield(
     for month in Month::all() {
         let month_idx = month.index();
         let irradiation_mj_per_m2 = horizontal_irradiation[month];
-        let month_hours = DE_BILT_MONTH_LENGTHS_HOURS[month];
 
         // Som over alle systemen
         for system in systems {
@@ -110,10 +108,20 @@ pub fn calculate_pv_yield(
             // Gecorrigeerde zoninstraling voor dit systeem
             let corrected_irradiation = irradiation_mj_per_m2 * tilt_az_factor;
 
-            // Formule NTA 8800 H.16: Q [MJ/maand] = P_peak[kWp] × I_avg[W/m²] × t_maand[h] × 0.0036
-            // Conversie van W/m² gemiddeld naar MJ/maand via maanduren
-            let gross_yield_wh = system.peak_power_kwp * corrected_irradiation * month_hours;
-            let gross_yield = gross_yield_wh * 0.0036; // Wh → MJ
+            // Bruto opbrengst: Q [MJ/maand] = P_peak [kWp] × I_maand [MJ/m²].
+            //
+            // Achtergrond: de kWh-opbrengst is P_peak × zon-vollasturen, met
+            // vollasturen = I / (1 kW/m² STC) = I_kWh/m² = I_MJ / 3,6. De
+            // omrekening kWh → MJ (× 3,6) heft die deling exact op, zodat
+            // MJ-opbrengst = kWp × MJ/m²-instraling.
+            //
+            // De klimaat-input `ClimateData.solar_irradiation` is al de
+            // CUMULATIEVE maandsom in MJ/m² (zie nta8800-tables de_bilt:
+            // `W/m² × uren × 3600 / 10⁶`) — nogmaals vermenigvuldigen met
+            // maanduren zou de instraling dubbel tellen (dat gaf ~2,3× te
+            // hoge opbrengsten: 2100+ kWh/kWp waar NL-praktijk ~850-1000
+            // kWh/kWp is).
+            let gross_yield = system.peak_power_kwp * corrected_irradiation;
 
             // Pas efficiënties toe stapsgewijs (voor verlies-tracking)
             let after_system_efficiency =
@@ -165,15 +173,17 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use std::collections::BTreeMap;
 
-    /// Helper voor test klimaat met bekende zoninstraling
+    /// Helper voor test klimaat met bekende zoninstraling.
+    ///
+    /// Maandsommen in MJ/m² afgeleid van de De Bilt tabel-17.2 W/m²-waarden
+    /// × maanduren (jaarsom ≈ 3588 MJ/m² ≈ 996 kWh/m² — NL-realistisch).
     fn test_climate_data() -> ClimateData {
         let mut solar_map = BTreeMap::new();
-        // 12 maanden met realistische horizontale zoninstraling (MJ/m²)
         solar_map.insert(
             Orientation::Horizontaal,
             MonthlyProfile::new([
-                50.0, 80.0, 140.0, 200.0, 250.0, 270.0, // Jan-Jun
-                260.0, 230.0, 170.0, 110.0, 60.0, 40.0, // Jul-Dec
+                75.0, 119.3, 258.7, 416.0, 527.6, 542.5, // Jan-Jun
+                511.6, 474.6, 321.1, 196.1, 88.9, 56.2, // Jul-Dec
             ]),
         );
 

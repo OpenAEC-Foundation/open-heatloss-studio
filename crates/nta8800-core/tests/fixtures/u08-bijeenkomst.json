@@ -1,0 +1,160 @@
+{
+  "info": {
+    "name": "u08 Bijeenkomstgebouw 500 m² WP",
+    "description": null
+  },
+  "building": {
+    "usage_function": "bijeenkomstfunctie",
+    "floor_area_m2": 500.0,
+    "volume_m3": 2250.0,
+    "construction_year": 2018,
+    "thermal_mass": "light"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 78.26237921249265,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-zuid",
+          "area_m2": 23.478713763747795,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 78.26237921249265,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-noord",
+          "area_m2": 16.435099634623455,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-oost",
+      "description": "gevel-oost",
+      "area_m2": 78.26237921249265,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 90.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-oost",
+          "area_m2": 11.739356881873897,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-west",
+      "description": "gevel-west",
+      "area_m2": 78.26237921249265,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 270.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-west",
+          "area_m2": 11.739356881873897,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "dak",
+      "description": "dak",
+      "area_m2": 500.0,
+      "u_value": 0.25,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    },
+    {
+      "id": "bg-vloer",
+      "description": "bg-vloer",
+      "area_m2": 500.0,
+      "u_value": 0.3,
+      "boundary": {
+        "type": "ground"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "balanced",
+      "wtw_efficiency": 0.78
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "floor_heating"
+    },
+    "generation": {
+      "type": "heat_pump",
+      "scop": 3.8
+    },
+    "distribution_efficiency": 0.97,
+    "control_factor": 0.98
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "heat_pump_dhw",
+      "scop_dhw": 2.5
+    },
+    "emission": {
+      "type": "utiliteit_kort"
+    },
+    "distribution_efficiency": 0.95,
+    "shower_heat_recovery": null
+  },
+  "lighting": {
+    "installed_power_w_per_m2": 9.0,
+    "utilization_factor": 0.25,
+    "daylight_factor": 0.8,
+    "control_factor": 0.95
+  },
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

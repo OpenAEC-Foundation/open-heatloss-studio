@@ -7,6 +7,7 @@ members = [
     "crates/isso51-api",
     "crates/nta8800-automation",
     "crates/nta8800-cooling",
+    "crates/nta8800-core",
     "crates/nta8800-demand",
     "crates/nta8800-dhw",
     "crates/nta8800-ep",

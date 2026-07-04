@@ -3031,6 +3031,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "nta8800-core"
+version = "0.2.0"
+dependencies = [
+ "approx",
+ "nta8800-cooling",
+ "nta8800-demand",
+ "nta8800-dhw",
+ "nta8800-ep",
+ "nta8800-heating",
+ "nta8800-lighting",
+ "nta8800-model",
+ "nta8800-pv",
+ "nta8800-tables",
+ "nta8800-transmission",
+ "nta8800-ventilation",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "nta8800-demand"
 version = "0.2.0"
 dependencies = [

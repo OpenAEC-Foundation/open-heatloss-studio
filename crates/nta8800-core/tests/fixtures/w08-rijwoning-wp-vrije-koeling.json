@@ -1,0 +1,167 @@
+{
+  "info": {
+    "name": "w08 Rijwoning WP + vrije koeling",
+    "description": null
+  },
+  "building": {
+    "usage_function": "woonfunctie",
+    "floor_area_m2": 105.0,
+    "volume_m3": 283.5,
+    "construction_year": 2010,
+    "thermal_mass": "heavy"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 38.0,
+      "u_value": 0.28,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-zuid",
+          "area_m2": 7.6,
+          "u_value": 1.3,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 38.0,
+      "u_value": 0.28,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-noord",
+          "area_m2": 3.8,
+          "u_value": 1.3,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-oost",
+      "description": "gevel-oost",
+      "area_m2": 23.75,
+      "u_value": 0.28,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 90.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-oost",
+          "area_m2": 1.9,
+          "u_value": 1.3,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-west",
+      "description": "gevel-west",
+      "area_m2": 23.75,
+      "u_value": 0.28,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 270.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-west",
+          "area_m2": 1.9,
+          "u_value": 1.3,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "dak",
+      "description": "dak",
+      "area_m2": 66.5,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 45.0,
+      "windows": []
+    },
+    {
+      "id": "bg-vloer",
+      "description": "bg-vloer",
+      "area_m2": 57.0,
+      "u_value": 0.25,
+      "boundary": {
+        "type": "ground"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "balanced",
+      "wtw_efficiency": 0.8
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "radiator_low_temp"
+    },
+    "generation": {
+      "type": "heat_pump",
+      "scop": 3.5
+    },
+    "distribution_efficiency": 0.97,
+    "control_factor": 0.98
+  },
+  "cooling": {
+    "system": {
+      "type": "free_cooling",
+      "factor": 0.3
+    },
+    "distribution": {
+      "efficiency": 0.98
+    },
+    "emission": {
+      "efficiency": 0.97,
+      "regulation_factor": 0.97
+    }
+  },
+  "dhw": {
+    "generation": {
+      "type": "heat_pump_dhw",
+      "scop_dhw": 2.2
+    },
+    "emission": {
+      "type": "woning_default"
+    },
+    "distribution_efficiency": 1.0,
+    "shower_heat_recovery": null
+  },
+  "lighting": null,
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

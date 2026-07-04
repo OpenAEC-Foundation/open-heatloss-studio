@@ -1,0 +1,158 @@
+{
+  "info": {
+    "name": "u09 Cellencomplex 350 m² gas",
+    "description": null
+  },
+  "building": {
+    "usage_function": "celfunctie",
+    "floor_area_m2": 350.0,
+    "volume_m3": 1050.0,
+    "construction_year": 2000,
+    "thermal_mass": "heavy"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 92.60129588726068,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-zuid",
+          "area_m2": 9.260129588726068,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 92.60129588726068,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-noord",
+          "area_m2": 6.482090712108247,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-oost",
+      "description": "gevel-oost",
+      "area_m2": 92.60129588726068,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 90.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-oost",
+          "area_m2": 4.630064794363034,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-west",
+      "description": "gevel-west",
+      "area_m2": 92.60129588726068,
+      "u_value": 0.35,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 270.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "glas-west",
+          "area_m2": 4.630064794363034,
+          "u_value": 1.6,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "dak",
+      "description": "dak",
+      "area_m2": 175.0,
+      "u_value": 0.25,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    },
+    {
+      "id": "bg-vloer",
+      "description": "bg-vloer",
+      "area_m2": 175.0,
+      "u_value": 0.3,
+      "boundary": {
+        "type": "ground"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "mechanical_exhaust"
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "radiator_high_temp"
+    },
+    "generation": {
+      "type": "h_r_boiler",
+      "class": "h_r104"
+    },
+    "distribution_efficiency": 0.95,
+    "control_factor": 0.97
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "h_r_combi_boiler"
+    },
+    "emission": {
+      "type": "utiliteit_lang"
+    },
+    "distribution_efficiency": 0.82,
+    "shower_heat_recovery": null
+  },
+  "lighting": {
+    "installed_power_w_per_m2": 8.0,
+    "utilization_factor": 0.8,
+    "daylight_factor": 0.9,
+    "control_factor": 1.0
+  },
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

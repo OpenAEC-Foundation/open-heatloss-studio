@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "w10 Tiny house elektrisch",
+    "description": null
+  },
+  "building": {
+    "usage_function": "woonfunctie",
+    "floor_area_m2": 30.0,
+    "volume_m3": 81.0,
+    "construction_year": 2022,
+    "thermal_mass": "light"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 12,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-z",
+          "area_m2": 4.0,
+          "u_value": 1.0,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 12,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": []
+    },
+    {
+      "id": "gevel-oost",
+      "description": "gevel-oost",
+      "area_m2": 8,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 90.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-o",
+          "area_m2": 1.0,
+          "u_value": 1.0,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-west",
+      "description": "gevel-west",
+      "area_m2": 8,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 270.0,
+      "tilt_deg": 90.0,
+      "windows": []
+    },
+    {
+      "id": "dak",
+      "description": "dak",
+      "area_m2": 32,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 10.0,
+      "windows": []
+    },
+    {
+      "id": "vloer",
+      "description": "vloer",
+      "area_m2": 30,
+      "u_value": 0.2,
+      "boundary": {
+        "type": "ground"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "natural"
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "air_heating"
+    },
+    "generation": {
+      "type": "electric_resistance"
+    },
+    "distribution_efficiency": 1.0,
+    "control_factor": 0.97
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "electric_boiler",
+      "storage_loss_factor": 0.9
+    },
+    "emission": {
+      "type": "woning_default"
+    },
+    "distribution_efficiency": 1.0,
+    "shower_heat_recovery": null
+  },
+  "lighting": null,
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

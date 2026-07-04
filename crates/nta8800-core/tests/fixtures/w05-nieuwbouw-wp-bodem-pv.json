@@ -1,0 +1,167 @@
+{
+  "info": {
+    "name": "w05 Nieuwbouw bodem-WP + 6 kWp PV + douche-WTW",
+    "description": null
+  },
+  "building": {
+    "usage_function": "woonfunctie",
+    "floor_area_m2": 140.0,
+    "volume_m3": 378.0,
+    "construction_year": 2023,
+    "thermal_mass": "light"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 48.0,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-zuid",
+          "area_m2": 9.6,
+          "u_value": 0.9,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 48.0,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-noord",
+          "area_m2": 4.8,
+          "u_value": 0.9,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-oost",
+      "description": "gevel-oost",
+      "area_m2": 30.0,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 90.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-oost",
+          "area_m2": 2.4,
+          "u_value": 0.9,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-west",
+      "description": "gevel-west",
+      "area_m2": 30.0,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 270.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-west",
+          "area_m2": 2.4,
+          "u_value": 0.9,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "dak",
+      "description": "dak",
+      "area_m2": 84.0,
+      "u_value": 0.12,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 45.0,
+      "windows": []
+    },
+    {
+      "id": "bg-vloer",
+      "description": "bg-vloer",
+      "area_m2": 72.0,
+      "u_value": 0.15,
+      "boundary": {
+        "type": "ground"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 0.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "balanced",
+      "wtw_efficiency": 0.9
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "floor_heating"
+    },
+    "generation": {
+      "type": "heat_pump",
+      "scop": 5.0
+    },
+    "distribution_efficiency": 0.97,
+    "control_factor": 0.98
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "heat_pump_dhw",
+      "scop_dhw": 3.0
+    },
+    "emission": {
+      "type": "woning_default"
+    },
+    "distribution_efficiency": 1.0,
+    "shower_heat_recovery": {
+      "efficiency": 0.35,
+      "douche_aandeel": 0.4
+    }
+  },
+  "lighting": null,
+  "pv": [
+    {
+      "peak_power_kwp": 6.0,
+      "tilt_degrees": 35.0,
+      "azimuth_degrees": 180.0,
+      "system_efficiency": 0.85,
+      "inverter_efficiency": 0.96,
+      "shadow_factor": 1.0
+    }
+  ],
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}

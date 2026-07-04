@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "w06 Portiekwoning stadswarmte",
+    "description": null
+  },
+  "building": {
+    "usage_function": "woonfunctie",
+    "floor_area_m2": 75.0,
+    "volume_m3": 202.5,
+    "construction_year": 1998,
+    "thermal_mass": "heavy"
+  },
+  "envelope": [
+    {
+      "id": "gevel-zuid",
+      "description": "gevel-zuid",
+      "area_m2": 22,
+      "u_value": 0.45,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 180.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-z",
+          "area_m2": 6.0,
+          "u_value": 1.8,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "gevel-noord",
+      "description": "gevel-noord",
+      "area_m2": 22,
+      "u_value": 0.45,
+      "boundary": {
+        "type": "exterior"
+      },
+      "orientation_deg": 0.0,
+      "tilt_deg": 90.0,
+      "windows": [
+        {
+          "id": "raam-n",
+          "area_m2": 4.0,
+          "u_value": 1.8,
+          "g_value": 0.6,
+          "frame_fraction": 0.25
+        }
+      ]
+    },
+    {
+      "id": "wand-buren",
+      "description": "wand-buren",
+      "area_m2": 35,
+      "u_value": 0.6,
+      "boundary": {
+        "type": "unheated_space",
+        "id": "buren"
+      },
+      "orientation_deg": null,
+      "tilt_deg": 90.0,
+      "windows": []
+    }
+  ],
+  "ventilation": {
+    "system": {
+      "type": "mechanical_exhaust"
+    }
+  },
+  "heating": {
+    "emission": {
+      "type": "radiator_high_temp"
+    },
+    "generation": {
+      "type": "district_heating",
+      "factor": 0.95
+    },
+    "distribution_efficiency": 0.9,
+    "control_factor": 0.95
+  },
+  "cooling": null,
+  "dhw": {
+    "generation": {
+      "type": "district_heating",
+      "factor": 0.95
+    },
+    "emission": {
+      "type": "woning_default"
+    },
+    "distribution_efficiency": 0.85,
+    "shower_heat_recovery": null
+  },
+  "lighting": null,
+  "pv": null,
+  "conditions": {
+    "heating_setpoint_c": 20.0,
+    "cooling_setpoint_c": 24.0,
+    "shading_factor": 1.0
+  }
+}
