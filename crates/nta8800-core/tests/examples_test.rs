@@ -181,6 +181,51 @@ fn oude_woning_heeft_hogere_specifieke_behoefte_dan_nieuwbouw() {
 }
 
 #[test]
+fn beng_indicatoren_consistent() {
+    for (name, r) in run_all() {
+        // BENG 1 herleidbaar uit de demand-sommen.
+        let expected_beng1 =
+            (r.demand.annual_q_h_nd_mj + r.demand.annual_q_c_nd_mj) / 3.6;
+        // beng1 × A_g is niet direct beschikbaar (A_g zit in de fixture),
+        // maar de verhouding met EP moet finite + niet-negatief zijn.
+        assert!(
+            r.beng.beng1_kwh_per_m2.is_finite() && r.beng.beng1_kwh_per_m2 > 0.0,
+            "{name}: BENG1 > 0"
+        );
+        assert!(expected_beng1 > 0.0, "{name}: demand-som > 0");
+        // BENG 2 == EP-specifiek in kWh/m².
+        assert!(
+            (r.beng.beng2_kwh_per_m2 - r.ep.primary_energy_kwh_per_m2).abs() < 1e-9,
+            "{name}: BENG2 == EP kWh/m²"
+        );
+        // BENG 3 == renewable share in procenten.
+        assert!(
+            (r.beng.beng3_pct - r.ep.renewable_share * 100.0).abs() < 1e-9,
+            "{name}: BENG3 == hernieuwbaar%"
+        );
+        // Grenzen zijn gevuld.
+        assert!(r.beng.beng1_limit > 0.0 && r.beng.beng2_limit > 0.0);
+    }
+
+    // Nieuwbouw-WP-PV-woning voldoet aan alle drie; de 1975-woning aan geen
+    // van de BENG 1/2-eisen.
+    let results = run_all();
+    let nieuw = &results["w05-nieuwbouw-wp-bodem-pv"];
+    assert!(
+        nieuw.beng.beng1_pass && nieuw.beng.beng2_pass && nieuw.beng.beng3_pass,
+        "nieuwbouw voldoet aan BENG 1/2/3 (was {}/{}/{})",
+        nieuw.beng.beng1_pass,
+        nieuw.beng.beng2_pass,
+        nieuw.beng.beng3_pass
+    );
+    let oud = &results["w02-vrijstaand-oud-gas-hr100"];
+    assert!(
+        !oud.beng.beng1_pass && !oud.beng.beng2_pass,
+        "1975-woning zakt op BENG 1 en 2"
+    );
+}
+
+#[test]
 fn wtw_fixture_heeft_recovery() {
     let results = run_all();
     let r = &results["w04-hoekwoning-wp-lucht-wtw"];

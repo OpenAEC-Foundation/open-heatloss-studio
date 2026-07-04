@@ -18,10 +18,10 @@ fn main() {
     entries.sort();
 
     println!(
-        "{:<32} {:>7} {:>10} {:>10} {:>8} {:>6}",
-        "fixture", "label", "EP MJ/m²", "kWh/m²", "hern.%", "CO2/m²"
+        "{:<32} {:>7} {:>9} {:>8} {:>8} {:>8} {:>7}",
+        "fixture", "label", "EP kWh/m²", "BENG1", "BENG2", "BENG3", "pass"
     );
-    println!("{}", "-".repeat(80));
+    println!("{}", "-".repeat(88));
 
     for path in entries {
         let name = path.file_stem().unwrap().to_string_lossy().to_string();
@@ -30,17 +30,27 @@ fn main() {
             Ok(out) => {
                 let r: nta8800_core::Nta8800Result =
                     serde_json::from_str(&out).expect("result parse");
+                let pass = [
+                    r.beng.beng1_pass,
+                    r.beng.beng2_pass,
+                    r.beng.beng3_pass,
+                ]
+                .iter()
+                .map(|p| if *p { '+' } else { '-' })
+                .collect::<String>();
                 println!(
-                    "{:<32} {:>7} {:>10.0} {:>10.1} {:>7.0}% {:>6.1}",
+                    "{:<32} {:>7} {:>9.1} {:>8.1} {:>8.1} {:>7.0}% {:>7}",
                     name,
                     r.ep.label,
-                    r.ep.primary_energy_mj_per_m2,
                     r.ep.primary_energy_kwh_per_m2,
-                    r.ep.renewable_share * 100.0,
-                    r.ep.co2_kg_per_m2,
+                    r.beng.beng1_kwh_per_m2,
+                    r.beng.beng2_kwh_per_m2,
+                    r.beng.beng3_pct,
+                    pass,
                 );
             }
             Err(e) => println!("{name:<32} FOUT: {e}"),
         }
     }
+    println!("\npass-kolom: BENG1/2/3 t.o.v. indicatieve nieuwbouw-grenzen (+ = voldoet).");
 }

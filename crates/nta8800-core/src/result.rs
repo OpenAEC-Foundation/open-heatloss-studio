@@ -27,6 +27,43 @@ pub struct Nta8800Result {
     pub pv: Option<PvSummary>,
     /// EP-score + energielabel (H.5).
     pub ep: EpSummary,
+    /// BENG 1/2/3-indicatoren met indicatieve nieuwbouw-toetsing.
+    pub beng: BengSummary,
+}
+
+/// BENG-indicatoren (Bouwbesluit nieuwbouw-eisen, afgeleid uit de keten).
+///
+/// - **BENG 1** — energiebehoefte: `(Q_H;nd + Q_C;nd) / A_g` in kWh/(m²·jaar)
+/// - **BENG 2** — primair (fossiel) energiegebruik: `E_P;tot / A_g` in
+///   kWh/(m²·jaar). In deze keten tellen hernieuwbare dragers met
+///   `f_prim = 0`, dus het EP-totaal is per constructie het fossiele deel.
+/// - **BENG 3** — aandeel hernieuwbare energie in %.
+///
+/// De `*_limit`-velden zijn **indicatieve** vaste grenzen per
+/// gebruiksfunctie (consistent met de OpenAEC open-energy-studio
+/// referentie-implementatie). De formele Bouwbesluit-grens voor BENG 1 is
+/// geometrie-afhankelijk (compactheid `A_ls/A_g`) — die verfijning is V2;
+/// tot die tijd zijn de pass/fail-vlaggen een eerste-orde-indicatie.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct BengSummary {
+    /// BENG 1 — energiebehoefte in kWh/(m²·jaar).
+    pub beng1_kwh_per_m2: f64,
+    /// BENG 2 — primair energiegebruik in kWh/(m²·jaar).
+    pub beng2_kwh_per_m2: f64,
+    /// BENG 3 — hernieuwbaar aandeel in % (0-100).
+    pub beng3_pct: f64,
+    /// Indicatieve BENG 1-grens voor deze gebruiksfunctie (≤).
+    pub beng1_limit: f64,
+    /// Indicatieve BENG 2-grens voor deze gebruiksfunctie (≤).
+    pub beng2_limit: f64,
+    /// Indicatieve BENG 3-grens voor deze gebruiksfunctie (≥).
+    pub beng3_limit: f64,
+    /// BENG 1 binnen de indicatieve grens.
+    pub beng1_pass: bool,
+    /// BENG 2 binnen de indicatieve grens.
+    pub beng2_pass: bool,
+    /// BENG 3 op of boven de indicatieve grens.
+    pub beng3_pass: bool,
 }
 
 /// Samenvatting van de behoefte-keten (H.7).

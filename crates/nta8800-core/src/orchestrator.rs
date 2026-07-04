@@ -443,7 +443,67 @@ pub fn calculate(project: &Project) -> CoreResult<Nta8800Result> {
                 pv: ep.breakdown.pv.primary_energy_mj,
             },
         },
+        beng: build_beng_summary(
+            usage,
+            a_g,
+            demand.annual_heating_demand,
+            demand.annual_cooling_demand,
+            ep.ep_total_mj_per_m2,
+            ep.ep_renewable_share,
+        ),
     })
+}
+
+/// Stel de BENG 1/2/3-samenvatting op.
+///
+/// - BENG 1 = `(Q_H;nd + Q_C;nd) / A_g` in kWh/(m²·jaar)
+/// - BENG 2 = `E_P;tot / A_g` in kWh/(m²·jaar)
+/// - BENG 3 = hernieuwbaar aandeel × 100 in %
+///
+/// De indicatieve grenzen per gebruiksfunctie zijn consistent met de
+/// OpenAEC open-energy-studio referentie-implementatie; de formele
+/// compactheids-correctie op BENG 1 is V2 (zie [`crate::result::BengSummary`]).
+fn build_beng_summary(
+    usage: UsageFunction,
+    a_g: f64,
+    annual_q_h_nd_mj: f64,
+    annual_q_c_nd_mj: f64,
+    ep_total_mj_per_m2: f64,
+    renewable_share: f64,
+) -> crate::result::BengSummary {
+    let (beng1_limit, beng2_limit, beng3_limit) = beng_limits(usage);
+    let beng1 = (annual_q_h_nd_mj + annual_q_c_nd_mj) / 3.6 / a_g;
+    let beng2 = ep_total_mj_per_m2 / 3.6;
+    let beng3 = renewable_share * 100.0;
+    crate::result::BengSummary {
+        beng1_kwh_per_m2: beng1,
+        beng2_kwh_per_m2: beng2,
+        beng3_pct: beng3,
+        beng1_limit,
+        beng2_limit,
+        beng3_limit,
+        beng1_pass: beng1 <= beng1_limit,
+        beng2_pass: beng2 <= beng2_limit,
+        beng3_pass: beng3 >= beng3_limit,
+    }
+}
+
+/// Indicatieve BENG-grenzen `(beng1 ≤, beng2 ≤, beng3 ≥)` per
+/// gebruiksfunctie — waarden consistent met de open-energy-studio
+/// referentie-tabel (woningen 70/25/50, kantoor 50/40/50, onderwijs
+/// 70/60/50, gezondheidszorg 120/80/50, winkel 70/60/50, industrie en
+/// overig 100/80/50).
+fn beng_limits(usage: UsageFunction) -> (f64, f64, f64) {
+    use UsageFunction as UF;
+    match usage {
+        UF::Woonfunctie => (70.0, 25.0, 50.0),
+        UF::Kantoorfunctie => (50.0, 40.0, 50.0),
+        UF::Onderwijsfunctie => (70.0, 60.0, 50.0),
+        UF::Gezondheidszorgfunctie => (120.0, 80.0, 50.0),
+        UF::Winkelfunctie | UF::Bijeenkomstfunctie => (70.0, 60.0, 50.0),
+        UF::Logiesfunctie | UF::Celfunctie | UF::Sportfunctie => (100.0, 80.0, 50.0),
+        UF::Industriefunctie | UF::OverigeGebruiksfunctie => (100.0, 80.0, 50.0),
+    }
 }
 
 // ---------------------------------------------------------------------------
