@@ -230,25 +230,11 @@ pub fn calculate(project: &Project) -> CoreResult<Nta8800Result> {
         &climate,
     )?;
 
-    // Ventilator-hulpenergie voor systeem B/C — workaround voor een gap in
-    // `nta8800-ventilation` V1: de fan-SFP komt daar uitsluitend uit de
-    // `WtwSpecification`, die alleen bij gebalanceerde systemen (D/E) is
-    // toegestaan. Systeem B/C hebben echter wél een ventilator
-    // (f_systype = 1, NTA 8800 §11.4.3.3 formule 11.142). We berekenen
-    // W_fan hier met dezelfde norm-formule en het tabel-11.23 forfait-SFP.
-    let w_fan_supplement_mj: f64 = match system {
-        VentilationSystem::B | VentilationSystem::C => {
-            let q_v_mech = match system {
-                VentilationSystem::B => flow.mechanical_supply,
-                _ => flow.mechanical_exhaust,
-            };
-            // P_eff = f_SFP × f_systype × q_V; jaar = P × 8760 h × 3600 / 10⁶
-            let p_eff_w = VENTILATION_FAN_SFP_W_PER_M3H * 1.0 * q_v_mech;
-            p_eff_w * 8760.0 * 3600.0 / 1.0e6
-        }
-        _ => 0.0,
-    };
-    let annual_w_fan_total = ventilation.annual_w_fan + w_fan_supplement_mj;
+    // Ventilator-hulpenergie komt sinds de structurele fix in
+    // `nta8800-ventilation` (tabel-11.23 forfait-SFP voor mechanische
+    // systemen zonder expliciete spec) rechtstreeks uit de engine — ook
+    // voor systeem B/C.
+    let annual_w_fan_total = ventilation.annual_w_fan;
 
     // H_V (W/K) voor de tijdconstante τ — systeem-bewuste q_V;tot × ρ·c/3600,
     // met WTW-reductiefactor (1 − η). Q_V zelf komt uit de engine-output.

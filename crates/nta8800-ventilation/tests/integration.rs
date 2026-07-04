@@ -266,3 +266,57 @@ fn serde_round_trip_full_result() {
         );
     }
 }
+
+
+#[test]
+fn systeem_b_en_c_hebben_ventilator_energie() {
+    // Regressie op de tabel-11.23 forfait-SFP: systeem B (mech toevoer) en
+    // C (mech afvoer) hebben een draaiende ventilator (f_systype = 1) en
+    // moeten dus W_fan > 0 rapporteren, ook zonder WtwSpecification
+    // (die is voor B/C niet eens toegestaan). Vroegere gap: f_SFP kwam
+    // uitsluitend uit de WTW-spec -> B/C kregen stil 0 hulpenergie.
+    let zone = sample_zone();
+    let indoor = MonthlyProfile::from_constant(20.0);
+    let climate = de_bilt_climate_data();
+
+    let flow_b = AirFlow::new(150.0, 0.0, 20.0);
+    let r_b = calculate_ventilation(
+        &zone,
+        &VentilationSystem::B,
+        &flow_b,
+        None,
+        &indoor,
+        &climate,
+    )
+    .unwrap();
+    assert!(
+        r_b.annual_w_fan > 0.0,
+        "systeem B: toevoer-ventilator moet energie gebruiken (was {})",
+        r_b.annual_w_fan
+    );
+
+    let flow_c = AirFlow::new(0.0, 150.0, 20.0);
+    let r_c = calculate_ventilation(
+        &zone,
+        &VentilationSystem::C,
+        &flow_c,
+        None,
+        &indoor,
+        &climate,
+    )
+    .unwrap();
+    assert!(
+        r_c.annual_w_fan > 0.0,
+        "systeem C: afvoer-ventilator moet energie gebruiken (was {})",
+        r_c.annual_w_fan
+    );
+
+    // Forfait-verificatie: W_fan = f_SFP x f_systype x q_mech x 8760 h
+    // = 0,125 x 1 x 150 x 8760 x 3600 / 1e6 = 591,3 MJ/jaar.
+    let expected = 0.125 * 150.0 * 8760.0 * 3600.0 / 1.0e6;
+    assert!(
+        (r_c.annual_w_fan - expected).abs() < 1.0,
+        "systeem C forfait-W_fan ~{expected:.1} MJ (was {})",
+        r_c.annual_w_fan
+    );
+}
