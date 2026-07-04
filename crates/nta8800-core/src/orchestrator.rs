@@ -110,6 +110,9 @@ pub fn calculate(project: &Project) -> CoreResult<Nta8800Result> {
     let mut n8_windows: Vec<N8Window> = Vec::new();
     let mut has_ground = false;
     let mut unheated_b: HashMap<String, f64> = HashMap::new();
+    // Verliesoppervlak A_ls van de thermische schil (som van alle
+    // schil-elementen incl. ramen) — voedt de BENG 1-compactheidsformule.
+    let a_ls: f64 = project.envelope.iter().map(|el| el.area_m2).sum();
 
     for el in &project.envelope {
         let boundary_type = map_boundary(&el.boundary);
@@ -446,6 +449,7 @@ pub fn calculate(project: &Project) -> CoreResult<Nta8800Result> {
         beng: build_beng_summary(
             usage,
             a_g,
+            a_ls,
             demand.annual_heating_demand,
             demand.annual_cooling_demand,
             ep.ep_total_mj_per_m2,
@@ -460,18 +464,26 @@ pub fn calculate(project: &Project) -> CoreResult<Nta8800Result> {
 /// - BENG 2 = `E_P;tot / A_g` in kWh/(m²·jaar)
 /// - BENG 3 = hernieuwbaar aandeel × 100 in %
 ///
-/// De indicatieve grenzen per gebruiksfunctie zijn consistent met de
-/// OpenAEC open-energy-studio referentie-implementatie; de formele
-/// compactheids-correctie op BENG 1 is V2 (zie [`crate::result::BengSummary`]).
+/// De BENG 1-grens voor de **woonfunctie** volgt de BBL-compactheids-
+/// formule op `A_ls/A_g` (zie [`beng1_limit_woonfunctie`]); utiliteit
+/// gebruikt indicatieve vaste grenzen per functie ([`beng_limits_vast`]).
+#[allow(clippy::too_many_arguments)]
 fn build_beng_summary(
     usage: UsageFunction,
     a_g: f64,
+    a_ls: f64,
     annual_q_h_nd_mj: f64,
     annual_q_c_nd_mj: f64,
     ep_total_mj_per_m2: f64,
     renewable_share: f64,
 ) -> crate::result::BengSummary {
-    let (beng1_limit, beng2_limit, beng3_limit) = beng_limits(usage);
+    let ratio = if a_g > 0.0 { a_ls / a_g } else { 0.0 };
+    let (beng1_vast, beng2_limit, beng3_limit) = beng_limits_vast(usage);
+    let beng1_limit = if matches!(usage, UsageFunction::Woonfunctie) {
+        beng1_limit_woonfunctie(ratio)
+    } else {
+        beng1_vast
+    };
     let beng1 = (annual_q_h_nd_mj + annual_q_c_nd_mj) / 3.6 / a_g;
     let beng2 = ep_total_mj_per_m2 / 3.6;
     let beng3 = renewable_share * 100.0;
@@ -479,6 +491,7 @@ fn build_beng_summary(
         beng1_kwh_per_m2: beng1,
         beng2_kwh_per_m2: beng2,
         beng3_pct: beng3,
+        a_ls_over_a_g: ratio,
         beng1_limit,
         beng2_limit,
         beng3_limit,
@@ -488,15 +501,37 @@ fn build_beng_summary(
     }
 }
 
-/// Indicatieve BENG-grenzen `(beng1 ≤, beng2 ≤, beng3 ≥)` per
+/// BBL/Bouwbesluit-2021 BENG 1-grens voor de woonfunctie als functie van
+/// de compactheid `A_ls/A_g` (nieuwbouw-eis, kWh/(m²·jaar)):
+///
+/// ```text
+/// ratio ≤ 1,83          → 55
+/// 1,83 < ratio ≤ 3,0    → 55 + 30·(ratio − 1,83)
+/// ratio > 3,0           → 100 + 50·(ratio − 3,0)
+/// ```
+///
+/// Compactere gebouwen (laag verliesoppervlak per m² gebruiksoppervlak)
+/// krijgen de scherpste eis; kleine of grillige volumes (tiny houses,
+/// vrijstaand met veel geveloppervlak) een evenredig ruimere grens.
+fn beng1_limit_woonfunctie(ratio: f64) -> f64 {
+    if ratio <= 1.83 {
+        55.0
+    } else if ratio <= 3.0 {
+        55.0 + 30.0 * (ratio - 1.83)
+    } else {
+        100.0 + 50.0 * (ratio - 3.0)
+    }
+}
+
+/// Indicatieve vaste BENG-grenzen `(beng1 ≤, beng2 ≤, beng3 ≥)` per
 /// gebruiksfunctie — waarden consistent met de open-energy-studio
-/// referentie-tabel (woningen 70/25/50, kantoor 50/40/50, onderwijs
-/// 70/60/50, gezondheidszorg 120/80/50, winkel 70/60/50, industrie en
-/// overig 100/80/50).
-fn beng_limits(usage: UsageFunction) -> (f64, f64, f64) {
+/// referentie-tabel. De beng1-kolom geldt alleen voor utiliteit; de
+/// woonfunctie krijgt de compactheids-formule
+/// ([`beng1_limit_woonfunctie`]).
+fn beng_limits_vast(usage: UsageFunction) -> (f64, f64, f64) {
     use UsageFunction as UF;
     match usage {
-        UF::Woonfunctie => (70.0, 25.0, 50.0),
+        UF::Woonfunctie => (55.0, 25.0, 50.0),
         UF::Kantoorfunctie => (50.0, 40.0, 50.0),
         UF::Onderwijsfunctie => (70.0, 60.0, 50.0),
         UF::Gezondheidszorgfunctie => (120.0, 80.0, 50.0),
@@ -722,5 +757,18 @@ mod tests {
         let f_tau = 0.38 + 40.0 * 0.006;
         let expected = 1.10 * f_tau * 35.0 * 3.6 / 0.95;
         assert!((q - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn beng1_compactheid_woonfunctie() {
+        // Compact (ratio ≤ 1,83): vaste 55.
+        assert!((beng1_limit_woonfunctie(1.5) - 55.0).abs() < 1e-9);
+        assert!((beng1_limit_woonfunctie(1.83) - 55.0).abs() < 1e-9);
+        // Middengebied: 55 + 30·(ratio − 1,83).
+        assert!((beng1_limit_woonfunctie(2.0) - (55.0 + 30.0 * 0.17)).abs() < 1e-9);
+        // Overgangspunt ratio = 3,0: 55 + 30·1,17 = 90,1.
+        assert!((beng1_limit_woonfunctie(3.0) - 90.1).abs() < 1e-9);
+        // Boven 3,0: 100 + 50·(ratio − 3,0).
+        assert!((beng1_limit_woonfunctie(3.5) - 125.0).abs() < 1e-9);
     }
 }

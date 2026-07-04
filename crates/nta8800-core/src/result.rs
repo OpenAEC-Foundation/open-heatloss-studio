@@ -39,11 +39,20 @@ pub struct Nta8800Result {
 ///   `f_prim = 0`, dus het EP-totaal is per constructie het fossiele deel.
 /// - **BENG 3** — aandeel hernieuwbare energie in %.
 ///
-/// De `*_limit`-velden zijn **indicatieve** vaste grenzen per
-/// gebruiksfunctie (consistent met de OpenAEC open-energy-studio
-/// referentie-implementatie). De formele Bouwbesluit-grens voor BENG 1 is
-/// geometrie-afhankelijk (compactheid `A_ls/A_g`) — die verfijning is V2;
-/// tot die tijd zijn de pass/fail-vlaggen een eerste-orde-indicatie.
+/// **Woonfunctie**: de BENG 1-grens volgt de BBL/Bouwbesluit-2021
+/// compactheids-formule op basis van `A_ls/A_g` (verliesoppervlak van de
+/// thermische schil gedeeld door gebruiksoppervlak):
+///
+/// ```text
+/// ratio ≤ 1,83          → 55
+/// 1,83 < ratio ≤ 3,0    → 55 + 30·(ratio − 1,83)
+/// ratio > 3,0           → 100 + 50·(ratio − 3,0)
+/// ```
+///
+/// **Utiliteit**: vaste indicatieve grenzen per gebruiksfunctie
+/// (consistent met de OpenAEC open-energy-studio referentie-tabel); de
+/// formele utiliteits-formules met eigen compactheids- en
+/// daglicht-correcties zijn V2.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BengSummary {
     /// BENG 1 — energiebehoefte in kWh/(m²·jaar).
@@ -52,17 +61,21 @@ pub struct BengSummary {
     pub beng2_kwh_per_m2: f64,
     /// BENG 3 — hernieuwbaar aandeel in % (0-100).
     pub beng3_pct: f64,
-    /// Indicatieve BENG 1-grens voor deze gebruiksfunctie (≤).
+    /// Compactheid `A_ls/A_g` — verliesoppervlak (som van alle
+    /// schil-elementen incl. ramen) gedeeld door gebruiksoppervlak.
+    pub a_ls_over_a_g: f64,
+    /// BENG 1-grens (≤). Woonfunctie: BBL-compactheidsformule;
+    /// utiliteit: indicatief vast.
     pub beng1_limit: f64,
-    /// Indicatieve BENG 2-grens voor deze gebruiksfunctie (≤).
+    /// BENG 2-grens (≤). Indicatief vast per gebruiksfunctie.
     pub beng2_limit: f64,
-    /// Indicatieve BENG 3-grens voor deze gebruiksfunctie (≥).
+    /// BENG 3-grens (≥). Indicatief vast per gebruiksfunctie.
     pub beng3_limit: f64,
-    /// BENG 1 binnen de indicatieve grens.
+    /// BENG 1 binnen de grens.
     pub beng1_pass: bool,
-    /// BENG 2 binnen de indicatieve grens.
+    /// BENG 2 binnen de grens.
     pub beng2_pass: bool,
-    /// BENG 3 op of boven de indicatieve grens.
+    /// BENG 3 op of boven de grens.
     pub beng3_pass: bool,
 }
 
