@@ -504,3 +504,16 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] R3F viewer migratie (ThatOpen → React Three Fiber)
 - [ ] Multi-user: projecten delen, rollen
 - [ ] Template-projecten: veelvoorkomende woningtypes
+
+---
+
+## 🌱 MPG-tab (indicatieve milieuprestatie) — planning gestart 2026-07-05
+> Ontwerp: `docs/2026-07-05-mpg-tab-ontwerp.md` · Mockup: `mockups/pages/mpg.html`
+- [x] Ontwerpdoc: fasemodel kengetal→preset→lagen, `mpg-core` per ADR-002 `calcs["mpg"]`, NMD-profiel-snapshots in projectbestand
+- [x] UI-mockup (score-meter + bandbreedte, hotspots, modules A-D, variantenvergelijking MPG↔warmteverlies, koppelingsmatrix) — paletten dataviz-gevalideerd light+dark
+- [ ] **[USER, loopt]** NMD Cat. 3 Viewer-API-key — aangevraagd 05-07 (bèta, gratis)
+- [ ] **[USER, loopt]** Demo's MPGcalc 3 (DGMR) + GPR Materiaal (W/E) — aangevraagd 05-07; kijklijst in sessienotities (invoerflow, eenheden per NMD-kaart, forfaitaire posten, module D)
+- [ ] `mpg-core` scaffold: model + schemas + weegfactoren set-A2 + kengetallen-starter
+- [ ] Referentie-fixture (gepubliceerde MPG-berekening nabouwen)
+- [ ] A2-grenswaarden per gebouwfunctie verifiëren (Bbl 1-7-2026) — als datatabel, niet hardcoded
+- [ ] Cat. 3 seed-db (±40 profielen handmatig uit NMD Viewer) → later vervangen door API-sync
