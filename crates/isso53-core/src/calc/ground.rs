@@ -15,12 +15,10 @@ use crate::tables::thermal_bridge::DELTA_U_TB_DEFAULT;
 /// over de forfaitaire vlag; de forfaitaire default geldt alleen als de vlag
 /// aanstaat én er geen custom-waarde is; anders 0.
 fn resolve_delta_u_tb(element: &ConstructionElement) -> f64 {
-    element.custom_delta_u_tb.unwrap_or_else(|| {
-        if element.use_forfaitaire_thermal_bridge {
-            DELTA_U_TB_DEFAULT
-        } else {
-            0.0
-        }
+    element.custom_delta_u_tb.unwrap_or(if element.use_forfaitaire_thermal_bridge {
+        DELTA_U_TB_DEFAULT
+    } else {
+        0.0
     })
 }
 
@@ -120,8 +118,8 @@ pub fn calculate_h_t_ground(
 /// IJkpunten uit de norm-voorbeelden (beide reproduceren, zie tests):
 /// - **Schilvoorbeeld PDF p.59/60**: vloer Rc = 3,5 → U_k = 1/3,71 ≈ 0,2695,
 ///   + ΔU_TB 0,1 (tabel 3.1 "overige situaties", in het voorbeeld overal
-///   `(Uk + 0,1)`); B' = 2·(50·20)/140 = 14,29; z = 0 → U_equiv ≈ 0,181
-///   (norm rekent met 0,18 op p.59 resp. 0,17 op p.60).
+///     `(Uk + 0,1)`); B' = 2·(50·20)/140 = 14,29; z = 0 → U_equiv ≈ 0,181
+///     (norm rekent met 0,18 op p.59 resp. 0,17 op p.60).
 /// - **Detailvoorbeeld PDF p.65**: B' = 12,07, beganegrondvloer U = 0,26
 ///   (tabel 6.2-lagen) + ΔU_TB 0,05 (tabel 3.1 "nieuw gebouw, goed
 ///   vakmanschap") = 0,31; z = 0 → U_equiv = 0,1774 (norm: 0,177).

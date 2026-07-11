@@ -20,15 +20,15 @@
     "totaal_te_installeren_W": { "waarde": 1339.0, "bron": "PDF p.65", "opmerking": "Phi_T + buitenluchttoetreding + Phi_hu = 525 + 436 + 378" }
   },
   "_gaps": {
-    "blokkade": "De engine reproduceert dit moduul NIET binnen tolerantie (empirische run 2026-07-02: Phi_T 389,7 W / Phi_vent 88,9 W / Phi_hu 434,7 W / totaal 1159 W). De test blijft daarom op #[ignore]. Alleen Phi_i matcht (245,8 vs 246 W, -0,1%).",
-    "gap_1_transmissie": "Plafond-fiak=0,105 (HT,ia=4,77 W/K, ~26% van Phi_T) is een gepubliceerde tussenvloer-correctiefactor die NIET uit een temperatuurverschil volgt (bovenliggend moduul is 20 C). De engine berekent HT,ia uit (theta_i - theta_adj)/(theta_i - theta_e) en negeert de temperatureFactor-override op boundaryType=adjacentRoom -> hTAdjacentRooms=0. Fix vereist: engine moet temperature_factor honoreren op adjacentRoom, of een aparte tussenvloer-factor-tabel krijgen.",
-    "gap_2_ventilatie": "Het voorbeeld gebruikt een GEGEVEN qv=100 m3/h (27,8 dm3/s). De engine heeft geen per-ruimte ventilatievolume-override in het ISSO-53 room-model en valt terug op het Bbl-minimum (13 dm3/s) -> Phi_vent 88,9 i.p.v. 190 W. Fix vereist: Room.ventilation_rate-veld (zoals isso51-core al heeft).",
-    "gap_3_opwarmtoeslag": "Phi_hu stapelt gap_2 (verkeerde Hv in de a*Hv*dtheta-aftrek) plus een area-basis-inconsistentie in de publicatie zelf: Phi_op gebruikt de hart-op-hart moduulvloer 20,3 m2, terwijl ventilatie/grond de inwendige 18,7 m2 gebruiken. Een floorArea-veld kan beide niet eren.",
-    "activatie_voorwaarde": "Verwijder #[ignore] zodra gap_1 (temperature_factor op adjacentRoom) en gap_2 (per-ruimte ventilatie-override) in isso53-core zijn opgelost. Zet dan tolerancePct op een gemotiveerde waarde (~2-3% voor norm-afronding) en herzie de per-term expected tegen de dan geldende engine-output."
+    "status_2026_07_11": "gap_1 (transmissie) en gap_2 (ventilatie) OPGELOST. Test #[ignore] verwijderd; valideert Phi_T + Phi_vent + Phi_i binnen 2% tolerantie. gap_3 (Phi_hu/totaal) blijft BEWUST ONGEVALIDEERD als publicatie-anomalie (geen engine-bug) -- zie gap_3_opwarmtoeslag hieronder en de doc-comment op tests/golden.rs::voorbeeld_62.",
+    "gap_1_transmissie_OPGELOST": "Plafond-fiak=0,105 (HT,ia=4,77 W/K) is een gepubliceerde tussenvloer-correctiefactor die NIET uit een temperatuurverschil volgt (bovenliggend moduul is 20 C). Fix (M4a, crates/isso53-core/src/calc/transmission.rs::calculate_h_t_adjacent_rooms): een expliciete temperature_factor op boundaryType=adjacentRoom wint nu DIRECT als f_ia,k, analoog aan het bestaande Unheated-pad. Resultaat: HT,ia=4,7713 W/K, Phi_T=525,65 W (publicatie 525,0 W, +0,12%).",
+    "gap_2_ventilatie_OPGELOST": "Het voorbeeld gebruikt een GEGEVEN qv=100 m3/h (27,778 dm3/s). Bleek bij onderzoek AL volledig ondersteund: Room.ventilation_q_v_established (isso53-core src/model/room.rs) bestond al en wordt in calculate_ventilation_flow_rate (calc/ventilation.rs) direct gebruikt, voor de Bbl/bezetting-afleiding. Geen engine-wijziging nodig -- de fix was uitsluitend het invullen van ventilationQvEstablished=0.027778 in voorbeeld_62_input.json (voorheen ontbrak dit veld en viel de berekening terug op het Bbl-minimum). Resultaat: Phi_vent=190,00 W (publicatie 190,0 W, +0,001%).",
+    "gap_3_opwarmtoeslag_OPEN": "Phi_hu (en dus totalBuildingHeatLoss/totalHeatLoss) matcht NIET binnen tolerantie, ook niet na gap_1+gap_2. Root cause is GEEN engine-bug maar een interne inconsistentie in de PUBLICATIE zelf: Phi_op = 5,8*3,5*28 = 568 W gebruikt de hart-op-hart moduulvloer (20,3 m2), terwijl elke andere term in hetzelfde voorbeeld (ventilatie, grond, Phi_T) de inwendige 18,7 m2 gebruikt. Een enkel floorArea-veld in het Room-model kan beide maatvoeringen niet tegelijk eren. Met floorArea=18,7 m2 (de norm-conforme inwendige maat, consistent met alle andere termen in dit vertrek) geeft de engine Phi_hu = 18,7*28 - 6,672*28,5 = 523,6 - 190,0 = 333,6 W tegenover de gepubliceerde 378 W (-11,7%, ruim buiten de 2% tolerantie). Er is BEWUST NIET gefudged: geen tweede area-veld toegevoegd, geen expected-waarde aangepast om te laten kloppen. phiHu, summary.totalBuildingHeatLoss en rooms[].totalHeatLoss staan daarom op null in dit fixture-bestand (Option-velden, close()-check in golden.rs wordt overgeslagen); de gepubliceerde 378/1339 blijven puur ter documentatie staan in _gepubliceerde_tussenwaarden hierboven."
   },
+  "_tolerantie": "tolerancePct=2.0 gekozen (i.p.v. de bovengrens 3.0 uit de PM-instructie) omdat alle drie gevalideerde termen (Phi_T +0,12%, Phi_vent +0,001%, Phi_i -0,065%) ruim binnen 0,2% liggen -- de resterende afwijking is normale drijvendekomma-/afrondingsruis op de gepubliceerde 1-decimaal-waarden, geen model-onzekerheid die een ruimere marge rechtvaardigt.",
   "tolerancePct": 2.0,
   "summary": {
-    "totalBuildingHeatLoss": 1339.0,
+    "totalBuildingHeatLoss": null,
     "shellHeatLoss": null,
     "totalTransmissionLoss": 525.0,
     "totalVentilationLoss": 190.0,
@@ -40,7 +40,7 @@
       "phiT": 525.0,
       "phiV": 190.0,
       "phiI": 246.0,
-      "totalHeatLoss": 1339.0
+      "totalHeatLoss": null
     }
   ]
 }

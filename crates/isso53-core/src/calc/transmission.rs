@@ -103,12 +103,10 @@ pub fn calculate_h_t_exterior(
         // Get thermal bridge correction ΔU_TB.
         // Voorkeursvolgorde: expliciete custom-waarde > forfaitaire default > 0.
         let delta_u_tb = element.custom_delta_u_tb
-            .unwrap_or_else(|| {
-                if element.use_forfaitaire_thermal_bridge {
-                    DELTA_U_TB_DEFAULT
-                } else {
-                    0.0
-                }
+            .unwrap_or(if element.use_forfaitaire_thermal_bridge {
+                DELTA_U_TB_DEFAULT
+            } else {
+                0.0
             });
 
         // f_k: 1,0 voor wanden; (θ_i + Δθ₁ − θ_e)/(θ_i − θ_e) voor horizontale
@@ -155,10 +153,18 @@ pub fn calculate_h_t_unheated(elements: &[&ConstructionElement]) -> Result<f64> 
 ///
 /// Geen thermische brug correctie (interne elementen — ISSO 53 §4.4).
 ///
-/// Temperature resolution:
-/// 1. If element.adjacent_room_id exists → lookup in all_rooms, resolve θ via `resolve_theta_i`
-/// 2. Fallback to element.adjacent_temperature
-/// 3. Error if both missing
+/// f_ia,k resolution (M4a):
+/// 1. If `element.temperature_factor` is expliciet gezet → gebruik die DIRECT
+///    als f_ia,k. Dekt gepubliceerde tussenvloer-/plafondfactoren die niet uit
+///    een ΔT afgeleid zijn (bv. ISSO 53 voorbeeld 6.2: fiak=0,105 naar een
+///    gelijk-temperatuur bovenmoduul — een pure ΔT-afleiding zou hier 0
+///    opleveren). Analoog aan het `Unheated`-pad in `calculate_h_t_unheated`,
+///    waar `temperature_factor` ook al voorrang krijgt.
+/// 2. Anders: leid θ_adjacent af — eerst via `adjacent_room_id` (lookup in
+///    `all_rooms`, resolve via `resolve_theta_i`), dan via
+///    `element.adjacent_temperature` — en bereken f_ia,k = (θ_i-θ_adj)/(θ_i-θ_e).
+/// 3. Error als geen van drieën (temperature_factor, adjacent_room_id,
+///    adjacent_temperature) gezet is.
 ///
 // TODO A5-vervolg: tweezijdige Δθ₁/Δθ_a1 + Δθ₂/Δθ_a2 (form. 4.11/4.12) vereist
 // per-element buur-heating_system in het model — geparkeerd. Eenzijdig θ_i+Δθ₁
@@ -172,34 +178,40 @@ pub fn calculate_h_t_adjacent_rooms(
 ) -> Result<f64> {
     let mut h_t_ia = 0.0;
     for element in elements {
-        let theta_adj = if let Some(adjacent_room_id) = &element.adjacent_room_id {
-            // Lookup adjacent room by ID
-            let adjacent_room = all_rooms
-                .iter()
-                .find(|r| &r.id == adjacent_room_id)
-                .ok_or_else(|| crate::error::Isso53Error::InvalidInput(format!(
-                    "Adjacent room '{}' not found for element '{}'",
-                    adjacent_room_id, element.id
-                )))?;
-
-            // θ van de buurruimte via resolve_theta_i: custom wint, anders
-            // tabel 2.2, en de garage-sentinel TEMPERATURE_IS_EXTERIOR wordt
-            // vervangen door θ_e (f_ia,k = 1 → telt als buitenschil).
-            resolve_theta_i(adjacent_room, theta_e)
-        } else if let Some(temp) = element.adjacent_temperature {
-            // Fallback to explicit temperature on element
-            temp
+        // M4a: een expliciete temperature_factor wint van een ΔT-afgeleide
+        // f_ia,k — geen θ_adj nodig in dat geval.
+        let f_ia_k = if let Some(factor) = element.temperature_factor {
+            factor
         } else {
-            return Err(crate::error::Isso53Error::InvalidInput(format!(
-                "Element '{}' (boundary=AdjacentRoom): vereist adjacent_room_id of adjacent_temperature",
-                element.id
-            )));
-        };
+            let theta_adj = if let Some(adjacent_room_id) = &element.adjacent_room_id {
+                // Lookup adjacent room by ID
+                let adjacent_room = all_rooms
+                    .iter()
+                    .find(|r| &r.id == adjacent_room_id)
+                    .ok_or_else(|| crate::error::Isso53Error::InvalidInput(format!(
+                        "Adjacent room '{}' not found for element '{}'",
+                        adjacent_room_id, element.id
+                    )))?;
 
-        let f_ia_k = if (theta_i - theta_e).abs() < 0.001 {
-            0.0
-        } else {
-            (theta_i - theta_adj) / (theta_i - theta_e)
+                // θ van de buurruimte via resolve_theta_i: custom wint, anders
+                // tabel 2.2, en de garage-sentinel TEMPERATURE_IS_EXTERIOR wordt
+                // vervangen door θ_e (f_ia,k = 1 → telt als buitenschil).
+                resolve_theta_i(adjacent_room, theta_e)
+            } else if let Some(temp) = element.adjacent_temperature {
+                // Fallback to explicit temperature on element
+                temp
+            } else {
+                return Err(crate::error::Isso53Error::InvalidInput(format!(
+                    "Element '{}' (boundary=AdjacentRoom): vereist temperature_factor, adjacent_room_id of adjacent_temperature",
+                    element.id
+                )));
+            };
+
+            if (theta_i - theta_e).abs() < 0.001 {
+                0.0
+            } else {
+                (theta_i - theta_adj) / (theta_i - theta_e)
+            }
         };
         h_t_ia += element.area * element.u_value * f_ia_k;
     }
@@ -327,6 +339,106 @@ mod tests {
         let h_t_ia = result.unwrap();
         let expected = 20.0 * 0.5 * (3.0 / 31.0); // ≈ 0.968
         assert!((h_t_ia - expected).abs() < 0.001, "Expected {:.3}, got {:.3}", expected, h_t_ia);
+    }
+
+    /// M4a: expliciete temperature_factor wint DIRECT als f_ia,k, ook al is
+    /// er ook een adjacent_temperature gezet (regressie voor ISSO 53
+    /// voorbeeld 6.2: plafond-fiak=0,105 naar een gelijk-temperatuur
+    /// bovenmoduul — een ΔT-afleiding zou hier ten onrechte 0 opleveren).
+    /// A=18,7 m², U=2,43, factor=0,105 → HT,ia = 18,7 × 2,43 × 0,105 ≈ 4,7713.
+    #[test]
+    fn test_h_t_adjacent_rooms_temperature_factor_wins_over_delta_t() {
+        let element = ConstructionElement {
+            id: "plafond".to_string(),
+            description: "Plafond naar bovenliggend moduul".to_string(),
+            area: 18.7,
+            u_value: 2.43,
+            boundary_type: BoundaryType::AdjacentRoom,
+            material_type: MaterialType::Masonry,
+            temperature_factor: Some(0.105),
+            adjacent_room_id: None,
+            // Zelfde temperatuur als de eigen ruimte → een ΔT-afleiding zou
+            // f_ia,k = 0 geven. temperature_factor moet dit overrulen.
+            adjacent_temperature: Some(20.0),
+            vertical_position: VerticalPosition::Ceiling,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+        let rooms: Vec<Room> = vec![];
+
+        let h_t_ia = calculate_h_t_adjacent_rooms(&[&element], &rooms, 20.0, -8.5).unwrap();
+        let expected = 18.7 * 2.43 * 0.105;
+        assert!(
+            (h_t_ia - expected).abs() < 1e-9,
+            "Expected {expected}, got {h_t_ia}"
+        );
+        // Sanity: zonder de M4a-fix zou dit 0 zijn (θ_i == θ_adj).
+        assert!(h_t_ia > 0.0, "temperature_factor moet voorrang krijgen boven ΔT=0");
+    }
+
+    /// M4a: een adjacentRoom-element met ALLEEN temperature_factor (zonder
+    /// adjacent_room_id of adjacent_temperature) moet geldig zijn — de
+    /// validatie-herstructurering mag dit niet meer als fout afkeuren.
+    #[test]
+    fn test_h_t_adjacent_rooms_temperature_factor_only_is_valid() {
+        let element = ConstructionElement {
+            id: "plafond_alleen_factor".to_string(),
+            description: "Plafond, alleen temperature_factor".to_string(),
+            area: 10.0,
+            u_value: 1.0,
+            boundary_type: BoundaryType::AdjacentRoom,
+            material_type: MaterialType::Masonry,
+            temperature_factor: Some(0.2),
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Ceiling,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+        let rooms: Vec<Room> = vec![];
+
+        let result = calculate_h_t_adjacent_rooms(&[&element], &rooms, 20.0, -10.0);
+        assert!(result.is_ok(), "temperature_factor-only element moet geldig zijn: {:?}", result);
+        let expected = 10.0 * 1.0 * 0.2;
+        assert!((result.unwrap() - expected).abs() < 1e-9);
+    }
+
+    /// M4a-regressie: zonder temperature_factor, adjacent_room_id ÉN
+    /// adjacent_temperature moet de functie nog steeds een duidelijke fout
+    /// geven (geen van drieën aanwezig).
+    #[test]
+    fn test_h_t_adjacent_rooms_no_resolution_data_errors() {
+        let element = ConstructionElement {
+            id: "onvolledig".to_string(),
+            description: "Geen enkele resolutie-bron".to_string(),
+            area: 10.0,
+            u_value: 1.0,
+            boundary_type: BoundaryType::AdjacentRoom,
+            material_type: MaterialType::Masonry,
+            temperature_factor: None,
+            adjacent_room_id: None,
+            adjacent_temperature: None,
+            vertical_position: VerticalPosition::Wall,
+            use_forfaitaire_thermal_bridge: false,
+            custom_delta_u_tb: None,
+            ground_params: None,
+            has_embedded_heating: false,
+            unheated_space: None,
+        };
+        let rooms: Vec<Room> = vec![];
+
+        let result = calculate_h_t_adjacent_rooms(&[&element], &rooms, 20.0, -10.0);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("temperature_factor"));
+        assert!(err.contains("adjacent_room_id"));
+        assert!(err.contains("adjacent_temperature"));
     }
 
     #[test]

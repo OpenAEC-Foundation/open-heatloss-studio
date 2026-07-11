@@ -56,12 +56,10 @@ pub fn calculate_shell(project: &Project) -> Result<f64> {
             // forfaitaire default > 0. Een opgegeven custom ΔU_TB wint dus
             // altijd over de forfaitaire vlag.
             let delta_u_tb = element.custom_delta_u_tb
-                .unwrap_or_else(|| {
-                    if element.use_forfaitaire_thermal_bridge {
-                        DELTA_U_TB_DEFAULT
-                    } else {
-                        0.0
-                    }
+                .unwrap_or(if element.use_forfaitaire_thermal_bridge {
+                    DELTA_U_TB_DEFAULT
+                } else {
+                    0.0
                 });
 
             // Gelaagdheid (form. 4.5/4.6): horizontale boven-elementen (vloer

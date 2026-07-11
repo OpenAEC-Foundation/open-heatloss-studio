@@ -117,24 +117,40 @@ fn voorbeeld_61() {
 
 /// Test against ISSO 53 voorbeeld 6.2 (gedetailleerde methode — beganegrond tussenmoduul)
 //
-// BLOCKED (blijft #[ignore]). `voorbeeld_62_input.json` is nu een GETROUWE
+// ACTIEF (M4a+M4b, 2026-07-10/11). `voorbeeld_62_input.json` is een GETROUWE
 // transcriptie van het volledig uitgewerkte beganegrond-tussenmoduul
-// (PDF-index 63-65) en `voorbeeld_62_expected.json` bevat de gepubliceerde
-// waarden (Φ_T 525 W, Φ_i 246 W, Φ_vent 190 W, Φ_hu 378 W, totaal 1339 W)
-// mét bronverwijzingen. De engine reproduceert dit moduul echter NIET binnen
-// tolerantie (empirische run 2026-07-02: Φ_T 389,7 / Φ_vent 88,9 / Φ_hu 434,7
-// / totaal 1159 W; alleen Φ_i matcht op -0,1%). Drie structurele engine-gaten,
-// gedocumenteerd in `voorbeeld_62_expected.json` (`_gaps`):
-//   gap_1: plafond-fiak=0,105 (tussenvloer naar gelijk-temp moduul) wordt
-//          niet gehonoreerd — engine negeert temperature_factor op
-//          boundaryType=adjacentRoom → H_T,ia=0 i.p.v. 4,77 W/K.
-//   gap_2: geen per-ruimte ventilatievolume-override in het isso53 room-model;
-//          engine valt terug op Bbl-minimum i.p.v. de gegeven qv=100 m³/h.
-//   gap_3: Φ_hu stapelt gap_2 + een publicatie-interne area-inconsistentie
-//          (Φ_op op 20,3 m² hart-op-hart vs 18,7 m² inwendig elders).
-// Activeren pas na engine-fixes gap_1 + gap_2 (zie _gaps.activatie_voorwaarde).
+// (PDF-index 63-65); `voorbeeld_62_expected.json` bevat de gepubliceerde
+// waarden mét bronverwijzingen.
+//
+// Twee engine-gaten uit de eerdere blokkade zijn opgelost:
+//   M4a: `calculate_h_t_adjacent_rooms` (transmission.rs) honoreert nu een
+//        expliciete `temperature_factor` DIRECT als f_ia,k (voorrang boven de
+//        ΔT-afleiding) — analoog aan het bestaande `Unheated`-pad. Dekt de
+//        gepubliceerde plafond-fiak=0,105 naar een gelijk-temperatuur
+//        bovenmoduul, die niet uit een temperatuurverschil volgt.
+//        Φ_T: 389,7 → 525,65 W (publicatie 525,0 W, +0,12%).
+//   M4b: `Room.ventilation_q_v_established` bestond al in het model en werd
+//        al direct gebruikt in `calculate_ventilation_flow_rate` — de fix was
+//        uitsluitend het invullen van dat fixture-veld (qv=100 m³/h =
+//        0,027778 m³/s) i.p.v. een engine-wijziging.
+//        Φ_vent: 88,9 → 190,00 W (publicatie 190,0 W, +0,001%).
+//
+// Φ_i matchte al vóór deze fix (245,8 vs 246 W, -0,1%).
+//
+// gap_3 (Φ_hu / totaal) blijft BEWUST ONGEVALIDEERD — geen engine-bug maar
+// een interne inconsistentie in de PUBLICATIE zelf: Φ_op = 5,8×3,5×28 = 568 W
+// gebruikt de hart-op-hart moduulvloer (20,3 m²), terwijl elke andere term
+// (ventilatie, grond, Φ_T) de inwendige 18,7 m² gebruikt — hetzelfde
+// `floorArea`-veld kan beide niet eren. Met floorArea=18,7 m² (norm-conforme,
+// inwendige maat — consistent met alle andere termen) geeft de engine
+// Φ_hu = 18,7×28 − 6,672×28,5 = 523,6 − 190,0 = 333,6 W, tegenover de
+// gepubliceerde 378 W (-11,7%, ruim buiten tolerantie). Fudgen van de
+// expected-waarde of een tweede area-veld toevoegen om dit te verbergen is
+// NIET gedaan (PM-instructie + eerder precedent bij voorbeeld_61). Φ_hu en
+// totalBuildingHeatLoss/totalHeatLoss staan daarom op `null` in
+// `voorbeeld_62_expected.json` (Option-velden — de close()-checks worden
+// hierdoor overgeslagen) en zijn gedocumenteerd in `_gaps.gap_3`.
 #[test]
-#[ignore]
 fn voorbeeld_62() {
     let input = include_str!("fixtures/voorbeeld_62_input.json");
     let expected: Expected =
@@ -145,11 +161,28 @@ fn voorbeeld_62() {
     let result: serde_json::Value =
         serde_json::from_str(&result_json).expect("Failed to parse result JSON");
 
-    // Similar checks as voorbeeld_61
+    // Building-level: alleen de drie opgeloste termen. totalBuildingHeatLoss
+    // is bewust `null` in de fixture (bevat gap_3's Φ_hu) → check wordt door
+    // de `if let Some` overgeslagen.
     if let Some(want) = expected.summary.total_building_heat_loss {
         let got = result["summary"]["totalBuildingHeatLoss"].as_f64()
             .expect("totalBuildingHeatLoss missing");
         close("totalBuildingHeatLoss", got, want, expected.tolerance_pct);
+    }
+    if let Some(want) = expected.summary.total_transmission_loss {
+        let got = result["summary"]["totalTransmissionLoss"].as_f64()
+            .expect("totalTransmissionLoss missing");
+        close("totalTransmissionLoss", got, want, expected.tolerance_pct);
+    }
+    if let Some(want) = expected.summary.total_ventilation_loss {
+        let got = result["summary"]["totalVentilationLoss"].as_f64()
+            .expect("totalVentilationLoss missing");
+        close("totalVentilationLoss", got, want, expected.tolerance_pct);
+    }
+    if let Some(want) = expected.summary.total_infiltration_loss {
+        let got = result["summary"]["totalInfiltrationLoss"].as_f64()
+            .expect("totalInfiltrationLoss missing");
+        close("totalInfiltrationLoss", got, want, expected.tolerance_pct);
     }
 
     for expected_room in &expected.rooms {
@@ -160,6 +193,26 @@ fn voorbeeld_62() {
             .find(|r| r["roomId"].as_str() == Some(&expected_room.room_id))
             .unwrap_or_else(|| panic!("Room {} not found in results", expected_room.room_id));
 
+        // Φ_T, Φ_vent, Φ_i per ruimte — de drie termen die de publicatie
+        // zonder interne tegenspraak reproduceert.
+        if let Some(want) = expected_room.phi_t {
+            let got = room["phiT"].as_f64()
+                .unwrap_or_else(|| panic!("phiT missing for room {}", expected_room.room_id));
+            close(&format!("Room {} phiT", expected_room.room_id), got, want, 2.0);
+        }
+        if let Some(want) = expected_room.phi_v {
+            let got = room["phiV"].as_f64()
+                .unwrap_or_else(|| panic!("phiV missing for room {}", expected_room.room_id));
+            close(&format!("Room {} phiV", expected_room.room_id), got, want, 2.0);
+        }
+        if let Some(want) = expected_room.phi_i {
+            let got = room["phiI"].as_f64()
+                .unwrap_or_else(|| panic!("phiI missing for room {}", expected_room.room_id));
+            close(&format!("Room {} phiI", expected_room.room_id), got, want, 2.0);
+        }
+
+        // totalHeatLoss is bewust `null` in de fixture (bevat gap_3's Φ_hu) →
+        // check wordt overgeslagen; zie doc-comment boven deze test.
         if let Some(want) = expected_room.total_heat_loss {
             let got = room["totalHeatLoss"].as_f64()
                 .unwrap_or_else(|| panic!("totalHeatLoss missing for room {}", expected_room.room_id));

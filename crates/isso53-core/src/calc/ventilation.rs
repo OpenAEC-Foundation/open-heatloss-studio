@@ -625,6 +625,42 @@ mod tests {
         assert_eq!(v.q_v, 0.0, "negatieve vastgestelde q_v moet op 0 clampen");
     }
 
+    /// M4b: reproduceert ISSO 53 voorbeeld 6.2 se-scenario — een gegeven
+    /// qv=100 m3/h (27,778 dm3/s) overrulet de Bbl/bezetting-afleiding, ook
+    /// als de ruimte een lage bezetting heeft die anders een veel lager qv
+    /// zou opleveren. Confirmed: `ventilation_q_v_established` was al
+    /// volledig geïmplementeerd vóór deze sessie (M4b behoefde geen
+    /// engine-wijziging, alleen het invullen van dit fixture-veld).
+    #[test]
+    fn test_m4a_established_q_v_reproduces_voorbeeld_62_qv() {
+        let config = VentilationConfig {
+            system_type: VentilationSystemType::SystemD,
+            bouwfase: VentilatieBouwfase::Nieuwbouw,
+            has_heat_recovery: true,
+            heat_recovery_efficiency: Some(0.8),
+            frost_protection: None,
+            supply_temperature: None,
+            has_preheating: false,
+            preheating_temperature: None,
+        };
+
+        let mut room = create_test_room();
+        room.floor_area = 18.7;
+        room.bezetting.personen = Some(2.0); // zou zonder override een veel lager q_v geven
+        room.ventilation_q_v_established = Some(100.0 / 3600.0); // 100 m3/h
+
+        let v = calculate_ventilation(&room, &config, 20.0, -8.5, HeatingSystem::default()).unwrap();
+        assert!(
+            (v.q_v - 0.027778).abs() < 1e-5,
+            "q_v moet de vastgestelde 100 m3/h zijn, niet de bezetting-afgeleide waarde, kreeg {}",
+            v.q_v
+        );
+        // H_v = 27,778e-3 * 1200 * f_v(WTW 80%) = 27,778e-3*1200*0,2 = 6,6667.
+        assert!((v.h_v - 6.6667).abs() < 0.001, "H_v verwacht ~6,6667, kreeg {}", v.h_v);
+        // Phi_vent = H_v * (20 - (-8,5)) = 6,6667 * 28,5 = 190,0 W (publicatie).
+        assert!((v.phi_vent - 190.0).abs() < 0.5, "Phi_vent verwacht ~190 W, kreeg {}", v.phi_vent);
+    }
+
     #[test]
     fn test_established_q_v_none_unchanged() {
         // None → reguliere afleiding ongewijzigd; identiek aan de smoke-test.

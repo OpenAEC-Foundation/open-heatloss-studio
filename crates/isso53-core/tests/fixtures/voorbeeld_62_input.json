@@ -6,7 +6,7 @@
     "client": "ISSO",
     "date": "2016-01-01",
     "engineer": "Norm Voorbeeld",
-    "notes": "Getrouwe transcriptie van het volledig uitgewerkte beganegrond-tussenmoduul uit ISSO 53 par. 6.2 (PDF p.60-65, afb. 6.2). LET OP: de bijbehorende test staat op #[ignore] omdat de engine dit moduul niet binnen tolerantie reproduceert; zie voorbeeld_62_expected.json (_gaps) en PDF_GAPS.md voor de exacte oorzaken. Dit is een norm-transcriptie, GEEN passerende golden."
+    "notes": "Getrouwe transcriptie van het volledig uitgewerkte beganegrond-tussenmoduul uit ISSO 53 par. 6.2 (PDF p.60-65, afb. 6.2). Sinds M4a+M4b (2026-07-11) valideert de golden test Phi_T + Phi_vent + Phi_i binnen 2% tolerantie; ventilationQvEstablished=0.027778 (=100 m3/h) representeert de gegeven qv uit de publicatie. Phi_hu/totaalwarmteverlies zijn BEWUST uitgezonderd (publicatie-interne area-inconsistentie, geen engine-bug) -- zie voorbeeld_62_expected.json (_gaps.gap_3_opwarmtoeslag_OPEN) en tests/golden.rs::voorbeeld_62 doc-comment."
   },
   "building": {
     "buildingShape": "meerlaags",
@@ -62,7 +62,7 @@
         },
         {
           "id": "plafond",
-          "description": "Plafond naar bovenliggend moduul (tussenvloer U=2,43). Publicatie gebruikt fiak=0,105 -> HT,ia=4,77 W/K. Zie _gaps: engine honoreert temperatureFactor niet op adjacentRoom.",
+          "description": "Plafond naar bovenliggend moduul (tussenvloer U=2,43). Publicatie gebruikt fiak=0,105 -> HT,ia=4,77 W/K. M4a: temperatureFactor wordt nu direct als f_ia,k gebruikt op boundaryType=adjacentRoom.",
           "area": 18.7,
           "uValue": 2.43,
           "boundaryType": "adjacentRoom",
@@ -89,7 +89,8 @@
         }
       ],
       "bezetting": { "personen": 2 },
-      "infiltrationReductionZ": 1.0
+      "infiltrationReductionZ": 1.0,
+      "ventilationQvEstablished": 0.027778
     }
   ],
   "infiltrationMethod": {

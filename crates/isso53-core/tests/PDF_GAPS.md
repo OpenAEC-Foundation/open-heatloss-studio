@@ -68,6 +68,35 @@ tussenmoduul; `voorbeeld_62_expected.json` bevat de gepubliceerde waarden
 **Activatie:** verwijder `#[ignore]` op `voorbeeld_62` zodra gap_1 + gap_2 zijn
 opgelost; herzie dan de per-term expected tegen de engine-output.
 
+### M4a + M4b (2026-07-11) — gap_1 en gap_2 opgelost, `#[ignore]` verwijderd
+
+- **M4a (gap_1):** `calculate_h_t_adjacent_rooms` (`calc/transmission.rs`) geeft
+  nu voorrang aan een expliciete `temperature_factor` op
+  `boundaryType=adjacentRoom` — die wint direct als f_ia,k, vóór de
+  ΔT-afgeleide fallback (analoog aan het bestaande `Unheated`-pad). Φ_T:
+  389,7 → 525,65 W (publicatie 525,0 W, +0,12%).
+- **M4b (gap_2):** `Room.ventilation_q_v_established` bleek al volledig
+  geïmplementeerd (was toegevoegd ná de 2026-07-02 gap-analyse) en wordt al
+  direct gebruikt in `calculate_ventilation_flow_rate`. Geen engine-wijziging
+  nodig — alleen `ventilationQvEstablished: 0.027778` (100 m³/h) toegevoegd
+  aan `voorbeeld_62_input.json`. Φ_vent: 88,9 → 190,00 W (publicatie 190,0 W,
+  +0,001%).
+- **gap_3 (Φ_hu) blijft OPEN, bewust niet gefudged.** Met floorArea=18,7 m²
+  (de norm-conforme inwendige maat, consistent met Φ_T/Φ_vent/grond) geeft de
+  engine Φ_hu = 18,7×28 − 6,672×28,5 = 333,6 W tegenover de gepubliceerde
+  378 W (Φ_op op de publicatie's hart-op-hart 20,3 m²) — een afwijking van
+  -11,7%, ruim buiten tolerantie. Eén `floorArea`-veld kan de twee
+  publicatie-maatvoeringen niet tegelijk eren; dit is een interne
+  inconsistentie in de norm-publicatie zelf, geen implementatiefout. Er is
+  géén tweede area-veld toegevoegd en géén expected-waarde aangepast om dit
+  te maskeren — `phiHu`, `summary.totalBuildingHeatLoss` en
+  `rooms[].totalHeatLoss` staan op `null` in `voorbeeld_62_expected.json`
+  (Option-velden, de bijbehorende `close()`-checks in `golden.rs` worden
+  daardoor overgeslagen). De gepubliceerde 378/1339 blijven staan in
+  `_gepubliceerde_tussenwaarden` ter documentatie.
+- **Resultaat:** `voorbeeld_62` valideert Φ_T + Φ_vent + Φ_i (elk <0,2% van
+  de publicatie) binnen `tolerancePct=2.0`. `#[ignore]` verwijderd.
+
 ## Mogelijke structurele limitaties
 
 - [ ] Model velden die ontbreken in de input JSON schema
