@@ -21,21 +21,59 @@ Deze file documenteert de verschillen tussen de ISSO 53 PDF voorbeelden (p.59-75
 ### Risico bij negeren
 Zonder norm-getallen is het rekenresultaat van isso53-core niet onafhankelijk geverifieerd. Wel: alle formules zijn doc-comment-verwijzingen naar de spec, en de calc-primitieven hebben handberekende smoke-tests (batch 2b).
 
-## Voorbeeld 6.1 Gaps (bijgewerkt 2026-07-02)
+## Voorbeeld 6.1 Gaps (bijgewerkt 2026-07-11 — input-rebuild, `#[ignore]` verwijderd)
 
-PDF geëxtraheerd (PDF-index 58-59, boekpagina's 59-60). De engine HEEFT een
-schilmethode (`calc::shell::calculate_shell` → `summary.shellHeatLoss`), maar
-het voorbeeld is niet 1-op-1 reproduceerbaar:
+PDF geëxtraheerd (PDF-index 58-59, boekpagina's 59-60). `voorbeeld_61_input.json`
+modelleert nu de gebouwschil (50×20×21 m) als één "room": gevel dicht
+(1911 m², U=0,214) + glas (1029 m², U=1,7, 35% glaspercentage) + begane-
+grondvloer (1000 m², U_equiv=0,17 / f_ig=0,36, rechtstreeks getranscribeerd uit
+PDF p.60). Twee publicatie-anomalieën, al eerder gedocumenteerd, zijn als
+letterlijke transcriptie in de input verwerkt (geen engine-wijziging nodig):
 
 1. **Dak-exclusie (publicatie-anomalie).** De gepubliceerde ΣH_T,ie = 2452 W/K
-   telt alleen de gevels; het dak (Rc=6, 1000 m²) ontbreekt bewust. Een engine
-   die het dak wél meerekent overschat de 236,1 kW. Gedocumenteerd in
+   telt alleen de gevels; het dak (Rc=6, 1000 m²) ontbreekt bewust. Het dak is
+   daarom ook in de input-JSON weggelaten. Gedocumenteerd in
    `voorbeeld_61_expected.json` → `_gepubliceerde_tussenwaarden.H_T_ie_W_per_K`.
-2. **τ-afgeleide θ_e.** τ=84,3 h → θ_e = -9,5 °C. Engine neemt θ_e als input.
+2. **τ-afgeleide θ_e.** τ=84,3 h → θ_e = -9,5 °C. `climate.thetaE = -9.5` is
+   letterlijk gepind (de engine kent geen τ-afgeleide θ_e-berekening).
 
-`voorbeeld_61_input.json` modelleert nog een enkel 20 m²-vertrek i.p.v. de
-gebouwschil. Input-rebuild (schil als één "room", dak conform publicatie
-weggelaten) = apart werkpakket. Test blijft `#[ignore]`.
+`room.height` staat op 4,0 m (ISSO 53-validatiegrens, `validate.rs::
+validate_room_height` wijst >4 m af) i.p.v. de werkelijke 21 m gebouwhoogte —
+toegestaan omdat dit model geen horizontale exterior-elementen (dak) heeft die
+`room.height` in de Δθ₁-vide-correctie gebruiken; `room.height` is voor deze
+transcriptie rekenkundig inert.
+
+**Resultaat (CLI-run 2026-07-11):**
+
+| Term | Publicatie | Engine | Afwijking | Status |
+|------|-----------|--------|-----------|--------|
+| totalTransmissionLoss | 77.500 W | 77.500,3 W | +0,0004% | ✅ geasserteerd, binnen 2% |
+| totalBuildingHeatLoss | 236.100 W | 237.180,4 W | +0,46% | ✅ geasserteerd, binnen 2% |
+| totalVentilationLoss | 77.958 W | 76.825 W | -1,45% | niet individueel geasserteerd; binnen 2% |
+| totalInfiltrationLoss | 80.703 W | 82.855,1 W | +2,67% | niet individueel geasserteerd; **buiten 2%** (zie gap hieronder) |
+| shellHeatLoss | 236.100 W | 94.980 W | -59,8% | **null gezet** (zie gap hieronder) |
+
+- **gap_shell (open, engine-architectuur):** `calc::shell::calculate_shell`
+  (hoofdstuk-3-voorontwerpmethode) schat ventilatie via een hardcoded 0,5
+  luchtwisseling/uur en infiltratie via een hardcoded `floor_area×0,00001`-
+  vuistregel, en negeert daarbij `VentilationConfig.hasHeatRecovery/
+  supplyTemperature` en `Room.ventilationQvEstablished/infiltrationMethod`
+  volledig — precies de velden die de publicatie's Φ_V (WTW 66%, inblaastemp
+  10,5 °C, gegeven qv) en Φ_I (gegeven q_is) bepalen. Geen input-waarde kan dit
+  dichter bij de norm brengen zonder `calc/shell.rs` zelf te wijzigen (buiten
+  scope — apart werkpakket). `summary.shellHeatLoss` staat op `null` in
+  `voorbeeld_61_expected.json`.
+- **gap_infiltratie (kwantisatie, niet geasserteerd):** de publicatie geeft
+  q_is=0,0015 en A_u=1470 m² (halve gevel, vermoedelijk "loefzijde"-conventie)
+  rechtstreeks; de engine's Known-pad kent geen directe q_is-invoer en telt
+  A_u altijd als de volledige gevel (2940 m², dicht+glas). De dichtstbijzijnde
+  tabel-4.5-klasse (`From020To040`, hoogteklasse 20-30 m, q_is=0,00077) geeft
+  +2,67% op dit deelterm — buiten tolerantie, maar niet individueel
+  geasserteerd door `golden.rs::voorbeeld_61` (test-scope ongewijzigd t.o.v.
+  vóór deze delegatie). De ventilatie-onderschatting (-1,45%) compenseert een
+  deel hiervan, waardoor het bouwtotaal alsnog ruim binnen 2% uitkomt.
+
+Zie `voorbeeld_61_expected.json._gaps` voor de volledige onderbouwing.
 
 ## Voorbeeld 6.2 Gaps (bijgewerkt 2026-07-02)
 
