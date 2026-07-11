@@ -176,8 +176,16 @@ fn synthetic_house_produces_plausible_beng() {
     assert!(r.beng2.limit.is_some());
     assert!(r.beng3.limit.is_some());
 
-    // BENG 2 (primair fossiel) positief maar bescheiden voor all-electric + PV.
-    assert!(r.beng2.value > 0.0, "BENG 2 = {}", r.beng2.value);
+    // BENG 2 (primair fossiel) in een norm-plausibele band en voldoet aan de eis.
+    // Na de F3b-koelfix + rencold salderen 4 kWp PV de all-electric-woning tot
+    // een negatieve BENG 2 — norm-valide (§5.5.2 opm. 11, geen clamp), vandaar de
+    // negatieve ondergrens i.p.v. een positiviteits-assert.
+    assert!(
+        (-100.0..150.0).contains(&r.beng2.value),
+        "BENG 2 buiten plausibele band: {}",
+        r.beng2.value
+    );
+    assert_eq!(r.beng2.pass, Some(true), "BENG 2 zou moeten voldoen: {}", r.beng2.value);
     // BENG 3 (hernieuwbaar aandeel) > 0 dankzij PV.
     assert!(r.beng3.value > 0.0, "BENG 3 = {}", r.beng3.value);
     assert!(r.beng3.value <= 100.0);
@@ -197,8 +205,51 @@ fn synthetic_house_produces_plausible_beng() {
     assert!(r.service_breakdown_kwh_m2.pv < 0.0);
     assert!(r.service_breakdown_kwh_m2.heating > 0.0);
     assert!(!r.energy_label.is_empty());
-    // De rencold-gap (koel-keten = F3b) wordt expliciet gerapporteerd.
-    assert!(r.notes.iter().any(|n| n.contains("omgevingskoude (rencold")));
+    // F3b — vrije-koeling-opwekkingsstap (EER_fc + backup, tabel 10.34/10.29):
+    // koeling zit na de fix in een plausibele band, niet meer op de ~56
+    // kWh/(m²·jr) van de COP=1,0-modellering. (Het residu boven de RVO-referentie
+    // is F_sh=1,0-overschatting van Q_C;nd — F3d, buiten F3b-scope.)
+    assert!(
+        (0.0..30.0).contains(&r.service_breakdown_kwh_m2.cooling),
+        "koeling buiten band na F3b-fix: {}",
+        r.service_breakdown_kwh_m2.cooling
+    );
+    // De F3b-gap-note (rencold telt niet mee) is verdwenen.
+    assert!(!r.notes.iter().any(|n| n.contains("levert QC;gen;out pas in F3b")));
+}
+
+#[test]
+fn free_cooling_yields_renewable_cold_raising_beng3() {
+    // §5.6.2.2 (5.34): de vrij geleverde koude (EER ≥ 8) telt als hernieuwbaar,
+    // dus vrije bodemkoeling verhoogt BENG 3 t.o.v. compressiekoeling (EER 3 < 8)
+    // bij verder identieke invoer.
+    let free = compute_beng(&synthetic_rijtjeshuis(0.0)).expect("free cooling ok");
+
+    let mut p = synthetic_rijtjeshuis(0.0);
+    if let Some(e) = p.energy.as_mut() {
+        e.cooling = Some(CoolingInput {
+            generator: CoolingGeneratorType::Compression,
+            seer: None,
+            cop: None,
+            free_cooling_fraction: None,
+        });
+    }
+    let compression = compute_beng(&p).expect("compression ok");
+
+    assert!(
+        free.beng3.value > compression.beng3.value,
+        "vrije koeling (rencold) zou BENG 3 moeten verhogen: {} vs {}",
+        free.beng3.value,
+        compression.beng3.value
+    );
+    // Compressie levert geen rencold én kost meer eindenergie (EER 3 vs deels vrij)
+    // → hoger primair-fossiel koelverbruik.
+    assert!(
+        compression.service_breakdown_kwh_m2.cooling > free.service_breakdown_kwh_m2.cooling,
+        "compressiekoeling zou meer primair koelverbruik moeten geven: {} vs {}",
+        compression.service_breakdown_kwh_m2.cooling,
+        free.service_breakdown_kwh_m2.cooling
+    );
 }
 
 #[test]

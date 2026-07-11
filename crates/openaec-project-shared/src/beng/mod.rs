@@ -373,16 +373,15 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     };
 
     // Omgevingswarmte (renheat) van de warmtepomp-diensten — teller van BENG 3
-    // (§5.6.2.1/§5.6.2.3). Omgevingskoude (rencold, §5.6.2.2) vergt QC;gen;out uit
-    // de koel-keten (F3b) en blijft hier 0.
+    // (§5.6.2.1/§5.6.2.3). Omgevingskoude (rencold, §5.6.2.2 formule 5.34) komt
+    // uit de koel-keten: de vrij-geleverde koude bij EER ≥ 8 (tabel 10.34), door
+    // `calculate_cooling` bepaald en via `tj.annual_rencold_mj` doorgegeven.
     let renewable_ambient_heat_mj = heating_ambient_mj + dhw_ambient_mj;
-    if energy.cooling.is_some() {
-        notes.push(
-            "BENG 3: omgevingskoude (rencold, EER ≥ 8 — bijv. bodemkoeling) telt nog NIET mee; \
-             de koel-keten levert QC;gen;out pas in F3b. Hierdoor kan BENG 3 onderschat worden."
-                .into(),
-        );
-    }
+    let renewable_ambient_cold_mj = if energy.cooling.is_some() {
+        tj.annual_rencold_mj
+    } else {
+        0.0
+    };
 
     // ---- EP-score H.5 ----
     let ep_inputs = EpInputs {
@@ -394,7 +393,7 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         automation: HashMap::new(),
         pv_yield: pv_yield_mj,
         renewable_ambient_heat_mj,
-        renewable_ambient_cold_mj: 0.0,
+        renewable_ambient_cold_mj,
         building_area: BuildingArea { a_g },
     };
     let ep = calculate_ep_score(&ep_inputs, usage)?;

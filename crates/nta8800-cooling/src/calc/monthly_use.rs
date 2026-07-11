@@ -1,16 +1,20 @@
 //! Pad 1 — actieve koeling volgens NTA 8800 H.10.
 //!
-//! `Q_C;use;zi;mi = Q_C;nd;zi;mi / (η_em · η_dist · COP · f_reg)`  [MJ]
+//! Compressie/absorptie: `Q_C;use;zi;mi = Q_C;nd;zi;mi / (η_em · η_dist · COP · f_reg)`  [MJ]
+//! — de koude die de opwekker levert `Q_C;gen;out = Q_C;nd / (η_em · η_dist · f_reg)`
+//! gedeeld door de energie-efficiëntie EER/ζ (§10.5.6.1 formules 10.76/10.77, p. 417).
 //!
-//! Voor [`crate::model::CoolingSystem::FreeCooling`] geldt dat alleen
-//! `(1 − factor)` van de koudebehoefte door het mechanische deel hoeft te
-//! worden gedekt; de rest is "gratis" via ventilatie of bodemlus. We
-//! modelleren dit als:
+//! Voor [`crate::model::CoolingSystem::FreeCooling`] dekt de vrije opwekker
+//! (preferentie 1, tabel 10.15) de energiefractie `factor`; het restant
+//! `(1 − factor)` loopt via een backup-compressiekoelmachine (forfait EER 3,0,
+//! tabel 10.29). Vrije koeling kost **alleen pompenergie** (§10.5.7.2.1,
+//! formule 10.86 p. 423): `W_fc = Q_C;gen;out / EER_fc`. Dus:
 //!
-//! `Q_C;use = (1 − factor) · Q_C;nd / (η_em · η_dist · f_reg)`
+//! `Q_C;use = Q_C;gen;out · [ factor / EER_fc + (1 − factor) / EER_backup ]`
 //!
-//! met een conservatieve nominale COP=1,0 voor de elektrische hulpenergie
-//! die nog wel nodig is (ventilator, pomp).
+//! De vroegere modellering (het niet-vrije deel tegen "nominale COP = 1,0",
+//! d.w.z. `Q_C;use ≈ (1 − factor) · Q_C;gen;out`) is weerlegd: dat rekent bijna
+//! één-op-één elektriciteit op het backup-deel i.p.v. deling door EER_backup.
 
 use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::Energy;
@@ -21,6 +25,25 @@ use nta8800_demand::DemandResult;
 use crate::errors::{CoolingCalcResult, CoolingError};
 use crate::model::{CoolingDistribution, CoolingEmission, CoolingSystem};
 use crate::result::{CoolingBreakdown, CoolingResult};
+
+/// Forfaitair opwekkingsrendement vrije koeling EER_fc — NTA 8800:2025+C1:2026
+/// tabel 10.34 (p. 424), rij "Koudeopslag gesloten systeem met
+/// bodemwarmtewisselaars" / "Oppervlaktewater". Conservatieve V1-forfait (de
+/// laagste rij ≥ 8, passend bij een bodem-WP-bron); het invoermodel selecteert
+/// het EER_fc-type nog niet (V2). Alle tabel-10.34-waarden zijn ≥ 8 → de koude
+/// telt als omgevingskoude (§5.6.2.2, zie [`EER_RENCOLD_THRESHOLD`]).
+pub const EER_FREE_COOLING: f64 = 10.0;
+
+/// Forfaitair EER van de backup-compressiekoelmachine die het niet-vrije deel
+/// `(1 − factor)` van de koudevraag dekt — NTA 8800 tabel 10.29 (p. 419),
+/// "onbekende koudeopwekker in een collectieve gebouwinstallatie" = 3,00. Onder
+/// de rencold-drempel (< 8) → dit deel telt niet als hernieuwbaar.
+pub const EER_BACKUP_COMPRESSION: f64 = 3.0;
+
+/// Drempel-EER waarboven (vrije) koeling als hernieuwbare omgevingskoude telt —
+/// NTA 8800 §5.6.2.2, formule 5.34 (p. 105): `EER ≥ 8` → `Q_C;gen;out` telt als
+/// rencold; `EER < 8` → 0.
+pub const EER_RENCOLD_THRESHOLD: f64 = 8.0;
 
 /// Valideer een rendement (0, 1].
 fn validate_efficiency(name: &'static str, value: f64) -> CoolingCalcResult<()> {
@@ -85,7 +108,7 @@ pub fn calculate_cooling(
     let f_reg = emission.regulation_factor;
     let cop = system.nominal_cop();
 
-    let monthly_q_c_use = compute_monthly_use(
+    let (monthly_q_c_use, monthly_rencold) = compute_monthly_use(
         &demand.monthly_cooling_demand,
         system,
         eta_em,
@@ -95,6 +118,7 @@ pub fn calculate_cooling(
     );
 
     let annual: Energy = Month::all().iter().map(|m| monthly_q_c_use[*m]).sum();
+    let annual_rencold: Energy = Month::all().iter().map(|m| monthly_rencold[*m]).sum();
 
     let free_cooling_factor = match system {
         CoolingSystem::FreeCooling { factor } => *factor,
@@ -105,6 +129,8 @@ pub fn calculate_cooling(
         energy_carrier: system.energy_carrier(),
         monthly_q_c_use,
         annual_q_c_use: annual,
+        monthly_rencold_mj: monthly_rencold,
+        annual_rencold_mj: annual_rencold,
         breakdown: CoolingBreakdown {
             monthly_q_c_nd: demand.monthly_cooling_demand.clone(),
             emission_efficiency: eta_em,
@@ -116,6 +142,16 @@ pub fn calculate_cooling(
     })
 }
 
+/// Bereken per maand het koel-eindgebruik `Q_C;use` én de hernieuwbare
+/// omgevingskoude `Q_rencold` (beide MJ).
+///
+/// - Compressie/absorptie: `Q_C;use = Q_C;gen;out / COP`, rencold = 0 (forfait
+///   EER 3,0 / ζ 0,80 < 8, §5.6.2.2).
+/// - Vrije koeling: `Q_C;gen;out = Q_C;nd / (η_em · η_dist · f_reg)` wordt voor
+///   het aandeel `factor` tegen `EER_fc` (tabel 10.34) en voor `(1 − factor)`
+///   tegen een backup-compressie-EER (tabel 10.29) omgezet naar elektriciteit
+///   (formule 10.86). De vrij-geleverde koude `factor · Q_C;gen;out` telt als
+///   rencold zodra `EER_fc ≥ 8`.
 fn compute_monthly_use(
     demand: &MonthlyProfile<Energy>,
     system: &CoolingSystem,
@@ -123,21 +159,45 @@ fn compute_monthly_use(
     eta_dist: f64,
     f_reg: f64,
     cop: f64,
-) -> MonthlyProfile<Energy> {
-    let mut values = [0.0_f64; 12];
+) -> (MonthlyProfile<Energy>, MonthlyProfile<Energy>) {
+    let mut use_values = [0.0_f64; 12];
+    let mut rencold_values = [0.0_f64; 12];
+    let system_losses = eta_em * eta_dist * f_reg;
     for (idx, month) in Month::all().iter().enumerate() {
         let q_nd = demand[*month];
-        let q_use = match system {
+        let (q_use, q_rencold) = match system {
             CoolingSystem::FreeCooling { factor } => {
-                // Alleen (1 − factor) moet via hulp-energie gedekt worden.
-                let mechanical_fraction = 1.0 - *factor;
-                mechanical_fraction * q_nd / (eta_em * eta_dist * f_reg * cop)
+                // Koude die de opwekker moet leveren (§10.5, Q_C;gen;out).
+                let q_gen_out = q_nd / system_losses;
+                // EER van de vrije opwekker (V1-forfait tabel 10.34; V2 maakt dit
+                // type-afhankelijk variabel). Als lokale variabele zodat de
+                // rencold-drempeltest op de *werkelijk gebruikte* EER test.
+                let eer_fc = EER_FREE_COOLING;
+                // Elektriciteit: vrij deel via EER_fc, restant via backup-EER
+                // (formule 10.86 + tabel 10.29). Beide EER's zijn > 0.
+                let q_use =
+                    q_gen_out * (factor / eer_fc + (1.0 - factor) / EER_BACKUP_COMPRESSION);
+                // rencold (§5.6.2.2): vrij geleverde koude telt alleen bij
+                // EER ≥ 8. Tabel 10.34 kent types < 8 niet expliciet (laagste =
+                // dauwpuntskoeling = 8), maar de drempel blijft betekenisvol
+                // zodra V2 een variabele `eer_fc` levert of een lage-EER-opwekker
+                // onder de vrije-koeling-tak valt.
+                let q_rencold = if eer_fc >= EER_RENCOLD_THRESHOLD {
+                    factor * q_gen_out
+                } else {
+                    0.0
+                };
+                (q_use, q_rencold)
             }
-            _ => q_nd / (eta_em * eta_dist * f_reg * cop),
+            _ => (q_nd / (system_losses * cop), 0.0),
         };
-        values[idx] = if q_use > 0.0 { q_use } else { 0.0 };
+        use_values[idx] = q_use.max(0.0);
+        rencold_values[idx] = q_rencold.max(0.0);
     }
-    MonthlyProfile::new(values)
+    (
+        MonthlyProfile::new(use_values),
+        MonthlyProfile::new(rencold_values),
+    )
 }
 
 #[cfg(test)]
@@ -204,8 +264,11 @@ mod tests {
     }
 
     #[test]
-    fn freecooling_factor_nul_gelijk_aan_scop_1() {
-        // factor=0 → geen vrije koeling, alle koude via hulp-energie COP=1
+    fn freecooling_factor_nul_loopt_volledig_via_backup_eer() {
+        // NTA 8800 tabel 10.15/10.29: factor=0 → geen vrije koeling; het volledige
+        // Q_C;gen;out loopt via de backup-compressiekoelmachine (EER 3,0).
+        // Q_C;gen;out = 500 (η=1) → Q_C;use = 500 / 3,0. (Weerlegt de oude lezing
+        // "COP = 1,0" die 500 gaf.) Geen rencold (backup EER 3 < 8).
         let mut monthly = [0.0; 12];
         monthly[Month::Augustus.index()] = 500.0;
         let demand = demand_with_cooling(monthly);
@@ -218,14 +281,18 @@ mod tests {
         let result = calculate_cooling(&zone(), &demand, &system, &dist, &emission).unwrap();
         assert_abs_diff_eq!(
             result.monthly_q_c_use[Month::Augustus],
-            500.0,
+            500.0 / EER_BACKUP_COMPRESSION,
             epsilon = 1e-9
         );
+        assert_abs_diff_eq!(result.annual_rencold_mj, 0.0, epsilon = 1e-9);
     }
 
     #[test]
-    fn freecooling_factor_1_geeft_nul_energie() {
-        // factor=1 → alle koude gratis, Q_C;use = 0
+    fn freecooling_factor_1_kost_alleen_pompenergie() {
+        // NTA 8800 formule 10.86 + tabel 10.34: factor=1 → alle koude vrij, maar
+        // W_fc = Q_C;gen;out / EER_fc ≠ 0 (pompenergie). Q_C;gen;out = 1000 (η=1)
+        // → Q_C;use = 1000 / EER_fc. rencold = 1 × 1000 (EER_fc ≥ 8, §5.6.2.2).
+        // (Weerlegt de oude lezing "vrije koeling = 0 elektriciteit".)
         let mut monthly = [0.0; 12];
         monthly[Month::Juli.index()] = 1000.0;
         let demand = demand_with_cooling(monthly);
@@ -241,12 +308,19 @@ mod tests {
             },
         )
         .unwrap();
-        assert_abs_diff_eq!(result.annual_q_c_use, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(
+            result.annual_q_c_use,
+            1000.0 / EER_FREE_COOLING,
+            epsilon = 1e-9
+        );
+        assert_abs_diff_eq!(result.annual_rencold_mj, 1000.0, epsilon = 1e-9);
     }
 
     #[test]
-    fn freecooling_factor_0_3_dekt_30_procent() {
-        // factor=0,3, Q_C;nd = 1000 MJ, η=1, COP=1 → (1-0,3) × 1000 = 700 MJ
+    fn freecooling_factor_0_3_splitst_vrij_en_backup() {
+        // NTA 8800 formule 10.86 + tabellen 10.34/10.29: factor=0,3, Q_C;gen;out =
+        // 1000 (η=1) → Q_C;use = 1000·(0,3/EER_fc + 0,7/EER_backup); rencold =
+        // 0,3 × 1000. (Weerlegt de oude lezing "(1−factor)·Q bij COP 1,0" = 700.)
         let mut monthly = [0.0; 12];
         monthly[Month::Juli.index()] = 1000.0;
         let demand = demand_with_cooling(monthly);
@@ -262,7 +336,28 @@ mod tests {
             },
         )
         .unwrap();
-        assert_abs_diff_eq!(result.monthly_q_c_use[Month::Juli], 700.0, epsilon = 1e-9);
+        let expected = 1000.0 * (0.3 / EER_FREE_COOLING + 0.7 / EER_BACKUP_COMPRESSION);
+        assert_abs_diff_eq!(result.monthly_q_c_use[Month::Juli], expected, epsilon = 1e-9);
+        assert_abs_diff_eq!(result.monthly_rencold_mj[Month::Juli], 300.0, epsilon = 1e-9);
+    }
+
+    #[test]
+    fn compressie_levert_geen_rencold() {
+        // §5.6.2.2: compressiekoeling (forfait EER 3,0 < 8) telt niet als
+        // omgevingskoude.
+        let mut monthly = [0.0; 12];
+        monthly[Month::Juli.index()] = 1000.0;
+        let demand = demand_with_cooling(monthly);
+        let system = CoolingSystem::CompressionCooling { scop_cooling: 4.0 };
+        let result = calculate_cooling(
+            &zone(),
+            &demand,
+            &system,
+            &CoolingDistribution::default(),
+            &CoolingEmission::default(),
+        )
+        .unwrap();
+        assert_abs_diff_eq!(result.annual_rencold_mj, 0.0, epsilon = 1e-9);
     }
 
     #[test]
@@ -362,6 +457,25 @@ mod tests {
     fn invalid_freecooling_factor_returns_error() {
         let demand = demand_with_cooling([0.0; 12]);
         let system = CoolingSystem::FreeCooling { factor: 1.5 };
+        let err = calculate_cooling(
+            &zone(),
+            &demand,
+            &system,
+            &CoolingDistribution::default(),
+            &CoolingEmission::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, CoolingError::InvalidFreeCoolingFactor { .. }));
+    }
+
+    #[test]
+    fn negative_freecooling_factor_returns_error_not_negative_rencold() {
+        // Ondergrens-validatie: `validate_system` (aangeroepen in
+        // `calculate_cooling` vóór `compute_monthly_use`) weigert factor < 0, dus
+        // de twee-termen-formule krijgt nooit een negatieve `factor` → geen
+        // negatieve rencold. Dekt de DTO-invoer die via `map_cooling` binnenkomt.
+        let demand = demand_with_cooling([0.0; 12]);
+        let system = CoolingSystem::FreeCooling { factor: -0.1 };
         let err = calculate_cooling(
             &zone(),
             &demand,

@@ -255,8 +255,9 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
   - [ ] **F3 — kalibratie tegen F0-goldens** — smoke-run Tussenwoning M: B1 +68%, B2 +167%, B3 −59pp; structureel EP-laag door vier gemeten gaten:
     - [x] **F3a ✅ (11-07)** BENG 3 renewable-share: RER-formule 5.3 (§5.3.1.3) incl. WP-omgevingswarmte Q_use×(SCOP−1) (form. 5.31/5.36, fPren=1,0 tabel 5.4)
     - [x] **F3a ✅ (11-07)** PV-netting §5.5: `fPrim(HernieuwbareElektriciteit)` 0→1,45 (tabel 5.2) + CO2-factor PV 0→0,0900 kg/MJ (tabel 5.3); negatief EP-totaal → A++++ (§5.5.2 opm. 11). Smoke all-electric WP: BENG 3 0%→20,5% zonder PV, 74,2% met 4 kWp.
-    - [ ] koel-COP FreeCooling ≈1 → koeling domineert BENG 2 (F3b, rencold=0)
+    - [x] **F3b ✅ (11-07)** koel-COP FreeCooling ≈1 → koeling domineerde BENG 2: twee-termen-opwekking `Q_gen_out·[factor/EER_fc + (1−factor)/EER_backup]` (EER_fc=10 tabel 10.34, backup-EER=3,0 tabel 10.29, §10.5) + rencold-term additief (§5.6.2.2 form. 5.34, drempel EER≥8, fPren=1,0 tabel 5.4). Smoke WP-bodem: B2 75,5→41,8 · B3 20,5%→52,1% · koeling 56,2→22,5 kWh/m². Norm-analyse: `docs/2026-07-11-f3b-norm-analyse-koeling.md`.
     - [ ] TOjuli per-oriëntatie §5.7.2-opdeling ontbreekt (F3c)
+    - [ ] **F3d** — `F_sh`=1,0 vast / mogelijke `Q_C;nd`-overschatting demand-kant (residu na F3b-smoke, niet onderzocht)
 - [ ] **Utiliteitsbouw peak-koellast fixture** — folder + expected.json klaar (2026-05-28), wacht op peak-cooling engine
 
 ### Optioneel later

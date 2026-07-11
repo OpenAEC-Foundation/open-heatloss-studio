@@ -362,6 +362,9 @@ pub struct TojuliResult {
     pub annual_q_c_use_mj: Energy,
     /// Jaarsom Q_C;use in kWh.
     pub annual_q_c_use_kwh: f64,
+    /// Jaarsom hernieuwbare omgevingskoude Q_C;gen;out;rencold in MJ (BENG 3,
+    /// §5.6.2.2 formule 5.34) — > 0 alleen bij (vrije) koeling met EER ≥ 8.
+    pub annual_rencold_mj: Energy,
     /// Maandelijkse warmtebehoefte Q_H;nd in MJ (bijproduct demand-keten).
     pub monthly_q_h_nd_mj: MonthlyProfile<Energy>,
     /// H_T (W/K) gebruikt voor demand — Σ A·U op exterior/ground/adjacent.
@@ -729,6 +732,7 @@ pub fn compute_tojuli_full(
         monthly_q_c_use_mj: cooling.monthly_q_c_use,
         annual_q_c_use_mj,
         annual_q_c_use_kwh,
+        annual_rencold_mj: cooling.annual_rencold_mj,
         monthly_q_h_nd_mj: demand.monthly_heating_demand,
         transmission_h_t_w_per_k: transmission.h_d + transmission.h_u + transmission.h_g_an + transmission.h_a,
         ventilation_h_v_w_per_k: h_v,

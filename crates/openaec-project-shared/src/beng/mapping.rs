@@ -302,6 +302,13 @@ pub fn map_ventilation(
 /// het blok = actieve koeling. Forfaits bij afwezige kentallen: zie
 /// [`DEFAULT_COOLING_SEER`]/[`DEFAULT_ABSORPTION_COP`]/
 /// [`DEFAULT_FREE_COOLING_FRACTION`].
+///
+/// **Validatie:** de DTO-`free_cooling_fraction` wordt hier niet geklemd; een
+/// waarde buiten `[0, 1]` levert een nette
+/// `nta8800_cooling::CoolingError::InvalidFreeCoolingFactor` zodra
+/// `nta8800_cooling::calculate_cooling` het systeem valideert (aangeroepen via
+/// de TO-juli-keten in [`crate::beng::compute_beng`]). Zo blijft er geen silent
+/// pad naar een negatieve rencold.
 #[must_use]
 pub fn map_cooling(input: &CoolingInput) -> CoolingSystem {
     match input.generator {

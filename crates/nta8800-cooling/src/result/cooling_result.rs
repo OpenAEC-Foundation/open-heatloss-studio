@@ -44,6 +44,18 @@ pub struct CoolingResult {
     /// Jaarlijks eindgebruik voor koeling Q_C;use;an in MJ.
     pub annual_q_c_use: Energy,
 
+    /// Maandelijkse hernieuwbare omgevingskoude Q_C;gen;out;rencold in MJ —
+    /// de door de opwekker geleverde koude die als hernieuwbaar telt (BENG 3).
+    ///
+    /// NTA 8800:2025+C1:2026 §5.6.2.2 (formule 5.34, p. 105-106): alleen (vrije)
+    /// koeling met `EER ≥ 8` levert rencold; compressie-/absorptiekoeling
+    /// (forfait EER 3,0 / ζ 0,80 < 8) → 0. De EP-crate rekent dit om met
+    /// `fPren;rencold = 1,0` (tabel 5.4).
+    pub monthly_rencold_mj: MonthlyProfile<Energy>,
+
+    /// Jaarsom van [`Self::monthly_rencold_mj`] in MJ.
+    pub annual_rencold_mj: Energy,
+
     /// Detail-uitsplitsing (rendementen, COP, vrije-koeling factor).
     pub breakdown: CoolingBreakdown,
 }
@@ -62,6 +74,8 @@ mod tests {
             energy_carrier: EnergyCarrier::Electricity,
             monthly_q_c_use: zero_profile(),
             annual_q_c_use: 0.0,
+            monthly_rencold_mj: zero_profile(),
+            annual_rencold_mj: 0.0,
             breakdown: CoolingBreakdown {
                 monthly_q_c_nd: zero_profile(),
                 emission_efficiency: 0.92,
