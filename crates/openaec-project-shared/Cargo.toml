@@ -18,6 +18,11 @@ nta8800-demand = { path = "../nta8800-demand" }
 nta8800-tables = { path = "../nta8800-tables" }
 nta8800-transmission = { path = "../nta8800-transmission" }
 nta8800-ventilation = { path = "../nta8800-ventilation" }
+nta8800-heating = { path = "../nta8800-heating" }
+nta8800-dhw = { path = "../nta8800-dhw" }
+nta8800-pv = { path = "../nta8800-pv" }
+nta8800-automation = { path = "../nta8800-automation" }
+nta8800-ep = { path = "../nta8800-ep" }
 
 [dev-dependencies]
 approx = "0.5"

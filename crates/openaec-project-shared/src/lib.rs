@@ -19,6 +19,7 @@
 
 #![deny(missing_docs)]
 
+pub mod beng;
 pub mod calcs;
 pub mod energy;
 pub mod geometry;
@@ -30,6 +31,11 @@ pub mod tojuli;
 pub mod view;
 
 pub use tojuli::{compute_tojuli_full, TojuliError, TojuliFullInputs, TojuliResult};
+
+pub use beng::{
+    compute_beng, BengError, BengResult, IndicatorReport, ServiceBreakdownKwhM2,
+    TojuliBengSummary, TojuliMethod,
+};
 
 pub use nta8800_view::{
     geometry_to_nta8800, map_usage_function, orientation_from_degrees,
