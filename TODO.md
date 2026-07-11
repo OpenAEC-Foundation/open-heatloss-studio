@@ -250,9 +250,7 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 - [ ] **Peak-koellast engine** (separaat, EN 12831/NEN 5060 TO2) voor de Vabi Koellast cases
   - Twee fixture-cases met expected.json klaar: DR Engineering (6420W) + Koellastberekeningen.nl Woning B (8894W)
   - Statistieken-export Woning C als 3e fixture indien gewenst (kleinere case)
-- [ ] **3 BENG-fixtures uit RVO voorbeeldconcepten** (Tussenwoning M, Hoekwoning M, Vrijstaande M)
-  - Eindwaardes (BENG-1/2/3, TO-juli) staan in PDF
-  - Volledige invoer-reconstructie via Rekentool xlsm
+- [x] **F0 — 3 BENG-fixtures uit RVO voorbeeldconcepten** ✅ (11-07) — Tussenwoning M (G13), Hoekwoning M (G11), **Vrijstaande L** i.p.v. M (Vrijstaande M bestaat niet als BENG-referentie), elk 3 concepten (9 cases) + 2 Uniec certified-replay (Gouda 2467, Aalten 2522). Rode goldens (`#[ignore]`, `compute_beng` volgt in F2) in `crates/openaec-project-shared/tests/beng_golden.rs`. Per-gevel geometrie (RVO "Bijlage 4"-Excel) ontbreekt nog — user vraagt op; F0 start met 2017-referentiegebouwen-PDF als geometriebron. Zie plan: `docs/2026-07-11-beng-onderzoek-implementatieplan.md` (F0 ✅, F1-F5 open).
 - [ ] **Utiliteitsbouw peak-koellast fixture** — folder + expected.json klaar (2026-05-28), wacht op peak-cooling engine
 
 ### Optioneel later
@@ -292,7 +290,7 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 - [ ] TO-juli Vabi-cross-validatie fixture vullen wanneer Vabi BENG/TO-juli PDF beschikbaar is (folder `tests/verification/tojuli_vabi3.12.0.127_dr-engineering-woningbouw/`)
 - [ ] TO-juli PDF-rapport cross-val tegen Vabi-uitvoer
 - [ ] Utiliteitsbouw peak-koellast fixture invullen wanneer peak-cooling engine af is
-- [ ] 3 BENG-fixtures uit RVO voorbeeldconcepten (Tussenwoning M, Hoekwoning M, Vrijstaande M)
+- [x] 3 BENG-fixtures uit RVO voorbeeldconcepten — zie F0 hierboven (Vrijstaande L i.p.v. M); goldens rood tot `compute_beng` (F2). Plan: `docs/2026-07-11-beng-onderzoek-implementatieplan.md`.
 - [ ] ISSO 54 testset (optioneel, BRL 9501 attestering)
 
 ### Release-actie wanneer alles ✅
