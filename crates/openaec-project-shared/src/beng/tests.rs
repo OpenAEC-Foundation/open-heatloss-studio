@@ -192,17 +192,17 @@ fn synthetic_house_produces_plausible_beng() {
     assert!(r.a_ls_m2 > 0.0);
     assert!(r.als_ag_ratio > 0.0);
 
-    // De EP-crate rekent primaire-energiefactor(PV) = 0, dus de PV-dienst
-    // levert 0 primair energiegebruik (F3-gat, zie de note in `compute_beng`).
-    assert!(r.service_breakdown_kwh_m2.pv <= 0.0);
+    // PV vermijdt primair-fossiele energie (fP;exp;el = 1,45, §5.5), dus de
+    // PV-dienst levert een negatief primair energiegebruik.
+    assert!(r.service_breakdown_kwh_m2.pv < 0.0);
     assert!(r.service_breakdown_kwh_m2.heating > 0.0);
     assert!(!r.energy_label.is_empty());
-    // De PV-netting-gap wordt expliciet gerapporteerd.
-    assert!(r.notes.iter().any(|n| n.contains("PV verlaagt BENG 2")));
+    // De rencold-gap (koel-keten = F3b) wordt expliciet gerapporteerd.
+    assert!(r.notes.iter().any(|n| n.contains("omgevingskoude (rencold")));
 }
 
 #[test]
-fn more_pv_raises_beng3_and_leaves_beng2_unchanged_f3_gap() {
+fn more_pv_raises_beng3_and_lowers_beng2() {
     let low = compute_beng(&synthetic_rijtjeshuis(2.0)).expect("low pv ok");
     let high = compute_beng(&synthetic_rijtjeshuis(8.0)).expect("high pv ok");
 
@@ -214,12 +214,13 @@ fn more_pv_raises_beng3_and_leaves_beng2_unchanged_f3_gap() {
         low.beng3.value
     );
 
-    // TRIPWIRE — F3-gat: de EP-crate rekent f_prim(PV) = 0, dus PV verlaagt
-    // BENG 2 nu NIET. Deze assert faalt zodra iemand de §5.5-zelfconsumptie-
-    // aftrek implementeert; werk dan de assert (en de note) bij.
+    // PV-saldering (§5.5, formule 5.10 + tabel 5.2, fP;exp;el = 1,45): meer PV
+    // verlaagt het karakteristieke primair-fossiele energiegebruik (BENG 2).
+    // Grootte-orde: ΔPV = 6 kWp levert honderden kWh/jr extra × 1,45 primair over
+    // ~87 m² → duidelijk meetbaar verschil, ruim boven numerieke ruis.
     assert!(
-        (high.beng2.value - low.beng2.value).abs() < 1e-9,
-        "BENG 2 wijzigt met PV — PV-netting kennelijk geïmplementeerd? {} vs {}",
+        high.beng2.value < low.beng2.value - 1e-6,
+        "meer PV zou BENG 2 moeten verlagen: {} vs {}",
         high.beng2.value,
         low.beng2.value
     );
@@ -246,4 +247,5 @@ fn result_serializes_to_json() {
     let back: BengResult = serde_json::from_str(&json).unwrap();
     assert_eq!(r, back);
 }
+
 

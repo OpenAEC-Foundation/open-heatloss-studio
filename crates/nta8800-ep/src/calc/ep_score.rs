@@ -42,11 +42,13 @@ use super::{co2_factor::co2_factor, primary_energy::primary_factor};
 ///     ventilation_aux: HashMap::new(),
 ///     automation: HashMap::new(),
 ///     pv_yield: 5000.0,
+///     renewable_ambient_heat_mj: 0.0,
+///     renewable_ambient_cold_mj: 0.0,
 ///     building_area: BuildingArea { a_g: 150.0 },
 /// };
 ///
 /// let total_ep = total_primary_energy_mj(&inputs)?;
-/// assert!(total_ep > 0.0); // 15 GJ gas - 5 GJ PV = positief saldo
+/// assert!(total_ep > 0.0); // 15 GJ gas × 1,0 − 5 GJ PV × 1,45 = positief saldo
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn total_primary_energy_mj(inputs: &EpInputs) -> Result<f64, EpError> {
@@ -73,9 +75,12 @@ pub fn total_primary_energy_mj(inputs: &EpInputs) -> Result<f64, EpError> {
     // Gebouwautomatisering
     total_ep += calculate_service_primary_energy(&inputs.automation, "automation")?;
 
-    // PV-opbrengst als negatieve primaire energie (factor 0.000)
-    // Per definitie: PV ter plaatse heeft f_prim = 0, dus geen aftrek van primair verbruik
-    // Echter voor hernieuwbaar aandeel wordt PV wel meegeteld
+    // PV-saldering (§5.5.2, formules 5.10/5.13). Op eigen perceel opgewekte PV
+    // vermijdt primair-fossiele energie tegen fP;exp;el = fP;pr;us;el = 1,45 (tabel
+    // 5.2). Omdat afname, zelfgebruik én export dezelfde factor 1,45 hebben, is de
+    // netto-aftrek exact PV × 1,45 — ongeacht de zelfconsumptie/export-verdeling
+    // (zie docs/2026-07-11-f3a-norm-analyse-ep.md §2). EPTot mag negatief worden
+    // bij een groot PV-overschot (§5.5.2 opmerking 11) — geen clamp.
     total_ep -= inputs.pv_yield * primary_factor(EnergyCarrier::HernieuwbareElektriciteit)?;
 
     Ok(total_ep)
@@ -119,48 +124,91 @@ pub fn total_co2_kg(inputs: &EpInputs) -> Result<f64, EpError> {
     total_co2 += calculate_service_co2(&inputs.ventilation_aux, "ventilation_aux")?;
     total_co2 += calculate_service_co2(&inputs.automation, "automation")?;
 
-    // PV heeft geen CO2-uitstoot (factor 0.000)
+    // PV vermijdt net-CO2 tegen KCO2;exp;el = KCO2;del;el (tabel 5.3, §5.5.6.1):
+    // zelf-gebruikte/geëxporteerde PV verlaagt de CO2-indicator, analoog aan de
+    // primaire-energie-saldering.
     total_co2 -= inputs.pv_yield * co2_factor(EnergyCarrier::HernieuwbareElektriciteit)?;
 
     Ok(total_co2)
 }
 
-/// Berekent hernieuwbaar aandeel [0.0-1.0].
+/// Primaire hernieuwbare energiefactor omgevingswarmte `fPren;renheat`
+/// (NTA 8800:2025+C1:2026 tabel 5.4, p. 109).
+const F_PREN_RENHEAT: f64 = 1.0;
+/// Primaire hernieuwbare energiefactor omgevingskoude `fPren;rencold` (tabel 5.4).
+const F_PREN_RENCOLD: f64 = 1.0;
+/// Primaire hernieuwbare energiefactor lokaal opgewekte elektriciteit
+/// `fPren;renelect` (tabel 5.4).
+const F_PREN_RENELECT: f64 = 1.45;
+/// V1-forfait voor de primaire hernieuwbare energiefactor van vaste biomassa.
+/// De norm (tabel 5.4) onderscheidt bmA (1,0), bmB (0,5) en bmC (0) op basis van
+/// thermisch vermogen en bijlage R; die classificatie ontbreekt in het huidige
+/// invoermodel, dus wordt hier conservatief `bmA = 1,0` aangehouden op het
+/// brandstofverbruik (F5: geleverde warmte × fPren;bmX i.p.v. brandstof).
+const F_PREN_BIOMASSA_V1: f64 = 1.0;
+
+/// Berekent het aandeel hernieuwbare energie `RERPrenTot` [0.0-1.0].
 ///
-/// Implementeert NTA 8800:2025 formule (5.4):
-/// `f_renewable = min(1.0, E_renewable / E_P;tot)`
+/// Implementeert NTA 8800:2025+C1:2026 formule (5.3) (§5.3.1.3, p. 72):
+/// `RERPrenTot = EPrenTot / (EPTot + EPrenTot)`.
 ///
-/// Hernieuwbare energie omvat:
-/// - PV-opbrengst ter plaatse
-/// - Biomassa en pellets verbruik
+/// - `EPrenTot` (teller, §5.6) = som van de hernieuwbare primaire energie:
+///   omgevingswarmte (warmtepompen + zonneboiler, `fPren;renheat = 1,0`),
+///   omgevingskoude (EER ≥ 8, `fPren;rencold = 1,0`), lokaal opgewekte PV
+///   (`fPren;renelect = 1,45`) en vaste biomassa (V1-forfait).
+/// - `EPTot` (noemer-term, §5.5) = het karakteristieke primair-**fossiele**
+///   energiegebruik *na* PV-saldering ([`total_primary_energy_mj`]).
 ///
-/// **Opmerking:** Dit is een vereenvoudigde implementatie. In realiteit is
-/// de berekening complexer door net-metering en temporele effecten.
+/// Teller en noemer staan hier in MJ; als dimensieloze verhouding valt de
+/// MJ↔kWh-conversie weg.
 ///
 /// # Errors
 ///
-/// Retourneert [`EpError`] bij validatiefouten in de input data.
+/// Retourneert [`EpError`] bij validatiefouten in de input data
+/// (via [`total_primary_energy_mj`]).
 pub fn renewable_share(inputs: &EpInputs) -> Result<f64, EpError> {
-    let total_energy = total_netto_energy_consumption(inputs);
+    let e_pren_tot = renewable_primary_energy_mj(inputs);
+    let e_p_tot = total_primary_energy_mj(inputs)?;
 
-    if total_energy <= 0.0 {
-        return Ok(1.0); // Edge case: geen energiegebruik = 100% hernieuwbaar
+    let denominator = e_p_tot + e_pren_tot;
+    if denominator <= 0.0 {
+        // Geen (of netto-negatief) primair-fossiel + geen hernieuwbaar → geen
+        // zinvolle verhouding; volledig hernieuwbaar als edge-case.
+        return Ok(1.0);
     }
 
-    let mut renewable_energy = inputs.pv_yield;
+    Ok((e_pren_tot / denominator).clamp(0.0, 1.0))
+}
 
-    // Hernieuwbare verbruikers
+/// Hernieuwbaar primair energiegebruik `EPrenTot` [MJ] (NTA 8800 §5.6,
+/// formule 5.29). Teller van de `RERPrenTot`-indicator.
+fn renewable_primary_energy_mj(inputs: &EpInputs) -> f64 {
+    // Omgevingswarmte/-koude: reeds als bronzijdige hoeveelheid aangeleverd,
+    // omgerekend met fPren = 1,0 (tabel 5.4).
+    let mut e_pren = inputs
+        .renewable_ambient_heat_mj
+        .mul_add(F_PREN_RENHEAT, inputs.renewable_ambient_cold_mj * F_PREN_RENCOLD);
+
+    // Lokaal opgewekte PV (§5.6.2.4, formule 5.39): volledige productie × 1,45.
+    e_pren += inputs.pv_yield * F_PREN_RENELECT;
+
+    // Vaste biomassa (§5.6.2.1/§5.6.2.3): V1-forfait op het brandstofverbruik.
     for &carrier in &[EnergyCarrier::Biomassa, EnergyCarrier::Pellets] {
-        renewable_energy += inputs.heating.get(&carrier).unwrap_or(&0.0);
-        renewable_energy += inputs.cooling.get(&carrier).unwrap_or(&0.0);
-        renewable_energy += inputs.dhw.get(&carrier).unwrap_or(&0.0);
-        renewable_energy += inputs.lighting.get(&carrier).unwrap_or(&0.0);
-        renewable_energy += inputs.ventilation_aux.get(&carrier).unwrap_or(&0.0);
-        renewable_energy += inputs.automation.get(&carrier).unwrap_or(&0.0);
+        let biomass: f64 = [
+            &inputs.heating,
+            &inputs.cooling,
+            &inputs.dhw,
+            &inputs.lighting,
+            &inputs.ventilation_aux,
+            &inputs.automation,
+        ]
+        .iter()
+        .filter_map(|m| m.get(&carrier))
+        .sum();
+        e_pren += biomass * F_PREN_BIOMASSA_V1;
     }
 
-    let fraction = renewable_energy / total_energy;
-    Ok(fraction.clamp(0.0, 1.0))
+    e_pren
 }
 
 // ---------------------------------------------------------------------------
@@ -236,26 +284,6 @@ fn calculate_service_co2(
     Ok(total)
 }
 
-/// Berekent totaal netto energieverbruik (alle diensten, voor hernieuwbaar aandeel).
-fn total_netto_energy_consumption(inputs: &EpInputs) -> f64 {
-    let mut total = 0.0;
-
-    for service in [
-        &inputs.heating,
-        &inputs.cooling,
-        &inputs.dhw,
-        &inputs.lighting,
-        &inputs.ventilation_aux,
-        &inputs.automation,
-    ] {
-        for &energy in service.values() {
-            total += energy;
-        }
-    }
-
-    total
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +304,8 @@ mod tests {
             ventilation_aux: HashMap::new(),
             automation: HashMap::new(),
             pv_yield: 5000.0,
+            renewable_ambient_heat_mj: 0.0,
+            renewable_ambient_cold_mj: 0.0,
             building_area: BuildingArea { a_g: 150.0 },
         }
     }
@@ -287,9 +317,9 @@ mod tests {
 
         // Gas: 15000 * 1.000 = 15000 MJ
         // Elektriciteit: 3000 * 1.450 = 4350 MJ
-        // PV: 5000 * 0.000 = 0 MJ afgetrokken
-        // Totaal: 19350 MJ
-        let expected = 15000.0_f64.mul_add(1.000, 3000.0 * 1.450) - 5000.0 * 0.000;
+        // PV: 5000 * 1.450 = 7250 MJ afgetrokken (fP;exp;el, tabel 5.2)
+        // Totaal: 15000 + 4350 − 7250 = 12100 MJ
+        let expected = 15000.0_f64.mul_add(1.000, 3000.0 * 1.450) - 5000.0 * 1.450;
         assert_relative_eq!(total, expected, epsilon = 1e-9);
     }
 
@@ -308,11 +338,38 @@ mod tests {
         let inputs = create_test_inputs();
         let share = renewable_share(&inputs).unwrap();
 
-        // Total netto: 15000 + 3000 = 18000 MJ
-        // Hernieuwbaar: 5000 MJ PV
-        // Aandeel: 5000/18000 ≈ 0.278
-        let expected = 5000.0 / 18000.0;
-        assert!((share - expected).abs() < 0.001);
+        // RERPrenTot = EPrenTot / (EPTot + EPrenTot), formule (5.3):
+        //   EPrenTot = 5000 PV × 1,45 (fPren;renelect)          = 7250 MJ
+        //   EPTot    = 15000 gas + 3000 el × 1,45 − 5000 PV × 1,45
+        //            = 15000 + 4350 − 7250                       = 12100 MJ
+        //   RER      = 7250 / (12100 + 7250)                     ≈ 0,3747
+        let expected = 7250.0 / (12100.0 + 7250.0);
+        assert!((share - expected).abs() < 1e-9, "kreeg {share}, verwacht {expected}");
+    }
+
+    #[test]
+    fn renewable_share_counts_heat_pump_ambient_heat() {
+        // All-electric WP zonder PV: omgevingswarmte moet BENG 3 > 0 maken.
+        // Q_H;use = 4000 MJ elektrisch, SCOP 4 → QH;hp;in = 4000 × (4−1) = 12000 MJ.
+        let mut heating = HashMap::new();
+        heating.insert(EnergyCarrier::Elektriciteit, 4000.0);
+        let inputs = EpInputs {
+            heating,
+            cooling: HashMap::new(),
+            dhw: HashMap::new(),
+            lighting: HashMap::new(),
+            ventilation_aux: HashMap::new(),
+            automation: HashMap::new(),
+            pv_yield: 0.0,
+            renewable_ambient_heat_mj: 12_000.0,
+            renewable_ambient_cold_mj: 0.0,
+            building_area: BuildingArea { a_g: 100.0 },
+        };
+        let share = renewable_share(&inputs).unwrap();
+        // EPrenTot = 12000; EPTot = 4000 × 1,45 = 5800 → 12000/(5800+12000) ≈ 0,674.
+        let expected = 12_000.0 / (5_800.0 + 12_000.0);
+        assert!((share - expected).abs() < 1e-9, "kreeg {share}, verwacht {expected}");
+        assert!(share > 0.0, "omgevingswarmte moet BENG 3 boven 0 tillen");
     }
 
     #[test]
@@ -339,6 +396,8 @@ mod tests {
             ventilation_aux: HashMap::new(),
             automation: HashMap::new(),
             pv_yield: 0.0,
+            renewable_ambient_heat_mj: 0.0,
+            renewable_ambient_cold_mj: 0.0,
             building_area: BuildingArea { a_g: 150.0 },
         };
 

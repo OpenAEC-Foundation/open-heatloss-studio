@@ -253,10 +253,10 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 - [x] **F0 — 3 BENG-fixtures uit RVO voorbeeldconcepten** ✅ (11-07) — Tussenwoning M (G13), Hoekwoning M (G11), **Vrijstaande L** i.p.v. M (Vrijstaande M bestaat niet als BENG-referentie), elk 3 concepten (9 cases) + 2 Uniec certified-replay (Gouda 2467, Aalten 2522). Rode goldens (`#[ignore]`, `compute_beng` volgt in F2) in `crates/openaec-project-shared/tests/beng_golden.rs`. Per-gevel geometrie (RVO "Bijlage 4"-Excel) ontbreekt nog — user vraagt op; F0 start met 2017-referentiegebouwen-PDF als geometriebron. Zie plan: `docs/2026-07-11-beng-onderzoek-implementatieplan.md` (F0 ✅ · F1a ✅ · F1b ✅ (TOjuli §5.7, QC-reviewed) · **F2 ✅ (11-07, F2a+F2b)** · F3-F5 open).
 - [x] **F2 — `compute_beng(ProjectV2)` end-to-end orchestrator** ✅ (11-07) — F2a: additief energy-invoerblok op ProjectV2 + manifest-resolver (`nta8800-model::resolve_zone`). F2b: demand-tak hergebruikt de gevalideerde `compute_tojuli_full`-keten (volume→H_ve→τ gesloten); mapping-laag DTO→runtime met alle forfait-defaults op één plek; fan-out heating/dhw/cooling/ventilator-aux/PV/automation → EpInputs → `calculate_ep_score` → BENG 1/2/3-toets (Bbl 4.149) + TOjuli-screening + label; keten-volgorde en carrier-mapping naar referentie-orchestrator van Maarten Vroegindeweij (origin/claude/nta8800-core), zijn invoermodel niet overgenomen. F0-goldens blijven `#[ignore]` — kalibratie is F3.
   - [ ] **F3 — kalibratie tegen F0-goldens** — smoke-run Tussenwoning M: B1 +68%, B2 +167%, B3 −59pp; structureel EP-laag door vier gemeten gaten:
-    - [ ] BENG 3 renewable-share: WP-omgevingswarmte telt niet mee in EP-crate
-    - [ ] PV-netting §5.5: `primary_factor(PV)=0` dus geen BENG 2-aftrek
-    - [ ] koel-COP FreeCooling ≈1 → koeling domineert BENG 2
-    - [ ] TOjuli per-oriëntatie §5.7.2-opdeling ontbreekt
+    - [x] **F3a ✅ (11-07)** BENG 3 renewable-share: RER-formule 5.3 (§5.3.1.3) incl. WP-omgevingswarmte Q_use×(SCOP−1) (form. 5.31/5.36, fPren=1,0 tabel 5.4)
+    - [x] **F3a ✅ (11-07)** PV-netting §5.5: `fPrim(HernieuwbareElektriciteit)` 0→1,45 (tabel 5.2) + CO2-factor PV 0→0,0900 kg/MJ (tabel 5.3); negatief EP-totaal → A++++ (§5.5.2 opm. 11). Smoke all-electric WP: BENG 3 0%→20,5% zonder PV, 74,2% met 4 kWp.
+    - [ ] koel-COP FreeCooling ≈1 → koeling domineert BENG 2 (F3b, rencold=0)
+    - [ ] TOjuli per-oriëntatie §5.7.2-opdeling ontbreekt (F3c)
 - [ ] **Utiliteitsbouw peak-koellast fixture** — folder + expected.json klaar (2026-05-28), wacht op peak-cooling engine
 
 ### Optioneel later

@@ -7,24 +7,27 @@
 //! met primaire energiefactoren en CO2-beleidsfactoren.
 //!
 //! Dekt:
-//! - **H.5**: Primair energiegebruik integratie
-//! - **Bijlage Z**: Primaire energiefactoren per energiedrager
-//! - **Bijlage AB**: CO2-beleidsfactoren
+//! - **§5.5**: Karakteristiek primair-fossiel energiegebruik + PV-saldering
+//! - **Tabel 5.2** (§5.5.5): primaire energiefactoren f_prim per energiedrager
+//! - **Tabel 5.3** (§5.5.6): CO2-emissiecoëfficiënten per energiedrager
+//! - **§5.6**: hernieuwbaar aandeel (RERPrenTot)
 //!
 //! ## V1 scope & bewuste vereenvoudigingen
 //!
 //! | Element | V1 | V2 |
 //! |---|---|---|
 //! | EP-score berekening (A++++ t/m G) | Ja (tabel-lookup) | — |
-//! | Primaire energiefactoren bijlage Z | Ja (2023 waarden) | Jaarlijkse updates |
-//! | CO2-beleidsfactoren bijlage AB | Ja (2023 waarden) | Jaarlijkse updates |
-//! | PV hernieuwbaar aandeel | Ja (simpel saldo) | Net-meterings complexiteit |
+//! | Primaire energiefactoren tabel 5.2 | Ja (2023 waarden) | Jaarlijkse updates |
+//! | CO2-emissiecoëfficiënten tabel 5.3 | Ja (2023 waarden) | Jaarlijkse updates |
+//! | PV-saldering (BENG 2) | Ja (§5.5, PV × 1,45) | Batterij-correctie §5.5.14a |
+//! | Hernieuwbaar aandeel RER (BENG 3) | Ja (§5.6 formule 5.3) | rencold via koel-keten (F3b) |
 //! | Energiedragers | Basis set (5 typen) | Uitgebreide set warmtepompen |
 //! | Gebouwfuncties | Woon/utiliteit | Subsector-specifieke drempels |
 //!
 //! **V1 uitgangspunten:**
-//! - EP-score volgens H.5: E_P;tot = Σ(Q_dienst × f_prim) / A_g [MJ/m²]
-//! - PV-saldering: hernieuwbaar aandeel = min(1.0, PV_yield / Q_totaal)
+//! - EP-score volgens §5.5: E_PTot = Σ(afgenomen × fP;del) − PV × 1,45 [MJ], /A_g voor MJ/m²
+//! - Hernieuwbaar aandeel: `RERPrenTot = EPrenTot / (EPTot + EPrenTot)` (formule 5.3),
+//!   met omgevingswarmte van warmtepompen + PV in de teller (§5.6)
 //! - Label-drempels conform 2023 tabellen (woon/utiliteit verschillende criteria)
 //! - Vaste factoren (geen temporele/regionale variatie)
 //!
@@ -53,6 +56,8 @@
 //!     ventilation_aux: HashMap::new(),
 //!     automation: HashMap::new(),
 //!     pv_yield: 0.0,
+//!     renewable_ambient_heat_mj: 0.0,
+//!     renewable_ambient_cold_mj: 0.0,
 //!     building_area: BuildingArea { a_g: 150.0 },
 //! };
 //!

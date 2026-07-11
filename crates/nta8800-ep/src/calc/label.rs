@@ -45,10 +45,15 @@ use crate::{EpError, EpLabel};
 /// - Alle niet-woon functies gebruiken kantoorfunctie-drempels als fallback
 /// - Geen subsector-specifieke drempels voor gezondheidszorg, onderwijs, etc.
 ///
+/// **Negatief energiegebruik:** een sterk energie-positief gebouw (veel PV) levert
+/// een negatief karakteristiek primair-fossiel energiegebruik op. Dat is conform
+/// NTA 8800:2025+C1:2026 §5.5.2 opmerking 11 (p. 86) toegestaan en krijgt het
+/// beste label (`≤ 100 MJ/m²` woning / `≤ 200` utiliteit → A++++).
+///
 /// # Errors
 ///
-/// Retourneert [`EpError::UnknownEpLabel`] bij extreme waarden buiten bereik
-/// (theoretisch niet mogelijk met huidige drempels, maar defensief programmeren).
+/// Retourneert [`EpError::UnknownEpLabel`] alleen bij een niet-eindige invoer
+/// (NaN/±∞), die op een fout in de EP-keten duidt.
 ///
 /// # Voorbeeld
 ///
@@ -66,9 +71,11 @@ use crate::{EpError, EpLabel};
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn assign_label(ep_score_mj_per_m2: f64, function: UsageFunction) -> Result<EpLabel, EpError> {
-    if ep_score_mj_per_m2 < 0.0 {
+    if !ep_score_mj_per_m2.is_finite() {
         return Err(EpError::UnknownEpLabel { ep_score_mj_per_m2 });
     }
+    // Negatief (energie-positief gebouw) is toegestaan — §5.5.2 opmerking 11 —
+    // en valt via de ≤-drempels in het beste label (A++++).
 
     match function {
         UsageFunction::Woonfunctie => assign_label_residential(ep_score_mj_per_m2),
@@ -278,12 +285,23 @@ mod tests {
     }
 
     #[test]
-    fn test_negative_ep_score() {
+    fn test_negative_ep_score_is_best_label() {
+        // Energie-positief gebouw (§5.5.2 opmerking 11, p. 86) → beste label.
+        assert_eq!(
+            assign_label(-100.0, UsageFunction::Woonfunctie).unwrap(),
+            EpLabel::Aplus4
+        );
+        assert_eq!(
+            assign_label(-100.0, UsageFunction::Kantoorfunctie).unwrap(),
+            EpLabel::Aplus4
+        );
+    }
+
+    #[test]
+    fn test_non_finite_ep_score_is_error() {
         assert!(matches!(
-            assign_label(-100.0, UsageFunction::Woonfunctie),
-            Err(EpError::UnknownEpLabel {
-                ep_score_mj_per_m2: -100.0
-            })
+            assign_label(f64::NAN, UsageFunction::Woonfunctie),
+            Err(EpError::UnknownEpLabel { .. })
         ));
     }
 

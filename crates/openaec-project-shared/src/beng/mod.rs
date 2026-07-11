@@ -56,6 +56,7 @@ use nta8800_tables::climate::de_bilt_climate_data;
 use nta8800_ventilation::calculate_ventilation;
 use nta8800_demand::{DemandBreakdown, DemandResult};
 
+use crate::energy::{DhwGeneratorType, HeatGeneratorType};
 use crate::geometry::{BoundaryKind, SharedGeometry};
 use crate::nta8800_view::{geometry_to_nta8800, map_usage_function};
 use crate::project::ProjectV2;
@@ -272,23 +273,35 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     };
 
     // ---- Verwarming H.9 ----
-    let (heating_use_mj, heating_carrier) = match &energy.heating {
+    let (heating_use_mj, heating_carrier, heating_ambient_mj) = match &energy.heating {
         Some(h) => {
             let m = map_heating(h);
             let r = calculate_heating(&demand, m.emission, &m.distribution, &m.generation, m.control)?;
+            // Omgevingswarmte (§5.6.2.1, formule 5.31): alleen lucht-/bodem-WP
+            // (bron < 20 °C, geen ventilatieretourlucht).
+            let is_heat_pump = matches!(
+                h.generator,
+                HeatGeneratorType::HeatPumpAir | HeatGeneratorType::HeatPumpGround
+            );
+            let ambient = heat_pump_ambient_mj(
+                is_heat_pump,
+                r.annual_q_h_use,
+                r.breakdown.generation_efficiency,
+            );
             (
                 r.annual_q_h_use * factors.f_bac_heating,
                 Some(heating_carrier_to_ep(r.energy_carrier)),
+                ambient,
             )
         }
         None => {
             notes.push("Geen verwarmingssysteem opgegeven — verwarming telt 0 mee in BENG 2.".into());
-            (0.0, None)
+            (0.0, None, 0.0)
         }
     };
 
     // ---- Tapwater H.13 ----
-    let (dhw_use_mj, dhw_carrier) = match &energy.dhw {
+    let (dhw_use_mj, dhw_carrier, dhw_ambient_mj) = match &energy.dhw {
         Some(d) => {
             let dhw_demand = match usage {
                 UsageFunction::Woonfunctie => DhwDemand::forfaitair_woningbouw(a_g)?,
@@ -309,14 +322,21 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 &generation,
                 recovery.as_ref(),
             )?;
+            // Omgevingswarmte tapwater-WP (§5.6.2.3, formule 5.36).
+            let ambient = heat_pump_ambient_mj(
+                matches!(d.generator, DhwGeneratorType::HeatPump),
+                r.annual_q_w_use,
+                r.breakdown.generation_efficiency,
+            );
             (
                 r.annual_q_w_use * factors.f_bac_dhw,
                 Some(dhw_carrier_to_ep(r.energy_carrier)),
+                ambient,
             )
         }
         None => {
             notes.push("Geen tapwatersysteem opgegeven — tapwater telt 0 mee in BENG 2.".into());
-            (0.0, None)
+            (0.0, None, 0.0)
         }
     };
 
@@ -352,11 +372,14 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         calculate_pv_yield(&systems, &location, &climate)?.annual_yield_mj
     };
 
-    if pv_yield_mj > 0.0 {
+    // Omgevingswarmte (renheat) van de warmtepomp-diensten — teller van BENG 3
+    // (§5.6.2.1/§5.6.2.3). Omgevingskoude (rencold, §5.6.2.2) vergt QC;gen;out uit
+    // de koel-keten (F3b) en blijft hier 0.
+    let renewable_ambient_heat_mj = heating_ambient_mj + dhw_ambient_mj;
+    if energy.cooling.is_some() {
         notes.push(
-            "PV verlaagt BENG 2 (nog) NIET: de EP-crate rekent primaire-energiefactor(PV) = 0 \
-             (geen primair-energie-aftrek). De NTA 8800 §5.5-zelfconsumptie-aftrek is een \
-             EP-crate F3-gat; PV telt wél mee in BENG 3 (hernieuwbaar aandeel)."
+            "BENG 3: omgevingskoude (rencold, EER ≥ 8 — bijv. bodemkoeling) telt nog NIET mee; \
+             de koel-keten levert QC;gen;out pas in F3b. Hierdoor kan BENG 3 onderschat worden."
                 .into(),
         );
     }
@@ -370,6 +393,8 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         ventilation_aux: single_carrier_map(Some(EpCarrier::Elektriciteit), vent_aux_mj),
         automation: HashMap::new(),
         pv_yield: pv_yield_mj,
+        renewable_ambient_heat_mj,
+        renewable_ambient_cold_mj: 0.0,
         building_area: BuildingArea { a_g },
     };
     let ep = calculate_ep_score(&ep_inputs, usage)?;
@@ -450,6 +475,23 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Omgevingswarmte [MJ] van een warmtepomp-dienst voor de BENG 3-teller.
+///
+/// NTA 8800:2025+C1:2026 §5.6.2.1/§5.6.2.3 (formules 5.31/5.36):
+/// `Q_hp;in = Q_gen;out × (1 − 1/COP)`. Met `Q_gen;out = Q_use × SCOP` (de
+/// heating-/dhw-crates gebruiken de seizoens-COP als opwekkingsrendement) volgt
+/// `Q_hp;in = Q_use × (SCOP − 1)` — de omgevingswarmte = geleverde warmte minus
+/// elektrische input. Alleen voor warmtepompen met `SCOP > 1` en een bron < 20 °C
+/// (lucht/bodem); andere opwekkers (weerstand, HR-ketel, stadswarmte) → 0
+/// (formule 5.33).
+fn heat_pump_ambient_mj(is_heat_pump: bool, q_use_mj: f64, scop: f64) -> f64 {
+    if is_heat_pump && scop > 1.0 {
+        q_use_mj * (scop - 1.0)
+    } else {
+        0.0
+    }
+}
 
 /// Bouw een één-drager-map, of leeg als de drager `None` of de energie 0 is.
 fn single_carrier_map(carrier: Option<EpCarrier>, energy_mj: f64) -> HashMap<EpCarrier, f64> {

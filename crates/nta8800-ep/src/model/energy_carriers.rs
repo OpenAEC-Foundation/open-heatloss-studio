@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 
 /// Energiedragers ondersteund in EP-score berekeningen.
 ///
-/// Conform bijlage Z en AB van NTA 8800:2025. Elke energiedrager heeft
-/// specifieke primaire energiefactoren en CO2-beleidsfactoren.
+/// Conform tabel 5.2 (§5.5.5) en tabel 5.3 (§5.5.6) van NTA 8800:2025+C1:2026.
+/// Elke energiedrager heeft specifieke primaire energiefactoren en
+/// CO2-emissiecoëfficiënten.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum EnergyCarrier {
@@ -18,7 +19,7 @@ pub enum EnergyCarrier {
     /// Elektriciteit uit het openbare net.
     ///
     /// Voor koeling, verlichting, ventilatie, pompen, BACS.
-    /// Primaire energiefactor f_prim = 1,45 (NTA 8800 bijlage Z,
+    /// Primaire energiefactor f_prim = 1,45 (NTA 8800 tabel 5.2, §5.5.5,
     /// Nederlandse energiemix — zie `calc::primary_energy::primary_factor`).
     Elektriciteit,
 

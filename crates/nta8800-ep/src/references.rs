@@ -28,10 +28,14 @@ pub const NTA_8800_2025_PARAG5_4: &str = "nta_8800_2025_parag5_4";
 // Bijlagen — primaire energiefactoren en CO2-beleidsfactoren
 // ---------------------------------------------------------------------------
 
-/// Bijlage Z — Primaire energiefactoren per energiedrager (2023 waarden).
+/// Primaire energiefactoren f_prim per energiedrager — NTA 8800:2025+C1:2026
+/// tabel 5.2 (§5.5.5, p. 93). (De anchor-naam verwijst historisch naar bijlage Z;
+/// die bijlage bevat in 2025+C1 de beleidsfactoren-index, niet de f_prim-waarden.)
 pub const NTA_8800_2025_BIJLAGE_Z: &str = "nta_8800_2025_bijlage_z";
 
-/// Bijlage AB — CO2-beleidsfactoren per energiedrager (2023 waarden).
+/// CO2-emissiecoëfficiënten per energiedrager — NTA 8800:2025+C1:2026 tabel 5.3
+/// (§5.5.6, p. 96). (De anchor-naam verwijst historisch naar bijlage AB; die
+/// bijlage bevat in 2025+C1 de informatieve ZEB-indicator, niet deze waarden.)
 pub const NTA_8800_2025_BIJLAGE_AB: &str = "nta_8800_2025_bijlage_ab";
 
 // ---------------------------------------------------------------------------
@@ -70,12 +74,12 @@ pub const NTA_8800_2025_TABEL5_1: &str = "nta_8800_2025_tabel5_1";
 /// Kolommen: Label (A++++ t/m G), EP-score drempel [MJ/m²].
 pub const NTA_8800_2025_TABEL5_2: &str = "nta_8800_2025_tabel5_2";
 
-/// Tabel Z.1 — Primaire energiefactoren f_prim per energiedrager.
-/// Kolommen: Energiedrager, f_prim [-].
+/// Tabel 5.2 (§5.5.5) — Primaire energiefactoren f_prim per energiedrager.
+/// Kolommen: Energiedrager, f_prim [-]. (Anchor-naam historisch "Tabel Z.1".)
 pub const NTA_8800_2025_TABEL_Z1: &str = "nta_8800_2025_tabel_z1";
 
-/// Tabel AB.1 — CO2-beleidsfactoren f_CO2 per energiedrager.
-/// Kolommen: Energiedrager, f_CO2 [kg CO2/MJ].
+/// Tabel 5.3 (§5.5.6) — CO2-emissiecoëfficiënten KCO2 per energiedrager.
+/// Kolommen: Energiedrager, KCO2 [kg CO2/MJ]. (Anchor-naam historisch "Tabel AB.1".)
 pub const NTA_8800_2025_TABEL_AB1: &str = "nta_8800_2025_tabel_ab1";
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,8 @@ pub mod primary_energy;
 ///     ventilation_aux: HashMap::new(),
 ///     automation: HashMap::new(),
 ///     pv_yield: 0.0,
+///     renewable_ambient_heat_mj: 0.0,
+///     renewable_ambient_cold_mj: 0.0,
 ///     building_area: BuildingArea { a_g: 150.0 },
 /// };
 ///

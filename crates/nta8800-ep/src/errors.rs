@@ -7,15 +7,15 @@ use crate::EnergyCarrier;
 /// Fouten die kunnen optreden tijdens EP-score berekeningen.
 #[derive(Debug, Error)]
 pub enum EpError {
-    /// Primaire energiefactor voor energiedrager niet beschikbaar in bijlage Z.
-    #[error("Primaire energiefactor voor energiedrager {carrier:?} niet gevonden in bijlage Z")]
+    /// Primaire energiefactor voor energiedrager niet beschikbaar in tabel 5.2.
+    #[error("Primaire energiefactor voor energiedrager {carrier:?} niet gevonden in tabel 5.2")]
     MissingPrimaryEnergyFactor {
         /// De energiedrager waarvoor geen factor beschikbaar is.
         carrier: EnergyCarrier,
     },
 
-    /// CO2-beleidsfactor voor energiedrager niet beschikbaar in bijlage AB.
-    #[error("CO2-beleidsfactor voor energiedrager {carrier:?} niet gevonden in bijlage AB")]
+    /// CO2-emissiecoëfficiënt voor energiedrager niet beschikbaar in tabel 5.3.
+    #[error("CO2-emissiecoëfficiënt voor energiedrager {carrier:?} niet gevonden in tabel 5.3")]
     MissingCo2Factor {
         /// De energiedrager waarvoor geen CO2-factor beschikbaar is.
         carrier: EnergyCarrier,
