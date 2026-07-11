@@ -67,12 +67,17 @@
 // Deze zijn standaard terminologie — backticks zouden leesbaarheid verminderen.
 #![allow(clippy::doc_markdown)]
 
+pub mod beng;
 pub mod calc;
 pub mod errors;
 pub mod model;
 pub mod references;
 pub mod result;
 
+pub use beng::{
+    beng1_limit_woonfunctie_grondgebonden, BengAssessment, BengIndicators, BengLimits,
+    IndicatorAssessment,
+};
 pub use calc::calculate_ep_score;
 pub use errors::EpError;
 pub use model::{BuildingArea, EnergyCarrier, EpInputs};
