@@ -330,7 +330,12 @@ pub struct TojuliFullInputs {
     pub distribution: CoolingDistribution,
     /// Emissie + regelfactor.
     pub emission: CoolingEmission,
-    /// Schaduw-factor F_sh (0..=1). 1.0 = geen schaduw. V2: per-construction.
+    /// Globale schaduw-factor F_sh (0..=1), whole-zone override. 1.0 = geen
+    /// globale schaduw. **Voorrang/samenspel:** dit is een grove blunt-factor
+    /// die op *alle* ramen wordt toegepast; de norm-geforfaiteerde beweegbare
+    /// zonwering per raam (NTA 8800 §7.6.6.1.4) staat op `Opening.movable_shading`
+    /// in de geometrie en vermenigvuldigt hiermee. Laat op 1.0 staan tenzij een
+    /// projectbrede handmatige reductie gewenst is.
     #[serde(default = "default_shading")]
     pub shading_factor: f64,
     /// Verwarmings-setpoint °C (constant alle maanden).
@@ -886,6 +891,7 @@ mod tests {
                         u_value: 1.4,
                         g_value: Some(0.6),
                         frame_fraction: Some(0.2),
+                        movable_shading: None,
                     }],
                     layers: vec![],
                     adjacent_space_id: None,

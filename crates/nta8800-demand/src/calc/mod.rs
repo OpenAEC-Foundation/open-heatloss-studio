@@ -26,6 +26,7 @@ use crate::result::{DemandBreakdown, DemandResult};
 
 pub mod internal_gains;
 pub mod monthly_balance;
+pub mod shading;
 pub mod solar_gains;
 pub mod time_constant;
 pub mod utilization;
@@ -475,6 +476,66 @@ mod tests {
         );
         assert!(
             (r.breakdown.time_constant_hours - back.breakdown.time_constant_hours).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn beweegbare_zonwering_verlaagt_koudebehoefte_verhoogt_warmtebehoefte() {
+        use nta8800_model::geometry::{MovableSunShading, ShadingControl};
+        let zone = sample_zone();
+        let tr = sample_transmission();
+        let vn = sample_ventilation();
+        let h_ve = sample_h_ve();
+        let climate = de_bilt_climate_data();
+        let internal = InternalGains::forfaitair(UsageFunction::Woonfunctie);
+        let mass = ThermalMassInput::light_woning();
+
+        let plain = sample_windows();
+        let shaded: Vec<Window> = sample_windows()
+            .into_iter()
+            .map(|w| {
+                w.with_movable_shading(MovableSunShading {
+                    f_c: 0.2,
+                    control: ShadingControl::Automatic,
+                })
+            })
+            .collect();
+
+        let run = |windows: &[Window]| {
+            let refs: Vec<&Window> = windows.iter().collect();
+            calculate_demand(
+                &zone,
+                &tr,
+                &vn,
+                h_ve,
+                &refs,
+                &climate,
+                HeatingSetpoint::constant(20.0),
+                CoolingSetpoint::constant(24.0),
+                &internal,
+                mass,
+                DEFAULT_SHADING_FACTOR,
+            )
+            .unwrap()
+        };
+
+        let r_plain = run(&plain);
+        let r_shaded = run(&shaded);
+
+        // Zonwering knijpt de zonwinst af → minder koudebehoefte.
+        assert!(
+            r_shaded.annual_cooling_demand <= r_plain.annual_cooling_demand,
+            "Q_C shaded {} > plain {}",
+            r_shaded.annual_cooling_demand,
+            r_plain.annual_cooling_demand
+        );
+        // ... en iets meer warmtebehoefte (minder gratis zonwinst in de
+        // schouderseizoenen; winter blijft gelijk want f_sh;with = 0).
+        assert!(
+            r_shaded.annual_heating_demand >= r_plain.annual_heating_demand,
+            "Q_H shaded {} < plain {}",
+            r_shaded.annual_heating_demand,
+            r_plain.annual_heating_demand
         );
     }
 

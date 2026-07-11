@@ -49,6 +49,42 @@ pub enum FrameType {
     Staal,
 }
 
+/// Bedieningsregime van beweegbare zonwering — bepaalt de gewogen inzetfractie
+/// `f_sh;with` (NTA 8800 §7.6.6.1.4).
+///
+/// De concrete maand/oriëntatie-profielen (tabel 7.7 resp. 7.9) leven in de
+/// `nta8800-demand`-crate; dit model draagt alleen de keuze.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ShadingControl {
+    /// Handbediende zonwering, woningbouw (schakelcriterium 300 W/m², tabel 7.7).
+    ManualResidential,
+    /// Automatisch geregelde zonwering (schakelcriterium 150 W/m², tabel 7.9).
+    Automatic,
+}
+
+/// Beweegbare zonwering op een raam (screen, jaloezie, rolluik, uitval-/
+/// knikarmscherm), NTA 8800 §7.6.6.1.4, formules (7.42)/(7.43).
+///
+/// Het maandgemiddelde van de totale zontoetredingsfactor wordt met beweegbare
+/// zonwering:
+///
+/// ```text
+/// g_gl;wi;mi = (1 − f_sh;with;mi) · g_gl;wi + f_sh;with;mi · (F_c · g_gl;wi)      (7.42)/(7.43)
+/// ```
+///
+/// zodat de effectieve g-reductiefactor per maand `(1 − f_sh;with) + f_sh;with · F_c`
+/// bedraagt. `f_sh;with` volgt uit [`ShadingControl`], `F_c` uit tabel 7.5/7.6.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct MovableSunShading {
+    /// Reductiefactor `F_c` voor de totale zontoetredingsfactor (0..=1),
+    /// forfaitair uit NTA 8800 tabel 7.5 (screens/jaloezieën/rolluiken/
+    /// gemetalliseerde weefsels) of tabel 7.6 (uitval-/knikarmschermen).
+    pub f_c: f64,
+    /// Bedieningsregime (bepaalt het `f_sh;with`-profiel).
+    pub control: ShadingControl,
+}
+
 /// Raam-element in de gevelberekening.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Window {
@@ -77,6 +113,13 @@ pub struct Window {
 
     /// Kozijnfractie (0..=1) — aandeel opaak frame in totale opening.
     pub frame_fraction: f64,
+
+    /// Beweegbare zonwering (NTA 8800 §7.6.6.1.4). `None` = geen zonwering; de
+    /// effectieve zontoetreding is dan onveranderd (reductiefactor 1,0). Het
+    /// veld wordt bij afwezigheid niet geserialiseerd zodat bestaande project-
+    /// JSON byte-identiek blijft.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub movable_shading: Option<MovableSunShading>,
 }
 
 impl Window {
@@ -127,7 +170,15 @@ impl Window {
             u_value,
             g_value,
             frame_fraction,
+            movable_shading: None,
         })
+    }
+
+    /// Voeg beweegbare zonwering toe (builder-stijl), NTA 8800 §7.6.6.1.4.
+    #[must_use]
+    pub fn with_movable_shading(mut self, shading: MovableSunShading) -> Self {
+        self.movable_shading = Some(shading);
+        self
     }
 }
 

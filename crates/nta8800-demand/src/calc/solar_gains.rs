@@ -9,9 +9,18 @@
 //! met:
 //! - `A_w` — bruto vensteroppervlak [m²]
 //! - `g` — zonnewarmtedoorlatingsfactor [-]
-//! - `F_sh` — afschermingsfactor (extern/intern samengevat); V1 default 1,0
+//! - `F_sh` — globale afschermingsfactor (whole-zone override); default 1,0
 //! - `F_F` — kozijnfractie (opaak aandeel) [-]
 //! - `I_sol;or;mi` — cumulatieve maand-zoninstraling per oriëntatie [MJ/m²]
+//!
+//! **Beweegbare zonwering (per raam).** Draagt een raam een
+//! [`Window::movable_shading`], dan wordt de maandelijkse effectieve
+//! g-reductiefactor uit [`crate::calc::shading`] (NTA 8800 §7.6.6.1.4,
+//! formule 7.42/7.43) er bovenop toegepast. De globale `shading_factor` en de
+//! per-raam beweegbare zonwering vermenigvuldigen: de scalar is een grove
+//! whole-zone override, de per-raam factor is de norm-geforfaiteerde
+//! maand/oriëntatie-afhankelijke bijdrage. Zonder `movable_shading` is de
+//! per-raam factor 1,0 → identiek aan het gedrag vóór deze uitbreiding.
 //!
 //! De invoer [`nta8800_model::ClimateData::solar_irradiation`] is reeds in
 //! MJ/m² per maand geserialiseerd — conversie is niet nodig.
@@ -20,6 +29,8 @@ use nta8800_model::geometry::Window;
 use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::Energy;
 use nta8800_model::ClimateData;
+
+use crate::calc::shading::movable_shading_g_factor;
 
 /// Bereken de maandelijkse totale zoninstraling door alle ramen in MJ.
 ///
@@ -57,9 +68,15 @@ pub fn monthly_solar_gains(
         let Some(profile) = climate.solar_irradiation.get(&window.orientation) else {
             continue;
         };
+        // Beweegbare zonwering (NTA 8800 §7.6.6.1.4) — maand-afhankelijke
+        // g-reductie; 1,0 in elke maand wanneer het raam geen zonwering draagt.
+        let movable = window.movable_shading.map(|s| {
+            movable_shading_g_factor(s.f_c, window.orientation, window.tilt, s.control)
+        });
         for month in Month::all() {
             let i_sol = profile[month];
-            monthly[month.index()] += effective_area * i_sol;
+            let m_factor = movable.as_ref().map_or(1.0, |p| p[month]);
+            monthly[month.index()] += effective_area * m_factor * i_sol;
         }
     }
     MonthlyProfile::new(monthly)
@@ -203,6 +220,38 @@ mod tests {
         let q = monthly_solar_gains(&[&w], &climate, 1.0);
         for month in Month::all() {
             assert!(q[month].abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn beweegbare_zonwering_reduceert_zomer_niet_winter() {
+        use nta8800_model::geometry::{MovableSunShading, ShadingControl};
+        let climate = sample_climate();
+        let plain = zuid_window();
+        let shaded = zuid_window().with_movable_shading(MovableSunShading {
+            f_c: 0.2,
+            control: ShadingControl::ManualResidential,
+        });
+        let q_plain = monthly_solar_gains(&[&plain], &climate, 1.0);
+        let q_shaded = monthly_solar_gains(&[&shaded], &climate, 1.0);
+        // Juli: handbediend Zuid f_sh;with = 0,59 → reductie tot factor 0,528.
+        assert!(q_shaded[Month::Juli] < q_plain[Month::Juli]);
+        assert!((q_shaded[Month::Juli] - 0.528 * q_plain[Month::Juli]).abs() < 1e-6);
+        // Januari: f_sh;with = 0 → geen reductie.
+        assert!((q_shaded[Month::Januari] - q_plain[Month::Januari]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn geen_zonwering_is_identiek_aan_voorheen() {
+        // Regressie-pin: een raam zonder movable_shading levert exact hetzelfde
+        // profiel als de kale A·g·(1−F_F)·I_sol-berekening.
+        let climate = sample_climate();
+        let w = zuid_window();
+        let q = monthly_solar_gains(&[&w], &climate, 1.0);
+        let base = w.area * w.g_value * (1.0 - w.frame_fraction);
+        for month in Month::all() {
+            let expected = base * climate.solar_irradiation[&Orientation::Zuid][month];
+            assert!((q[month] - expected).abs() < 1e-9, "{month:?}");
         }
     }
 

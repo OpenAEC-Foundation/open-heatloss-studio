@@ -40,6 +40,7 @@ fn wall(
                 u_value: 1.4,
                 g_value: Some(0.6),
                 frame_fraction: Some(0.25),
+                movable_shading: None,
             }]
         } else {
             vec![]
@@ -96,6 +97,7 @@ fn face(
                 u_value: 1.4,
                 g_value: Some(0.6),
                 frame_fraction: Some(0.25),
+                movable_shading: None,
             }]
         } else {
             vec![]

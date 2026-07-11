@@ -140,6 +140,13 @@ pub struct Opening {
     /// Frame-aandeel (0..1) voor ramen.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame_fraction: Option<f64>,
+    /// Beweegbare zonwering op dit raam (NTA 8800 §7.6.6.1.4). `None` = geen
+    /// zonwering (effectieve zontoetreding onveranderd). De norm plaatst de
+    /// zonweringseigenschap op raam-/openingsniveau (formule 7.42/7.43 werkt op
+    /// de `g_gl` per raam), dus hoort dit veld op de `Opening`. Bij afwezigheid
+    /// niet geserialiseerd → bestaande project-JSON blijft byte-identiek.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub movable_shading: Option<nta8800_model::MovableSunShading>,
 }
 
 /// Soort opening.
