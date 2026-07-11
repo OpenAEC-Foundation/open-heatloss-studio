@@ -33,6 +33,7 @@ pub mod error;
 pub mod geometry;
 pub mod location;
 pub mod references;
+pub mod resolve;
 pub mod time;
 pub mod units;
 pub mod zoning;
@@ -46,6 +47,7 @@ pub use geometry::{
     ThermalBridgeLinear, ThermalBridgePoint, Window,
 };
 pub use location::{ClimateZone, LatLon, Location, Orientation, Tilt};
+pub use resolve::{resolve_zone, ResolvedZone};
 pub use time::{Month, MonthlyProfile};
 pub use units::{
     Area, Energy, Length, LinearThermalTransmittance, Power, SolarIrradiation, Temperature,

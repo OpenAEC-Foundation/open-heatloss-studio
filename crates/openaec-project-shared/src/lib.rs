@@ -20,6 +20,7 @@
 #![deny(missing_docs)]
 
 pub mod calcs;
+pub mod energy;
 pub mod geometry;
 pub mod migration;
 pub mod nta8800_view;
@@ -36,6 +37,11 @@ pub use nta8800_view::{
 };
 
 pub use calcs::{Calcs, Iso51Inputs, TojuliInputs};
+pub use energy::{
+    AutomationInput, BacsClassInput, CoolingGeneratorType, CoolingInput, DhwGeneratorType,
+    DhwInput, DwtwInput, EnergyInput, HeatEmissionType, HeatGeneratorType, HeatingInput,
+    HrBoilerClass, PvInput, VentilationInput, VentilationSystemType,
+};
 pub use geometry::{Construction, ConstructionLayer, Opening, OpeningKind, SharedGeometry, Space};
 pub use project::{ProjectV2, SCHEMA_VERSION};
 pub use shared::{BuildingTypeShared, ResidentialType, SharedProject, UtilityType};

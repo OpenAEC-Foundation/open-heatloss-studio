@@ -131,6 +131,7 @@ pub fn from_legacy_v1_value(v1_value: Value) -> ProjectV2 {
         shared,
         geometry: Default::default(),
         calcs,
+        energy: None,
     }
 }
 

@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::calcs::Calcs;
+use crate::energy::EnergyInput;
 use crate::geometry::SharedGeometry;
 use crate::shared::SharedProject;
 
@@ -32,6 +33,11 @@ pub struct ProjectV2 {
     /// Per-norm specifieke inputs. Map kan leeg zijn voor een vers project.
     #[serde(default)]
     pub calcs: Calcs,
+
+    /// Installatie- en hernieuwbaar-invoer voor de NTA 8800 / BENG-keten (F2).
+    /// Additief: afwezig in bestaande project-JSON's ⇒ `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy: Option<EnergyInput>,
 }
 
 fn default_schema_version() -> u32 {
@@ -46,6 +52,7 @@ impl ProjectV2 {
             shared: SharedProject::new(name),
             geometry: SharedGeometry::default(),
             calcs: Calcs::default(),
+            energy: None,
         }
     }
 
@@ -85,5 +92,48 @@ mod tests {
     fn detect_v2_with_schema_version() {
         let v2_json = r#"{"schema_version": 2, "shared": {"name": "X"}}"#;
         assert_eq!(ProjectV2::detect_version(v2_json).unwrap(), 2);
+    }
+
+    #[test]
+    fn v2_json_without_energy_block_deserializes() {
+        // Bestaand ProjectV2-JSON van vóór het energy-blok: geen `energy`-veld.
+        let json = r#"{
+            "schema_version": 2,
+            "shared": {"name": "Bestaand project"},
+            "geometry": {"spaces": []},
+            "calcs": {}
+        }"#;
+        let p: ProjectV2 = serde_json::from_str(json).unwrap();
+        assert_eq!(p.shared.name, "Bestaand project");
+        assert!(p.energy.is_none());
+    }
+
+    #[test]
+    fn energy_absent_is_skipped_in_serialization() {
+        let p = ProjectV2::new("Test");
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(!json.contains("energy"));
+    }
+
+    #[test]
+    fn project_with_energy_round_trips() {
+        use crate::energy::{EnergyInput, PvInput};
+        let mut p = ProjectV2::new("Met PV");
+        p.energy = Some(EnergyInput {
+            pv: vec![PvInput {
+                id: None,
+                name: None,
+                peak_power_kwp: 4.0,
+                azimuth_degrees: 180.0,
+                tilt_degrees: 30.0,
+                system_efficiency: None,
+                inverter_efficiency: None,
+                shadow_factor: None,
+            }],
+            ..EnergyInput::default()
+        });
+        let json = serde_json::to_string(&p).unwrap();
+        let back: ProjectV2 = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.energy.unwrap().pv[0].peak_power_kwp, 4.0);
     }
 }

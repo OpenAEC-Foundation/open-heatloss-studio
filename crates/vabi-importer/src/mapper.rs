@@ -52,6 +52,7 @@ pub fn import_vabi_project_v2(
         shared,
         geometry,
         calcs,
+        energy: None,
     })
 }
 
