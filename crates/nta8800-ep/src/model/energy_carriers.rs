@@ -18,7 +18,8 @@ pub enum EnergyCarrier {
     /// Elektriciteit uit het openbare net.
     ///
     /// Voor koeling, verlichting, ventilatie, pompen, BACS.
-    /// Primaire energiefactor f_prim ≈ 2.5 (2023 Nederlandse energiemix).
+    /// Primaire energiefactor f_prim = 1,45 (NTA 8800 bijlage Z,
+    /// Nederlandse energiemix — zie `calc::primary_energy::primary_factor`).
     Elektriciteit,
 
     /// Stadswarmte (warmtenet).
