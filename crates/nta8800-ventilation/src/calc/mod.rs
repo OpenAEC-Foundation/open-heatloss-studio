@@ -14,6 +14,14 @@ use nta8800_model::units::{Energy, Temperature};
 use nta8800_model::{ClimateData, Rekenzone};
 use nta8800_tables::climate::de_bilt::DE_BILT_MONTH_LENGTHS_HOURS;
 
+/// Forfaitair specifiek ventilator-vermogen `f_SFP` in W/(m³/h) voor
+/// mechanische systemen zonder expliciete specificatie (NTA 8800
+/// tabel 11.23, moderne DC-unit). Zonder dit forfait zouden systeem
+/// B/C (en D/E zonder WTW-spec) een ventilator-energie van 0 krijgen,
+/// terwijl `f_systype` (§11.4.3.3) voor die systemen wel degelijk een
+/// draaiende ventilator voorschrijft.
+pub const FORFAIT_FAN_SFP_W_PER_M3H: f64 = 0.125;
+
 use crate::errors::VentilationError;
 use crate::model::{AirFlow, VentilationSystem, WtwSpecification};
 use crate::result::VentilationResult;
@@ -155,7 +163,19 @@ pub fn calculate_ventilation(
         let q_v_mj = monthly_heat_loss::heat_loss_mj(q_v_total, theta_i, theta_supply, t_mi);
 
         // --- W_fan ventilator-energie ----------------------------------
-        let f_sfp = effective_wtw.map_or(0.0, |wtw| wtw.fan_sfp);
+        // f_SFP: uit de WTW-spec wanneer aanwezig; anders het tabel-11.23
+        // forfait voor elk systeem met een ventilator (f_systype > 0).
+        // Systeem A (f_systype = 0) nult de term sowieso uit.
+        let f_sfp = effective_wtw.map_or_else(
+            || {
+                if system.f_systype() > 0.0 {
+                    FORFAIT_FAN_SFP_W_PER_M3H
+                } else {
+                    0.0
+                }
+            },
+            |wtw| wtw.fan_sfp,
+        );
         let w_fan_mj = fan_energy::fan_energy_mj(f_sfp, system.f_systype(), q_v_mech, t_mi);
 
         monthly_q_v[month.index()] = q_v_mj;
@@ -348,7 +368,19 @@ pub fn calculate_ventilation_with_pressure_model(
         let q_v_mj = monthly_heat_loss::heat_loss_mj(q_v_total, theta_i, theta_supply, t_mi);
 
         // --- W_fan ventilator-energie (forfaitair, formule (11.142)) -----
-        let f_sfp = effective_wtw.map_or(0.0, |wtw| wtw.fan_sfp);
+        // f_SFP: uit de WTW-spec wanneer aanwezig; anders het tabel-11.23
+        // forfait voor elk systeem met een ventilator (f_systype > 0).
+        // Systeem A (f_systype = 0) nult de term sowieso uit.
+        let f_sfp = effective_wtw.map_or_else(
+            || {
+                if system.f_systype() > 0.0 {
+                    FORFAIT_FAN_SFP_W_PER_M3H
+                } else {
+                    0.0
+                }
+            },
+            |wtw| wtw.fan_sfp,
+        );
         let w_fan_mj = fan_energy::fan_energy_mj(f_sfp, system.f_systype(), q_v_mech, t_mi);
 
         monthly_q_v[month.index()] = q_v_mj;
