@@ -68,6 +68,44 @@ fn opaque(id: &str, kind: ConstructionKind, boundary: BoundaryKind, area_m2: f64
     }
 }
 
+/// Uitwendige constructie met vrij instelbare kind/oriëntatie/helling (voor de
+/// §5.7.2-bucket-classificatietests), optioneel met één raam.
+fn face(
+    id: &str,
+    kind: ConstructionKind,
+    orientation_deg: Option<f64>,
+    slope_deg: Option<f64>,
+    area_m2: f64,
+    u_value: f64,
+    window_area: f64,
+) -> Construction {
+    Construction {
+        id: id.into(),
+        description: id.into(),
+        kind,
+        boundary: BoundaryKind::Exterior,
+        area_m2,
+        u_value,
+        orientation_deg,
+        slope_deg,
+        openings: if window_area > 0.0 {
+            vec![Opening {
+                id: format!("{id}-raam"),
+                kind: OpeningKind::Window,
+                area_m2: window_area,
+                u_value: 1.4,
+                g_value: Some(0.6),
+                frame_fraction: Some(0.25),
+            }]
+        } else {
+            vec![]
+        },
+        layers: vec![],
+        adjacent_space_id: None,
+        psi_thermal_bridge: None,
+    }
+}
+
 /// Synthetisch all-electric rijtjeshuis (Bouwbesluit+ isolatie, WP-bodem,
 /// balansventilatie D met WTW, vrije bodemkoeling, PV zuid). `pv_kwp` schaalt
 /// het PV-veld zodat de monotonie-tests kunnen variëren.
@@ -278,17 +316,171 @@ fn more_pv_raises_beng3_and_lowers_beng2() {
 }
 
 #[test]
-fn no_active_cooling_uses_whole_zone_screening() {
+fn no_active_cooling_uses_per_orientation() {
     let mut p = synthetic_rijtjeshuis(4.0);
-    // Verwijder het koelsysteem → geen actieve koeling → screening-methode.
+    // Verwijder het koelsysteem → geen actieve koeling → per-oriëntatie-toets.
     if let Some(e) = p.energy.as_mut() {
         e.cooling = None;
     }
     let r = compute_beng(&p).expect("compute_beng ok");
     assert!(!r.tojuli.actively_cooled);
-    assert_eq!(r.tojuli.method, TojuliMethod::WholeZoneScreening);
-    assert!(r.tojuli.pass.is_none());
+    assert_eq!(r.tojuli.method, TojuliMethod::PerOrientation);
+    // Zonder actieve koeling levert de per-oriëntatie-toets nu een pass/fail.
+    assert!(r.tojuli.pass.is_some());
     assert!(r.tojuli.max_tojuli_k >= 0.0);
+    assert!((r.tojuli.limit_k - 1.20).abs() < 1e-9);
+}
+
+// ---------------------------------------------------------------------------
+// Per-oriëntatie TOjuli-opbouw (§5.7.2) — build_tojuli_orientation_inputs
+// ---------------------------------------------------------------------------
+
+use nta8800_model::location::Orientation;
+use nta8800_model::time::MonthlyProfile;
+
+/// Minimale [`TojuliResult`] met alleen de door de per-oriëntatie-opbouw gelezen
+/// velden gevuld (julikoudebehoefte + H_V); de rest is neutraal.
+fn fake_tj(july_q_c_mj: f64, h_v: f64) -> crate::tojuli::TojuliResult {
+    crate::tojuli::TojuliResult {
+        monthly_q_c_nd_mj: MonthlyProfile::from_constant(july_q_c_mj),
+        monthly_q_c_use_mj: MonthlyProfile::from_constant(0.0),
+        annual_q_c_use_mj: 0.0,
+        annual_q_c_use_kwh: 0.0,
+        annual_rencold_mj: 0.0,
+        monthly_q_h_nd_mj: MonthlyProfile::from_constant(0.0),
+        transmission_h_t_w_per_k: 0.0,
+        ventilation_h_v_w_per_k: h_v,
+        monthly_theta_e_c: MonthlyProfile::from_constant(18.0),
+        tau_hours: 100.0,
+    }
+}
+
+fn geom(constructions: Vec<Construction>) -> SharedGeometry {
+    SharedGeometry {
+        spaces: vec![Space {
+            id: "s1".into(),
+            name: "zone".into(),
+            function: None,
+            floor_area_m2: 80.0,
+            height_m: 2.7,
+            theta_i_winter_c: Some(20.0),
+            theta_i_summer_c: Some(24.0),
+            constructions,
+        }],
+    }
+}
+
+fn find(inputs: &[TojuliOrientationInput], or: Orientation) -> Option<&TojuliOrientationInput> {
+    inputs.iter().find(|i| i.orientation == or)
+}
+
+#[test]
+fn per_orientation_south_heavy_glazing_governs() {
+    // Zuid: groot raam; Noord: klein raam; gelijke wandoppervlakte. De
+    // zonwinst-gewogen teller maakt Zuid maatgevend.
+    let inputs = build_tojuli_orientation_inputs(
+        &geom(vec![
+            wall("z", 180.0, 20.0, 0.3, 15.0),
+            wall("n", 0.0, 20.0, 0.3, 2.0),
+        ]),
+        &fake_tj(500.0, 30.0),
+    );
+    let z = find(&inputs, Orientation::Zuid).expect("zuid aanwezig");
+    let n = find(&inputs, Orientation::Noord).expect("noord aanwezig");
+    assert!(
+        z.q_c_nd_juli_kwh > n.q_c_nd_juli_kwh,
+        "zuid-teller {} zou groter moeten zijn dan noord {}",
+        z.q_c_nd_juli_kwh,
+        n.q_c_nd_juli_kwh
+    );
+
+    // De maatgevende oriëntatie (hoogste TOjuli) is Zuid.
+    let zone = nta8800_ep::tojuli_zone(&inputs, super::T_JULI_H, false);
+    let per_max = zone
+        .per_orientation
+        .iter()
+        .filter_map(|r| r.tojuli_k.map(|k| (r.orientation, k)))
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .expect("een beoordeelde oriëntatie");
+    assert_eq!(per_max.0, Orientation::Zuid, "Zuid zou maatgevend moeten zijn");
+}
+
+#[test]
+fn per_orientation_windowless_zone_is_zero() {
+    // Geen ramen én geen julikoudebehoefte → alle TOjuli 0, zone voldoet.
+    let inputs = build_tojuli_orientation_inputs(
+        &geom(vec![
+            wall("z", 180.0, 20.0, 0.3, 0.0),
+            wall("o", 90.0, 20.0, 0.3, 0.0),
+        ]),
+        &fake_tj(0.0, 30.0),
+    );
+    for i in &inputs {
+        assert!(i.q_c_nd_juli_kwh.abs() < 1e-12, "teller niet 0: {i:?}");
+    }
+    let zone = nta8800_ep::tojuli_zone(&inputs, super::T_JULI_H, false);
+    assert!(zone.max_tojuli_k.abs() < 1e-12);
+    assert!(zone.pass);
+}
+
+#[test]
+fn per_orientation_symmetric_facades_equal_denominator() {
+    // Identieke gevel+raam op Oost en West: de noemer-termen (A_T, H_C;D, H_gr,
+    // H_ve) zijn per oriëntatie gelijk; de teller verschilt uitsluitend door de
+    // julizoninstraling (norm-correct: Oost 104,9 vs West 112,7 W/m²).
+    let inputs = build_tojuli_orientation_inputs(
+        &geom(vec![
+            wall("o", 90.0, 20.0, 0.3, 10.0),
+            wall("w", 270.0, 20.0, 0.3, 10.0),
+        ]),
+        &fake_tj(400.0, 24.0),
+    );
+    let o = find(&inputs, Orientation::Oost).expect("oost");
+    let w = find(&inputs, Orientation::West).expect("west");
+    assert!((o.a_t_m2 - w.a_t_m2).abs() < 1e-9);
+    assert!((o.h_c_d_juli_w_per_k - w.h_c_d_juli_w_per_k).abs() < 1e-9);
+    assert!((o.h_gr_an_juli_w_per_k - w.h_gr_an_juli_w_per_k).abs() < 1e-9);
+    assert!((o.h_c_ve_juli_w_per_k - w.h_c_ve_juli_w_per_k).abs() < 1e-9);
+    // Teller-verhouding volgt de julizoninstraling-verhouding Oost/West.
+    let ratio = o.q_c_nd_juli_kwh / w.q_c_nd_juli_kwh;
+    assert!((ratio - 104.9 / 112.7).abs() < 1e-6, "verhouding {ratio}");
+}
+
+#[test]
+fn per_orientation_pitched_roof_is_orientation_bound() {
+    // §5.7.2 Stap A/2: een hellend dakvlak (Roof, helling 45°) mét azimuth is
+    // ORIËNTATIEGEBONDEN — A·U, raamoppervlak en zonwinst landen in de bucket
+    // van zijn oriëntatie (Zuid), niet in de pro-rata-pool.
+    let roof = face("dak-z", ConstructionKind::Roof, Some(180.0), Some(45.0), 30.0, 0.16, 4.0);
+    let wall_n = face("gevel-n", ConstructionKind::Wall, Some(0.0), Some(90.0), 20.0, 0.3, 0.0);
+    let inputs = build_tojuli_orientation_inputs(&geom(vec![roof, wall_n]), &fake_tj(300.0, 20.0));
+
+    let z = find(&inputs, Orientation::Zuid).expect("zuid aanwezig door het dakvlak");
+    // A_T;Zuid = dak 30 + raam 4 = 34 m²; geen horizontaal element → H_C;D;Zuid
+    // = 30·0,16 + 4·1,4 = 10,4 W/K (geen pro-rata-bijdrage).
+    assert!((z.a_t_m2 - 34.0).abs() < 1e-9, "A_T Zuid = {}", z.a_t_m2);
+    assert!((z.h_c_d_juli_w_per_k - 10.4).abs() < 1e-9, "H_C;D Zuid = {}", z.h_c_d_juli_w_per_k);
+    // Zuid krijgt zonwinst (raam op het dakvlak) → teller > 0.
+    assert!(z.q_c_nd_juli_kwh > 0.0);
+}
+
+#[test]
+fn per_orientation_flat_roof_with_azimuth_is_prorata() {
+    // Een (bijna-)plat dak (helling 0° ≤ 5°, §7.6.6.4) met een — mogelijk
+    // abusievelijk — ingevulde azimuth telt NIET als oriëntatie-element: het gaat
+    // naar de pro-rata-pool (§5.7.2 Stap 3/4), niet in A_T;or.
+    let flat = face("dak-plat", ConstructionKind::Roof, Some(180.0), Some(0.0), 40.0, 0.16, 0.0);
+    let wall_z = face("gevel-z", ConstructionKind::Wall, Some(180.0), Some(90.0), 20.0, 0.3, 10.0);
+    let inputs = build_tojuli_orientation_inputs(&geom(vec![flat, wall_z]), &fake_tj(300.0, 24.0));
+
+    // Alleen de Zuid-gevel levert een oriëntatie-bucket; het platte dak niet.
+    assert_eq!(inputs.len(), 1, "alleen Zuid verwacht, kreeg {inputs:?}");
+    let z = find(&inputs, Orientation::Zuid).expect("zuid");
+    // A_T;Zuid = gevel 20 + raam 10 = 30 (platte dak zit NIET in A_T).
+    assert!((z.a_t_m2 - 30.0).abs() < 1e-9, "A_T Zuid = {}", z.a_t_m2);
+    // H_C;D;Zuid = gevel 20·0,3 + raam 10·1,4 = 20 W/K + pro-rata van het platte
+    // dak (frac=1 → 40·0,16 = 6,4) = 26,4 W/K.
+    assert!((z.h_c_d_juli_w_per_k - 26.4).abs() < 1e-9, "H_C;D Zuid = {}", z.h_c_d_juli_w_per_k);
 }
 
 #[test]
@@ -298,5 +490,3 @@ fn result_serializes_to_json() {
     let back: BengResult = serde_json::from_str(&json).unwrap();
     assert_eq!(r, back);
 }
-
-

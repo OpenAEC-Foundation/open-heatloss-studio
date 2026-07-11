@@ -22,8 +22,12 @@
 //! ## Bekende vereenvoudigingen (F3-input)
 //!
 //! - **TOjuli** wordt bij een actief gekoelde zone op 0 gezet (§5.7.2); zonder
-//!   actieve koeling levert de keten een *whole-zone screening*-indicator
-//!   (geen norm-conforme per-oriëntatie §5.7.2-opdeling) met `pass = None`.
+//!   actieve koeling bepaalt de keten TOjuli **per oriëntatie** (formule 5.40 op
+//!   de acht kompasrichtingen, Stap A/B) en levert een pass/fail. De teller
+//!   `Q_C;nd;juli;or` is daarbij een gedocumenteerde benadering (zonwinst-gewogen
+//!   verdeling van de whole-zone julikoudebehoefte i.p.v. een norm-exacte
+//!   per-oriëntatie §7.2.2-julibalans — F3d); zie
+//!   [`build_tojuli_orientation_inputs`].
 //! - **Warmtepomp-SCOP's, koel-SEER, forfait-η's** komen uit
 //!   [`mapping`]-defaults zolang de UI geen kentallen levert.
 //! - **Lichte-bouwwijze-toeslag** (Bbl art. 4.149 lid 4) wordt niet automatisch
@@ -43,7 +47,7 @@ use nta8800_cooling::{CoolingDistribution, CoolingEmission, CoolingSystem};
 use nta8800_dhw::model::{DhwDemand, DhwDistribution, DhwEmission};
 use nta8800_dhw::calculate_dhw;
 use nta8800_ep::{
-    beng::TOJULI_LIMIT, calculate_ep_score, tojuli_orientation, BengAssessment, BengIndicators,
+    beng::TOJULI_LIMIT, calculate_ep_score, tojuli_zone, BengAssessment, BengIndicators,
     BengLimits, BuildingArea, EnergyCarrier as EpCarrier, EpInputs, TojuliOrientationInput,
 };
 use nta8800_heating::calculate_heating;
@@ -58,7 +62,7 @@ use nta8800_demand::{DemandBreakdown, DemandResult};
 
 use crate::energy::{DhwGeneratorType, HeatGeneratorType};
 use crate::geometry::{BoundaryKind, SharedGeometry};
-use crate::nta8800_view::{geometry_to_nta8800, map_usage_function};
+use crate::nta8800_view::{geometry_to_nta8800, map_usage_function, orientation_from_degrees};
 use crate::project::ProjectV2;
 use crate::shared::{HeatRecovery, VentilationSystemKind};
 use crate::tojuli::{compute_tojuli_full, TojuliFullInputs, TojuliResult};
@@ -71,10 +75,11 @@ use mapping::{
 /// Omrekenfactor MJ → kWh (1 kWh = 3,6 MJ).
 const MJ_PER_KWH: f64 = 3.6;
 
-/// Rekenwaarde voor de lengte van de maand juli `tjuli` [h] in de TOjuli-
-/// screening. NTA 8800 §17.2 geeft de exacte waarde; hier 31 × 24 = 744 h als
-/// gedocumenteerde benadering (F3: uit §17.2 halen, consistent met de
-/// demand-maandlengtes).
+/// Rekenwaarde voor de lengte van de maand juli `tjuli` [h] in formule (5.40).
+/// NTA 8800:2025+C1:2026 §17.2, tabel 17.1 (p. 690) geeft voor juli
+/// `t_mi = 744 h` (31 d × 24 h) — dit is dus de **norm-exacte** waarde, niet
+/// enkel een benadering. Identiek aan `DE_BILT_MONTH_LENGTHS_HOURS[Juli]`
+/// (`nta8800-tables`), dus consistent met de demand-maandlengtes.
 const T_JULI_H: f64 = 744.0;
 
 // ---------------------------------------------------------------------------
@@ -102,10 +107,12 @@ pub enum TojuliMethod {
     /// Actief gekoelde rekenzone: §5.7.2 stelt `TOjuli = 0` voor alle
     /// oriëntaties; de zone is geacht te voldoen.
     ActivelyCooled,
-    /// Whole-zone screening: de gehele zone als één bucket door formule (5.40),
-    /// **geen** norm-conforme per-oriëntatie §5.7.2-opdeling. Neigt de per-
-    /// oriëntatie-piek te onderschatten → `pass` blijft `None`. F3-werk.
-    WholeZoneScreening,
+    /// Norm-conforme per-oriëntatie-bepaling (§5.7.2, formule 5.40 op de acht
+    /// kompasrichtingen; maatgevend = max). De H-noemer is uit de geometrie +
+    /// whole-zone `TojuliResult` gebouwd; de teller `Q_C;nd;juli;or` is een
+    /// gedocumenteerde zonwinst-gewogen benadering (norm-exacte per-oriëntatie
+    /// §7.2.2-julibalans = F3d). Levert een pass/fail (`pass = Some(..)`).
+    PerOrientation,
 }
 
 /// TOjuli-oververhittingssamenvatting voor de BENG-toets (§5.7 / Bbl 4.149b).
@@ -117,7 +124,9 @@ pub struct TojuliBengSummary {
     pub limit_k: f64,
     /// Is de rekenzone actief gekoeld?
     pub actively_cooled: bool,
-    /// Voldoet de zone? `None` bij de whole-zone screening (niet norm-conform).
+    /// Voldoet de zone? `Some(true/false)` voor beide methoden (actief-gekoeld
+    /// én de per-oriëntatie-toets). `None` blijft gereserveerd voor toekomstige
+    /// niet-toetsbare gevallen.
     pub pass: Option<bool>,
     /// Gebruikte bepalingsmethode.
     pub method: TojuliMethod,
@@ -430,11 +439,13 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     let beng3 = indicator_report(indicators.beng3_renewable_pct, assessment.map(|a| a.beng3));
 
     // ---- TOjuli ----
-    let tojuli = compute_tojuli_summary(&tj, a_ls, energy.cooling.is_some());
-    if matches!(tojuli.method, TojuliMethod::WholeZoneScreening) {
+    let tojuli = compute_tojuli_summary(&tj, &project.geometry, energy.cooling.is_some());
+    if matches!(tojuli.method, TojuliMethod::PerOrientation) {
         notes.push(
-            "TOjuli via whole-zone screening (formule 5.40 op de gehele zone) — de norm-conforme \
-             per-oriëntatie §5.7.2-opdeling is F3; `pass` is daarom onbepaald."
+            "TOjuli per oriëntatie (§5.7.2, formule 5.40 op de acht kompasrichtingen). De teller \
+             Q_C;nd;juli;or is een gedocumenteerde benadering: de whole-zone julikoudebehoefte is \
+             naar zonwinst-aandeel per oriëntatie verdeeld i.p.v. een norm-exacte per-oriëntatie \
+             §7.2.2-julibalans (F3d)."
                 .into(),
         );
     }
@@ -595,10 +606,61 @@ fn demand_shell(tj: &TojuliResult) -> DemandResult {
     }
 }
 
+/// De acht kompas-oriëntaties waarover NTA 8800 §5.7.2 (Stap A, p. 116) de
+/// TOjuli-indicator opdeelt. [`Orientation::Horizontaal`] hoort hier **niet**
+/// bij: horizontale vlakken worden naar rato over deze acht verdeeld (Stap 3/4).
+const TOJULI_ORIENTATIONS: [Orientation; 8] = [
+    Orientation::Noord,
+    Orientation::NoordOost,
+    Orientation::Oost,
+    Orientation::ZuidOost,
+    Orientation::Zuid,
+    Orientation::ZuidWest,
+    Orientation::West,
+    Orientation::NoordWest,
+];
+
+/// Hellingsdrempel [°] waaronder een uitwendige constructie als **horizontaal**
+/// geldt voor de §5.7.2-opdeling. NTA 8800 §7.6.6.4 (Vormfactor, p. 203)
+/// definieert een "horizontale constructie" als een vlak "waarvan de
+/// hellingshoek met de horizontaal kleiner is dan of gelijk is aan 5°". Het
+/// projectveld `slope_deg` is de helling t.o.v. horizontaal (0° = plat,
+/// 90° = verticaal), dus de drempel is direct toepasbaar.
+const HORIZONTAL_TILT_MAX_DEG: f64 = 5.0;
+
+/// Bepaal in welke §5.7.2-bucket een uitwendige constructie valt:
+///
+/// - `Some(or)` — **oriëntatiegebonden** (Stap 2/5, p. 117): het element heeft
+///   een azimuth én een helling > 5° t.o.v. horizontaal (verticale gevel *óf*
+///   hellend dakvlak). Telt mee in de oriëntatie-`or`-sommen van `A_T`, `H_C;D`
+///   en zonwinst.
+/// - `None` — **overig/horizontaal** (Stap 3/4, p. 117): (bijna-)plat vlak
+///   (helling ≤ 5°, §7.6.6.4) of zonder azimuth. Wordt naar rato van `A_T;or`
+///   over de oriëntaties verdeeld.
+///
+/// Norm-uitgangspunt (§5.7.2 Stap A, p. 116): alleen *horizontale* elementen
+/// vallen buiten `A_T;or`; een **hellend dakvlak met azimuth is dus
+/// oriëntatiegebonden**, niet pro-rata. De klassering hangt daarom aan de
+/// **helling** (`slope_deg`), niet aan `kind` — een zuidgericht dakvlak draagt
+/// bij aan het oververhittingsrisico van de zuid-oriëntatie.
+fn tojuli_orientation_bucket(construction: &crate::geometry::Construction) -> Option<Orientation> {
+    let deg = construction.orientation_deg?;
+    // Bijna-horizontaal (plat dak/vloer) → overig, ongeacht een eventuele azimuth.
+    if construction.slope_deg.is_some_and(|s| s <= HORIZONTAL_TILT_MAX_DEG) {
+        return None;
+    }
+    Some(orientation_from_degrees(deg))
+}
+
 /// TOjuli-samenvatting. Bij een actief gekoelde zone (§5.7.2) is `TOjuli = 0`;
-/// anders een whole-zone screening via formule (5.40) op de gehele zone (geen
-/// norm-conforme per-oriëntatie-opdeling → `pass = None`).
-fn compute_tojuli_summary(tj: &TojuliResult, a_ls: f64, actively_cooled: bool) -> TojuliBengSummary {
+/// anders de norm-conforme per-oriëntatie-bepaling (formule 5.40 over de acht
+/// kompasrichtingen) via [`build_tojuli_orientation_inputs`] + [`tojuli_zone`],
+/// die de maatgevende (hoogste) waarde en de pass/fail levert.
+fn compute_tojuli_summary(
+    tj: &TojuliResult,
+    geometry: &SharedGeometry,
+    actively_cooled: bool,
+) -> TojuliBengSummary {
     if actively_cooled {
         return TojuliBengSummary {
             max_tojuli_k: 0.0,
@@ -609,25 +671,162 @@ fn compute_tojuli_summary(tj: &TojuliResult, a_ls: f64, actively_cooled: bool) -
         };
     }
 
-    // Whole-zone screening: de gehele zone als één "oriëntatie"-bucket.
-    let q_c_nd_juli_kwh = tj.monthly_q_c_nd_mj[Month::Juli] / MJ_PER_KWH;
-    let input = TojuliOrientationInput {
-        orientation: Orientation::Zuid,
-        a_t_m2: a_ls.max(4.0),
-        q_c_nd_juli_kwh,
-        q_c_hp_juli_kwh: 0.0,
-        h_c_d_juli_w_per_k: tj.transmission_h_t_w_per_k,
-        h_gr_an_juli_w_per_k: 0.0,
-        h_c_ve_juli_w_per_k: tj.ventilation_h_v_w_per_k,
-    };
-    let max_tojuli_k = tojuli_orientation(&input, T_JULI_H);
+    let inputs = build_tojuli_orientation_inputs(geometry, tj);
+    let zone = tojuli_zone(&inputs, T_JULI_H, false);
     TojuliBengSummary {
-        max_tojuli_k,
-        limit_k: TOJULI_LIMIT,
+        max_tojuli_k: zone.max_tojuli_k,
+        limit_k: zone.limit_k,
         actively_cooled: false,
-        pass: None,
-        method: TojuliMethod::WholeZoneScreening,
+        pass: Some(zone.pass),
+        method: TojuliMethod::PerOrientation,
     }
+}
+
+/// Bouw de per-oriëntatie-invoer voor de TOjuli-toets (§5.7.2, Stap A/B +
+/// Stap 1-5) uit de projectgeometrie en de whole-zone [`TojuliResult`].
+///
+/// **Noemer (norm-conform):**
+/// - `H_C;D;juli;or` = Σ exterieur-**verticale** constructies op oriëntatie `or`
+///   (`A·U` + ramen/deuren `A·U`, Stap 2/5) + het exterieur-**horizontale** deel
+///   (daken) naar rato van `A_T;or` verdeeld (Stap 3/4).
+/// - `H_gr;an;juli;or` = Σ grond-constructies (`A·U`, gedocumenteerde
+///   screening-vereenvoudiging i.p.v. het §8.3-grondmodel) naar rato van `A_T;or`.
+/// - `H_C;ve;juli;or` = whole-zone `tj.ventilation_h_v_w_per_k` (incl. WTW) naar
+///   rato van `A_T;or`.
+///
+/// **Teller (gedocumenteerde benadering — F3d-restant):** de whole-zone
+/// julikoudebehoefte `tj.monthly_q_c_nd_mj[Juli]` wordt over de oriëntaties
+/// verdeeld naar het **toegelaten zonwinst-aandeel**
+/// `S_or = Σ ramen[or] (A_glas·g·I_juli(or))` (met horizontale ramen naar rato
+/// van `A_T;or`). Dit is de fysisch dominante oriëntatie-driver van de
+/// julikoudebehoefte; de norm-exacte per-oriëntatie §7.2.2-julibalans is F3d.
+/// Bij `S_total = 0` (raamloze zone) valt de verdeling terug op de `A_T;or`-
+/// fractie (julikoudebehoefte ≈ 0 → TOjuli ≈ 0).
+///
+/// `A_T;or` (Stap A) omvat de geprojecteerde geveloppervlakte per oriëntatie
+/// (opake wand + openingen); oriëntaties met `A_T;or ≤ 3 m²` filtert
+/// [`tojuli_zone`] uit (Stap A, p. 116).
+fn build_tojuli_orientation_inputs(
+    geometry: &SharedGeometry,
+    tj: &TojuliResult,
+) -> Vec<TojuliOrientationInput> {
+    let climate = de_bilt_climate_data();
+    let i_juli = |or: Orientation| -> f64 {
+        climate
+            .solar_irradiation
+            .get(&or)
+            .map_or(0.0, |p| p[Month::Juli])
+    };
+
+    // Per-oriëntatie accumulatoren (index = positie in TOJULI_ORIENTATIONS).
+    let mut a_t = [0.0_f64; 8];
+    let mut h_cd_vert = [0.0_f64; 8];
+    let mut s_solar = [0.0_f64; 8];
+    // Whole-zone horizontale/grond-termen (pro-rata over oriëntaties verdeeld).
+    let mut h_cd_hor_total = 0.0_f64;
+    let mut h_gr_total = 0.0_f64;
+    let mut s_hor_total = 0.0_f64;
+
+    let orientation_index = |or: Orientation| TOJULI_ORIENTATIONS.iter().position(|o| *o == or);
+
+    for construction in geometry.spaces.iter().flat_map(|s| s.constructions.iter()) {
+        // Openingen-bijdragen (ramen + deuren): projected area, transmissie, en
+        // — alleen ramen met g-waarde — zonwinst-proxy.
+        let opening_area: f64 = construction.openings.iter().map(|o| o.area_m2).sum();
+        let opening_h: f64 = construction
+            .openings
+            .iter()
+            .map(|o| o.area_m2 * o.u_value)
+            .sum();
+
+        match construction.boundary {
+            BoundaryKind::Ground => {
+                // Begane-grondvloer/grondwand → H_gr;an-term (A·U-screening).
+                h_gr_total += construction.area_m2 * construction.u_value;
+            }
+            BoundaryKind::Exterior => {
+                let h_element = construction.area_m2 * construction.u_value + opening_h;
+                let a_element = construction.area_m2 + opening_area;
+                match tojuli_orientation_bucket(construction) {
+                    // Oriëntatiegebonden: verticale gevel óf hellend dakvlak met
+                    // azimuth (helling > 5°). §5.7.2 Stap 2/5.
+                    Some(or) => {
+                        if let Some(idx) = orientation_index(or) {
+                            a_t[idx] += a_element;
+                            h_cd_vert[idx] += h_element;
+                            s_solar[idx] += window_solar_gain(construction, i_juli(or));
+                        }
+                    }
+                    // Overig/horizontaal (plat vlak ≤ 5° of geen azimuth) → naar
+                    // rato van A_T;or verdeeld. §5.7.2 Stap 3/4.
+                    None => {
+                        h_cd_hor_total += h_element;
+                        s_hor_total += window_solar_gain(construction, i_juli(Orientation::Horizontaal));
+                    }
+                }
+            }
+            // AOR/AVR/aangrenzend gebouw/open water tellen niet mee in de
+            // TOjuli-noemer: §5.7.2 rekent H_C;D als directe transmissie naar
+            // buitenlucht en A_T uitsluitend voor uitwendige scheidingsconstructies.
+            BoundaryKind::UnheatedSpace
+            | BoundaryKind::AdjacentRoom
+            | BoundaryKind::AdjacentBuilding
+            | BoundaryKind::OpenWater => {}
+        }
+    }
+
+    let a_t_total: f64 = a_t.iter().sum();
+    if a_t_total <= 0.0 {
+        // Geen uitwendige gevel-oriëntaties → geen te toetsen oriëntatie.
+        return Vec::new();
+    }
+
+    let h_ve_total = tj.ventilation_h_v_w_per_k;
+    let q_c_juli_total_kwh = tj.monthly_q_c_nd_mj[Month::Juli] / MJ_PER_KWH;
+
+    // Zonwinst-gewogen verdeelsleutel voor de teller (met horizontale ramen
+    // naar rato van A_T;or). Terugval op de A_T-fractie als er geen zonwinst is.
+    let s_total: f64 = s_solar.iter().sum::<f64>() + s_hor_total;
+
+    let mut inputs = Vec::new();
+    for (idx, &or) in TOJULI_ORIENTATIONS.iter().enumerate() {
+        if a_t[idx] <= 0.0 {
+            continue;
+        }
+        let frac = a_t[idx] / a_t_total;
+        let f_c = if s_total > 0.0 {
+            (s_solar[idx] + frac * s_hor_total) / s_total
+        } else {
+            frac
+        };
+        inputs.push(TojuliOrientationInput {
+            orientation: or,
+            a_t_m2: a_t[idx],
+            q_c_nd_juli_kwh: q_c_juli_total_kwh * f_c,
+            q_c_hp_juli_kwh: 0.0,
+            h_c_d_juli_w_per_k: h_cd_vert[idx] + frac * h_cd_hor_total,
+            h_gr_an_juli_w_per_k: frac * h_gr_total,
+            h_c_ve_juli_w_per_k: frac * h_ve_total,
+        });
+    }
+    inputs
+}
+
+/// Zonwinst-proxy [MJ] van de ramen in één constructie voor de maand juli:
+/// `Σ ramen (A_glas · g · I_juli)` met `A_glas = A_raam·(1 − kozijnfractie)`.
+/// Alleen openingen met een g-waarde (ramen) dragen bij; deuren (g = `None`)
+/// leveren geen zontoetreding. `solar_juli` is `I_juli` [MJ/m²] voor de
+/// oriëntatie van de constructie.
+fn window_solar_gain(construction: &crate::geometry::Construction, solar_juli: f64) -> f64 {
+    construction
+        .openings
+        .iter()
+        .filter_map(|o| o.g_value.map(|g| (o, g)))
+        .map(|(o, g)| {
+            let frame = o.frame_fraction.unwrap_or(0.25);
+            o.area_m2 * (1.0 - frame).max(0.0) * g * solar_juli
+        })
+        .sum()
 }
 
 #[cfg(test)]
