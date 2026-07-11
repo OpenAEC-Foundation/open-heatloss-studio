@@ -1,0 +1,292 @@
+{
+  "meta": {
+    "version": "1.0",
+    "source": "Uniec 3.3.2.1 / BengCert",
+    "projectNumber": "2522",
+    "description": "Woning Aalten - Grondgebonden woning, vrijstaand met kap",
+    "uniecReference": {
+      "beng1": 103.69,
+      "beng1Limit": 123.39,
+      "beng2": 24.71,
+      "beng2Limit": 30.00,
+      "beng3": 85.0,
+      "beng3Limit": 50,
+      "energyLabel": "A+++",
+      "heatingPrimary": 2551,
+      "hotWaterPrimary": 1813,
+      "coolingPrimary": 422,
+      "fansPrimary": 443,
+      "pvProduction": 3811,
+      "coolingDemand": 873
+    }
+  },
+  "project": {
+    "id": "2522-woning-aalten",
+    "name": "2522 Woning Aalten",
+    "description": "Nieuwbouw vrijstaande woning met kap, compact",
+    "buildingFunction": "residential",
+    "address": "",
+    "city": "Aalten",
+    "zones": [
+      {
+        "id": "zone-main",
+        "name": "Woonfunctie",
+        "floorArea": 67.0,
+        "volume": 174.2,
+        "height": 2.6,
+        "surfaces": [
+          {
+            "id": "surf-wall-n",
+            "name": "Gevel Noord",
+            "type": "wall",
+            "area": 20.8,
+            "orientation": "N",
+            "constructionId": "con-wall",
+            "zoneId": "zone-main",
+            "windows": [
+              {
+                "id": "win-n1",
+                "name": "Raam Noord",
+                "area": 1.6,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "N",
+                "surfaceId": "surf-wall-n"
+              },
+              {
+                "id": "win-n2",
+                "name": "Deur Noord",
+                "area": 2.1,
+                "uValue": 2.0,
+                "gValue": 0.00,
+                "orientation": "N",
+                "surfaceId": "surf-wall-n"
+              }
+            ]
+          },
+          {
+            "id": "surf-wall-e",
+            "name": "Gevel Oost",
+            "type": "wall",
+            "area": 26.0,
+            "orientation": "E",
+            "constructionId": "con-wall",
+            "zoneId": "zone-main",
+            "windows": [
+              {
+                "id": "win-e1",
+                "name": "Raam Oost 1",
+                "area": 1.6,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "E",
+                "surfaceId": "surf-wall-e"
+              },
+              {
+                "id": "win-e2",
+                "name": "Raam Oost 2",
+                "area": 1.2,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "E",
+                "surfaceId": "surf-wall-e"
+              }
+            ]
+          },
+          {
+            "id": "surf-wall-s",
+            "name": "Gevel Zuid",
+            "type": "wall",
+            "area": 20.8,
+            "orientation": "S",
+            "constructionId": "con-wall",
+            "zoneId": "zone-main",
+            "windows": [
+              {
+                "id": "win-s1",
+                "name": "Raam Zuid groot",
+                "area": 3.6,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "S",
+                "surfaceId": "surf-wall-s"
+              },
+              {
+                "id": "win-s2",
+                "name": "Raam Zuid 2",
+                "area": 1.8,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "S",
+                "surfaceId": "surf-wall-s"
+              }
+            ]
+          },
+          {
+            "id": "surf-wall-w",
+            "name": "Gevel West",
+            "type": "wall",
+            "area": 26.0,
+            "orientation": "W",
+            "constructionId": "con-wall",
+            "zoneId": "zone-main",
+            "windows": [
+              {
+                "id": "win-w1",
+                "name": "Raam West",
+                "area": 1.6,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "W",
+                "surfaceId": "surf-wall-w"
+              }
+            ]
+          },
+          {
+            "id": "surf-roof-n",
+            "name": "Dak Noord",
+            "type": "roof",
+            "area": 22,
+            "orientation": "N",
+            "constructionId": "con-roof",
+            "zoneId": "zone-main",
+            "windows": []
+          },
+          {
+            "id": "surf-roof-s",
+            "name": "Dak Zuid",
+            "type": "roof",
+            "area": 22,
+            "orientation": "S",
+            "constructionId": "con-roof",
+            "zoneId": "zone-main",
+            "windows": [
+              {
+                "id": "win-dakraam-s",
+                "name": "Dakraam Zuid",
+                "area": 0.8,
+                "uValue": 1.3,
+                "gValue": 0.40,
+                "orientation": "S",
+                "surfaceId": "surf-roof-s"
+              }
+            ]
+          },
+          {
+            "id": "surf-floor",
+            "name": "Vloer begane grond",
+            "type": "floor",
+            "area": 40,
+            "orientation": "horizontal",
+            "constructionId": "con-floor",
+            "zoneId": "zone-main",
+            "windows": []
+          }
+        ],
+        "thermalBridges": [
+          {
+            "id": "tb-1",
+            "name": "Gevel-vloer",
+            "psiValue": 0.05,
+            "length": 26,
+            "zoneId": "zone-main"
+          },
+          {
+            "id": "tb-2",
+            "name": "Gevel-dak",
+            "psiValue": 0.05,
+            "length": 26,
+            "zoneId": "zone-main"
+          },
+          {
+            "id": "tb-3",
+            "name": "Raamkozijnen",
+            "psiValue": 0.03,
+            "length": 42,
+            "zoneId": "zone-main"
+          }
+        ],
+        "airTightness": {
+          "qv10": 0.40
+        }
+      }
+    ],
+    "heatingSystems": [
+      {
+        "id": "heat-1",
+        "name": "Warmtepomp lucht (vloerverwarming)",
+        "type": "heat_pump_air",
+        "cop": 4.10,
+        "coverageFraction": 1.0
+      }
+    ],
+    "ventilationSystems": [
+      {
+        "id": "vent-1",
+        "name": "Type D centraal",
+        "type": "type_d",
+        "heatRecoveryEfficiency": 0.0,
+        "sfp": 0.8
+      }
+    ],
+    "coolingSystems": [
+      {
+        "id": "cool-1",
+        "name": "Compressiekoeling",
+        "type": "split_unit",
+        "eer": 3.00
+      }
+    ],
+    "hotWaterSystems": [
+      {
+        "id": "hw-1",
+        "name": "Warmtepompboiler",
+        "type": "heat_pump",
+        "efficiency": 1.40,
+        "hasSolarBoiler": false,
+        "solarBoilerFraction": 0
+      }
+    ],
+    "solarPV": [
+      {
+        "id": "pv-north",
+        "name": "PV Noord (10 panelen)",
+        "peakPower": 4.1,
+        "orientation": "N",
+        "tilt": 15,
+        "area": 17.5,
+        "comment": "10x DMEGC DM410M10-54HBB @ 410Wp"
+      }
+    ],
+    "solarThermal": [],
+    "constructions": [
+      {
+        "id": "con-wall",
+        "name": "Buitenwand Rc=4.70",
+        "layers": [
+          { "material": "Isolatie", "thickness": 0.141, "lambda": 0.03 }
+        ],
+        "rcValue": 4.70,
+        "uValue": 0.208
+      },
+      {
+        "id": "con-roof",
+        "name": "Dak Rc=6.30",
+        "layers": [
+          { "material": "Isolatie", "thickness": 0.189, "lambda": 0.03 }
+        ],
+        "rcValue": 6.30,
+        "uValue": 0.155
+      },
+      {
+        "id": "con-floor",
+        "name": "Vloer Rc=3.70",
+        "layers": [
+          { "material": "Isolatie EPS", "thickness": 0.111, "lambda": 0.03 }
+        ],
+        "rcValue": 3.70,
+        "uValue": 0.256
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "case": "hoekwoning-m-g11",
+  "woningtype": "BENG Hoekwoning M (2-onder-1-kap / rijhoekwoning, hellend dak)",
+  "gebouwcode": "G11",
+  "ag_m2": 133,
+  "als_ag_ratio": 1.87,
+  "bouwwijze": "massief",
+  "eisen": {
+    "beng1_max_kwh_m2_jr": 66.2,
+    "beng2_max_kwh_m2_jr": 30.0,
+    "beng3_min_pct": 50.0,
+    "tojuli_max": 1.20
+  },
+  "source": {
+    "document": "tests/references/rvo-beng-voorbeeldconcepten-woningbouw-2021.pdf",
+    "report_id": "DGMR B.2017.1387.02.R001, versie 003, definitief, 26-03-2021 (in opdracht van RVO/BZK)",
+    "norm_versie_gerekend": "NTA 8800:2020, validatietool NTA 8800 v1.49 (28-10-2020), incl. interpretatiedocument NEN",
+    "eisen_page": 7,
+    "eisen_table": "tabel 5: BENG-eisen en TOjuli eis voorbeeldwoningen",
+    "resultaten_page": 13,
+    "resultaten_bijlage": "Bijlage 1 (Resultaten basisconcepten), bronsheet 'RVO voorbeelden BENG NTA8800 - resultaten DGMR 20200901_v149.xlsx'"
+  },
+  "tolerance": {
+    "beng1_pct": 10.0,
+    "beng2_pct": 10.0,
+    "beng3_abs_pp": 5.0,
+    "tojuli_abs": 0.25,
+    "motivatie": "Referenties zijn gerekend met NTA 8800:2020 (validatietool v1.49); onze engine implementeert NTA 8800:2025+C1:2026. De versie-delta plus een niet-deterministische geometrie-reconstructie (per-gevel maten zitten in de niet-gepubliceerde Bijlage 4-Excel) rechtvaardigen een ruime starttolerantie van +/-10% op BENG 1/2 en +/-5 procentpunt op BENG 3. Aanscherpen mag na normanalyse (F3); verruimen is verboden zonder normanalyse. Zie README.md."
+  },
+  "concepts": [
+    {
+      "id": "wp-bodem-c4c-bbplus",
+      "omschrijving": "Combiwarmtepomp met bodemlussen (vrije/bodemkoeling); C4c mechanische afzuiging met CO2-regeling; Bouwbesluit+ isolatie (B10)",
+      "verwarming": "WP bodem (combi)",
+      "koeling": "bodem koeling",
+      "tapwater": "combi WP",
+      "isolatie_pakket": "B10 Bouwbesluit+",
+      "ventilatie": "C4c",
+      "expected": {
+        "beng1_kwh_m2_jr": 59.2,
+        "beng2_kwh_m2_jr": 28.2,
+        "beng3_pct": 62.0,
+        "tojuli": 0.0,
+        "wp_pv": 0
+      },
+      "provenance": {
+        "page": 13,
+        "row": "hoekwoning M / WP bodem / bodem koeling / Bouwbesluit+ / C4c",
+        "columns": "BENG1=59,2; BENG2=28,2; BENG3=62%; TOjuli=0; Wp PV=0"
+      }
+    },
+    {
+      "id": "wp-buiten-d2-bbplus",
+      "omschrijving": "Combiwarmtepomp op buitenlucht (geen koeling); D2 balansventilatie met HR-WTW 95% zonder CO2-regeling; Bouwbesluit+ isolatie (B10), buitenzonwering",
+      "verwarming": "WP buiten (combi)",
+      "koeling": "geen",
+      "tapwater": "combi WP",
+      "isolatie_pakket": "B10 Bouwbesluit+",
+      "ventilatie": "D2",
+      "expected": {
+        "beng1_kwh_m2_jr": 59.6,
+        "beng2_kwh_m2_jr": 30.0,
+        "beng3_pct": 59.0,
+        "tojuli": 1.17,
+        "wp_pv": 1600
+      },
+      "provenance": {
+        "page": 13,
+        "row": "hoekwoning M / WP buiten / Bouwbesluit+ / D2",
+        "columns": "BENG1=59,6; BENG2=30,0; BENG3=59%; TOjuli=1,17; Wp PV=1.600"
+      }
+    },
+    {
+      "id": "wp-bodem-d5a-passief",
+      "omschrijving": "Combiwarmtepomp met bodemlussen (vrije/bodemkoeling); D5a balansventilatie met HR-WTW 95% en CO2-regeling; passief isolatie (B12), triple glas",
+      "verwarming": "WP bodem (combi)",
+      "koeling": "bodem koeling",
+      "tapwater": "combi WP",
+      "isolatie_pakket": "B12 passief",
+      "ventilatie": "D5a",
+      "expected": {
+        "beng1_kwh_m2_jr": 49.7,
+        "beng2_kwh_m2_jr": 24.3,
+        "beng3_pct": 50.0,
+        "tojuli": 0.0,
+        "wp_pv": 0
+      },
+      "provenance": {
+        "page": 13,
+        "row": "hoekwoning M / WP bodem / passief / D5a",
+        "columns": "BENG1=49,7; BENG2=24,3; BENG3=50%; TOjuli=0; Wp PV=0"
+      }
+    }
+  ]
+}

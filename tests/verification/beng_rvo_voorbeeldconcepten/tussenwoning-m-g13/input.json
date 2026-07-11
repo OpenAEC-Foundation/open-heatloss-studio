@@ -1,0 +1,57 @@
+{
+  "_note": "BEST-EFFORT invoer-reconstructie, GEEN volledig engine-invoerbestand. Bevat alleen wat de RVO-PDF (2021) + de RVO Referentiegebouwen-PDF (2017) deterministisch geven. Per-gevel geometrie (gevelvlakken, raamoppervlak per orientatie, volume) ontbreekt bewust — zie `_missing`. Dit bestand is nu NIET machine-inleesbaar door compute_beng; het documenteert de reconstructie-status tot Bijlage 4 beschikbaar is.",
+  "case": "tussenwoning-m-g13",
+  "gebouw": {
+    "type": "BENG Tussenwoning M (levensloopbestendig, plat dak)",
+    "gebouwcode": "G13",
+    "ag_m2": 87,
+    "als_ag_ratio": 2.03,
+    "bouwlagen": 2,
+    "dak": "plat dak (1e verdieping half zo groot als begane grond)",
+    "bouwwijze": "massief",
+    "orientatie": "tuinpui/grootste glasoppervlak zuidwest (standaard, niet gedraaid, O10)",
+    "geometrie_bron": "RVO Referentiegebouwen 2017 (referentiegebouwen-beng-2017.pdf) nr. 4 'Woning M tussen', p.10 tabel 1 (Ag 87, BVO 105) + p.19 par. 4.4 (kwalitatieve beschrijving)"
+  },
+  "bouwkundige_pakketten": {
+    "B10_bouwbesluit_plus": {
+      "rc_vloer_m2k_w": 3.7,
+      "rc_gevel_m2k_w": 4.7,
+      "rc_dak_m2k_w": 6.3,
+      "u_raam_w_m2k": 1.4,
+      "g_glas": 0.6,
+      "glas": "HR++",
+      "infiltratie_qv10_spec_dm3_s_m2": 0.4,
+      "zonwering": "buitenzonwering (handmatig) bij WP-buiten/SV; GEEN bij WP-bodem (vrije koeling regenereert bron)",
+      "bron": "PDF p.6 tabel 3 (B10)"
+    },
+    "B12_passief": {
+      "rc_vloer_m2k_w": 6.0,
+      "rc_gevel_m2k_w": 6.0,
+      "rc_dak_m2k_w": 10.0,
+      "u_raam_w_m2k": 0.9,
+      "g_glas": 0.5,
+      "glas": "triple (3v)",
+      "infiltratie_qv10_spec_dm3_s_m2": 0.25,
+      "zonwering": "buitenzonwering (handmatig) bij WP-buiten/SV; GEEN bij WP-bodem",
+      "bron": "PDF p.6 tabel 3 (B12)"
+    }
+  },
+  "ventilatiesystemen": {
+    "C4c": {"principe": "natuurlijke toevoer + mechanische afvoer (luchtdrukgeregelde toevoer)", "wtw": "n.v.t.", "co2_regeling": false, "debiet": "forfaitair", "luchtlekken": "LUKA C", "zomernachtventilatie": "geen", "bron": "PDF p.7 tabel 4"},
+    "D2":  {"principe": "balansventilatie", "wtw": "HR-WTW kruisstroom, rendement 95%, 100% bypass, toevoerkanaal 2 m geisoleerd", "co2_regeling": false, "debiet": "forfaitair", "luchtlekken": "LUKA C", "zomernachtventilatie": "geen", "bron": "PDF p.7 tabel 4"},
+    "D5a": {"principe": "balansventilatie", "wtw": "centrale HR-WTW kruisstroom, rendement 95%, 100% bypass, toevoerkanaal 2 m geisoleerd", "co2_regeling": "ja (meerdere zones)", "debiet": "forfaitair", "luchtlekken": "LUKA C", "zomernachtventilatie": "geen", "bron": "PDF p.7 tabel 4"}
+  },
+  "concepten": [
+    {"id": "wp-bodem-c4c-bbplus", "isolatie": "B10_bouwbesluit_plus", "ventilatie": "C4c", "opwekker_verwarming": "combiwarmtepomp bodemlussen", "koeling": "bodemkoeling (vrije koeling)", "tapwater": "combi WP", "zonwering": "geen", "pv_wp": 0},
+    {"id": "wp-buiten-d2-bbplus", "isolatie": "B10_bouwbesluit_plus", "ventilatie": "D2", "opwekker_verwarming": "combiwarmtepomp buitenlucht", "koeling": "geen", "tapwater": "combi WP", "zonwering": "buitenzonwering", "pv_wp": 1400},
+    {"id": "wp-bodem-d5a-passief", "isolatie": "B12_passief", "ventilatie": "D5a", "opwekker_verwarming": "combiwarmtepomp bodemlussen", "koeling": "bodemkoeling (vrije koeling)", "tapwater": "combi WP", "zonwering": "geen", "pv_wp": 200}
+  ],
+  "_missing": {
+    "per_gevel_geometrie": "Gevelvlakken (m2) per orientatie, raamoppervlak (m2) per orientatie en per gevel, kozijnfracties, deuroppervlak — ONTBREKEN. Zitten in RVO 'Bijlage 4' (Excel, tabblad uittrekstaat), die NOOIT los is gepubliceerd (2021-rapport verwijst ernaar; 2017-PDF p.11/p.68 verwijst identiek naar 'bijlage 4'). 2017-PDF geeft alleen 3D-afbeeldingen (beeldpagina's 15/19), geen numerieke gevelstaat.",
+    "verliesoppervlakte_als_m2": "Niet expliciet; alleen Als/Ag=2,03 gegeven => Als ~= 176,6 m2 (afgeleid, niet gepubliceerd).",
+    "gebouwvolume_m3": "Niet gegeven; nodig voor H_ve/luchtvolume.",
+    "koudebruggen": "Uitgebreide (niet-forfaitaire) methode voor grondgebonden woningen; SBR-details, passief-pakket type T2 (PDF p.6). Numerieke psi-waarden in Bijlage 4.",
+    "opwekker_kentallen": "COP/eta warmtepomp, WTW-SFP/ventilatorvermogen, tapwater-rendement, PV-orientatie/tilt/kWp per Wp — niet in PDF (Bijlage 4 tabbladen RAPPORT I/V).",
+    "pv_detail": "Wp PV is een RESULTAAT (sluitpost voor BENG 2/3), geen invoer; orientatie/tilt onbekend."
+  }
+}

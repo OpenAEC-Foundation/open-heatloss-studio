@@ -1,0 +1,49 @@
+{
+  "case": "gouda-2467",
+  "project_name": "2467 Goejanverwelledijk 85 Gouda",
+  "building_function": "residential (grondgebonden woning)",
+  "source": {
+    "repo": "open-energy-studio (John Heikens)",
+    "license": "LGPL-3.0",
+    "input_file": "input.oes.json (kopie van training-data/2467-goejanverwelledijk-gouda.oes.json)",
+    "certified_tool": "Uniec 3.3.3.1 / BengCert",
+    "provenance_jsonpath_root": "meta.uniecReference",
+    "kanttekening": "Certified referentie is Uniec 3.3.x; de geometrie in het project{}-blok is een benadering van de originele certificaten (residueel 1-5% t.o.v. certified). Dit is een REGRESSIE-golden, geen certificerings-referentie. WTW-pad ongedekt (alle Johns projecten eta_wtw=0)."
+  },
+  "tolerance": {
+    "beng1_pct": 6.0,
+    "beng2_pct": 8.0,
+    "beng3_abs_pp": 3.0,
+    "motivatie": "Gekalibreerd op Johns eigen vitest-toleranties voor deze case (open-energy-studio validate-beng.ts). BENG 1 +/-6%, BENG 2 +/-8%, BENG 3 +/-3 procentpunt. Geometrie is benadering (1-5% residu); onze engine is NTA 8800:2025+C1. Aanscherpen na F3-normanalyse; verruimen verboden."
+  },
+  "expected": {
+    "beng1_kwh_m2_jr": 95.86,
+    "beng1_limit_kwh_m2_jr": 96.4,
+    "beng2_kwh_m2_jr": 27.48,
+    "beng2_limit_kwh_m2_jr": 30.0,
+    "beng3_pct": 83.7,
+    "beng3_limit_pct": 50,
+    "energy_label": "A+++",
+    "heating_primary_kwh": 6506,
+    "hot_water_primary_kwh": 4208,
+    "cooling_primary_kwh": 244,
+    "fans_primary_kwh": 822,
+    "pv_production_kwh": 8734,
+    "cooling_demand_kwh": 504
+  },
+  "provenance": {
+    "beng1_kwh_m2_jr": "meta.uniecReference.beng1",
+    "beng1_limit_kwh_m2_jr": "meta.uniecReference.beng1Limit",
+    "beng2_kwh_m2_jr": "meta.uniecReference.beng2",
+    "beng2_limit_kwh_m2_jr": "meta.uniecReference.beng2Limit",
+    "beng3_pct": "meta.uniecReference.beng3",
+    "beng3_limit_pct": "meta.uniecReference.beng3Limit",
+    "energy_label": "meta.uniecReference.energyLabel",
+    "heating_primary_kwh": "meta.uniecReference.heatingPrimary",
+    "hot_water_primary_kwh": "meta.uniecReference.hotWaterPrimary",
+    "cooling_primary_kwh": "meta.uniecReference.coolingPrimary",
+    "fans_primary_kwh": "meta.uniecReference.fansPrimary",
+    "pv_production_kwh": "meta.uniecReference.pvProduction",
+    "cooling_demand_kwh": "meta.uniecReference.coolingDemand"
+  }
+}
