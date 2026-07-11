@@ -73,10 +73,15 @@ pub mod errors;
 pub mod model;
 pub mod references;
 pub mod result;
+pub mod tojuli;
 
 pub use beng::{
     beng1_limit_woonfunctie_grondgebonden, BengAssessment, BengIndicators, BengLimits,
     IndicatorAssessment,
+};
+pub use tojuli::{
+    tojuli_orientation, tojuli_zone, TojuliOrientationInput, TojuliOrientationResult,
+    TojuliZoneResult,
 };
 pub use calc::calculate_ep_score;
 pub use errors::EpError;

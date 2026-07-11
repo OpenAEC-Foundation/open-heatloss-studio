@@ -75,11 +75,13 @@ pub const BENG2_LIMIT_WOONFUNCTIE_KWH_M2: f64 = 30.0;
 /// Bbl art. 4.149, tabel 4.149.
 pub const BENG3_LIMIT_WOONFUNCTIE_PCT: f64 = 50.0;
 
-/// Grenswaarde voor de TOjuli-indicator (oververhitting, dimensieloos).
+/// Grenswaarde voor de TOjuli-indicator (oververhitting), in K.
 ///
-/// Een woonfunctie heeft ten hoogste deze waarde voor iedere rekenzone en
-/// oriëntatie, bepaald volgens NTA 8800 §5.7 (maand juli).
-/// Bbl art. 4.149b lid 1.
+/// NTA 8800 §5.7.2 (formule 5.40, p. 115) definieert TOjuli;or,zi in K
+/// (kelvin) — een geschatte temperatuurstijging, niet dimensieloos. De grens
+/// 1,20 is dus 1,20 K. Een woonfunctie heeft ten hoogste deze waarde voor
+/// iedere rekenzone en oriëntatie (maand juli). Bbl art. 4.149b lid 1.
+/// Zie [`crate::tojuli`] voor de berekening.
 pub const TOJULI_LIMIT: f64 = 1.20;
 
 /// Alternatieve grens bij TOjuli-overschrijding: max. aantal gewogen
