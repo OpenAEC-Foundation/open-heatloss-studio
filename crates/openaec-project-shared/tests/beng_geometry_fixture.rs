@@ -21,10 +21,18 @@ const AALTEN_BENG_GEOMETRY: &str = include_str!(
     "../../../tests/verification/beng_uniec_crosscheck/aalten-2522/beng_geometry.input.json"
 );
 
+const GOUDA_BENG_GEOMETRY: &str = include_str!(
+    "../../../tests/verification/beng_uniec_crosscheck/gouda-2467/beng_geometry.input.json"
+);
+
 /// Parse de fixture naar [`BengGeometry`]. Onbekende `_meta`/`_note`-sleutels
 /// (fixture-commentaar) worden door serde genegeerd.
 fn load() -> BengGeometry {
     serde_json::from_str(AALTEN_BENG_GEOMETRY).expect("Aalten BENG-geometrie-fixture moet parsen")
+}
+
+fn load_gouda() -> BengGeometry {
+    serde_json::from_str(GOUDA_BENG_GEOMETRY).expect("Gouda BENG-geometrie-fixture moet parsen")
 }
 
 /// Totale kozijn-oppervlakte op een gevel = Σ (aantal · WindowDef::area_m2).
@@ -119,4 +127,75 @@ fn opaque_areas_match_certified_capture() {
     check("gevel-dak", 68.10); // certified: opaak 68,10 + dakraam 1,20 = 69,30
     check("gevel-o", 18.77); // certified: opaak 18,77 + ramen 5,04 (A+B+C) = 23,81
     check("gevel-w", 18.22); // certified: opaak 18,22 + ramen 5,59 (F+G) = 23,81
+}
+
+// ---------------------------------------------------------------------------
+// Gouda 2467 (F6 fase 2b) — vloer-op-kruipruimte + 2 dakvlakken + 4 gevels
+// ---------------------------------------------------------------------------
+
+#[test]
+fn gouda_fixture_parses_and_validates() {
+    load_gouda().validate().expect("Gouda-geometrie moet groen valideren");
+}
+
+#[test]
+fn gouda_fixture_has_expected_shape() {
+    let geo = load_gouda();
+    assert_eq!(geo.opaque_defs.len(), 3, "3 opake defs (vloer/gevel/dak)");
+    assert_eq!(geo.window_defs.len(), 13, "13 kozijnmerken (A–K + F-glas + K-glas)");
+    assert_eq!(geo.zones.len(), 1);
+    let zone = &geo.zones[0];
+    assert!((zone.a_g_m2 - 133.06).abs() < 1e-9, "A_g = 133,06");
+    assert_eq!(zone.gevels.len(), 7, "7 begrenzingsvlakken (vloer + 4 gevels + 2 daken)");
+}
+
+#[test]
+fn gouda_floor_is_crawlspace_no_omtrek_required() {
+    // Gouda-verschil met Aalten: vloer grenst aan kruipruimte (buffer), niet aan
+    // grond → geen P/A-methode, dus omtrek P is niet vereist (wél gecapturet).
+    let geo = load_gouda();
+    let vloer = geo.zones[0].gevels.iter().find(|g| g.id == "gevel-vloer").unwrap();
+    assert_eq!(vloer.vlak_type, VlakType::Vloer);
+    assert_eq!(vloer.grenst_aan, BengAdjacency::VloerOpMaaiveldBovenKruipruimte);
+    assert!(!vloer.grenst_aan.requires_omtrek(), "kruipruimte vereist geen omtrek P");
+    assert!((vloer.omtrek_p_m.unwrap() - 48.00).abs() < 1e-9, "P is wél gecapturet (48,00)");
+}
+
+#[test]
+fn gouda_has_two_roof_planes() {
+    let geo = load_gouda();
+    let daken: Vec<_> = geo.zones[0]
+        .gevels
+        .iter()
+        .filter(|g| g.vlak_type == VlakType::Dak)
+        .collect();
+    assert_eq!(daken.len(), 2, "twee dakvlakken (Oost + West)");
+    assert_eq!(daken[0].grenst_aan.orientatie(), Some(Orientation::Oost));
+    assert_eq!(daken[1].grenst_aan.orientatie(), Some(Orientation::West));
+    for d in &daken {
+        assert_eq!(d.helling_deg, Some(30.0), "dakhelling 30°");
+    }
+}
+
+#[test]
+fn gouda_opaque_areas_match_certified_capture() {
+    // Opaak = bruto − Σ ramen; alle 7 vlakken certified (Achtergevel W + Gevel
+    // Rechts N via de her-capture met CONSTRD_OPP). Elke opaak sluit exact op
+    // het certified CONSTRD_OPP.
+    let geo = load_gouda();
+    let check = |id: &str, expected_opaque: f64| {
+        let g = geo.zones[0].gevels.iter().find(|g| g.id == id).unwrap();
+        let opaque = g.bruto_buiten_opp_m2 - windows_area(&geo, g);
+        assert!(
+            (opaque - expected_opaque).abs() < 1e-6,
+            "gevel {id}: opaak {opaque:.2} != verwacht {expected_opaque:.2}"
+        );
+    };
+    check("gevel-vloer", 118.08); // geen ramen
+    check("gevel-voorgevel-o", 11.90); // 42,27 − 30,37 (D+E+F+F-glas+G+J)
+    check("gevel-achtergevel-w", 36.72); // 42,27 − 5,55 (A×3)
+    check("gevel-links-z", 15.85); // 30,69 − 14,84 (B+C+I+K+K-glas)
+    check("gevel-rechts-n", 28.53); // 30,69 − 2,16 (H×3)
+    check("gevel-dak-oost", 58.34); // geen ramen
+    check("gevel-dak-west", 74.13); // geen ramen
 }

@@ -4,6 +4,7 @@ Grondgebonden woning, **2467 Goejanverwelledijk 85 Gouda**. Certified met **Unie
 
 - **Invoer:** `input.oes.json` (kopie van `open-energy-studio/training-data/2467-goejanverwelledijk-gouda.oes.json`, John Heikens, LGPL-3.0). Bevat het volledige `project{}`-blok (1 rekenzone, 1 verwarming, 1 ventilatie, 1 koeling, 1 tapwater, 2 PV-velden, 3 constructies) + `meta`.
 - **Expected:** `expected.json`, waarden EXACT uit `meta.uniecReference` (JSON-paden in `provenance`).
+- **Gevel-georiënteerde BENG-geometrie (F6 fase 2b):** `beng_geometry.input.json` — buiten-oppervlak per gevel/dak op rekenzone-niveau (7 begrenzingsvlakken: vloer-op-kruipruimte + 4 gevels O/W/Z/N + 2 daken O/W), 1-op-1 uit de certified Uniec-capture. Bronnen: `uniec_fields_capture.json` (21 pagina's, alleen-lezen Playwright-walk) + `uniec_fields_capture_retry.json` (her-capture Achtergevel W + Gevel Rechts N mét loose-inputs/CONSTRD_OPP). Provenance + benaderingen (belemmering-V1, screens) staan in het `_meta`-blok van de fixture.
 
 | Indicator | Certified | Limiet |
 |---|---|---|

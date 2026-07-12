@@ -1,0 +1,258 @@
+[
+  {
+    "nav": "Achtergevel (W) — hercapture",
+    "href": "/Project/38817/Berekening/1457377/Constructies/441e5d00-c9a0-40cb-a8d5-11fbc75d477f",
+    "heading": "",
+    "fields": [
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "Gevel (Rc = 6,76)"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "Merk A (U = 1,2 / ggl = 0,40)"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "minimale belemmering"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "geen zonwering"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "niet aanwezig"
+      },
+      {
+        "kind": "input:textarea",
+        "label": "opmerkingen",
+        "value": "",
+        "ngModel": "ctrl.getPropData(ctrl.propOpmerkingen, ctrl.constructieError).Value"
+      },
+      {
+        "kind": "select",
+        "label": "ntainput3e496338-7c11-4ed4-84ed-f40785b71140:CONSTRD_LIB",
+        "value": "f3e81fed-088e-4118-8d86-bf349018c3bb",
+        "options": [
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_LIB",
+        "value": "839ea244-0ed2-41a3-902b-3b2d87cccc8e",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_BESCH",
+        "value": "BELEMTYPE_MIN",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_ZONW",
+        "value": "ZONW_GEEN",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_ZNVENT",
+        "value": "ZOMERNVENT_NAANW",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput00672817-0aec-4590-9e05-120970bbfd14:CONSTRERROR_OPEN",
+        "value": "true",
+        "ngModel": "ctrl.getPropData(ctrl.propError, ctrl.constructieError).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput3e496338-7c11-4ed4-84ed-f40785b71140:CONSTRD_OPM",
+        "value": "",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput3e496338-7c11-4ed4-84ed-f40785b71140:CONSTRD_OPP",
+        "value": "36,72",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_OPM",
+        "value": "",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "- vul in -",
+        "value": "3",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput1e2b0bb6-2ec5-47d6-8752-1f884e1c286f:CONSTRT_OPP",
+        "value": "5,55",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      }
+    ]
+  },
+  {
+    "nav": "Gevel Rechts (N) — hercapture",
+    "href": "/Project/38817/Berekening/1457377/Constructies/e1780a90-dd9d-4b75-884d-7c88ae86014c",
+    "heading": "",
+    "fields": [
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "Gevel (Rc = 6,76)"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "Merk H (U = 1,3 / ggl = 0,40)"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "minimale belemmering"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "geen zonwering"
+      },
+      {
+        "kind": "md-select",
+        "label": "",
+        "value": "niet aanwezig"
+      },
+      {
+        "kind": "input:textarea",
+        "label": "opmerkingen",
+        "value": "",
+        "ngModel": "ctrl.getPropData(ctrl.propOpmerkingen, ctrl.constructieError).Value"
+      },
+      {
+        "kind": "select",
+        "label": "ntainput327cde64-2c3a-40d7-84ee-368a021a5e3f:CONSTRD_LIB",
+        "value": "f3e81fed-088e-4118-8d86-bf349018c3bb",
+        "options": [
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_LIB",
+        "value": "84f4da2a-2401-4e71-8325-8ab8d59800af",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_BESCH",
+        "value": "BELEMTYPE_MIN",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_ZONW",
+        "value": "ZONW_GEEN",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "select",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_ZNVENT",
+        "value": "ZOMERNVENT_NAANW",
+        "options": [
+          "n.v.t.",
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput19d10292-97e5-422a-8663-6c0e49e2893d:CONSTRERROR_OPEN",
+        "value": "true",
+        "ngModel": "ctrl.getPropData(ctrl.propError, ctrl.constructieError).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput327cde64-2c3a-40d7-84ee-368a021a5e3f:CONSTRD_OPM",
+        "value": "",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainput327cde64-2c3a-40d7-84ee-368a021a5e3f:CONSTRD_OPP",
+        "value": "28,53",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_OPM",
+        "value": "",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "- vul in -",
+        "value": "3",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      },
+      {
+        "kind": "loose-input:text",
+        "label": "ntainputf4f7bade-1abd-4646-970c-6bbfb2780a81:CONSTRT_OPP",
+        "value": "2,16",
+        "ngModel": "ctrl.getPropData(prop, entdata).Value"
+      }
+    ]
+  }
+]
