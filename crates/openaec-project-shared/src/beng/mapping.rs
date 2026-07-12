@@ -610,6 +610,7 @@ mod tests {
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            q_v10_spec_dm3_s_m2: None,
             source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 120.0);
@@ -629,6 +630,7 @@ mod tests {
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            q_v10_spec_dm3_s_m2: None,
             source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 100.0);
@@ -651,6 +653,7 @@ mod tests {
             mechanical_supply_m3_per_h: Some(150.0),
             mechanical_exhaust_m3_per_h: Some(150.0),
             infiltration_m3_per_h: Some(20.0),
+            q_v10_spec_dm3_s_m2: None,
             source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 100.0);

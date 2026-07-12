@@ -69,6 +69,27 @@ pub struct SharedProject {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infiltration_m3_per_h: Option<f64>,
 
+    /// Gemeten of (onder kwaliteitsborging) verklaarde specifieke
+    /// luchtdoorlatendheid `q_v10;spec` (= `q_v10;lea;ref`) bij Δp = 10 Pa,
+    /// in **dm³/(s·m²)** per **gebruiksoppervlakte** `A_g`.
+    ///
+    /// Vervangt — indien aanwezig — het forfaitaire bouwjaar-/gebouwtype-pad
+    /// (NTA 8800 formule (11.86)) in het §11.2.1 drukmodel dat de
+    /// infiltratie-`C_lea` bepaalt (zie [`crate::tojuli`] +
+    /// `nta8800_ventilation::BuildingPressureContext::effective_q_v10`).
+    /// Dit is de invoer die Uniec-certified berekeningen als gemeten/verklaarde
+    /// luchtdichtheid opvoeren.
+    ///
+    /// Prioriteit t.o.v. [`Self::infiltration_m3_per_h`]: die twee sturen
+    /// verschillende grootheden — `q_v10_spec_dm3_s_m2` bepaalt de norm-exacte
+    /// lek-conductantie in het drukmodel, terwijl `infiltration_m3_per_h` het
+    /// absolute lucht-/natuurlijk-toevoerdebiet (`flow.infiltration`) blijft
+    /// sturen. Ze kunnen naast elkaar bestaan.
+    ///
+    /// Referentie: NTA 8800:2025+C1:2026 §11.2.5, PDF p. 485-486.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q_v10_spec_dm3_s_m2: Option<f64>,
+
     /// Mechanische toevoer luchtvolumestroom in m³/h.
     /// Zie NTA 8800 tabel 11.23 voor referentiewaarden.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,6 +121,7 @@ impl SharedProject {
             ventilation_system: None,
             heat_recovery: None,
             infiltration_m3_per_h: None,
+            q_v10_spec_dm3_s_m2: None,
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
         }

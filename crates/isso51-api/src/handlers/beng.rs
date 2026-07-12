@@ -186,6 +186,7 @@ mod tests {
                 mechanical_supply_m3_per_h: Some(150.0),
                 mechanical_exhaust_m3_per_h: Some(150.0),
                 infiltration_m3_per_h: None,
+                q_v10_spec_dm3_s_m2: None,
                 source: None,
             }),
             cooling: Some(CoolingInput {

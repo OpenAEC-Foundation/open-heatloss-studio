@@ -409,10 +409,11 @@ pub fn build_openings(
     // --- C_lea uit het forfaitaire infiltratie-referentiedebiet -----------
     // q_v1;lea;ref is per definitie het lek-debiet bij Δp = 1 Pa; formule
     // (11.84) geeft C_lea = q_v1;lea;ref / Δp^n_lea = q_v1;lea;ref bij 1 Pa.
-    // Bij onbekend bouwjaar (forfait_q_v10 → None) is er geen forfaitaire
-    // C_lea — dan blijft de lek-bijdrage 0 (een meetwaarde-pad is C2.3-scope).
+    // Prioriteit (§11.2.5): een gemeten/verklaarde `q_v10;lea;ref` wint van het
+    // forfait; zonder meting én zonder bekend bouwjaar (effective_q_v10 → None)
+    // is er geen forfaitaire C_lea — dan blijft de lek-bijdrage 0.
     let c_lea = ctx
-        .forfait_q_v10()
+        .effective_q_v10()
         .map_or(0.0, |q_v10| q_v1_lea_ref(q_v10, ctx.gross_floor_area_m2));
 
     // C2-scope: H < 15 m → één luchtstroomzone met de hele gebouwhoogte.
@@ -1039,9 +1040,10 @@ pub fn solve_zone_airflow(
             flow.mechanical_supply.max(flow.mechanical_exhaust)
         }
     };
-    // q_V1;lea;ref voor de nauwkeurigheidsterm (formule (11.14)).
+    // q_V1;lea;ref voor de nauwkeurigheidsterm (formule (11.14)) — zelfde
+    // effectieve q_v10;lea;ref-bron als C_lea (meting > forfait, §11.2.5).
     let q_v1_lea = ctx
-        .forfait_q_v10()
+        .effective_q_v10()
         .map_or(0.0, |q_v10| q_v1_lea_ref(q_v10, ctx.gross_floor_area_m2));
     let accuracy_x = accuracy_threshold(q_v_oda_req, q_v1_lea);
 

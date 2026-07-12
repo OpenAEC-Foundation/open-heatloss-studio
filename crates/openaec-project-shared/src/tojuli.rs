@@ -428,6 +428,12 @@ pub enum TojuliError {
     /// Project mist een rekenzone (lege geometrie + geen gross_floor_area).
     #[error("project levert geen rekenzone (lege geometrie)")]
     EmptyProject,
+    /// Ongeldige `q_v10;spec`-invoer: een specifieke luchtdoorlatendheid is per
+    /// definitie ≥ 0 en eindig (NTA 8800 §11.2.5). `Some(0.0)` is geldig
+    /// (perfecte luchtdichtheid); een negatieve of niet-eindige waarde wordt
+    /// hier expliciet geweigerd i.p.v. stil naar het forfait teruggeschoven.
+    #[error("ongeldige q_v10;spec = {0} dm³/(s·m²): moet ≥ 0 en eindig zijn (NTA 8800 §11.2.5)")]
+    InvalidQv10Spec(f64),
 }
 
 /// Hoofd-orchestrator: voer de volledige TO-juli H.10 berekening uit.
@@ -451,6 +457,18 @@ pub fn compute_tojuli_full(
     project: &ProjectV2,
     inputs: &TojuliFullInputs,
 ) -> Result<TojuliResult, TojuliError> {
+    // ---- 0. Invoervalidatie ----
+    // q_v10;spec (F3d-9) op de invoergrens weigeren als hij negatief of
+    // niet-eindig is: een negatieve waarde zou verderop stil door de
+    // `c_lea > 0.0`-guard vallen (= gedrag alsof er geen meting is). `Some(0.0)`
+    // is bewust géén fout (perfecte luchtdichtheid; de `or_else`-terugval naar
+    // het forfait triggert alleen op `None`).
+    if let Some(q) = project.shared.q_v10_spec_dm3_s_m2 {
+        if q < 0.0 || !q.is_finite() {
+            return Err(TojuliError::InvalidQv10Spec(q));
+        }
+    }
+
     // ---- 1. View ----
     let view = geometry_to_nta8800(&project.shared, &project.geometry)?;
     let zone = view.rekenzones.first().ok_or(TojuliError::EmptyProject)?;
@@ -641,9 +659,14 @@ pub fn compute_tojuli_full(
         project.shared.construction_year,
         pressure_a_g,
         derive_building_leakage_type(&project.shared),
-    );
+    )
+    // F3d-9: een gemeten/verklaarde `q_v10;spec` (dm³/(s·m²) per A_g) vervangt
+    // het forfait uit formule (11.86) in de infiltratie-C_lea (§11.2.5).
+    .with_measured_q_v10_spec(project.shared.q_v10_spec_dm3_s_m2);
+    // effective_q_v10() = meting > forfait: een gemeten q_v10;spec activeert het
+    // drukmodel óók zonder bekend bouwjaar (de meting heeft geen f_y nodig).
     let use_pressure_model =
-        pressure_context.within_c2_scope() && pressure_context.forfait_q_v10().is_some();
+        pressure_context.within_c2_scope() && pressure_context.effective_q_v10().is_some();
 
     let ventilation = if use_pressure_model {
         // C2-scope + bekend bouwjaar: norm-exacte §11.2.1.6 massabalans per maand.
@@ -1589,5 +1612,133 @@ mod tests {
         );
         // De ondergrens garandeert een strikt positieve toevoer.
         assert!(q > 0.0, "woning-ondergrens moet q_V;ODA;req > 0 garanderen");
+    }
+
+    // --- F3d-9: gemeten/verklaarde q_v10;spec (NTA 8800 §11.2.5) -----------
+
+    /// Sommeer de jaarlijkse warmtevraag Q_H;nd (MJ) voor een systeem-A-project
+    /// binnen C2-scope met een gegeven `q_v10;spec` (dm³/(s·m²) per A_g).
+    ///
+    /// Systeem A + `construction_year = 2015` + 1 bouwlaag (3,0 m) garandeert
+    /// dat het §11.2.1 drukmodel wordt gebruikt (within_c2_scope &&
+    /// effective_q_v10().is_some()), zodat de lek-`C_lea` daadwerkelijk uit
+    /// `q_v10;spec` volgt.
+    fn q_h_nd_for_q_v10_spec(q_v10_spec: Option<f64>, build_year: Option<u32>) -> f64 {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::Natural);
+        p.shared.heat_recovery = None;
+        p.shared.construction_year = build_year;
+        p.shared.num_storeys = Some(1); // 3,0 m → binnen C2-scope
+        p.shared.q_v10_spec_dm3_s_m2 = q_v10_spec;
+        let i = sample_inputs();
+        let r = compute_tojuli_full(&p, &i).expect("compute_tojuli_full moet slagen");
+        r.monthly_q_h_nd_mj.as_array().iter().sum::<f64>()
+    }
+
+    /// Een lekkere gemeten `q_v10;spec` levert een hogere Q_H;nd dan een
+    /// luchtdichte waarde: de meting stuurt daadwerkelijk de lek-`C_lea` in het
+    /// drukmodel (§11.2.5 → formule (11.85)/(11.86)).
+    #[test]
+    fn measured_q_v10_spec_scales_heating_demand() {
+        let tight = q_h_nd_for_q_v10_spec(Some(0.3), Some(2015));
+        let leaky = q_h_nd_for_q_v10_spec(Some(3.0), Some(2015));
+        assert!(
+            leaky > tight,
+            "lekkere schil (q_v10=3,0) moet meer warmtevraag geven dan luchtdicht \
+             (q_v10=0,3): leaky {leaky} vs tight {tight}"
+        );
+    }
+
+    /// De meting wint van het forfait én maakt het bouwjaar irrelevant voor de
+    /// lek-`C_lea`: dezelfde `q_v10;spec` levert een identieke Q_H;nd, of het
+    /// bouwjaar nu 1965 (fors ander forfait) of onbekend is (§11.2.5).
+    #[test]
+    fn measured_q_v10_overrides_forfait_and_ignores_build_year() {
+        let with_old_year = q_h_nd_for_q_v10_spec(Some(1.2), Some(1965));
+        let without_year = q_h_nd_for_q_v10_spec(Some(1.2), None);
+        assert!(
+            (with_old_year - without_year).abs() < 1e-9,
+            "gezette meting moet het bouwjaar irrelevant maken: {with_old_year} vs {without_year}"
+        );
+    }
+
+    /// Drop-in-equivalentie: een gemeten `q_v10;spec` die exact gelijk is aan
+    /// het forfait rekent byte-identiek aan het forfait-pad. Voor een
+    /// vrijstaande woning (GroundBoundDetachedPitchedRoof) met bouwjaar 2015
+    /// geldt forfait = q_spec(1,0) · f_type(1,4) · f_y(0,7) = 0,98 dm³/(s·m²).
+    #[test]
+    fn measured_equal_to_forfait_matches_forfait_path() {
+        let forfait = q_h_nd_for_q_v10_spec(None, Some(2015));
+        let measured_equal = q_h_nd_for_q_v10_spec(Some(0.98), Some(2015));
+        assert!(
+            (forfait - measured_equal).abs() < 1e-6,
+            "meting == forfait (0,98) moet identiek rekenen aan het forfait-pad: \
+             {forfait} vs {measured_equal}"
+        );
+    }
+
+    /// Een negatieve `q_v10;spec` is fysisch onmogelijk en wordt op de
+    /// invoergrens expliciet geweigerd — NIET stil naar het forfait
+    /// teruggeschoven (zou anders door de `c_lea > 0.0`-guard vallen).
+    #[test]
+    fn negative_q_v10_spec_is_rejected() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::Natural);
+        p.shared.construction_year = Some(2015);
+        p.shared.num_storeys = Some(1);
+        p.shared.q_v10_spec_dm3_s_m2 = Some(-0.5);
+        let i = sample_inputs();
+        let err = compute_tojuli_full(&p, &i).expect_err("negatieve q_v10;spec moet falen");
+        assert!(
+            matches!(err, TojuliError::InvalidQv10Spec(v) if v == -0.5),
+            "verwacht InvalidQv10Spec(-0.5), kreeg {err:?}"
+        );
+    }
+
+    /// Een niet-eindige `q_v10;spec` (NaN/∞) wordt eveneens geweigerd.
+    #[test]
+    fn non_finite_q_v10_spec_is_rejected() {
+        let mut p = sample_project();
+        p.shared.ventilation_system = Some(VentilationSystemKind::Natural);
+        p.shared.construction_year = Some(2015);
+        p.shared.num_storeys = Some(1);
+        p.shared.q_v10_spec_dm3_s_m2 = Some(f64::INFINITY);
+        let i = sample_inputs();
+        let err = compute_tojuli_full(&p, &i).expect_err("niet-eindige q_v10;spec moet falen");
+        assert!(matches!(err, TojuliError::InvalidQv10Spec(_)), "kreeg {err:?}");
+    }
+
+    /// `Some(0.0)` is een geldige invoer (perfecte luchtdichtheid): de keten
+    /// rekent zonder fout én triggert het forfait NIET — de lek-`C_lea` is
+    /// nul, dus de warmtevraag ligt lager dan met het forfait-pad.
+    #[test]
+    fn zero_q_v10_spec_is_valid_and_bypasses_forfait() {
+        let airtight = q_h_nd_for_q_v10_spec(Some(0.0), Some(2015));
+        let forfait = q_h_nd_for_q_v10_spec(None, Some(2015));
+        assert!(
+            airtight < forfait,
+            "perfecte luchtdichtheid (q_v10=0) moet minder warmtevraag geven dan het \
+             forfait (0,98): airtight {airtight} vs forfait {forfait}"
+        );
+    }
+
+    /// Regressie-pin: een project zónder `q_v10;spec` blijft byte-identiek
+    /// (serde-default None, skip_serializing_if). Bestaande JSON's zonder het
+    /// veld deserialiseren zonder waarde en serialiseren zonder de sleutel.
+    #[test]
+    fn legacy_v2_without_q_v10_spec_round_trip() {
+        let json_v2_legacy = r#"{
+            "name": "Test Project",
+            "building_type": {
+                "kind": "woning",
+                "subtype": "detached"
+            },
+            "gross_floor_area_m2": 100.0
+        }"#;
+        let shared: crate::shared::SharedProject =
+            serde_json::from_str(json_v2_legacy).expect("deserialize legacy v2 zonder q_v10;spec");
+        assert_eq!(shared.q_v10_spec_dm3_s_m2, None);
+        let serialized = serde_json::to_string(&shared).expect("serialize back");
+        assert!(!serialized.contains("q_v10_spec_dm3_s_m2"));
     }
 }

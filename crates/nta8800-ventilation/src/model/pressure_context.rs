@@ -148,6 +148,30 @@ pub struct BuildingPressureContext {
     /// Gebouwtype-classificatie voor de NTA 8800 tabel 11.14 correctie
     /// (`q_v10;spec;reken` + `f_type`).
     pub leakage_type: BuildingLeakageType,
+
+    /// Gemeten of (onder kwaliteitsborging) verklaarde specifieke
+    /// luchtdoorlatendheid `q_v10;lea;ref` bij Δp = 10 Pa, in **dm³/(s·m²)**
+    /// per **gebruiksoppervlakte** `A_g` (niet schiloppervlak).
+    ///
+    /// Vervangt — indien aanwezig — de forfaitaire waarde uit formule (11.86).
+    /// NTA 8800 §11.2.5 (PDF p. 485): *"Ingeval de specifieke luchtvolumestroom
+    /// die wordt doorgelaten bij 10 Pa, q_v10;lea;ref, op basis van meting
+    /// [NEN 2686:1988] is vastgesteld, wordt deze waarde voor de berekening van
+    /// de luchtstroom door infiltratie gebruikt."* — en bij kwaliteitsborging
+    /// *"moet die waarde worden gebruikt"*. Referentie-oppervlak: OPMERKING 2
+    /// (PDF p. 486) — de meetwaarde `q_v10;gemeten` wordt gedeeld door de
+    /// gebruiksoppervlakte, identiek aan de eenheid van de forfaitaire waarde
+    /// die via formule (11.85) met `A_g` wordt geschaald.
+    ///
+    /// `None` → val terug op het forfait ([`Self::forfait_q_v10`], formule
+    /// (11.86)). Zie [`Self::effective_q_v10`] voor de prioriteitsvolgorde.
+    ///
+    /// **Preconditie:** een specifieke luchtdoorlatendheid is ≥ 0 en eindig.
+    /// `Some(0.0)` is geldig (perfecte luchtdichtheid → `C_lea = 0`). Deze crate
+    /// is een pure rekenlaag en toetst dat niet; consumers weigeren een
+    /// ongeldige waarde op de invoergrens (bv. `TojuliError::InvalidQv10Spec`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured_q_v10_spec: Option<f64>,
 }
 
 impl BuildingPressureContext {
@@ -167,7 +191,20 @@ impl BuildingPressureContext {
             build_year,
             gross_floor_area_m2,
             leakage_type,
+            measured_q_v10_spec: None,
         }
+    }
+
+    /// Zet de gemeten/verklaarde specifieke luchtdoorlatendheid
+    /// `q_v10;lea;ref` (dm³/(s·m²) per `A_g`) — builder-stijl zodat
+    /// [`Self::new`] signatuur-stabiel blijft.
+    ///
+    /// `Some(v)` laat de meting het forfait overrulen (zie
+    /// [`Self::effective_q_v10`]); `None` behoudt het forfait-pad.
+    #[must_use]
+    pub const fn with_measured_q_v10_spec(mut self, measured_q_v10_spec: Option<f64>) -> Self {
+        self.measured_q_v10_spec = measured_q_v10_spec;
+        self
     }
 
     /// Of dit gebouw binnen de C2-scope valt: één luchtstroomzone,
@@ -198,6 +235,31 @@ impl BuildingPressureContext {
     pub fn forfait_q_v10(&self) -> Option<f64> {
         self.build_year
             .map(|year| crate::calc::infiltration::q_v10_lea_ref_forfait(self.leakage_type, year))
+    }
+
+    /// De effectief te gebruiken specifieke luchtdoorlatendheid `q_v10;lea;ref`
+    /// (dm³/(s·m²)) voor de infiltratie-`C_lea`, met de NTA 8800 §11.2.5
+    /// prioriteitsvolgorde:
+    ///
+    /// 1. **Gemeten/verklaarde meetwaarde** ([`Self::measured_q_v10_spec`]) —
+    ///    heeft voorrang; de norm schrijft haar gebruik voor zodra ze is
+    ///    vastgesteld (meting NEN 2686:1988) of onder kwaliteitsborging is
+    ///    vastgelegd (PDF p. 485).
+    /// 2. **Forfait** ([`Self::forfait_q_v10`], formule (11.86)) — alleen
+    ///    *"indien er geen meetwaarde beschikbaar is"* (PDF p. 485); vereist een
+    ///    bekend bouwjaar voor `f_y` (tabel 11.13).
+    ///
+    /// Geeft `None` als beide ontbreken (geen meting én onbekend bouwjaar) —
+    /// dan is er geen forfaitaire `C_lea` af te leiden.
+    ///
+    /// Merk op: de meetwaarde heeft géén bouwjaar nodig; een project met een
+    /// gemeten `q_v10;spec` maar zonder `build_year` levert hier tóch een
+    /// waarde.
+    ///
+    /// Referentie: NTA 8800:2025+C1:2026 §11.2.5, PDF p. 485-486.
+    #[must_use]
+    pub fn effective_q_v10(&self) -> Option<f64> {
+        self.measured_q_v10_spec.or_else(|| self.forfait_q_v10())
     }
 }
 
@@ -311,6 +373,70 @@ mod tests {
             BuildingLeakageType::GroundBoundTerracedPitchedRoof,
         );
         assert_eq!(ctx.forfait_q_v10(), None);
+    }
+
+    #[test]
+    fn effective_q_v10_measured_wins_over_forfait() {
+        // Bouwjaar 2015 → forfait 0,7; meting 0,35 moet winnen (§11.2.5).
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            Some(2015),
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        )
+        .with_measured_q_v10_spec(Some(0.35));
+        assert_eq!(ctx.forfait_q_v10(), Some(0.7));
+        assert_eq!(ctx.effective_q_v10(), Some(0.35));
+    }
+
+    #[test]
+    fn effective_q_v10_measured_without_build_year() {
+        // Geen bouwjaar → forfait None, maar een meting levert tóch een waarde.
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            None,
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        )
+        .with_measured_q_v10_spec(Some(0.6));
+        assert_eq!(ctx.forfait_q_v10(), None);
+        assert_eq!(ctx.effective_q_v10(), Some(0.6));
+    }
+
+    #[test]
+    fn effective_q_v10_falls_back_to_forfait() {
+        // Geen meting → forfait-pad (bouwjaar bekend).
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            Some(2015),
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        );
+        assert_eq!(ctx.measured_q_v10_spec, None);
+        assert_eq!(ctx.effective_q_v10(), ctx.forfait_q_v10());
+        assert_eq!(ctx.effective_q_v10(), Some(0.7));
+    }
+
+    #[test]
+    fn effective_q_v10_none_when_no_measurement_and_no_build_year() {
+        let ctx = BuildingPressureContext::new(
+            8.0,
+            None,
+            120.0,
+            BuildingLeakageType::GroundBoundTerracedPitchedRoof,
+        );
+        assert_eq!(ctx.effective_q_v10(), None);
+    }
+
+    #[test]
+    fn new_defaults_measured_q_v10_to_none() {
+        let ctx = BuildingPressureContext::new(
+            9.0,
+            Some(2000),
+            100.0,
+            BuildingLeakageType::MultiStoreyLowerTerraced,
+        );
+        assert_eq!(ctx.measured_q_v10_spec, None);
     }
 
     #[test]

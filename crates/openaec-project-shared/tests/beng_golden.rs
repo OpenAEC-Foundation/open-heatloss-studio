@@ -248,11 +248,12 @@ fn oes_orientation_deg(o: &str) -> Option<f64> {
 /// - **Koudebruggen:** `zone.thermalBridges` (ψ + lengte) → `SharedGeometry.
 ///   thermal_bridges`; de transmissie-tak telt `Σ ψ·L` bij H_D op (F3d-4-fix).
 ///
-/// **Niet-injecteerbaar (→ norm-forfait, gedocumenteerde gap):** de gemeten
-/// `airTightness.qv10` (geen ProjectV2-veld → infiltratie valt op het
-/// tabel-11.13-forfait per [`BuildingLeakageType`]). `subtype` stuurt
-/// uitsluitend dat leakage-forfait; het is per case op de werkelijke typologie
-/// gezet.
+/// - **Luchtdichtheid (F3d-9):** de gemeten/verklaarde `airTightness.qv10`
+///   (dm³/(s·m²) per A_g) → `SharedProject::q_v10_spec_dm3_s_m2`; deze vervangt
+///   in het §11.2.1 drukmodel het bouwjaar-/gebouwtype-forfait per
+///   [`BuildingLeakageType`] (NTA 8800 §11.2.5). `subtype` stuurt nog steeds het
+///   leakage-forfait als terugval (bv. buiten C2-scope); het is per case op de
+///   werkelijke typologie gezet.
 fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> ProjectV2 {
     let project = &input["project"];
 
@@ -331,6 +332,10 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
     p.shared.building_type = BuildingTypeShared::Woning { subtype };
     p.shared.gross_floor_area_m2 = Some(floor_area);
     p.shared.construction_year = Some(2020);
+    // F3d-9: de gemeten/verklaarde `airTightness.qv10` (dm³/(s·m²) per A_g) is nu
+    // injecteerbaar en vervangt het bouwjaar-/gebouwtype-forfait in het §11.2.1
+    // drukmodel (NTA 8800 §11.2.5).
+    p.shared.q_v10_spec_dm3_s_m2 = zone["airTightness"]["qv10"].as_f64();
     p.geometry = SharedGeometry {
         spaces: vec![Space {
             id: zone["id"].as_str().unwrap_or("zone").to_string(),
@@ -398,6 +403,9 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            // F3d-9: normatieve BENG-ventilatie-invoer is autoritatief; hier de
+            // gemeten `airTightness.qv10` (§11.2.5) doorzetten.
+            q_v10_spec_dm3_s_m2: zone["airTightness"]["qv10"].as_f64(),
             source: None,
         }),
         cooling: Some(CoolingInput {
@@ -729,7 +737,8 @@ fn uniec_gouda_2467() {
             crediteert ~64,6% van de PV (partieel salderen, ouder-norm/bijlage-AB), 2025+C1 salderert \
             volledig → BENG2 negatief. Twee cases beide op ~64% zelfgebruik bevestigen het. EP-crate \
             ongewijzigd (anti-fudge). Ook PV-noord bron-inconsistentie (orientation \"N\" vs 3811 kWh), \
-            koeling +104% (F_sh=1,0) en Q_H;nd te laag (BENG1 77,1 vs 103,7). Buiten ±6/10/3pp. \
+            koeling +104% (F_sh=1,0) en Q_H;nd te laag (BENG1 76,7 vs 103,7; qv10=0,40 injectie F3d-9 \
+            verlaagt licht want < forfait). Buiten ±6/10/3pp. \
             Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md + fixture-README §engine-gaps."]
 fn uniec_aalten_2522() {
     uniec_golden_body("aalten-2522", UNIEC_AALTEN_EXPECTED, UNIEC_AALTEN_INPUT);

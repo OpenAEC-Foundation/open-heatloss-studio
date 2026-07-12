@@ -302,6 +302,8 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
 
     // ---- Demand-tak via de gevalideerde TO-juli-keten ----
     let effective = effective_project_with_ventilation(project);
+    // Transparantie: welke infiltratiebron voedt de demand-berekening (§11.2.5).
+    notes.push(infiltration_source_note(&effective.shared));
     let cooling_system = energy
         .cooling
         .as_ref()
@@ -767,7 +769,48 @@ fn effective_project_with_ventilation(project: &ProjectV2) -> ProjectV2 {
     p.shared.mechanical_supply_m3_per_h = v.mechanical_supply_m3_per_h;
     p.shared.mechanical_exhaust_m3_per_h = v.mechanical_exhaust_m3_per_h;
     p.shared.infiltration_m3_per_h = v.infiltration_m3_per_h;
+    p.shared.q_v10_spec_dm3_s_m2 = v.q_v10_spec_dm3_s_m2;
     p
+}
+
+/// Menselijk-leesbare herkomst-note van de gebruikte infiltratiebron voor
+/// [`BengResult::notes`] (transparantie-huisregel: bronnen nooit verbergen).
+///
+/// De prioriteitsvolgorde spiegelt
+/// `nta8800_ventilation::BuildingPressureContext::effective_q_v10` + de
+/// bestaande `flow.infiltration`-betekenis:
+///
+/// 1. **Gemeten/verklaarde `q_v10;spec`** — vervangt het forfait in het
+///    §11.2.1 drukmodel (NTA 8800 §11.2.5).
+/// 2. **Forfait** — bouwjaar-/gebouwtype-pad (formule (11.86)); alleen gemeld
+///    als er een bouwjaar is (anders geen forfaitaire `C_lea`).
+///
+/// Een expliciet **absoluut** infiltratiedebiet (`infiltration_m3_per_h`) stuurt
+/// een andere grootheid (`flow.infiltration`) en wordt, indien aanwezig, apart
+/// vermeld.
+fn infiltration_source_note(shared: &crate::shared::SharedProject) -> String {
+    let mut note = String::from("Infiltratie-bron: ");
+    match shared.q_v10_spec_dm3_s_m2 {
+        Some(q) => {
+            note.push_str(&format!(
+                "gemeten/verklaarde q_v10;spec = {q} dm³/(s·m²) per A_g \
+                 (NTA 8800 §11.2.5, vervangt forfait)"
+            ));
+        }
+        None if shared.construction_year.is_some() => {
+            note.push_str("forfait uit bouwjaar + gebouwtype (NTA 8800 formule 11.86)");
+        }
+        None => {
+            note.push_str(
+                "geen q_v10;spec en geen bouwjaar — geen forfaitaire C_lea, \
+                 lek-infiltratie via drukmodel = 0 (NTA 8800 §11.2.5)",
+            );
+        }
+    }
+    if let Some(q) = shared.infiltration_m3_per_h {
+        note.push_str(&format!("; expliciet absoluut debiet = {q} m³/h"));
+    }
+    note
 }
 
 /// Reconstrueer een [`DemandResult`] uit de TO-juli-keten-uitvoer voor de

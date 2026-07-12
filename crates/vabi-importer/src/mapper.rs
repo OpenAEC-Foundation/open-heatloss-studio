@@ -88,6 +88,7 @@ fn map_shared_project(
         ventilation_system,
         heat_recovery: None, // TODO: map from ventilation config
         infiltration_m3_per_h: None,
+        q_v10_spec_dm3_s_m2: None,
         mechanical_supply_m3_per_h: None,
         mechanical_exhaust_m3_per_h: None,
     })

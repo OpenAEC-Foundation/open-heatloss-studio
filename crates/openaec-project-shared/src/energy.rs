@@ -366,6 +366,20 @@ pub struct VentilationInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infiltration_m3_per_h: Option<f64>,
 
+    /// Gemeten of (onder kwaliteitsborging) verklaarde specifieke
+    /// luchtdoorlatendheid `q_v10;spec` (= `q_v10;lea;ref`) bij Δp = 10 Pa,
+    /// in **dm³/(s·m²)** per **gebruiksoppervlakte** `A_g`.
+    ///
+    /// Normatieve BENG-invoer: overschrijft — indien aanwezig — het forfaitaire
+    /// bouwjaar-/gebouwtype-pad (NTA 8800 formule (11.86)) in het §11.2.1
+    /// drukmodel; wint van het forfait maar staat los van
+    /// [`Self::infiltration_m3_per_h`] (absoluut debiet). Wordt door
+    /// `compute_beng` doorgezet naar [`crate::shared::SharedProject`].
+    ///
+    /// Referentie: NTA 8800:2025+C1:2026 §11.2.5, PDF p. 485-486.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q_v10_spec_dm3_s_m2: Option<f64>,
+
     /// Herkomst van de ventilatiekentallen (η_WTW, SFP; dossierplicht, zie
     /// module-doc). `None`/forfait = norm-forfait. Puur metadata — raakt de
     /// berekening niet.
@@ -540,6 +554,7 @@ mod tests {
                 mechanical_supply_m3_per_h: Some(150.0),
                 mechanical_exhaust_m3_per_h: Some(150.0),
                 infiltration_m3_per_h: Some(25.0),
+                q_v10_spec_dm3_s_m2: None,
                 source: None,
             }),
             cooling: Some(CoolingInput {
