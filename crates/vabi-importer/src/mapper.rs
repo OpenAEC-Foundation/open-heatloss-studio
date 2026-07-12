@@ -53,6 +53,7 @@ pub fn import_vabi_project_v2(
         geometry,
         calcs,
         energy: None,
+        beng_geometry: None,
     })
 }
 

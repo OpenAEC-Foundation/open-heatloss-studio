@@ -1,0 +1,130 @@
+{
+  "_meta": {
+    "case": "aalten-2522",
+    "beschrijving": "Gevel-georiënteerde BENG-geometrie-invoer (F6 fase 1) voor 2522 Woning Aalten, opgebouwd uit de certified Uniec 3.3.x velden-capture (alleen-lezen Playwright-walk).",
+    "bron": "uniec_fields_capture.json + uniec_fields_capture_retry2.json + docs/2026-07-12-uniec-velden-inventarisatie.md §2/§5",
+    "kanttekening_wand_o_w": "Wand (O) en Wand (W) gaven in de eerste walk een stale view; ze zijn gericht her-captured. De tweede her-capture (uniec_fields_capture_retry2.json, mét losse invoervelden) ving óók de opake CONSTRD_OPP + aantallen. Certified: Wand (O) = kozijnmerken A + B + C (elk aantal 1), opaak 18,77 → 18,77 + 5,04 = 23,81 exact; Wand (W) = F + G (elk aantal 1), opaak 18,22 → 18,22 + 5,59 = 23,81 exact. Merk C komt op twee gevels voor (Z: aantal 2, O: aantal 1). Alle 6 gevels sluiten nu op certified CONSTRD_OPP + ramen.",
+    "invarianten_gecontroleerd": {
+      "N_opaak_16.51_plus_ramen_5.45": 21.96,
+      "Z_opaak_29.91_plus_ramen_9.95": 39.86,
+      "dak_opaak_68.10_plus_dakraam_1.20": 69.30,
+      "O_opaak_18.77_plus_ramen_5.04_A+B+C": 23.81,
+      "W_opaak_18.22_plus_ramen_5.59_F+G": 23.81,
+      "vloer_opp": 67.00,
+      "A_g": 67.00
+    }
+  },
+  "opaque_defs": [
+    { "id": "def-vloer", "omschrijving": "Vloer", "kind": "vloer", "thermal": { "rc": 3.70 } },
+    { "id": "def-wand",  "omschrijving": "Wand",  "kind": "gevel", "thermal": { "rc": 4.70 } },
+    { "id": "def-dak",   "omschrijving": "Dak",   "kind": "dak",   "thermal": { "rc": 6.30 } }
+  ],
+  "window_defs": [
+    { "id": "merk-a",         "omschrijving": "A",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 4.12 },
+    { "id": "merk-b",         "omschrijving": "B",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 0.56 },
+    { "id": "merk-c",         "omschrijving": "C",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 0.36 },
+    { "id": "merk-d",         "omschrijving": "D",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 0.97 },
+    { "id": "merk-d-deurglas","omschrijving": "D deurglas","kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 0.53 },
+    { "id": "merk-d-deur",    "omschrijving": "D deur",    "kind": "deur", "u_w_per_m2k": 2.0, "ggl": 0.00, "area_m2": 1.84 },
+    { "id": "merk-e",         "omschrijving": "E",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 0.91 },
+    { "id": "merk-f",         "omschrijving": "F",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 2.00 },
+    { "id": "merk-g",         "omschrijving": "G",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 3.59 },
+    { "id": "merk-h",         "omschrijving": "H",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 4.57 },
+    { "id": "merk-i",         "omschrijving": "I",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 1.20 },
+    { "id": "merk-j",         "omschrijving": "J",         "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 4.66 },
+    { "id": "merk-dakraam",   "omschrijving": "dakraam",   "kind": "raam", "u_w_per_m2k": 1.3, "ggl": 0.40, "area_m2": 1.20 }
+  ],
+  "zones": [
+    {
+      "id": "rz-woning",
+      "naam": "woning",
+      "a_g_m2": 67.00,
+      "bouwwijze_vloer": "CONSTRM_FL_26",
+      "bouwwijze_wand": "CONSTRM_W_11",
+      "woningtype": "TWON_VRIJ_K",
+      "gevels": [
+        {
+          "id": "gevel-vloer",
+          "omschrijving": "vloer",
+          "vlak_type": "vloer",
+          "grenst_aan": "vloer_op_maaiveld_boven_grond",
+          "bruto_buiten_opp_m2": 67.00,
+          "omtrek_p_m": 32.92,
+          "constructie_ref": "def-vloer",
+          "ramen": []
+        },
+        {
+          "id": "gevel-n",
+          "omschrijving": "Wand",
+          "vlak_type": "gevel",
+          "grenst_aan": { "buitenlucht": { "orientatie": "noord" } },
+          "bruto_buiten_opp_m2": 21.96,
+          "helling_deg": 90.0,
+          "constructie_ref": "def-wand",
+          "ramen": [
+            { "kozijn_ref": "merk-d",          "belemmering": "minimal" },
+            { "kozijn_ref": "merk-d-deurglas", "_note": "Uniec: zijbelemmering rechts (afstand 0,18 / breedte 0,05 / hoek 74° / hoogte >=2,5 m). Obstruction-V1 kent alleen None/Minimal, dus benaderd als 'minimal'.", "belemmering": "minimal" },
+            { "kozijn_ref": "merk-d-deur",     "_note": "opake deur, belemmering n.v.t. -> Obstruction::None (default)." },
+            { "kozijn_ref": "merk-e",          "belemmering": "minimal" },
+            { "kozijn_ref": "merk-i",          "belemmering": "minimal" }
+          ]
+        },
+        {
+          "id": "gevel-o",
+          "omschrijving": "Wand",
+          "_note": "Certified via her-capture v2 (uniec_fields_capture_retry2.json): kozijnmerken A + B + C, elk aantal 1, minimale belemmering / geen zonwering / geen zomernachtventilatie. Certified opaak CONSTRD_OPP = 18,77 → 18,77 + (4,12 + 0,56 + 0,36) = 23,81 exact.",
+          "vlak_type": "gevel",
+          "grenst_aan": { "buitenlucht": { "orientatie": "oost" } },
+          "bruto_buiten_opp_m2": 23.81,
+          "helling_deg": 90.0,
+          "constructie_ref": "def-wand",
+          "ramen": [
+            { "kozijn_ref": "merk-a", "belemmering": "minimal" },
+            { "kozijn_ref": "merk-b", "belemmering": "minimal" },
+            { "kozijn_ref": "merk-c", "belemmering": "minimal" }
+          ]
+        },
+        {
+          "id": "gevel-z",
+          "omschrijving": "Wand",
+          "vlak_type": "gevel",
+          "grenst_aan": { "buitenlucht": { "orientatie": "zuid" } },
+          "bruto_buiten_opp_m2": 39.86,
+          "helling_deg": 90.0,
+          "constructie_ref": "def-wand",
+          "ramen": [
+            { "kozijn_ref": "merk-h", "belemmering": "minimal" },
+            { "kozijn_ref": "merk-c", "aantal": 2, "belemmering": "minimal" },
+            { "kozijn_ref": "merk-j", "belemmering": "minimal" }
+          ]
+        },
+        {
+          "id": "gevel-w",
+          "omschrijving": "Wand",
+          "_note": "Certified via her-capture v2 (uniec_fields_capture_retry2.json): kozijnmerken F + G, elk aantal 1, minimale belemmering / geen zonwering / geen zomernachtventilatie. Certified opaak CONSTRD_OPP = 18,22 → 18,22 + (2,00 + 3,59) = 23,81 exact.",
+          "vlak_type": "gevel",
+          "grenst_aan": { "buitenlucht": { "orientatie": "west" } },
+          "bruto_buiten_opp_m2": 23.81,
+          "helling_deg": 90.0,
+          "constructie_ref": "def-wand",
+          "ramen": [
+            { "kozijn_ref": "merk-f", "belemmering": "minimal" },
+            { "kozijn_ref": "merk-g", "belemmering": "minimal" }
+          ]
+        },
+        {
+          "id": "gevel-dak",
+          "omschrijving": "Dak",
+          "vlak_type": "dak",
+          "grenst_aan": { "buitenlucht": { "orientatie": "noord" } },
+          "bruto_buiten_opp_m2": 69.30,
+          "helling_deg": 15.0,
+          "constructie_ref": "def-dak",
+          "ramen": [
+            { "kozijn_ref": "merk-dakraam", "belemmering": "minimal" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -24,11 +24,15 @@ case) is bewezen demand-model-breed; verkeerde geometrie-invoer is de hoofdverda
 > 1. In grid-lay-outs (bibliotheek, begrenzing, constructie-ramen) hebben de md-selects een
 >    **leeg `label`** — het kolomlabel staat als kop bóven het grid. De kolomstructuur is
 >    gereconstrueerd uit de bijbehorende screenshot + de interne veld-codes.
-> 2. De walk kreeg voor **Wand (O)**, **Wand (W)** en **Koeling 1** een **stale/fallback-view**
->    terug (respectievelijk de "Indeling gebouw"-pagina en de "Installaties"-overzichtstegels)
->    i.p.v. de detailpagina — vermoedelijk een traag-ladende Angular-route. Die drie pagina's
->    zijn hieronder aangevuld uit de betrouwbaar-gecapturede zustergevels + de screenshots
->    (p10, p12, p19). Vloer, Wand N, Wand Z en Dak N zijn wél volledig gecapturet.
+> 2. De eerste walk kreeg voor **Wand (O)**, **Wand (W)** en **Koeling 1** een
+>    **stale/fallback-view** terug (respectievelijk de "Indeling gebouw"-pagina en de
+>    "Installaties"-overzichtstegels) i.p.v. de detailpagina — een traag-ladende
+>    Angular-route. Die drie pagina's zijn daarna **gericht her-captured** met lange settle;
+>    een tweede her-capture (mét losse invoervelden) ving óók de opake `CONSTRD_OPP` +
+>    aantallen. Definitief: `…/walk_1530142/fields_retry2.json`, gearchiveerd als
+>    `uniec_fields_capture_retry2.json` (`p10_retry2.png` / `p12_retry2.png` /
+>    `p19_retry2.png`) — nu volledig certified (zie p10/p12/p19 hieronder). Vloer, Wand N,
+>    Wand Z en Dak N waren al in de eerste walk volledig gecapturet.
 
 ## 2. Datamodel van Uniec — de boomstructuur
 
@@ -192,18 +196,25 @@ Zonwering-opties (`CONSTRT_ZONW`): `geen zonwering` · screens/jaloezieën/rollu
 per kleur) · gemetalliseerde weefsels (binnen) · uitval-/knikarmschermen · vaste lamellen.
 Zomernachtventilatie (`CONSTRT_ZNVENT`): `niet aanwezig` · `aanwezig`.
 
-### p10 Constructie — Wand (O)  ⚠ stale capture
-Opaak: Wand (Rc = 4,70). Ramen niet betrouwbaar gecaptured (walk gaf Indeling-fallback).
-Verifieer tegen screenshot p10. Begrenzing-opp 23,81 m² (uit p07).
+### p10 Constructie — Wand (O)  ✅ her-captured (v2, certified)
+Opaak: Wand (Rc = 4,70). Begrenzing-opp 23,81 m² (uit p07). Na de tweede her-capture
+(`uniec_fields_capture_retry2.json` / `p10_retry2.png`, mét losse invoervelden) volledig
+certified: drie kozijnmerken **A** (4,12), **B** (0,56), **C** (0,36), elk **aantal 1**,
+minimale belemmering / geen zonwering / zomernachtvent. niet aanwezig. Certified opake
+`CONSTRD_OPP` = **18,77 m²** → 18,77 + 5,04 = 23,81 exact. Merk **C** komt dus óók op Oost
+voor (naast Wand Z, waar C met aantal 2 staat).
 
 ### p11 Constructie — Wand (Z)
 Opaak: Wand (Rc = 4,70). Geplaatste kozijnmerken: **H**, **C**, **J** (elk minimale
 belemmering / geen zonwering / zomernachtvent. niet aanwezig, conform het N-patroon;
 verifieer detail tegen screenshot p11).
 
-### p12 Constructie — Wand (W)  ⚠ stale capture
-Opaak: Wand (Rc = 4,70). Ramen niet betrouwbaar gecaptured. Verifieer tegen screenshot p12.
-Begrenzing-opp 23,81 m² (uit p07).
+### p12 Constructie — Wand (W)  ✅ her-captured (v2, certified)
+Opaak: Wand (Rc = 4,70). Begrenzing-opp 23,81 m² (uit p07). Na de tweede her-capture
+(`uniec_fields_capture_retry2.json` / `p12_retry2.png`, mét losse invoervelden) volledig
+certified: twee kozijnmerken **F** (2,00) en **G** (3,59), elk **aantal 1**, minimale
+belemmering / geen zonwering / zomernachtvent. niet aanwezig. Certified opake `CONSTRD_OPP`
+= **18,22 m²** → 18,22 + 5,59 = 23,81 exact.
 
 ### p13 Constructie — Dak (N)
 Opaak: Dak (Rc = 6,30). Geplaatst kozijnmerk: **dakraam** (U 1,3 / ggl 0,40, opp 1,20 m²).
@@ -271,9 +282,30 @@ Tapwater: # badruimten 1 · # keukens 1.
 | geïnstalleerde ventilatiecapaciteit | select | onbekend |
 | luchtdichtheidsklasse kanalen | select | onbekend |
 
-### p19 Koeling 1  ⚠ detail stale (uit screenshot p19)
-Systeem: **compressiekoeling - elektrisch**. SEER/EER-detail niet in de capture — overnemen uit
-`input.oes.json` van de golden.
+### p19 Koeling 1  ✅ her-captured (v2)
+Na de her-capture (`uniec_fields_capture_retry2.json` / `p19_retry2.png`) volledig:
+| Veld | Opties / code | Aalten |
+|---|---|---|
+| type opwekker (`KOEL-OPWEK_TYPE`) | — | compressiekoeling - elektrisch (`_TYPE_1`) |
+| invoer opwekker (`KOEL-OPWEK_INVOER`) | forfaitair / … | forfaitair (`_FORF`) |
+| gemeenschappelijk (`KOEL-OPWEK_GEM`) | — | niet-gemeenschappelijke installatie (`_NIET`) |
+| koudebehoefte totaal [kWh] | read-only | 873 |
+| door opwekker geleverde koude [kWh] | read-only | 873 |
+| **EER** | read-only | **3,00** (forfaitair) |
+| energiefractie | read-only | 1,000 |
+| hulpenergie opweksysteem [kWh] | read-only | 0 |
+| verdampersysteem (`KOEL-DISTR_VERDAMP`) | — | watergedragen distributiesysteem (`_3`) |
+| ontwerptemperatuur (`KOEL-DISTR_ONTW`) | — | aanvoer 17° - retour 21° (`_4`) |
+| waterzijdige inregeling (`KOEL-DISTR_WAT`) | — | inregeling onbekend (`_6`) |
+| invoer leidingen (`KOEL-DISTR-BUI_INV`) | — | geen leidingen buiten gekoelde zone (`_H`) |
+| pomp - invoer (`KOEL-DISTR_POMP_INV`) | — | pompvermogen onbekend, EEI onbekend (`_D`) |
+| aantal bouwlagen koelsysteem | tekst | 1 |
+| type afgiftesysteem (`KOEL-AFG_TYPE_AFG`) | — | vloerkoeling (`_1`) |
+| ruimtetemperatuur-regeling (`KOEL-AFG_TYPE_RUIM`) | — | centraal met handmatig overrulen / naregeling per ruimte (`_9`) |
+| ventilatoren afgifte | select | geen ventilatoren aanwezig |
+
+Sluit aan op de golden-subtotaal koeling (koudebehoefte 873 kWh; EER 3,00 forfaitair). Voor
+fase 1 documentair — de installatie-invoer zit al in `energy.rs` (`CoolingInput`).
 
 ### p20 PV 1
 | Veld | Opties / code | Aalten |
@@ -406,6 +438,11 @@ Aalten-2522 als validatie-fixture voor dit blok: 1 rekenzone (A_g 67,00), 6 geve
 ## Bijlage — ruwe capture
 
 - Ruwe dump: `…/scratchpad/uniec_dump/walk_1530142/` (`fields.json`, `nav.json`, `p01.png`–`p20.png`)
-- Gearchiveerd in de golden: `tests/verification/beng_uniec_crosscheck/aalten-2522/uniec_fields_capture.json`
-- Verifieer p10 (Wand O), p12 (Wand W) en p19 (Koeling detail) tegen de screenshots — die drie
-  detailpagina's gaven een stale capture-view.
+- Her-capture v2 (Wand O / Wand W / Koeling 1, mét losse invoervelden):
+  `…/walk_1530142/fields_retry2.json` + `p10_retry2.png` / `p12_retry2.png` / `p19_retry2.png`
+- Gearchiveerd in de golden:
+  `tests/verification/beng_uniec_crosscheck/aalten-2522/uniec_fields_capture.json` +
+  `…/uniec_fields_capture_retry2.json`
+- p10 (Wand O), p12 (Wand W) en p19 (Koeling) zijn met de her-capture v2 volledig certified
+  (incl. opake `CONSTRD_OPP` + aantallen); de eerste walk gaf daar een stale view. Zie ook de
+  gevel-georiënteerde BENG-fixture `…/beng_geometry.input.json`.

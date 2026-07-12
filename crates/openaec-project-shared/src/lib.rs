@@ -20,6 +20,7 @@
 #![deny(missing_docs)]
 
 pub mod beng;
+pub mod beng_geometry;
 pub mod calcs;
 pub mod energy;
 pub mod geometry;
@@ -42,6 +43,15 @@ pub use nta8800_view::{
     project_to_nta8800, surface_resistances, Nta8800View,
 };
 
+pub use beng_geometry::{
+    BengAdjacency, BengBoundary, BengGeometry, BengWindowPlacement, BengZone, KozijnType,
+    OpaqueConstructionDef, RcOrU, VlakType, WindowDef,
+};
+// De BENG-geometrie-API draagt deze `nta8800-model`-typen op zijn oppervlak
+// (belemmering/zonwering per raam, oriëntatie per gevel); re-export ze zodat
+// consumenten van `beng_geometry` de typen kunnen benoemen zonder een directe
+// dependency op `nta8800-model`.
+pub use nta8800_model::{MovableSunShading, Obstruction, Orientation, ShadingControl};
 pub use calcs::{Calcs, Iso51Inputs, TojuliInputs};
 pub use energy::{
     AutomationInput, BacsClassInput, CoolingGeneratorType, CoolingInput, DhwGeneratorType,

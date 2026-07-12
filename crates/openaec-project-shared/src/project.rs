@@ -3,6 +3,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::beng_geometry::BengGeometry;
 use crate::calcs::Calcs;
 use crate::energy::EnergyInput;
 use crate::geometry::SharedGeometry;
@@ -38,6 +39,13 @@ pub struct ProjectV2 {
     /// Additief: afwezig in bestaande project-JSON's ⇒ `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub energy: Option<EnergyInput>,
+
+    /// Gevel-georiënteerde BENG-geometrie-invoer (F6), 1-op-1 op het Uniec 3 /
+    /// NTA 8800-model. Additief náást [`SharedGeometry`]: afwezig in bestaande
+    /// project-JSON's ⇒ `None`. In fase 1 nog niet gelezen door
+    /// [`crate::compute_beng`] (dat is fase 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub beng_geometry: Option<BengGeometry>,
 }
 
 fn default_schema_version() -> u32 {
@@ -53,6 +61,7 @@ impl ProjectV2 {
             geometry: SharedGeometry::default(),
             calcs: Calcs::default(),
             energy: None,
+            beng_geometry: None,
         }
     }
 
@@ -113,6 +122,48 @@ mod tests {
         let p = ProjectV2::new("Test");
         let json = serde_json::to_string(&p).unwrap();
         assert!(!json.contains("energy"));
+    }
+
+    #[test]
+    fn beng_geometry_absent_is_skipped_in_serialization() {
+        // Byte-identiteit: een project zonder BENG-geometrie serialiseert de
+        // sleutel niet, zodat bestaande project-JSON onveranderd blijft.
+        let p = ProjectV2::new("Test");
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(!json.contains("beng_geometry"));
+    }
+
+    #[test]
+    fn v2_json_without_beng_geometry_deserializes_to_none() {
+        // Bestaand ProjectV2-JSON van vóór het beng_geometry-blok.
+        let json = r#"{
+            "schema_version": 2,
+            "shared": {"name": "Bestaand project"},
+            "geometry": {"spaces": []},
+            "calcs": {}
+        }"#;
+        let p: ProjectV2 = serde_json::from_str(json).unwrap();
+        assert!(p.beng_geometry.is_none());
+    }
+
+    #[test]
+    fn project_with_beng_geometry_round_trips() {
+        use crate::beng_geometry::{
+            BengGeometry, OpaqueConstructionDef, RcOrU, VlakType,
+        };
+        let mut p = ProjectV2::new("Met BENG-geometrie");
+        p.beng_geometry = Some(BengGeometry {
+            opaque_defs: vec![OpaqueConstructionDef {
+                id: "def-vloer".into(),
+                omschrijving: "Vloer".into(),
+                kind: VlakType::Vloer,
+                thermal: RcOrU::Rc(3.70),
+            }],
+            ..BengGeometry::default()
+        });
+        let json = serde_json::to_string(&p).unwrap();
+        let back: ProjectV2 = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.beng_geometry.unwrap().opaque_defs[0].id, "def-vloer");
     }
 
     #[test]
