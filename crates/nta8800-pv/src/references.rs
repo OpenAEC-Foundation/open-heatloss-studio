@@ -2,7 +2,7 @@
 //!
 //! Conventie: zie [`nta8800_model::references`]. Alle constanten zijn canonieke
 //! strings voor audit-traceability — een `grep` op bv.
-//! `NTA_8800_2025_FORMULE16_101` vindt alle call-sites voor de PV-formule,
+//! `NTA_8800_2025_FORMULE16_2` vindt alle call-sites voor de PV-formule,
 //! ook als de Rust-functienaam later verandert.
 
 // ---------------------------------------------------------------------------
@@ -37,16 +37,20 @@ pub const NTA_8800_2025_PARAG16_5: &str = "nta_8800_2025_parag16_5";
 // Formules — hoofdstuk 16
 // ---------------------------------------------------------------------------
 
-/// Formule (16.101) — maandelijkse PV-opbrengst basis.
+/// Formule (16.2) — maandelijkse PV-opbrengst per systeem (PDF p. 677).
 ///
-/// `Q_PV;mi = P_PV;peak * I_sol;mi * η_sys * η_inv * t_maand / 1000`
-/// waarbij P_PV;peak in kWp, I_sol;mi in W/m² gemiddeld, η factoren dimensieloos.
-pub const NTA_8800_2025_FORMULE16_101: &str = "nta_8800_2025_formule16_101";
+/// `E_el;PV;out;i,mi = E_sol;mi · P_pk;i · f_perf;i · c_sh,PV;mi;i · f_prac,PV;i / I_ref`.
+/// De opbrengstfactor `f_perf` komt uit Tabel 16.2, de schaduwcorrectie
+/// `c_sh` uit Tabel 16.3, `f_prac = 0,95`, `I_ref = 1 kW/m²`.
+pub const NTA_8800_2025_FORMULE16_2: &str = "nta_8800_2025_formule16_2";
 
-/// Formule (16.102) — correctiefactor voor tilt en azimuth.
+/// Formule (16.3) — maandelijkse opvallende zonnestraling op het PV-vlak
+/// (PDF p. 678): `E_sol;mi = I_sol;mi · t_mi · F_sh;obst;mi / 1000` [kWh/m²].
 ///
-/// `f_tilt_az = f_tilt(β) * f_az(γ)` met β = hellingshoek, γ = azimuth.
-pub const NTA_8800_2025_FORMULE16_102: &str = "nta_8800_2025_formule16_102";
+/// **`I_sol;mi` komt uit Tabel 17.2** per hellingshoek β én oriëntatie γ
+/// (OPMERKING 2 bij deze formule, PDF p. 678) — hierin, níet in een aparte
+/// "correctiefactor", zit de volledige tilt/azimut-afhankelijkheid.
+pub const NTA_8800_2025_FORMULE16_3: &str = "nta_8800_2025_formule16_3";
 
 /// Formule (16.103) — systeem-efficiëntie totaal.
 ///
@@ -67,11 +71,20 @@ pub const NTA_8800_2025_FORMULE16_105: &str = "nta_8800_2025_formule16_105";
 // Tabellen — hoofdstuk 16
 // ---------------------------------------------------------------------------
 
-/// Tabel 16.1 — Correctiefactoren hellingshoek β (0° tot 90°).
+/// Tabel 16.1 — Piekvermogen `Kpk` [W/m²] per zonnestroompaneeltype (PDF
+/// p. 680). **Géén hellingshoekcorrectie** (die zit in Tabel 17.2).
 pub const NTA_8800_2025_TABEL16_1: &str = "nta_8800_2025_tabel16_1";
 
-/// Tabel 16.2 — Correctiefactoren azimuth γ (-180° tot +180°).
+/// Tabel 16.2 — Opbrengstfactor `f_perf` van het zonnestroomsysteem naar
+/// bouwintegratie/ventilatie: 0,76 / 0,80 / 0,82 (PDF p. 681). **Géén
+/// azimutcorrectie** (die zit in Tabel 17.2).
 pub const NTA_8800_2025_TABEL16_2: &str = "nta_8800_2025_tabel16_2";
+
+/// Tabel 17.2 — maandgemiddelde opvallende zonnestraling `I_sol;mi` [W/m²]
+/// per hellingshoek β en oriëntatie γ, De Bilt (PDF p. 690-693). Draagt de
+/// volledige tilt/azimut-afhankelijkheid van de PV-opbrengst; getranscribeerd
+/// in [`crate::tables::irradiation`].
+pub const NTA_8800_2025_TABEL17_2: &str = "nta_8800_2025_tabel17_2";
 
 /// Tabel 16.3 — Forfaitaire systeem-efficiënties per PV-type.
 pub const NTA_8800_2025_TABEL16_3: &str = "nta_8800_2025_tabel16_3";
@@ -113,8 +126,8 @@ mod tests {
         NTA_8800_2025_PARAG16_4,
         NTA_8800_2025_PARAG16_4_1,
         NTA_8800_2025_PARAG16_5,
-        NTA_8800_2025_FORMULE16_101,
-        NTA_8800_2025_FORMULE16_102,
+        NTA_8800_2025_FORMULE16_2,
+        NTA_8800_2025_FORMULE16_3,
         NTA_8800_2025_FORMULE16_103,
         NTA_8800_2025_FORMULE16_104,
         NTA_8800_2025_FORMULE16_105,
@@ -122,6 +135,7 @@ mod tests {
         NTA_8800_2025_TABEL16_2,
         NTA_8800_2025_TABEL16_3,
         NTA_8800_2025_TABEL16_4,
+        NTA_8800_2025_TABEL17_2,
         NTA_8800_2025_BIJLAGE_V,
         NTA_8800_2025_BIJLAGE_V_PARAG1,
         NTA_8800_2025_BIJLAGE_V_PARAG2,

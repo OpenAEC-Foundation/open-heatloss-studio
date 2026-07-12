@@ -42,7 +42,7 @@ pub fn import_vabi_project_v2(
 
     // Map rooms with V2-specific enrichment
     let spaces = map_spaces_v2(&conn)?;
-    let geometry = SharedGeometry { spaces };
+    let geometry = SharedGeometry { spaces, ..Default::default() };
 
     // Create ISSO 53 calc inputs
     let calcs = create_isso53_calcs(&conn, &building)?;

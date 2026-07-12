@@ -207,6 +207,7 @@ use openaec_project_shared::energy::{
 };
 use openaec_project_shared::geometry::{
     BoundaryKind, Construction, ConstructionKind, Opening, OpeningKind, SharedGeometry, Space,
+    ThermalBridge,
 };
 use openaec_project_shared::shared::{BuildingTypeShared, ResidentialType};
 use openaec_project_shared::ProjectV2;
@@ -244,12 +245,14 @@ fn oes_orientation_deg(o: &str) -> Option<f64> {
 ///   `Some`-tak activeert de fan-SFP-doorgifte); compressiekoeling (`eer` = SEER);
 ///   PV-velden 1-op-1.
 ///
+/// - **Koudebruggen:** `zone.thermalBridges` (ψ + lengte) → `SharedGeometry.
+///   thermal_bridges`; de transmissie-tak telt `Σ ψ·L` bij H_D op (F3d-4-fix).
+///
 /// **Niet-injecteerbaar (→ norm-forfait, gedocumenteerde gap):** de gemeten
 /// `airTightness.qv10` (geen ProjectV2-veld → infiltratie valt op het
-/// tabel-11.13-forfait per [`BuildingLeakageType`]) en de expliciete
-/// `thermalBridges` (de nta8800-view propageert `thermal_bridges_linear` niet →
-/// H_T zonder koudebrugtoeslag). `subtype` stuurt uitsluitend dat
-/// leakage-forfait; het is per case op de werkelijke typologie gezet.
+/// tabel-11.13-forfait per [`BuildingLeakageType`]). `subtype` stuurt
+/// uitsluitend dat leakage-forfait; het is per case op de werkelijke typologie
+/// gezet.
 fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> ProjectV2 {
     let project = &input["project"];
 
@@ -309,6 +312,21 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
         });
     }
 
+    // Lineaire koudebruggen (ψ + lengte) uit het oes-zoneblok → gedeeld model.
+    let thermal_bridges: Vec<ThermalBridge> = zone["thermalBridges"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|tb| ThermalBridge {
+                    id: tb["id"].as_str().unwrap_or("tb").to_string(),
+                    description: tb["name"].as_str().unwrap_or("").to_string(),
+                    psi_w_per_mk: tb["psiValue"].as_f64().expect("thermalBridge.psiValue"),
+                    length_m: tb["length"].as_f64().expect("thermalBridge.length"),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut p = ProjectV2::new(project["name"].as_str().unwrap_or("oes-project"));
     p.shared.building_type = BuildingTypeShared::Woning { subtype };
     p.shared.gross_floor_area_m2 = Some(floor_area);
@@ -324,6 +342,7 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
             theta_i_summer_c: Some(24.0),
             constructions,
         }],
+        thermal_bridges,
     };
 
     let heat = &project["heatingSystems"][0];
@@ -690,17 +709,21 @@ fn uniec_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
 }
 
 #[test]
-#[ignore = "F3d-3 gap: PV-west valt door de map_pv-azimuthnormalisatie (270°→−90°, cos-clamp) op ~0 \
-            → BENG2 +94%, BENG3 −40pp; koeling +517% (F_sh=1,0), verwarming −58% (koudebruggen niet \
-            gepropageerd). Buiten ±6/8/3pp. Zie fixture-README §engine-gaps."]
+#[ignore = "F3d-4: PV-azimut (Tabel 17.2) én koudebrug-propagatie zijn nu gefixt — west/oost \
+            leveren op, H_T draagt Σψ·L. Maar nog buiten tolerantie: BENG1 60,1 (−37% — Q_H;nd \
+            structureel te laag), BENG2 −8,2 (PV-saldering over-netteert: onze EP-tak salderert \
+            jaarbasis i.p.v. de norm-maandmatching → BENG3 100% i.p.v. 83,7%), koeling +506% \
+            (F_sh=1,0, buiten scope). Buiten ±6/8/3pp. Zie fixture-README §engine-gaps."]
 fn uniec_gouda_2467() {
     uniec_golden_body("gouda-2467", UNIEC_GOUDA_EXPECTED, UNIEC_GOUDA_INPUT);
 }
 
 #[test]
-#[ignore = "F3d-3 gap: PV-noord uit de bron (orientation \"N\") levert ~0 vs certified 3811 kWh \
-            (bron-inconsistentie), plus koeling +108% / verwarming −47% → BENG2 +175%, BENG3 −43pp. \
-            Buiten ±6/10/3pp. Zie fixture-README §engine-gaps."]
+#[ignore = "F3d-4: PV-azimut (Tabel 17.2) én koudebrug-propagatie gefixt. PV-noord levert nu \
+            ~2570 kWh (was 0) — maar de bron zet orientation \"N\" tegen certified 3811 kWh \
+            (~930 kWh/kWp, zuid-niveau): een bron-inconsistentie die noord fysisch niet haalt, dus \
+            BENG2 blijft 8,2 vs 24,7 (−67%). Plus koeling +104% (F_sh=1,0, buiten scope) en Q_H;nd \
+            te laag (BENG1 77,1 vs 103,7). Buiten ±6/10/3pp. Zie fixture-README §engine-gaps."]
 fn uniec_aalten_2522() {
     uniec_golden_body("aalten-2522", UNIEC_AALTEN_EXPECTED, UNIEC_AALTEN_INPUT);
 }

@@ -139,6 +139,7 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
                 opaque("vloer", ConstructionKind::Floor, BoundaryKind::Ground, 44.0, 0.26),
             ],
         }],
+        ..Default::default()
     };
 
     p.energy = Some(EnergyInput {
@@ -438,6 +439,7 @@ fn geom(constructions: Vec<Construction>) -> SharedGeometry {
             theta_i_summer_c: Some(24.0),
             constructions,
         }],
+        ..Default::default()
     }
 }
 

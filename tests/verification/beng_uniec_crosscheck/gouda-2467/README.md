@@ -16,23 +16,28 @@ Sub-totalen (primair, kWh): verwarming 6506 · tapwater 4208 · koeling 244 · v
 
 Toleranties: BENG 1 ±6%, BENG 2 ±8%, BENG 3 ±3 pp. Zie `../README.md` voor de gedeelde kanttekening (geometrie is benadering, regressie-golden, WTW-pad ongedekt).
 
-## Meting F3d-3 (compute_beng vs certified) — 🔴 buiten tolerantie
+## Meting F3d-4 (compute_beng vs certified) — 🔴 buiten tolerantie
 
-De golden `uniec_gouda_2467` is end-to-end aangesloten (`oes_to_projectv2` → `compute_beng`) maar blijft `#[ignore]`: de engine haalt de tolerantie niet. Gemeten (A_g 133,1, A_ls 286,0, vormfactor 2,15):
+De golden `uniec_gouda_2467` is end-to-end aangesloten (`oes_to_projectv2` → `compute_beng`) maar blijft `#[ignore]`: de engine haalt de tolerantie niet. Gemeten na de F3d-4-fixes (PV-azimut via Tabel 17.2 + koudebrug-propagatie), A_g 133,1, A_ls 286,0, vormfactor 2,15:
 
-| Indicator | Berekend | Certified | Δ | Tol | Binnen? |
-|---|---|---|---|---|---|
-| BENG 1 | 57,55 | 95,86 | −40,0% | ±6% | ✗ |
-| BENG 2 | 53,41 | 27,48 | +94,3% | ±8% | ✗ |
-| BENG 3 | 43,52% | 83,7% | −40,2 pp | ±3 pp | ✗ |
-| Label | A++ | A+++ | −1 klasse | — | ✗ |
+| Indicator | F3d-3 | F3d-4 | Certified | Δ (F3d-4) | Tol | Binnen? |
+|---|---|---|---|---|---|---|
+| BENG 1 | 57,55 | 60,09 | 95,86 | −37,3% | ±6% | ✗ |
+| BENG 2 | 53,41 | −8,20 | 27,48 | over-salderend | ±8% | ✗ |
+| BENG 3 | 43,52% | 100,0% | 83,7% | +16,3 pp | ±3 pp | ✗ |
+| Label | A++ | A++++ | A+++ | +1 klasse | — | ✗ |
 
-Sub-totalen (primair kWh, berekend vs certified): verwarming 2724 vs 6506 (−58%) · tapwater 2620 vs 4208 (−38%) · koeling 1507 vs 244 (+517%) · ventilatoren 1252 vs 822 (+52%) · PV −997 (salderend) vs 8734 opbrengst.
+Sub-totalen (primair kWh, F3d-4 vs certified): verwarming 2935 vs 6506 (−55%) · tapwater 2620 vs 4208 (−38%) · koeling 1479 vs 244 (+506%) · ventilatoren 1252 vs 822 (+52%) · PV −9377 (salderend) vs 8734 opbrengst.
 
-### Bekende engine-gaps (op gemeten impact)
+### Gefixt in F3d-4
 
-1. **PV-west valt op ~0 — engine-bug (dominant voor BENG 2/3).** De bron heeft 7,2 kWp West + 1,2 kWp Oost. `map_pv` (`beng/mapping.rs`) normaliseert de DTO-azimuth naar −180..180 (west 270° → −90°), maar de yield-formule `cos((γ−180)/2)` in `nta8800-pv` is geschreven voor de 0-360-conventie: bij −90° wordt de factor negatief en door `.max(0.0)` op 0 geklemd. Gevolg: de west-string levert **niets** (de berekende ~688 kWh is de oost-string alleen). Dit is een **engine-inconsistentie** tussen `PvSystem::validate_azimuth` (±180) en `calculate_tilt_azimuth_factor` (0-360), niet een invoerfout — de input voedt de gedocumenteerde DTO-conventie (0=noord…270=west). Fixen buiten deze ronde (scope: gaps documenteren).
-2. **Koeling +517%.** `Q_C;nd` met `F_sh = 1,0` overschat de koudebehoefte fors (F3d-benadering, whole-zone, geen zomerzonwering). Grootste per-dienst-fout in absolute én relatieve zin na PV.
-3. **Verwarming −58% / tapwater −38%.** Koudebruggen (`thermalBridges`, 3 stuks in de bron) worden niet gepropageerd (`thermal_bridges_linear = []` in de nta8800-view) en de gemeten `qv10 = 0,98` is niet injecteerbaar (geen ProjectV2-veld) → H_T/H_ve te laag → Q_H;nd te laag. Tapwater volgt het A_g-forfait; het residu wijst op een SCOP_W-/distributie-verschil t.o.v. Uniec.
+1. **PV-azimut (was dominant voor BENG 2/3).** De 7,2 kWp West + 1,2 kWp Oost leveren nu op. De oude `cos((γ−180)/2)`-benadering klemde west (−90° na `map_pv`) door `.max(0.0)` op 0; de norm kent hier géén correctiefactor maar leest `I_sol` per (β, γ) uit **Tabel 17.2** (zie `docs/2026-07-12-f3d4-norm-analyse-pv.md`). West-30°/oost-30° volgen nu de tabel.
+2. **Koudebruggen.** De 3 `thermalBridges` (Σψ·L = 0,05·34 + 0,05·34 + 0,03·65 = 5,35 W/K) worden nu naar H_T gepropageerd (verwarming 2724 → 2935 kWh).
 
-Verruiming van de tolerantie is verboden zonder normanalyse; activering volgt zodra de PV-azimuth-keten, F_sh-koeling en koudebrug-propagatie zijn geadresseerd.
+### Resterende gaps (op gemeten impact)
+
+1. **PV-saldering over-netteert (nieuw dominant voor BENG 2/3).** BENG 2 slaat door naar −8,2 en BENG 3 naar 100%: de EP-tak salderert op jaarbasis i.p.v. de norm-maandmatching (H.5), waardoor de nu-wél-berekende PV-opbrengst te veel primair fossiel wegstreept. EP-crate-scope, niet F3d-4.
+2. **Koeling +506%.** `Q_C;nd` met `F_sh = 1,0` (whole-zone, geen zomerzonwering) overschat de koudebehoefte — bekende F3d-benadering, buiten scope.
+3. **Q_H;nd structureel te laag (BENG 1 −37%).** Koudebruggen halveren de gap niet; het residu zit in infiltratie-/ventilatie-forfait en het demand-model. De bron-`qv10` is niet injecteerbaar (geen ProjectV2-veld).
+
+Verruiming van de tolerantie is verboden zonder normanalyse; activering volgt zodra de PV-saldering (maandmatching), F_sh-koeling en de Q_H;nd-onderschatting zijn geadresseerd.

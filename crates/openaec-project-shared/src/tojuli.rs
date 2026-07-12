@@ -34,8 +34,10 @@ use nta8800_demand::model::{
     setpoints::{CoolingSetpoint, HeatingSetpoint},
 };
 use nta8800_demand::result::DemandResult;
-use nta8800_model::time::{Month, MonthlyProfile};
+use nta8800_model::geometry::ThermalBridgeCategory;
+use nta8800_model::time::MonthlyProfile;
 use nta8800_model::units::{Energy, Temperature};
+use nta8800_model::ThermalBridgeLinear;
 use nta8800_tables::climate::de_bilt_climate_data;
 use nta8800_transmission::{
     calculate_transmission,
@@ -176,6 +178,27 @@ fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionEle
     }
 
     elements
+}
+
+/// Bouw de lineaire-koudebruggenlijst voor `calculate_transmission` uit de
+/// gedeelde geometrie.
+///
+/// Elke [`crate::geometry::ThermalBridge`] wordt 1-op-1 een
+/// [`nta8800_model::ThermalBridgeLinear`] (`ψ`, `L`); de bijdrage aan `H_D` is
+/// `Σ ψ·L` (formule 8.1). Categorie → [`ThermalBridgeCategory::Overig`] omdat
+/// het gedeelde model (nog) geen bijlage-I-detailtype draagt — de categorie
+/// stuurt alleen rapportage, niet de sommatie.
+fn build_thermal_bridges_linear(geometry: &SharedGeometry) -> Vec<ThermalBridgeLinear> {
+    geometry
+        .thermal_bridges
+        .iter()
+        .map(|tb| ThermalBridgeLinear {
+            id: tb.id.clone(),
+            length: tb.length_m,
+            psi: tb.psi_w_per_mk,
+            category: ThermalBridgeCategory::Overig,
+        })
+        .collect()
 }
 
 /// Map ventilatie-configuratie uit SharedProject naar nta8800-ventilation types.
@@ -435,8 +458,13 @@ pub fn compute_tojuli_full(
     // ---- 2. Echte transmissie via nta8800-transmission ----
     let climate = de_bilt_climate_data();
     let elements = build_transmission_elements(&project.geometry);
-    let thermal_bridges_linear = Vec::new(); // Forfaitair 0 (NTA §7.3.3)
-    let thermal_bridges_point = Vec::new();  // Forfaitair 0 (NTA §7.3.3)
+    // Lineaire koudebruggen (§8.2.3, formule 8.1: Σ ψ·L) uit de gedeelde
+    // geometrie. Vóór F3d-4 stond hier een harde `Vec::new()` — dat was hét
+    // verliespunt waardoor de koudebrugtoeslag nooit in H_T (en dus in Q_H;nd)
+    // terechtkwam. Zowel de TO-juli- als de BENG-keten lopen via deze functie,
+    // dus deze propagatie dekt beide.
+    let thermal_bridges_linear = build_thermal_bridges_linear(&project.geometry);
+    let thermal_bridges_point = Vec::new(); // Punt-χ nog niet in het model (§8.2.1 OPM. 4)
 
     let indoor_temperature = MonthlyProfile::from_constant(inputs.heating_setpoint_c);
 
@@ -899,6 +927,7 @@ mod tests {
                     psi_thermal_bridge: None,
                 }],
             }],
+            ..Default::default()
         };
         p
     }
@@ -933,6 +962,44 @@ mod tests {
         let capacity = (0.50 * a_g).max(35.0);
         let q_des = 1.10 * 1.0 * f_tau * capacity * 3.6;
         q_des / (1.0 * 0.95)
+    }
+
+    #[test]
+    fn thermal_bridges_raise_h_t_and_heating_demand() {
+        use crate::geometry::ThermalBridge;
+        let i = sample_inputs();
+
+        // Basis (geen koudebruggen): H_T = 150 × 0,3 = 45 W/K.
+        let base = compute_tojuli_full(&sample_project(), &i).expect("base ok");
+        assert!((base.transmission_h_t_w_per_k - 45.0).abs() < 1e-6);
+
+        // Mét koudebruggen: Σ ψ·L = 0,10·20 + 0,05·30 = 3,5 W/K → H_T = 48,5.
+        let mut p = sample_project();
+        p.geometry.thermal_bridges = vec![
+            ThermalBridge {
+                id: "tb-vloer".into(),
+                description: "gevel-vloer".into(),
+                psi_w_per_mk: 0.10,
+                length_m: 20.0,
+            },
+            ThermalBridge {
+                id: "tb-dak".into(),
+                description: "gevel-dak".into(),
+                psi_w_per_mk: 0.05,
+                length_m: 30.0,
+            },
+        ];
+        let with_tb = compute_tojuli_full(&p, &i).expect("with_tb ok");
+
+        assert!(
+            (with_tb.transmission_h_t_w_per_k - (45.0 + 3.5)).abs() < 1e-6,
+            "H_T met koudebruggen = {}",
+            with_tb.transmission_h_t_w_per_k
+        );
+        // Hogere H_T → hogere warmtebehoefte Q_H;nd (jaarsom).
+        let q_h_base: f64 = base.monthly_q_h_nd_mj.as_array().iter().sum();
+        let q_h_tb: f64 = with_tb.monthly_q_h_nd_mj.as_array().iter().sum();
+        assert!(q_h_tb > q_h_base, "Q_H;nd tb {q_h_tb} moet > basis {q_h_base}");
     }
 
     #[test]

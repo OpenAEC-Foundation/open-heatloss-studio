@@ -67,6 +67,7 @@ pub mod errors;
 pub mod model;
 pub mod references;
 pub mod result;
+pub mod tables;
 
 pub use calc::calculate_pv_yield;
 pub use errors::PvError;

@@ -15,8 +15,8 @@ pub struct PvResult {
     /// Maandelijkse PV-opbrengst Q_PV;mi in MJ elektrisch.
     ///
     /// Nettolevering van het PV-systeem (na alle verliezen) conform
-    /// formule [`NTA_8800_2025_FORMULE16_101`]:
-    /// `Q_PV;mi = P_peak * I_sol;mi * η_total * t_maand / 1000`
+    /// formule [`NTA_8800_2025_FORMULE16_2`]:
+    /// `E_el;PV;out;i,mi = E_sol;mi · P_pk · f_perf · c_sh · f_prac / I_ref`
     pub monthly_yield_mj: MonthlyProfile<f64>,
 
     /// Jaarlijkse PV-opbrengst Q_PV;jaar in MJ elektrisch.
@@ -35,8 +35,8 @@ pub struct PvResult {
     ///
     /// DC-verliezen per maand (bekabeling, vervuiling, mismatch, etc.),
     /// berekend als: `system_loss = peak_yield * (1 - η_sys * shadow)`
-    /// waarbij `peak_yield` de theoretische piek-opbrengst is conform
-    /// [`NTA_8800_2025_FORMULE16_102`].
+    /// waarbij `peak_yield` de theoretische piek-opbrengst is (vlak-instraling
+    /// uit [`NTA_8800_2025_FORMULE16_3`] × Tabel 17.2).
     pub system_losses_mj: MonthlyProfile<f64>,
 }
 

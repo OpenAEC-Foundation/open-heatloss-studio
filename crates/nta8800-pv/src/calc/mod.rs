@@ -3,12 +3,21 @@
 //! Hoofdfunctie [`calculate_pv_yield`] implementeert formule 16.101:
 //! `Q_PV;mi = P_peak * I_sol;mi * η_total * t_maand / 1000` [MJ]
 //!
-//! ## V1 Scope & Vereenvoudigingen
+//! ## Tilt/azimut conform de norm (Tabel 17.2)
 //!
-//! - **Tilt/azimuth correctie:** forfaitair via cosinus-benadering
-//!   `f_tilt_az = cos(β - β_opt) * cos((γ - γ_opt)/2)` met β_opt=35°, γ_opt=180°
-//!   (V2: volledige interpolatie van NTA 8800 tabel 16.1/16.2)
-//! - **Zoninstraling:** gebruikt horizontale I_sol direct (V1 vereenvoudiging)
+//! De hellingshoek- en oriëntatie-afhankelijkheid van de opbrengst zit — anders
+//! dan een aparte "correctiefactor" — in de keuze van `I_sol;mi` uit **NTA 8800
+//! Tabel 17.2** (zie OPMERKING 2 bij formule 16.3, PDF p. 678). De horizontale
+//! maand-instraling uit `ClimateData` wordt hier vermenigvuldigd met de
+//! tabel-verhouding `I_sol(β, γ, mi) / I_sol(0°, mi)`
+//! ([`crate::tables::tilt_azimuth_factor`]), inclusief lineaire helling-
+//! interpolatie en de dichtstbijzijnde-oriëntatie-regel (PDF p. 693).
+//!
+//! De vervangen V1-benadering (`cos(β − 35°)·cos((γ − 180°)/2)`) week hier
+//! systematisch van af en klapte west/noord door de `.max(0.0)`-clamp op 0.
+//!
+//! ## Overige V1-vereenvoudigingen
+//!
 //! - **Inverter-efficiëntie:** constant η_inv (V2: dynamisch η(P_load/P_rated))
 //! - **Temperatuur-correctie:** niet geïmplementeerd (V2: T_cel vs T_amb)
 
@@ -22,6 +31,7 @@ use crate::{
     errors::PvError,
     model::{PvLocation, PvSystem},
     result::PvResult,
+    tables::tilt_azimuth_factor,
 };
 
 /// Bereken maandelijkse en jaarlijkse PV-opbrengst conform NTA 8800 H.16.
@@ -47,8 +57,9 @@ use crate::{
 ///
 /// # V1 Beperkingen
 ///
-/// - Gebruikt horizontale zoninstraling rechtstreeks (geen tilt-correctie)
-/// - Forfaitaire azimuth-correctie via cosinus-benadering voor β_opt=35°, γ_opt=180°
+/// - Tilt/azimut via de horizontale instraling × Tabel 17.2-verhouding
+///   ([`crate::tables::tilt_azimuth_factor`]) — norm-conform, maar leunt op de
+///   De Bilt-oriëntatiegeometrie ook voor niet-De-Bilt-klimaten
 /// - Constante inverter-efficiëntie (geen load-afhankelijke curve)
 ///
 /// # Example
@@ -101,11 +112,12 @@ pub fn calculate_pv_yield(
 
         // Som over alle systemen
         for system in systems {
-            // Tilt/azimuth correctiefactor (V1 vereenvoudiging)
+            // Tilt/azimut-verhouding uit Tabel 17.2 (norm-conform, maand-
+            // afhankelijk): I_sol(β, γ, mi) / I_sol(0°, mi).
             let tilt_az_factor =
-                calculate_tilt_azimuth_factor(system.tilt_degrees, system.azimuth_degrees);
+                tilt_azimuth_factor(system.tilt_degrees, system.azimuth_degrees, month);
 
-            // Gecorrigeerde zoninstraling voor dit systeem
+            // Gecorrigeerde zoninstraling voor dit systeem (vlak-instraling).
             let corrected_irradiation = irradiation_mj_per_m2 * tilt_az_factor;
 
             // Bruto opbrengst: Q [MJ/maand] = P_peak [kWp] × I_maand [MJ/m²].
@@ -148,22 +160,6 @@ pub fn calculate_pv_yield(
         inverter_losses_mj: MonthlyProfile::new(inverter_losses),
         system_losses_mj: MonthlyProfile::new(system_losses),
     })
-}
-
-/// V1 forfaitaire tilt/azimuth correctiefactor.
-///
-/// Implementeert cosinus-benadering: `f = cos(β - β_opt) * cos((γ - γ_opt)/2)`
-/// met β_opt = 35° en γ_opt = 180° (optimaal voor Nederland).
-///
-/// V2 zal volledige interpolatie uit NTA 8800 tabel 16.1/16.2 implementeren.
-fn calculate_tilt_azimuth_factor(tilt_degrees: f64, azimuth_degrees: f64) -> f64 {
-    let beta_opt = 35.0; // Optimale hellingshoek voor Nederland
-    let gamma_opt = 180.0; // Zuid-oriëntatie optimaal
-
-    let tilt_factor = (tilt_degrees - beta_opt).to_radians().cos();
-    let azimuth_factor = ((azimuth_degrees - gamma_opt) / 2.0).to_radians().cos();
-
-    (tilt_factor * azimuth_factor).max(0.0) // Negatieve factoren op 0 zetten
 }
 
 #[cfg(test)]

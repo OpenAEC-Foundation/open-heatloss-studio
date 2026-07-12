@@ -16,23 +16,28 @@ Sub-totalen (primair, kWh): verwarming 2551 · tapwater 1813 · koeling 422 · v
 
 Toleranties: BENG 1 ±6%, BENG 2 ±10% (ruimer dan Gouda: lagere absolute BENG 2 ⇒ hogere relatieve gevoeligheid), BENG 3 ±3 pp. Zie `../README.md` voor de gedeelde kanttekening.
 
-## Meting F3d-3 (compute_beng vs certified) — 🔴 buiten tolerantie
+## Meting F3d-4 (compute_beng vs certified) — 🔴 buiten tolerantie
 
-De golden `uniec_aalten_2522` is end-to-end aangesloten (`oes_to_projectv2` → `compute_beng`) maar blijft `#[ignore]`: de engine haalt de tolerantie niet. Gemeten (A_g 67,0, A_ls 177,6, vormfactor 2,65):
+De golden `uniec_aalten_2522` is end-to-end aangesloten (`oes_to_projectv2` → `compute_beng`) maar blijft `#[ignore]`: de engine haalt de tolerantie niet. Gemeten na de F3d-4-fixes (PV-azimut via Tabel 17.2 + koudebrug-propagatie), A_g 67,0, A_ls 177,6, vormfactor 2,65:
 
-| Indicator | Berekend | Certified | Δ | Tol | Binnen? |
-|---|---|---|---|---|---|
-| BENG 1 | 73,33 | 103,69 | −29,3% | ±6% | ✗ |
-| BENG 2 | 67,84 | 24,71 | +174,6% | ±10% | ✗ |
-| BENG 3 | 42,32% | 85,0% | −42,7 pp | ±3 pp | ✗ |
-| Label | A+ | A+++ | −2 klassen | — | ✗ |
+| Indicator | F3d-3 | F3d-4 | Certified | Δ (F3d-4) | Tol | Binnen? |
+|---|---|---|---|---|---|---|
+| BENG 1 | 73,33 | 77,11 | 103,69 | −25,6% | ±6% | ✗ |
+| BENG 2 | 67,84 | 8,21 | 24,71 | −66,8% | ±10% | ✗ |
+| BENG 3 | 42,32% | 93,31% | 85,0% | +8,3 pp | ±3 pp | ✗ |
+| Label | A+ | A++++ | A+++ | +1 klasse | — | ✗ |
 
-Sub-totalen (primair kWh, berekend vs certified): verwarming 1343 vs 2551 (−47%) · tapwater 1683 vs 1813 (−7%) · koeling 876 vs 422 (+108%) · ventilatoren 644 vs 443 (+45%) · PV 0 vs 3811.
+Sub-totalen (primair kWh, F3d-4 vs certified): verwarming 1456 vs 2551 (−43%) · tapwater 1683 vs 1813 (−7%) · koeling 859 vs 422 (+104%) · ventilatoren 644 vs 443 (+45%) · PV −4091 (salderend) vs 3811 opbrengst.
 
-### Bekende engine-gaps (op gemeten impact)
+### Gefixt in F3d-4
 
-1. **PV ≈ 0 (dominant voor BENG 2/3).** De bron zet `solarPV[0].orientation = "N"` (noord, 4,1 kWp, tilt 15°); de forfaitaire azimuth-factor `cos((γ−180)/2)` levert daar ~0, terwijl de certified PV-opbrengst 3811 kWh (≈ 930 kWh/kWp, zuid-niveau) is. **Bron-inconsistentie**: het oes-`orientation`-veld strookt niet met de certified opbrengst. Zonder PV mist BENG 2 de volledige −1,45×3811 MJ saldering en blijft BENG 3 op ~42%. Invoer NIET aangepast (anti-fudge); dit is een fixture-provenance-gap, op te lossen door de PV-oriëntatie tegen het originele certificaat te verifiëren.
-2. **Koeling +108%.** `Q_C;nd` met `F_sh = 1,0` (whole-zone, geen zomerzonwering-reductie) overschat de koudebehoefte; bekende F3d-benadering (zie `beng/mod.rs` module-doc + `no_active_cooling`-note).
-3. **Verwarming −47%.** De nta8800-view propageert de `thermalBridges` (3 lineaire bruggen in de bron) niet naar `thermal_bridges_linear`, én de gemeten `airTightness.qv10 = 0,4` (zeer luchtdicht — maar níet injecteerbaar: geen ProjectV2-veld) valt terug op het tabel-11.13-leakage-forfait. Beide verlagen H_T/H_ve → lagere Q_H;nd. Bij Aalten (kleine, compacte woning) weegt dit relatief zwaar.
+1. **PV-azimut.** De noord-string (4,1 kWp, tilt 15°) levert nu **~2570 kWh** i.p.v. 0 — de norm leest `I_sol` voor (β=15°, γ=N) uit Tabel 17.2 met lineaire helling-interpolatie (noord > 0). Zie `docs/2026-07-12-f3d4-norm-analyse-pv.md`.
+2. **Koudebruggen.** De 3 `thermalBridges` (Σψ·L = 0,05·26 + 0,05·26 + 0,03·42 = 3,86 W/K) gaan nu naar H_T (verwarming 1343 → 1456 kWh).
 
-Verruiming van de tolerantie is verboden zonder normanalyse; activering volgt zodra de PV-azimuth-keten + F_sh-koeling + koudebrug-propagatie zijn geadresseerd.
+### Resterende gaps (op gemeten impact)
+
+1. **PV-noord = bron-inconsistentie (dominant voor BENG 2/3).** De bron zet `orientation = "N"`; noord haalt fysisch ~2570 kWh, terwijl certified 3811 kWh (~930 kWh/kWp, zuid-niveau) claimt. Het oes-`orientation`-veld strookt niet met de certified opbrengst. Invoer NIET aangepast (anti-fudge) — fixture-provenance-gap, op te lossen door de PV-oriëntatie tegen het originele certificaat te verifiëren.
+2. **Koeling +104%.** `Q_C;nd` met `F_sh = 1,0` overschat de koudebehoefte; bekende F3d-benadering, buiten scope.
+3. **Q_H;nd te laag (BENG 1 −26%).** Naast koudebruggen (nu gefixt) blijft de gemeten `airTightness.qv10 = 0,4` niet injecteerbaar (geen ProjectV2-veld) → tabel-11.13-forfait; H_ve te hoog t.o.v. de zeer luchtdichte werkelijkheid trekt Q_H;nd niet genoeg omhoog. Bij deze compacte woning weegt dat zwaar.
+
+Verruiming van de tolerantie is verboden zonder normanalyse; activering volgt zodra de PV-oriëntatie-provenance, F_sh-koeling en de Q_H;nd-onderschatting zijn geadresseerd.

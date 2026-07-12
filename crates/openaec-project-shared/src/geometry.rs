@@ -17,6 +17,31 @@ pub struct SharedGeometry {
     /// Alle verblijfsruimten / kamers in het project.
     #[serde(default)]
     pub spaces: Vec<Space>,
+    /// Lineaire koudebruggen op rekenzone-niveau (NTA 8800 §8.2.3, formule 8.1:
+    /// `Σ ψ·L`). Los van [`Construction`] omdat een koudebrug een aansluiting
+    /// *tussen* constructies is (gevel-vloer, gevel-dak, kozijnaansluiting) en
+    /// een eigen lengte draagt. Additief: `#[serde(default)]` houdt bestaande
+    /// project-JSON zonder dit veld byte-identiek.
+    #[serde(default)]
+    pub thermal_bridges: Vec<ThermalBridge>,
+}
+
+/// Een lineaire koudebrug op rekenzone-niveau (NTA 8800 §8.2.3).
+///
+/// De H-bijdrage aan de transmissie is `ψ · L` [W/K] (formule 8.1); de
+/// transmissie-tak telt deze op bij `H_D`. Puntkoudebruggen (χ) zijn nog niet
+/// in het gedeelde model opgenomen (forfaitair 0, §8.2.1 OPMERKING 4).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ThermalBridge {
+    /// Unieke ID binnen het project.
+    pub id: String,
+    /// Korte omschrijving (bv. "Gevel-vloer aansluiting").
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// Lineaire warmtedoorgangscoëfficiënt ψ in W/(m·K).
+    pub psi_w_per_mk: f64,
+    /// Lengte van de koudebrug in m.
+    pub length_m: f64,
 }
 
 /// Een verblijfsruimte (ISSO 51 kamer / NTA 8800 EFR-element).

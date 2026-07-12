@@ -395,6 +395,7 @@ mod tests {
         let shared = SharedProject::new("Test");
         let geometry = SharedGeometry {
             spaces: vec![sample_space()],
+            ..Default::default()
         };
         let view = geometry_to_nta8800(&shared, &geometry).unwrap();
         assert_eq!(view.rekenzones.len(), 1);
@@ -446,6 +447,7 @@ mod tests {
                     psi_thermal_bridge: None,
                 }],
             }],
+            ..Default::default()
         };
         let view = geometry_to_nta8800(&shared, &geometry).unwrap();
         let c = &view.constructions[0];
