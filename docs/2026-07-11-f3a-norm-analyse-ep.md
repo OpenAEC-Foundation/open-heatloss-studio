@@ -45,6 +45,19 @@ zelf-gebruikte eigen productie.
 
 ### 2.3 Gevolg: de zelfconsumptie/export-splitsing valt weg voor het totaal
 
+> ⚠️ **Correctie/bevestiging 2026-07-12 (F3d-8).** Deze paragraaf is bij F3d-8
+> **geverifieerd tegen de volledige formulestructuur** §5.5.2–5.5.4 (formules 5.9–5.27,
+> p. 85–93) en is **wiskundig correct** voor NTA 8800:2025+C1. De maandonafhankelijkheid
+> volgt uit de identiteit `Max(0,a−b) − Max(0,b−a) = a − b` en geldt zolang
+> `fP;del;el = fP;exp;el = 1,45` en er geen batterij ≥ 5 kWh is (zie
+> `docs/2026-07-12-f3d8-norm-analyse-saldering.md` §3). Wat F3a **niet expliciet noemde**
+> maar wél impliciet klopt: het zelfgebruik is maandelijks begrensd op `Min(PV, EEPus;el)`
+> (bovengrens 5.25), waarna het overschot als export tegen dezelfde 1,45 wordt afgetrokken
+> (5.26) — netto identiek. **De certified Uniec-waarde (BENG 2 = 27,48) weerlegt deze
+> paragraaf NIET:** die tool crediteert maar ~64 % van de PV (maand-directgebruik, ouder-norm/
+> bijlage-AB-model) en is een **normversie-artefact**. Onder 2025+C1 mág BENG 2 negatief
+> zijn. **De EP-crate blijft ongewijzigd.**
+
 Omdat alle drie de elektriciteitsfactoren **gelijk (1,45)** zijn, laat de
 elektriciteitsterm van (5.10) zich per maand exact herschrijven. Met
 `PV = Epr;EPus;el + Epr;nEPus;el + Eexp;el` (alle opgewekte PV wordt zelf-gebruikt of

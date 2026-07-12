@@ -36,7 +36,8 @@ Sub-totalen (primair kWh, F3d-4 vs certified): verwarming 1456 vs 2551 (−43%) 
 
 ### Resterende gaps (op gemeten impact)
 
-1. **PV-noord = bron-inconsistentie (dominant voor BENG 2/3).** De bron zet `orientation = "N"`; noord haalt fysisch ~2570 kWh, terwijl certified 3811 kWh (~930 kWh/kWp, zuid-niveau) claimt. Het oes-`orientation`-veld strookt niet met de certified opbrengst. Invoer NIET aangepast (anti-fudge) — fixture-provenance-gap, op te lossen door de PV-oriëntatie tegen het originele certificaat te verifiëren.
+1. **PV-saldering = normversie-verschil (F3d-8), GEEN engine-bug.** Net als Gouda: certified Uniec crediteert **~64,6 % van de PV** (2464/3811 kWh el = zelfgebruik, ouder-norm/bijlage-AB-model) → BENG 2 = 24,71. NTA 8800:**2025+C1** salderert **volledig** (§5.5.2) → BENG 2 = −4,4 (engine 8,21, rest = demand-gaps). Twee onafhankelijke cases die beide op ~64 % zelfgebruik uitkomen bevestigen het partieel-salderen van de certified tool. Anti-fudge: EP-crate ongewijzigd. Zie `docs/2026-07-12-f3d8-norm-analyse-saldering.md`.
+2. **PV-noord = bron-inconsistentie (secundair).** De bron zet `orientation = "N"`; noord haalt fysisch ~2570 kWh, terwijl certified 3811 kWh (~930 kWh/kWp, zuid-niveau) claimt. Het oes-`orientation`-veld strookt niet met de certified opbrengst. Invoer NIET aangepast (anti-fudge) — fixture-provenance-gap, op te lossen door de PV-oriëntatie tegen het originele certificaat te verifiëren.
 2. **Koeling +104%.** `Q_C;nd` met `F_sh = 1,0` overschat de koudebehoefte; bekende F3d-benadering, buiten scope.
 3. **Q_H;nd te laag (BENG 1 −26%).** Naast koudebruggen (nu gefixt) blijft de gemeten `airTightness.qv10 = 0,4` niet injecteerbaar (geen ProjectV2-veld) → tabel-11.13-forfait; H_ve te hoog t.o.v. de zeer luchtdichte werkelijkheid trekt Q_H;nd niet genoeg omhoog. Bij deze compacte woning weegt dat zwaar.
 

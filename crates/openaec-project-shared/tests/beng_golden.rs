@@ -709,21 +709,23 @@ fn uniec_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
 }
 
 #[test]
-#[ignore = "F3d-4: PV-azimut (Tabel 17.2) én koudebrug-propagatie zijn nu gefixt — west/oost \
-            leveren op, H_T draagt Σψ·L. Maar nog buiten tolerantie: BENG1 60,1 (−37% — Q_H;nd \
-            structureel te laag), BENG2 −8,2 (PV-saldering over-netteert: onze EP-tak salderert \
-            jaarbasis i.p.v. de norm-maandmatching → BENG3 100% i.p.v. 83,7%), koeling +506% \
-            (F_sh=1,0, buiten scope). Buiten ±6/8/3pp. Zie fixture-README §engine-gaps."]
+#[ignore = "F3d-8: BENG2 −8,2 vs certified 27,48 is een NORMVERSIE-verschil, geen bug — NTA 8800:\
+            2025+C1 §5.5.2 salderert PV-export VOLLEDIG tegen fP;exp;el=1,45 (EPTot mag negatief); \
+            certified Uniec 3.3.x crediteert maar ~64% van de PV (ouder-norm/bijlage-AB directgebruik). \
+            Jaarbasis ≡ maandmatching onder 2025+C1 (identiteit). EP-crate blijft ongewijzigd (anti-fudge). \
+            Blijft ook op BENG1 60,1 (−37%, Q_H;nd te laag) en koeling +506% (F_sh=1,0) buiten tolerantie. \
+            Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md + fixture-README §engine-gaps."]
 fn uniec_gouda_2467() {
     uniec_golden_body("gouda-2467", UNIEC_GOUDA_EXPECTED, UNIEC_GOUDA_INPUT);
 }
 
 #[test]
-#[ignore = "F3d-4: PV-azimut (Tabel 17.2) én koudebrug-propagatie gefixt. PV-noord levert nu \
-            ~2570 kWh (was 0) — maar de bron zet orientation \"N\" tegen certified 3811 kWh \
-            (~930 kWh/kWp, zuid-niveau): een bron-inconsistentie die noord fysisch niet haalt, dus \
-            BENG2 blijft 8,2 vs 24,7 (−67%). Plus koeling +104% (F_sh=1,0, buiten scope) en Q_H;nd \
-            te laag (BENG1 77,1 vs 103,7). Buiten ±6/10/3pp. Zie fixture-README §engine-gaps."]
+#[ignore = "F3d-8: BENG2 8,21 vs certified 24,71 = zelfde NORMVERSIE-verschil als Gouda — certified \
+            crediteert ~64,6% van de PV (partieel salderen, ouder-norm/bijlage-AB), 2025+C1 salderert \
+            volledig → BENG2 negatief. Twee cases beide op ~64% zelfgebruik bevestigen het. EP-crate \
+            ongewijzigd (anti-fudge). Ook PV-noord bron-inconsistentie (orientation \"N\" vs 3811 kWh), \
+            koeling +104% (F_sh=1,0) en Q_H;nd te laag (BENG1 77,1 vs 103,7). Buiten ±6/10/3pp. \
+            Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md + fixture-README §engine-gaps."]
 fn uniec_aalten_2522() {
     uniec_golden_body("aalten-2522", UNIEC_AALTEN_EXPECTED, UNIEC_AALTEN_INPUT);
 }

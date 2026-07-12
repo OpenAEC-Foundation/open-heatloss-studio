@@ -36,7 +36,7 @@ Sub-totalen (primair kWh, F3d-4 vs certified): verwarming 2935 vs 6506 (−55%) 
 
 ### Resterende gaps (op gemeten impact)
 
-1. **PV-saldering over-netteert (nieuw dominant voor BENG 2/3).** BENG 2 slaat door naar −8,2 en BENG 3 naar 100%: de EP-tak salderert op jaarbasis i.p.v. de norm-maandmatching (H.5), waardoor de nu-wél-berekende PV-opbrengst te veel primair fossiel wegstreept. EP-crate-scope, niet F3d-4.
+1. **PV-saldering = normversie-verschil (F3d-8), GEEN engine-bug.** BENG 2 → −8,2 en BENG 3 → 100% doordat NTA 8800:**2025+C1** (§5.5.2, formule 5.10) de PV-export **volledig** salderert tegen `fP;exp;el = 1,45` (EPTot mág negatief, OPMERKING 11 p. 87). De engine is hierin **norm-conform**. De certified Uniec 3.3.x crediteert daarentegen maar **~64 % van de PV** (5601/8734 kWh el = zelfgebruik via maand-directgebruik-fractie, ouder-norm/bijlage-AB-model) → +27,48 i.p.v. −6,6. Onder 2025+C1 zijn jaarbasis en maandmatching **identiek** (identiteit-bewijs in `docs/2026-07-12-f3d8-norm-analyse-saldering.md` §3), dus "maandmatching implementeren" lost dit **niet** op. Anti-fudge: EP-crate blijft ongewijzigd; deze BENG 2-golden is voor een all-electric hoog-PV-woning **niet** valideerbaar tegen 2025+C1.
 2. **Koeling +506%.** `Q_C;nd` met `F_sh = 1,0` (whole-zone, geen zomerzonwering) overschat de koudebehoefte — bekende F3d-benadering, buiten scope.
 3. **Q_H;nd structureel te laag (BENG 1 −37%).** Koudebruggen halveren de gap niet; het residu zit in infiltratie-/ventilatie-forfait en het demand-model. De bron-`qv10` is niet injecteerbaar (geen ProjectV2-veld).
 
