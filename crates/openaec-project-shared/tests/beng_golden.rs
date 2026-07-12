@@ -177,6 +177,12 @@ const UNIEC_AALTEN_EXPECTED: &str =
     include_str!("../../../tests/verification/beng_uniec_crosscheck/aalten-2522/expected.json");
 const UNIEC_AALTEN_INPUT: &str =
     include_str!("../../../tests/verification/beng_uniec_crosscheck/aalten-2522/input.oes.json");
+/// F6 fase 2 — de gevel-georiënteerde BENG-geometrie (buiten-opp per gevel) van
+/// dezelfde Aalten-case. Wordt op het oes-project gehangen zodat de brug de
+/// geometrie-bron overneemt terwijl installaties/koudebruggen gelijk blijven.
+const UNIEC_AALTEN_BENG_GEOMETRY: &str = include_str!(
+    "../../../tests/verification/beng_uniec_crosscheck/aalten-2522/beng_geometry.input.json"
+);
 
 const RVO_FIXTURES: &[(&str, &str)] = &[
     ("tussenwoning-m-g13", RVO_TUSSENWONING_EXPECTED),
@@ -210,7 +216,7 @@ use openaec_project_shared::geometry::{
     ThermalBridge,
 };
 use openaec_project_shared::shared::{BuildingTypeShared, ResidentialType};
-use openaec_project_shared::ProjectV2;
+use openaec_project_shared::{BengGeometry, ProjectV2};
 
 /// oes-oriëntatiecode → azimut in graden (DTO-conventie 0 = noord, kloksgewijs).
 /// `horizontal`/onbekend → `None` (geen oriëntatiegebonden vlak).
@@ -457,6 +463,137 @@ fn uniec_measure() {
             sb.ventilation_aux * r.a_g_m2, e.fans_primary_kwh,
             sb.pv * r.a_g_m2, e.pv_production_kwh);
     }
+}
+
+// ---------------------------------------------------------------------------
+// F6 fase 2 — brug-integratie + herkalibratie-meting
+// ---------------------------------------------------------------------------
+
+/// Hang de gevel-georiënteerde BENG-geometrie op het oes-project zodat
+/// [`compute_beng`] de F6-brug gebruikt. Installaties, koudebruggen en
+/// luchtdichtheid blijven exact het oes-project — alleen de geometrie-bron
+/// (binnen- → buiten-oppervlak per gevel) verandert.
+fn aalten_project_with_beng_geometry() -> ProjectV2 {
+    let input: serde_json::Value = serde_json::from_str(UNIEC_AALTEN_INPUT).unwrap();
+    let mut project = oes_to_projectv2(&input, uniec_subtype("aalten-2522"));
+    let beng_geometry: BengGeometry = serde_json::from_str(UNIEC_AALTEN_BENG_GEOMETRY)
+        .expect("beng_geometry.input.json moet naar BengGeometry parsen");
+    project.beng_geometry = Some(beng_geometry);
+    project
+}
+
+/// GROENE golden (draait mee in `cargo test`) — F6 fase 2.
+///
+/// Met de gevel-georiënteerde BENG-geometrie (buiten-oppervlak per gevel) via de
+/// F6-brug landen **BENG 1/2/3 binnen de certified Uniec-tolerantie** voor Aalten,
+/// terwijl het ruimte-georiënteerde oes-pad (zelfde installaties) op −26 %/−67 %
+/// bleef staan (zie `uniec_aalten_2522`, nog `#[ignore]`). Dit bewijst de
+/// F6-hoofdthese: de Q_H;nd-onderschatting kwam van de binnen- i.p.v.
+/// buiten-oppervlakte-bron, niet van het rekenpad.
+///
+/// **Bewust géén label-assertie.** Het bridged label blijft A++++ vs certified
+/// A+++: dat is de gedocumenteerde PV-saldering-normversie-delta (F3d-8, NTA 8800:
+/// 2025+C1 §5.5.2 salderert volledig) die BENG 2 licht onder certified houdt en
+/// één labelklasse tipt — een EP-crate-kwestie, niet de geometrie. De numerieke
+/// BENG-indicatoren zijn de toets; het label volgt zodra de saldering is
+/// geadresseerd. Anti-fudge: de tolerantie is de bron-tolerantie uit de fixture,
+/// niet opgerekt.
+#[test]
+fn aalten_beng_geometry_within_certified_tolerance() {
+    let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
+    let e = &fx.expected;
+    let t = &fx.tolerance;
+
+    let project = aalten_project_with_beng_geometry();
+    let r = compute_beng(&project).expect("compute_beng via de F6-brug mag niet falen");
+
+    assert!(
+        r.notes.iter().any(|n| n.contains("F6-brug")),
+        "resultaat moet de gevel-georiënteerde geometrie-bron melden"
+    );
+    // A_ls uit de buiten-schil (gevels + dak + vloer op grond) > de oes-binnen-A_ls.
+    assert!(
+        r.a_ls_m2 > 200.0,
+        "buiten-schil A_ls verwacht > 200 m² (was oes-binnen ~177,6), kreeg {:.1}",
+        r.a_ls_m2
+    );
+
+    let rel_pct = |calc: f64, exp: f64| (calc - exp) / exp * 100.0;
+    assert!(
+        rel_pct(r.beng1.value, e.beng1_kwh_m2_jr).abs() <= t.beng1_pct,
+        "BENG1 {:.2} wijkt {:+.1}% af (tol ±{:.0}%) van certified {:.2}",
+        r.beng1.value,
+        rel_pct(r.beng1.value, e.beng1_kwh_m2_jr),
+        t.beng1_pct,
+        e.beng1_kwh_m2_jr
+    );
+    assert!(
+        rel_pct(r.beng2.value, e.beng2_kwh_m2_jr).abs() <= t.beng2_pct,
+        "BENG2 {:.2} wijkt {:+.1}% af (tol ±{:.0}%) van certified {:.2}",
+        r.beng2.value,
+        rel_pct(r.beng2.value, e.beng2_kwh_m2_jr),
+        t.beng2_pct,
+        e.beng2_kwh_m2_jr
+    );
+    assert!(
+        (r.beng3.value - e.beng3_pct).abs() <= t.beng3_abs_pp,
+        "BENG3 {:.2} wijkt {:+.1}pp af (tol ±{:.1}pp) van certified {:.2}",
+        r.beng3.value,
+        r.beng3.value - e.beng3_pct,
+        t.beng3_abs_pp,
+        e.beng3_pct
+    );
+}
+
+/// Diagnostische herkalibratie-meting — print BENG 1/2/3 + sub-totalen VÓÓR
+/// (ruimte-georiënteerd, oes) en NÁ (gevel-georiënteerd, F6-brug) tegen de
+/// certified Uniec-referentie voor Aalten.
+/// `cargo test -p openaec-project-shared --test beng_golden uniec_measure_bridged -- --ignored --nocapture`.
+#[test]
+#[ignore = "diagnostiek — draai handmatig met --nocapture"]
+fn uniec_measure_bridged() {
+    let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
+    let e = &fx.expected;
+    let input: serde_json::Value = serde_json::from_str(UNIEC_AALTEN_INPUT).unwrap();
+
+    let base = oes_to_projectv2(&input, uniec_subtype("aalten-2522"));
+    let bridged = aalten_project_with_beng_geometry();
+
+    let r_base = compute_beng(&base).expect("baseline compute_beng ok");
+    let r_bridge = compute_beng(&bridged).expect("bridged compute_beng ok");
+
+    let d = |calc: f64, exp: f64| (calc - exp) / exp * 100.0;
+    let row = |label: &str, base: f64, bridge: f64, exp: f64, tol: f64| {
+        println!(
+            "  {label:6} vóór={base:8.2} ({:+6.1}%)  ná={bridge:8.2} ({:+6.1}%)  cert={exp:7.2}  tol=±{tol:.0}",
+            d(base, exp),
+            d(bridge, exp),
+        );
+    };
+    println!("\n=== Aalten 2522 — F6 herkalibratie (vóór=oes-binnen, ná=BENG-buiten) ===");
+    println!(
+        "  geometrie  A_g vóór={:.1}/ná={:.1}  A_ls vóór={:.1}/ná={:.1}  vf vóór={:.2}/ná={:.2}",
+        r_base.a_g_m2, r_bridge.a_g_m2, r_base.a_ls_m2, r_bridge.a_ls_m2,
+        r_base.als_ag_ratio, r_bridge.als_ag_ratio
+    );
+    row("BENG1", r_base.beng1.value, r_bridge.beng1.value, e.beng1_kwh_m2_jr, fx.tolerance.beng1_pct);
+    row("BENG2", r_base.beng2.value, r_bridge.beng2.value, e.beng2_kwh_m2_jr, fx.tolerance.beng2_pct);
+    println!(
+        "  BENG3  vóór={:8.2} ({:+.1}pp)  ná={:8.2} ({:+.1}pp)  cert={:.2}",
+        r_base.beng3.value, r_base.beng3.value - e.beng3_pct,
+        r_bridge.beng3.value, r_bridge.beng3.value - e.beng3_pct, e.beng3_pct
+    );
+    println!("  label  vóór={:>6}  ná={:>6}  cert={:>6}", r_base.energy_label, r_bridge.energy_label, e.energy_label);
+    let sbb = &r_base.service_breakdown_kwh_m2;
+    let sbr = &r_bridge.service_breakdown_kwh_m2;
+    println!(
+        "  sub/m² heating vóór={:6.2}/ná={:6.2}  cooling vóór={:6.2}/ná={:6.2}  fans vóór={:6.2}/ná={:6.2}",
+        sbb.heating, sbr.heating, sbb.cooling, sbr.cooling, sbb.ventilation_aux, sbr.ventilation_aux
+    );
+    println!(
+        "  primair verwarming (kWh): vóór={:.0} ná={:.0} cert={:.0}",
+        sbb.heating * r_base.a_g_m2, sbr.heating * r_bridge.a_g_m2, e.heating_primary_kwh
+    );
 }
 
 // ---------------------------------------------------------------------------

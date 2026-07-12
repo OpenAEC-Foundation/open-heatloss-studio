@@ -35,6 +35,7 @@
 //! - **Verlichting** telt 0 voor de woonfunctie (correct voor de nEP-indicator);
 //!   utiliteitsverlichting vereist een invoerblok dat F5-scope is.
 
+pub mod geometry_bridge;
 pub mod mapping;
 
 use std::collections::HashMap;
@@ -282,8 +283,40 @@ pub enum BengError {
 /// één van de onderliggende reken-crates.
 #[allow(clippy::too_many_lines)]
 pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
-    let energy = project.energy.as_ref().ok_or(BengError::MissingEnergyInput)?;
     let mut notes: Vec<String> = Vec::new();
+
+    // ---- F6: geometrie-bron kiezen ----
+    // Een aanwezige, niet-lege `beng_geometry` (gevel-georiënteerd, buiten-opp per
+    // gevel) wint van de ruimte-georiënteerde `SharedGeometry` — dat is de hele
+    // F6-bedoeling. De brug zet alleen de invoer om; de gevalideerde demand-keten
+    // draait ongewijzigd. Zonder beng_geometry blijft alles byte-identiek (geen
+    // extra note, geen kloon).
+    let bridged;
+    let project = match project.beng_geometry.as_ref() {
+        Some(bg) if !bg.zones.is_empty() => {
+            let geometry = geometry_bridge::beng_geometry_to_shared(bg, &project.geometry)?;
+            let a_g_total: f64 = bg.zones.iter().map(|z| z.a_g_m2).sum();
+            let n_gevels: usize = bg.zones.iter().map(|z| z.gevels.len()).sum();
+            let mut p = project.clone();
+            p.geometry = geometry;
+            // A_g voor de ventilatie-forfaits (§11.2.2) volgt de BENG-rekenzone.
+            p.shared.gross_floor_area_m2 = Some(a_g_total);
+            bridged = p;
+            notes.push(format!(
+                "Geometrie-bron: gevel-georiënteerde BENG-geometrie via de F6-brug \
+                 ({} rekenzone(s), {n_gevels} begrenzingsvlakken, buiten-oppervlak per \
+                 gevel, NTA 8800 §6.2/§8.1); de ruimte-georiënteerde SharedGeometry is \
+                 genegeerd. Let op: de vloer-op-grond P/A-omtrek en de raam-U in de \
+                 demand-transmissie worden door de huidige keten nog niet benut (zie \
+                 geometry_bridge-moduledoc).",
+                bg.zones.len(),
+            ));
+            &bridged
+        }
+        _ => project,
+    };
+
+    let energy = project.energy.as_ref().ok_or(BengError::MissingEnergyInput)?;
 
     // ---- Geometrie / zone ----
     let view = geometry_to_nta8800(&project.shared, &project.geometry)?;

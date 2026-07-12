@@ -43,3 +43,22 @@ Sub-totalen (primair kWh, F3d-4 vs certified): verwarming 1456 vs 2551 (−43%) 
 3. **Q_H;nd te laag (BENG 1 −26%).** De gemeten `airTightness.qv10 = 0,40` is sinds **F3d-9 injecteerbaar** (`q_v10_spec_dm3_s_m2`, NTA 8800 §11.2.5). Ze ligt echter *onder* het forfait (0,98 voor deze vrijstaande woning) → minder lek, dus injectie **verlaagt** Q_H;nd juist licht (BENG 1 −25,6% → −26,0%; verwarming 1456 → 1446 kWh). De onderschatting komt dus **niet** van de infiltratie-invoer maar van het demand-model; de zeer luchtdichte schil maakt de residu-gap eerder groter dan kleiner.
 
 Verruiming van de tolerantie is verboden zonder normanalyse; activering volgt zodra de PV-oriëntatie-provenance, F_sh-koeling en de Q_H;nd-onderschatting zijn geadresseerd.
+
+## Meting F6 (compute_beng via de gevel-georiënteerde geometrie-brug) — 🟢 binnen tolerantie
+
+De F6-brug (`beng/geometry_bridge.rs`) hangt de certified gevel-geometrie (`beng_geometry.input.json`, buiten-oppervlak per gevel) op hetzelfde oes-project — zelfde installaties, koudebruggen en luchtdichtheid, **alleen** de geometrie-bron wisselt van binnen- naar buiten-oppervlakten. Daarmee landen **BENG 1/2/3 binnen de certified tolerantie**; het ruimte-georiënteerde oes-pad bleef op −26 %/−67 %. Dit bevestigt de F6-hoofdthese: de Q_H;nd-onderschatting kwam van de binnen- i.p.v. buiten-oppervlakte-bron, niet van het rekenpad.
+
+| Indicator | oes-binnen (F3d-9) | BENG-buiten (F6-brug) | Certified | Δ (F6) | Tol | Binnen? |
+|---|---|---|---|---|---|---|
+| BENG 1 | 76,73 | 102,84 | 103,69 | −0,8% | ±6% | ✓ |
+| BENG 2 | 8,06 | 22,61 | 24,71 | −8,5% | ±10% | ✓ |
+| BENG 3 | 93,40 | 83,57 | 85,0 | −1,4 pp | ±3 pp | ✓ |
+| Label | A++++ | A++++ | A+++ | +1 klasse | — | ✗ |
+
+Geometrie-kentallen: A_g 67,0 (ongewijzigd); A_ls 177,6 → **245,7** (buiten-schil: 4 gevels + dak + vloer op grond); vormfactor 2,65 → 3,67. Verwarming primair 1446 → 1474 kWh (nauwelijks — de warmtepomp-SCOP dempt; de winst zit in de **demand** Q_H;nd/Q_C;nd, niet het primair verbruik).
+
+**Groene golden:** `aalten_beng_geometry_within_certified_tolerance` (draait mee in `cargo test`) toetst BENG 1/2/3 tegen deze tolerantie. Diagnostiek: `uniec_measure_bridged` (`--ignored --nocapture`).
+
+**Label blijft A++++** (vs certified A+++): dat is de gedocumenteerde PV-saldering-normversie-delta (F3d-8) die BENG 2 licht onder certified houdt en één labelklasse tipt — een EP-crate-kwestie los van de geometrie. De bestaande `uniec_aalten_2522`-golden (niet-bridged pad + exacte label-assertie) blijft daarom `#[ignore]`.
+
+**Ketenbeperkingen (nog niet benut door het rekenpad, gedocumenteerd in `geometry_bridge`):** de vloer-op-grond P/A-omtrek (grond-conductantie is forfait `h_g;an = 10 W/K`, §8.3.1) en de raam-U in de demand-transmissie (ramen op opake U; de raam-U voedt wél de TOjuli-noemer). Dat het resultaat ondanks deze twee vereenvoudigingen binnen tolerantie valt, wijst erop dat de buiten-oppervlakte-bron de dominante driver was.
