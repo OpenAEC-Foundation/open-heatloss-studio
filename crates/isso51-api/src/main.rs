@@ -131,6 +131,7 @@ async fn main() {
         .route("/import/thermal", post(handlers::thermal_import_handler))
         .route("/cooling/simplified", post(handlers::simplified_cooling))
         .route("/tojuli/calculate", post(handlers::tojuli_calculate))
+        .route("/beng/calculate", post(handlers::beng_calculate))
         .layer(DefaultBodyLimit::max(COMPUTE_BODY_LIMIT))
         .layer(axum::middleware::from_fn_with_state(
             rate_limiter.clone(),

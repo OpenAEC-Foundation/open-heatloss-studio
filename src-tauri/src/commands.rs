@@ -8,7 +8,7 @@ use nta8800_cooling::{
 };
 use nta8800_tables::climate::de_bilt_climate_data;
 use openaec_project_shared::{
-    compute_tojuli_full, view, ProjectV2, TojuliFullInputs, TojuliResult,
+    compute_tojuli_full, view, BengResult, ProjectV2, TojuliFullInputs, TojuliResult,
 };
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -45,6 +45,10 @@ pub fn calculate_v2(project: ProjectV2) -> Result<serde_json::Value, String> {
                 .map_err(|e| e.to_string())?;
             serde_json::to_value(&result)
                 .map_err(|e| format!("Failed to serialize ISSO 53 result: {e}"))
+        }
+        // BENG is geen warmteverlies-calc; gebruik het `compute_beng`-command.
+        ActiveNorm::Beng => {
+            Err("BENG wordt niet via calculate_v2 berekend — gebruik compute_beng".to_string())
         }
     }
 }
@@ -208,4 +212,23 @@ pub struct TojuliCalculateRequest {
 #[tauri::command]
 pub fn tojuli_calculate(req: TojuliCalculateRequest) -> Result<TojuliResult, String> {
     compute_tojuli_full(&req.project, &req.inputs).map_err(|e| e.to_string())
+}
+
+/// Request shape for `compute_beng` — volledige BENG-keten op een ProjectV2.
+///
+/// Anders dan [`TojuliCalculateRequest`] géén los `inputs`-veld: de
+/// installatie-invoer leeft in `project.energy`.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BengCalculateRequest {
+    pub project: ProjectV2,
+}
+
+/// BENG — NTA 8800 energieprestatie op een ProjectV2.
+///
+/// Roept `openaec_project_shared::compute_beng` aan (fully-qualified om de
+/// naamsbotsing met dit command te vermijden) en geeft BENG 1/2/3 + TOjuli +
+/// label + service-breakdown terug.
+#[tauri::command]
+pub fn compute_beng(req: BengCalculateRequest) -> Result<BengResult, String> {
+    openaec_project_shared::compute_beng(&req.project).map_err(|e| e.to_string())
 }

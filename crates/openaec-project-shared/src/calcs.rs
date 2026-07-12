@@ -105,6 +105,17 @@ pub enum ActiveNorm {
     Isso51,
     /// ISSO 53 — warmteverliesberekening voor utiliteitsgebouwen (≤ 4m).
     Isso53,
+    /// BENG — NTA 8800 energieprestatie (woningbouw).
+    ///
+    /// De BENG-invoer leeft in [`ProjectV2::energy`], niet in [`Calcs`];
+    /// [`Calcs::active_norm`] leidt deze variant daarom **niet** af uit de
+    /// aanwezige calc-inputs. De variant bestaat zodat UI/PDF een project als
+    /// primair-BENG kunnen markeren en de dedicated `/beng/calculate`-route (en
+    /// `compute_beng`-Tauri-command) hem kunnen dispatchen. De
+    /// warmteverlies-routers (`calculate_v2`) weigeren deze norm bewust.
+    ///
+    /// [`ProjectV2::energy`]: crate::project::ProjectV2::energy
+    Beng,
 }
 
 #[cfg(test)]

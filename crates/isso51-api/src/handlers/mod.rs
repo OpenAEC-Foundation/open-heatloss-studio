@@ -1,5 +1,6 @@
 //! Request handlers for the ISSO 51 API.
 
+mod beng;
 mod calculation;
 mod cloud;
 mod cooling;
@@ -10,6 +11,7 @@ mod report;
 mod thermal_import;
 mod user;
 
+pub use beng::beng_calculate;
 pub use calculation::{calculate, calculate_v2, get_schema, health, list_schemas};
 pub use cooling::{simplified_cooling, tojuli_calculate};
 pub use cloud::{

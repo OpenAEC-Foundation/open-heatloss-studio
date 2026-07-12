@@ -136,6 +136,13 @@ pub async fn calculate_v2(body: String) -> impl IntoResponse {
                     )
                 })
             }
+            // BENG is geen warmteverlies-calc; `calculate_v2` route't hem niet.
+            // De dedicated `/beng/calculate`-route draait `compute_beng`.
+            ActiveNorm::Beng => Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "unsupported_norm".to_string(),
+                "BENG wordt niet via /calculate_v2 berekend — gebruik POST /beng/calculate".to_string(),
+            )),
         }
     })
     .await;
