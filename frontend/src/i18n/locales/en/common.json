@@ -102,6 +102,25 @@
     },
     "rcCompare": "R-value comparator"
   },
+  "beng": {
+    "source": {
+      "label": "Source of the figures",
+      "hint": "Documentation requirement — provenance of the performance values",
+      "reference": "Reference / identifier",
+      "referenceHint": "e.g. BCRG certificate number or declaration reference",
+      "referencePlaceholder": "e.g. BCRG-20231234",
+      "kind": {
+        "forfait": "Default (standard)",
+        "kwaliteitsverklaring": "Quality declaration (BCRG)",
+        "gelijkwaardigheidsverklaring": "Equivalence declaration",
+        "meting": "Measurement",
+        "overig": "Other"
+      }
+    },
+    "result": {
+      "sources": "Value provenance"
+    }
+  },
   "tojuli": {
     "title": "Summer overheating — cooling demand",
     "subtitle": "Simplified calculation per NTA 8800 annex AA (dwellings)",

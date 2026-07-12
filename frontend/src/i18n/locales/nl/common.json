@@ -102,6 +102,25 @@
     },
     "rcCompare": "Rc-vergelijker"
   },
+  "beng": {
+    "source": {
+      "label": "Bron van de kentallen",
+      "hint": "Dossierplicht — herkomst van de prestatiewaarden",
+      "reference": "Referentie / kenmerk",
+      "referenceHint": "bv. BCRG-attestnummer of verklaringskenmerk",
+      "referencePlaceholder": "bv. BCRG-20231234",
+      "kind": {
+        "forfait": "Forfait (norm)",
+        "kwaliteitsverklaring": "Kwaliteitsverklaring (BCRG)",
+        "gelijkwaardigheidsverklaring": "Gelijkwaardigheidsverklaring",
+        "meting": "Meting",
+        "overig": "Overig"
+      }
+    },
+    "result": {
+      "sources": "Bronregistratie kentallen"
+    }
+  },
   "tojuli": {
     "title": "TO-juli — koelbehoefte",
     "subtitle": "Vereenvoudigde berekening volgens NTA 8800 bijlage AA (woningen)",

@@ -168,6 +168,7 @@ mod tests {
                 distribution_efficiency: None,
                 control_factor: None,
                 coverage_fraction: 1.0,
+                source: None,
             }),
             dhw: Some(DhwInput {
                 generator: DhwGeneratorType::HeatPump,
@@ -175,6 +176,7 @@ mod tests {
                 dwtw: None,
                 has_solar_boiler: false,
                 solar_boiler_fraction: None,
+                source: None,
             }),
             ventilation: Some(VentilationInput {
                 system: VentilationSystemType::D,
@@ -184,12 +186,14 @@ mod tests {
                 mechanical_supply_m3_per_h: Some(150.0),
                 mechanical_exhaust_m3_per_h: Some(150.0),
                 infiltration_m3_per_h: None,
+                source: None,
             }),
             cooling: Some(CoolingInput {
                 generator: CoolingGeneratorType::FreeCooling,
                 seer: None,
                 cop: None,
                 free_cooling_fraction: Some(0.4),
+                source: None,
             }),
             pv: vec![],
             automation: None,

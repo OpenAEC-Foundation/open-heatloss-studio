@@ -60,7 +60,9 @@ use nta8800_tables::climate::de_bilt_climate_data;
 use nta8800_ventilation::calculate_ventilation;
 use nta8800_demand::{DemandBreakdown, DemandResult};
 
-use crate::energy::{DhwGeneratorType, HeatGeneratorType};
+use crate::energy::{
+    DhwGeneratorType, EnergyInput, HeatGeneratorType, ValueSource, ValueSourceKind,
+};
 use crate::geometry::{BoundaryKind, SharedGeometry};
 use crate::nta8800_view::{geometry_to_nta8800, map_usage_function, orientation_from_degrees};
 use crate::project::ProjectV2;
@@ -150,6 +152,48 @@ pub struct ServiceBreakdownKwhM2 {
     pub pv: f64,
 }
 
+/// Deelsysteem waarop een bronregistratie ([`ValueSourceReport`]) betrekking
+/// heeft. Snake_case-serde spiegelt de deelsysteem-korrel van
+/// [`crate::energy::EnergyInput`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BengSubsystem {
+    /// Verwarming (H.9).
+    Heating,
+    /// Warm tapwater (H.13).
+    Dhw,
+    /// Douchewater-warmteterugwinning (bijlage U).
+    Dwtw,
+    /// Ventilatie (H.11).
+    Ventilation,
+    /// Koeling (H.10).
+    Cooling,
+    /// PV-veld (H.16).
+    Pv,
+}
+
+/// Eén doorgegeven bronregistratie voor de rapportageketen (F4c-dossierplicht).
+///
+/// Wordt afgeleid uit de [`ValueSource`]-velden op de installatie-invoer en
+/// bevat uitsluitend **niet-forfaitaire** bronnen (een expliciet forfait is de
+/// norm-default en levert geen dossierstuk op). Puur metadata — parallel aan de
+/// menselijk-leesbare regels in [`BengResult::notes`], maar gestructureerd zodat
+/// de rapport-PDF-keten de herkomst kan renderen.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ValueSourceReport {
+    /// Deelsysteem waarop de bron betrekking heeft.
+    pub system: BengSubsystem,
+    /// Optioneel label om gelijksoortige bronnen te onderscheiden (bv. de naam
+    /// of id van een PV-veld). `None` voor de enkelvoudige deelsystemen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Soort bron (kwaliteitsverklaring, gelijkwaardigheidsverklaring, …).
+    pub kind: ValueSourceKind,
+    /// Vrije referentie naar het brondocument (BCRG-attest, meetrapport, …).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
+}
+
 /// Volledig BENG-resultaat voor een [`ProjectV2`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct BengResult {
@@ -177,6 +221,12 @@ pub struct BengResult {
     pub service_breakdown_kwh_m2: ServiceBreakdownKwhM2,
     /// Bekende vereenvoudigingen/stubs die op dit resultaat van toepassing zijn.
     pub notes: Vec<String>,
+    /// Bronregistratie per deelsysteem (F4c-dossierplicht) — alleen niet-forfaitaire
+    /// bronnen. Additief; leeg voor projecten zonder bronopgave. Puur metadata:
+    /// deze lijst reist naar de rapportage-keten maar is niet in de berekening
+    /// verwerkt.
+    #[serde(default)]
+    pub value_sources: Vec<ValueSourceReport>,
 }
 
 /// Fouten van de BENG-orchestrator.
@@ -466,6 +516,14 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         pv: primary_kwh_m2(ep.breakdown.pv.primary_energy_mj, a_g),
     };
 
+    // ---- Bronregistratie (F4c) — puur metadata, geen invloed op het bovenstaande.
+    // Doorgevoerd als gestructureerde lijst (voor de rapport-keten) én als
+    // menselijk-leesbare notes (transparantie-huisregel: bronnen nooit verbergen).
+    let value_sources = collect_value_sources(energy);
+    for r in &value_sources {
+        notes.push(source_note(r));
+    }
+
     Ok(BengResult {
         beng1,
         beng2,
@@ -479,7 +537,138 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         als_ag_ratio: als_ag,
         service_breakdown_kwh_m2,
         notes,
+        value_sources,
     })
+}
+
+// ---------------------------------------------------------------------------
+// Bronregistratie (F4c)
+// ---------------------------------------------------------------------------
+
+/// Verzamel de niet-forfaitaire bronregistraties uit het [`EnergyInput`]-blok.
+///
+/// Elke deelsysteem-[`ValueSource`] met `kind != Forfait` levert één
+/// [`ValueSourceReport`]; PV-velden krijgen een label (naam/id/volgnummer) om
+/// meerdere velden te onderscheiden. Een expliciet forfait is de norm-default en
+/// wordt niet in het dossier opgenomen.
+fn collect_value_sources(energy: &EnergyInput) -> Vec<ValueSourceReport> {
+    let mut out = Vec::new();
+    push_source(
+        &mut out,
+        BengSubsystem::Heating,
+        None,
+        energy.heating.as_ref().and_then(|h| h.source.as_ref()),
+    );
+    push_source(
+        &mut out,
+        BengSubsystem::Dhw,
+        None,
+        energy.dhw.as_ref().and_then(|d| d.source.as_ref()),
+    );
+    push_source(
+        &mut out,
+        BengSubsystem::Dwtw,
+        None,
+        energy
+            .dhw
+            .as_ref()
+            .and_then(|d| d.dwtw.as_ref())
+            .and_then(|w| w.source.as_ref()),
+    );
+    push_source(
+        &mut out,
+        BengSubsystem::Ventilation,
+        None,
+        energy.ventilation.as_ref().and_then(|v| v.source.as_ref()),
+    );
+    push_source(
+        &mut out,
+        BengSubsystem::Cooling,
+        None,
+        energy.cooling.as_ref().and_then(|c| c.source.as_ref()),
+    );
+    for (i, pv) in energy.pv.iter().enumerate() {
+        let label = pv
+            .name
+            .clone()
+            .or_else(|| pv.id.clone())
+            .or_else(|| Some(format!("PV-veld {}", i + 1)));
+        push_source(&mut out, BengSubsystem::Pv, label, pv.source.as_ref());
+    }
+    out
+}
+
+/// Maximale lengte [tekens] van een bron-referentie in het resultaat.
+///
+/// Het `reference`-veld is vrije invoer en stroomt door naar `notes`, het
+/// gestructureerde rapport-veld en straks het PDF-rapport. Om te voorkomen dat
+/// een abusievelijk geplakte lap tekst die kanalen opblaast, wordt de referentie
+/// bij het opnemen getrimd en op deze lengte afgekapt (op char-grens, niet
+/// byte-grens). Puur een presentatie-cap: de ruwe invoer op het DTO blijft
+/// ongewijzigd.
+const MAX_REFERENCE_LEN: usize = 200;
+
+/// Trim een referentie en kap af op [`MAX_REFERENCE_LEN`] tekens; `None` bij
+/// leeg (na trimmen).
+fn normalize_reference(reference: &str) -> Option<String> {
+    let trimmed = reference.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.chars().take(MAX_REFERENCE_LEN).collect())
+}
+
+/// Voeg een [`ValueSourceReport`] toe als de bron aanwezig én niet-forfaitair is.
+fn push_source(
+    out: &mut Vec<ValueSourceReport>,
+    system: BengSubsystem,
+    label: Option<String>,
+    src: Option<&ValueSource>,
+) {
+    if let Some(s) = src {
+        if s.kind != ValueSourceKind::Forfait {
+            out.push(ValueSourceReport {
+                system,
+                label,
+                kind: s.kind,
+                // Getrimd + afgekapt: het rapport-veld en de note dragen de
+                // genormaliseerde referentie (zie MAX_REFERENCE_LEN).
+                reference: s.reference.as_deref().and_then(normalize_reference),
+            });
+        }
+    }
+}
+
+/// Bouw de menselijk-leesbare note-regel voor één bronregistratie.
+fn source_note(r: &ValueSourceReport) -> String {
+    let system = match r.system {
+        BengSubsystem::Heating => "Verwarming",
+        BengSubsystem::Dhw => "Warm tapwater",
+        BengSubsystem::Dwtw => "Douchewater-WTW",
+        BengSubsystem::Ventilation => "Ventilatie",
+        BengSubsystem::Cooling => "Koeling",
+        BengSubsystem::Pv => "PV",
+    };
+    let kind = match r.kind {
+        ValueSourceKind::Forfait => "norm-forfait",
+        ValueSourceKind::Kwaliteitsverklaring => "gecontroleerde kwaliteitsverklaring (BCRG)",
+        ValueSourceKind::Gelijkwaardigheidsverklaring => "gelijkwaardigheidsverklaring",
+        ValueSourceKind::Meting => "meting",
+        ValueSourceKind::Overig => "overige bron",
+    };
+    let label = r
+        .label
+        .as_deref()
+        .map(|l| format!(" ({l})"))
+        .unwrap_or_default();
+    // `reference` is in push_source al getrimd + afgekapt (MAX_REFERENCE_LEN).
+    let reference = r
+        .reference
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| format!(", ref. {s}"))
+        .unwrap_or_default();
+    format!("Bron {system}{label}: prestatiewaarden volgens {kind}{reference}.")
 }
 
 // ---------------------------------------------------------------------------

@@ -207,7 +207,7 @@ pub fn map_dhw_generation(input: &DhwInput) -> DhwGenerationSystem {
 /// unit. Douche-aandeel → [`DEFAULT_DOUCHE_AANDEEL`] bij afwezigheid.
 #[must_use]
 pub fn map_dwtw(input: &DhwInput) -> Option<DouchewtwRecovery> {
-    input.dwtw.map(|d| {
+    input.dwtw.as_ref().map(|d| {
         DouchewtwRecovery::with_aandeel(
             d.efficiency,
             d.douche_aandeel.unwrap_or(DEFAULT_DOUCHE_AANDEEL),
@@ -514,6 +514,7 @@ mod tests {
             distribution_efficiency: None,
             control_factor: None,
             coverage_fraction: 1.0,
+            source: None,
         };
         let m = map_heating(&input);
         assert_eq!(m.generation, GenerationSystem::HRBoiler { class: HRClass::HR107 });
@@ -533,6 +534,7 @@ mod tests {
             distribution_efficiency: None,
             control_factor: None,
             coverage_fraction: 1.0,
+            source: None,
         };
         let m = map_heating(&input);
         assert_eq!(
@@ -553,6 +555,7 @@ mod tests {
             distribution_efficiency: Some(0.90),
             control_factor: Some(1.0),
             coverage_fraction: 1.0,
+            source: None,
         };
         let m = map_heating(&input);
         assert_eq!(m.generation, GenerationSystem::HeatPump { scop: 3.9 });
@@ -568,6 +571,7 @@ mod tests {
             dwtw: None,
             has_solar_boiler: false,
             solar_boiler_fraction: None,
+            source: None,
         };
         assert_eq!(
             map_dhw_generation(&input),
@@ -581,9 +585,10 @@ mod tests {
         let input = DhwInput {
             generator: DhwGeneratorType::HeatPump,
             efficiency: None,
-            dwtw: Some(DwtwInput { efficiency: 0.45, douche_aandeel: None }),
+            dwtw: Some(DwtwInput { efficiency: 0.45, douche_aandeel: None, source: None }),
             has_solar_boiler: false,
             solar_boiler_fraction: None,
+            source: None,
         };
         assert_eq!(
             map_dhw_generation(&input),
@@ -605,6 +610,7 @@ mod tests {
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 120.0);
         let expected = q_v_oda_req_m3_per_h(UsageFunction::Woonfunctie, 120.0);
@@ -623,6 +629,7 @@ mod tests {
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 100.0);
         assert!(matches!(m.system, VentilationSystem::D { with_wtw: true }));
@@ -644,6 +651,7 @@ mod tests {
             mechanical_supply_m3_per_h: Some(150.0),
             mechanical_exhaust_m3_per_h: Some(150.0),
             infiltration_m3_per_h: Some(20.0),
+            source: None,
         };
         let m = map_ventilation(&input, UsageFunction::Woonfunctie, 100.0);
         assert!((m.flow.mechanical_supply - 150.0).abs() < 1e-12);
@@ -659,6 +667,7 @@ mod tests {
             seer: None,
             cop: None,
             free_cooling_fraction: None,
+            source: None,
         };
         assert_eq!(
             map_cooling(&input),
@@ -677,6 +686,7 @@ mod tests {
             system_efficiency: None,
             inverter_efficiency: None,
             shadow_factor: None,
+            source: None,
         }];
         let systems = map_pv(&pv).unwrap();
         assert_eq!(systems.len(), 1);
@@ -696,6 +706,7 @@ mod tests {
             system_efficiency: Some(0.8),
             inverter_efficiency: Some(0.95),
             shadow_factor: Some(0.9),
+            source: None,
         }];
         let systems = map_pv(&pv).unwrap();
         assert!((systems[0].azimuth_degrees - 180.0).abs() < 1e-12);

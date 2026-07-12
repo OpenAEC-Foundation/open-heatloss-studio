@@ -35,8 +35,14 @@ import type {
   HrBoilerClass,
   IndicatorReport,
   PvInput,
+  ValueSource,
+  ValueSourceKind,
   VentilationInput,
 } from "../types/beng";
+import {
+  VALUE_SOURCE_KINDS,
+  formatValueSourceReport,
+} from "../lib/valueSource";
 import type { ProjectV2 } from "../types/projectV2";
 
 // ---------------------------------------------------------------------------
@@ -217,6 +223,65 @@ function ToggleCard({
       </div>
       {enabled && <div className="mt-4">{children}</div>}
     </Card>
+  );
+}
+
+/**
+ * Bronregistratie-regel voor één deelsysteem (F4c-dossierplicht): select voor
+ * de bron-soort + referentieveld (alleen zichtbaar zodra ≠ Forfait). Forfait
+ * (de norm-default) wist de bron (`null`), zodat het veld niet meeserialiseert.
+ * Puur metadata — raakt de berekening niet.
+ */
+function SourceRow({
+  source,
+  onChange,
+  t,
+}: {
+  source: ValueSource | null | undefined;
+  onChange: (source: ValueSource | null) => void;
+  t: (key: string, fallback: string) => string;
+}) {
+  const kind: ValueSourceKind = source?.kind ?? "forfait";
+  const options = VALUE_SOURCE_KINDS.map((k) => ({
+    value: k.value,
+    label: t(`beng.source.kind.${k.value}`, k.label),
+  }));
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 border-t border-[var(--oaec-border-subtle)] pt-4 sm:grid-cols-3">
+      <SelectField
+        label={t("beng.source.label", "Bron van de kentallen")}
+        value={kind}
+        options={options}
+        onChange={(v) =>
+          onChange(
+            v === "forfait"
+              ? null
+              : { kind: v, reference: source?.reference ?? null },
+          )
+        }
+        hint={t("beng.source.hint", "Dossierplicht — herkomst van de prestatiewaarden")}
+      />
+      {kind !== "forfait" && (
+        <LabeledField
+          label={t("beng.source.reference", "Referentie / kenmerk")}
+          hint={t("beng.source.referenceHint", "bv. BCRG-attestnummer of verklaringskenmerk")}
+        >
+          <input
+            type="text"
+            value={source?.reference ?? ""}
+            maxLength={200}
+            placeholder={t("beng.source.referencePlaceholder", "bv. BCRG-20231234")}
+            onChange={(e) =>
+              onChange({
+                kind,
+                reference: e.target.value === "" ? null : e.target.value,
+              })
+            }
+            className={INPUT_CLASS}
+          />
+        </LabeledField>
+      )}
+    </div>
   );
 }
 
@@ -408,6 +473,7 @@ export function Beng() {
           onToggle={(on) => updateEnergy({ heating: on ? DEFAULT_HEATING : null })}
         >
           {heating && (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <SelectField
                 label={t("beng.heating.generator", "Opwekker")}
@@ -450,6 +516,12 @@ export function Beng() {
                 onChange={(v) => patchHeating({ emission: v })}
               />
             </div>
+            <SourceRow
+              source={heating.source}
+              onChange={(s) => patchHeating({ source: s })}
+              t={t}
+            />
+            </>
           )}
         </ToggleCard>
 
@@ -495,6 +567,7 @@ export function Beng() {
                 <span>{t("beng.dhw.dwtw", "Douchewater-WTW (DWTW)")}</span>
               </label>
               {dwtw && (
+                <>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <NumberField
                     label={t("beng.dhw.dwtwEff", "DWTW-rendement η")}
@@ -509,7 +582,18 @@ export function Beng() {
                     hint="Typisch 0,25–0,50"
                   />
                 </div>
+                <SourceRow
+                  source={dwtw.source}
+                  onChange={(s) => patchDhw({ dwtw: { ...dwtw, source: s } })}
+                  t={t}
+                />
+                </>
               )}
+              <SourceRow
+                source={dhw.source}
+                onChange={(s) => patchDhw({ source: s })}
+                t={t}
+              />
             </div>
           )}
         </ToggleCard>
@@ -523,6 +607,7 @@ export function Beng() {
           }
         >
           {ventilation && (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <SelectField
                 label={t("beng.vent.system", "Systeem")}
@@ -566,6 +651,12 @@ export function Beng() {
                 placeholder="Auto"
               />
             </div>
+            <SourceRow
+              source={ventilation.source}
+              onChange={(s) => patchVent({ source: s })}
+              t={t}
+            />
+            </>
           )}
         </ToggleCard>
 
@@ -578,6 +669,7 @@ export function Beng() {
           }
         >
           {cooling && (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <SelectField
                 label={t("beng.cooling.generator", "Opwekker")}
@@ -615,6 +707,12 @@ export function Beng() {
                 />
               )}
             </div>
+            <SourceRow
+              source={cooling.source}
+              onChange={(s) => patchCooling({ source: s })}
+              t={t}
+            />
+            </>
           )}
         </ToggleCard>
 
@@ -629,8 +727,9 @@ export function Beng() {
             {pv.map((field, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4"
+                className="space-y-2 rounded-md border border-[var(--oaec-border-subtle)] p-3"
               >
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
                 <NumberField
                   label={t("beng.pv.kwp", "Piekvermogen")}
                   unit="kWp"
@@ -679,6 +778,16 @@ export function Beng() {
                 >
                   {t("beng.pv.remove", "Verwijder")}
                 </Button>
+                </div>
+                <SourceRow
+                  source={field.source}
+                  onChange={(s) =>
+                    setPv(
+                      pv.map((p, i) => (i === idx ? { ...p, source: s } : p)),
+                    )
+                  }
+                  t={t}
+                />
               </div>
             ))}
           </div>
@@ -841,6 +950,25 @@ function BengResultView({
             </tbody>
           </table>
         </div>
+
+        {/* Bronregistratie kentallen (F4c-dossierplicht) */}
+        {result.value_sources.length > 0 && (
+          <div className="border-t border-[var(--oaec-border-subtle)] pt-3">
+            <h3 className="mb-2 text-sm font-semibold text-on-surface">
+              {t("beng.result.sources", "Bronregistratie kentallen")}
+            </h3>
+            <ul className="flex flex-wrap gap-2">
+              {result.value_sources.map((vs, i) => (
+                <li
+                  key={i}
+                  className="rounded border border-primary/40 bg-primary/10 px-2 py-1 text-xs text-on-surface"
+                >
+                  {formatValueSourceReport(vs)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Notes (transparantie — aannames nooit verbergen) */}
         {result.notes.length > 0 && (

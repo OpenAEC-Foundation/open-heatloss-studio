@@ -29,9 +29,68 @@
 //!   in W/(dm³/s); deel door 3,6 bij het overnemen (1 m³/h = 1000/3600 dm³/s,
 //!   dus 0,45 W/(dm³/s) ÷ 3,6 = 0,125 W/(m³/h) = het tabel-11.23-forfait).
 //! - Hoeken: graden. Azimut 0 = noord, 90 = oost, 180 = zuid, 270 = west.
+//!
+//! ## Bronregistratie van kentallen (F4c)
+//!
+//! In de NTA 8800-praktijk komt een prestatiewaarde (SCOP, η_WTW, SFP, …) uit
+//! één van drie bronnen: het **norm-forfait** (de default van deze keten), een
+//! **gecontroleerde kwaliteitsverklaring** (BCRG-databank) of een
+//! **gelijkwaardigheidsverklaring**. De adviseur heeft een *dossierplicht*: per
+//! toegepaste waarde moet vastliggen wáár die vandaan komt. Daarom draagt elk
+//! deelsysteem een optioneel [`ValueSource`]-veld ([`ValueSourceKind`] +
+//! vrije referentie naar het brondocument).
+//!
+//! **Korrel = deelsysteem, niet losse f64.** De bron hangt bewust op
+//! deelsysteem-niveau ([`HeatingInput`], [`DhwInput`], [`DwtwInput`],
+//! [`VentilationInput`], [`CoolingInput`], per [`PvInput`]) en niet op elke
+//! afzonderlijke f64. Een BCRG-attest of gelijkwaardigheidsverklaring wordt in
+//! de praktijk per *apparaat/systeem* afgegeven (het attest van een warmtepomp
+//! dekt SCOP + bijbehorende kentallen samen; een douche-WTW-attest dekt η + het
+//! douche-aandeel). Per-f64-korrel zou het metadata-oppervlak vervelvoudigen,
+//! niet aansluiten op hoe verklaringen worden uitgegeven, en de UI met een
+//! bronkiezer op elk getal belasten. Het deelsysteem is de natuurlijke
+//! documentgrens.
+//!
+//! **Puur metadata.** Het bronveld beïnvloedt de berekening NOOIT — het reist
+//! mee naar het resultaat ([`crate::beng::ValueSourceReport`]) voor rapportage
+//! en dossier, maar geen enkele reken-crate leest het.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+/// Herkomst van de prestatiewaarden van één installatie-deelsysteem
+/// (NTA 8800-dossierplicht; zie module-doc, "Bronregistratie").
+///
+/// Puur metadata: raakt de berekening niet, maar legt vast wáár de kentallen
+/// van het deelsysteem vandaan komen zodat de rapportage en het dossier de
+/// herkomst kunnen tonen.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct ValueSource {
+    /// Soort bron.
+    pub kind: ValueSourceKind,
+
+    /// Vrije referentie naar het brondocument: BCRG-attestnummer,
+    /// verklaringskenmerk, meetrapport-ID, … Afwezig/leeg voor forfait.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference: Option<String>,
+}
+
+/// Soort herkomst van een prestatiewaarde (NTA 8800-dossierplicht).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ValueSourceKind {
+    /// Norm-forfait — de default van de keten (geen dossierstuk vereist).
+    #[default]
+    Forfait,
+    /// Gecontroleerde kwaliteitsverklaring uit de BCRG-databank.
+    Kwaliteitsverklaring,
+    /// Gelijkwaardigheidsverklaring (art. gelijkwaardigheid Bbl).
+    Gelijkwaardigheidsverklaring,
+    /// Meting / meetrapport.
+    Meting,
+    /// Overige, niet-gecategoriseerde bron.
+    Overig,
+}
 
 /// Installatie- en hernieuwbaar-invoer voor de BENG-keten.
 ///
@@ -163,6 +222,11 @@ pub struct HeatingInput {
     /// splitsing is V2.
     #[serde(default = "default_coverage_fraction")]
     pub coverage_fraction: f64,
+
+    /// Herkomst van de verwarmingskentallen (dossierplicht, zie module-doc).
+    /// `None`/forfait = norm-forfait. Puur metadata — raakt de berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 fn default_coverage_fraction() -> f64 {
@@ -214,11 +278,19 @@ pub struct DhwInput {
     /// `solarBoilerFraction`. V2-scope, zie [`Self::has_solar_boiler`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub solar_boiler_fraction: Option<f64>,
+
+    /// Herkomst van de tapwaterkentallen (dossierplicht, zie module-doc).
+    /// `None`/forfait = norm-forfait. Puur metadata — raakt de berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 /// Douchewater-warmteterugwinning (bijlage U, vereenvoudigd). Mapt op
 /// `nta8800_dhw::model::DouchewtwRecovery`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
+///
+/// Niet langer `Copy` sinds het optionele [`ValueSource`] (met `String`) hier
+/// hangt; de mapping leest via `as_ref()`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct DwtwInput {
     /// Netto thermisch rendement η (0..=1), typisch 0,25-0,50.
     pub efficiency: f64,
@@ -227,6 +299,11 @@ pub struct DwtwInput {
     /// (woningbouw).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub douche_aandeel: Option<f64>,
+
+    /// Herkomst van het DWTW-rendement (dossierplicht, zie module-doc).
+    /// `None`/forfait = norm-forfait. Puur metadata — raakt de berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +365,12 @@ pub struct VentilationInput {
     /// luchtdichtheidsklasse.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infiltration_m3_per_h: Option<f64>,
+
+    /// Herkomst van de ventilatiekentallen (η_WTW, SFP; dossierplicht, zie
+    /// module-doc). `None`/forfait = norm-forfait. Puur metadata — raakt de
+    /// berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 // ---------------------------------------------------------------------------
@@ -324,6 +407,11 @@ pub struct CoolingInput {
     /// Benuttingsfractie (0..=1) voor vrije koeling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub free_cooling_fraction: Option<f64>,
+
+    /// Herkomst van de koelkentallen (SEER/COP; dossierplicht, zie module-doc).
+    /// `None`/forfait = norm-forfait. Puur metadata — raakt de berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +451,12 @@ pub struct PvInput {
     /// Schaduwfactor (0..=1, 1 = geen schaduw). Afwezig ⇒ 1,0.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shadow_factor: Option<f64>,
+
+    /// Herkomst van de PV-kentallen (systeem-/inverterrendement; dossierplicht,
+    /// zie module-doc). Per PV-veld apart. `None`/forfait = norm-forfait. Puur
+    /// metadata — raakt de berekening niet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<ValueSource>,
 }
 
 // ---------------------------------------------------------------------------
@@ -405,9 +499,10 @@ mod tests {
         assert_eq!(e, back);
     }
 
-    #[test]
-    fn filled_energy_round_trip() {
-        let e = EnergyInput {
+    /// Volledig gevulde fixture met een bron op heating (kwaliteitsverklaring),
+    /// dwtw (meting) en pv (gelijkwaardigheidsverklaring).
+    fn filled_fixture() -> EnergyInput {
+        EnergyInput {
             heating: Some(HeatingInput {
                 generator: HeatGeneratorType::HeatPumpGround,
                 cop: Some(4.2),
@@ -417,6 +512,10 @@ mod tests {
                 distribution_efficiency: Some(0.95),
                 control_factor: Some(0.97),
                 coverage_fraction: 1.0,
+                source: Some(ValueSource {
+                    kind: ValueSourceKind::Kwaliteitsverklaring,
+                    reference: Some("BCRG-20231234".into()),
+                }),
             }),
             dhw: Some(DhwInput {
                 generator: DhwGeneratorType::HeatPump,
@@ -424,9 +523,14 @@ mod tests {
                 dwtw: Some(DwtwInput {
                     efficiency: 0.45,
                     douche_aandeel: Some(0.4),
+                    source: Some(ValueSource {
+                        kind: ValueSourceKind::Meting,
+                        reference: None,
+                    }),
                 }),
                 has_solar_boiler: false,
                 solar_boiler_fraction: None,
+                source: None,
             }),
             ventilation: Some(VentilationInput {
                 system: VentilationSystemType::D,
@@ -436,12 +540,14 @@ mod tests {
                 mechanical_supply_m3_per_h: Some(150.0),
                 mechanical_exhaust_m3_per_h: Some(150.0),
                 infiltration_m3_per_h: Some(25.0),
+                source: None,
             }),
             cooling: Some(CoolingInput {
                 generator: CoolingGeneratorType::Compression,
                 seer: Some(4.0),
                 cop: None,
                 free_cooling_fraction: None,
+                source: None,
             }),
             pv: vec![PvInput {
                 id: Some("pv-dak-zuid".into()),
@@ -452,11 +558,20 @@ mod tests {
                 system_efficiency: Some(0.85),
                 inverter_efficiency: Some(0.96),
                 shadow_factor: None,
+                source: Some(ValueSource {
+                    kind: ValueSourceKind::Gelijkwaardigheidsverklaring,
+                    reference: Some("GWV-2024-07".into()),
+                }),
             }],
             automation: Some(AutomationInput {
                 bacs_class: BacsClassInput::A,
             }),
-        };
+        }
+    }
+
+    #[test]
+    fn filled_energy_round_trip() {
+        let e = filled_fixture();
         let json = serde_json::to_string(&e).unwrap();
         let back: EnergyInput = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
@@ -476,6 +591,81 @@ mod tests {
     fn ventilation_system_serializes_uppercase() {
         let json = serde_json::to_string(&VentilationSystemType::D).unwrap();
         assert_eq!(json, "\"D\"");
+    }
+
+    #[test]
+    fn value_source_kind_defaults_to_forfait() {
+        assert_eq!(ValueSourceKind::default(), ValueSourceKind::Forfait);
+    }
+
+    #[test]
+    fn value_source_serializes_snake_case() {
+        let s = ValueSource {
+            kind: ValueSourceKind::Kwaliteitsverklaring,
+            reference: Some("BCRG-1".into()),
+        };
+        let json = serde_json::to_string(&s).unwrap();
+        assert_eq!(json, r#"{"kind":"kwaliteitsverklaring","reference":"BCRG-1"}"#);
+        let back: ValueSource = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, back);
+    }
+
+    #[test]
+    fn source_round_trips_on_every_subsystem() {
+        // De `filled_energy_round_trip`-fixture zet al een bron op heating, dwtw
+        // en pv; hier verifiëren we dat de round-trip die bronnen bewaart.
+        let e = filled_fixture();
+        let json = serde_json::to_string(&e).unwrap();
+        let back: EnergyInput = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
+        assert_eq!(
+            back.heating.unwrap().source.unwrap().kind,
+            ValueSourceKind::Kwaliteitsverklaring
+        );
+        assert_eq!(
+            back.dhw.unwrap().dwtw.unwrap().source.unwrap().kind,
+            ValueSourceKind::Meting
+        );
+    }
+
+    #[test]
+    fn json_without_source_is_backward_compatible() {
+        // Bestaande project-JSON zonder `source` deserialiseert ongewijzigd:
+        // elk `source`-veld valt terug op `None` (dossier-metadata is optioneel).
+        let json = r#"{
+            "heating": {"generator":"hr_boiler","hr_class":"hr107"},
+            "dhw": {"generator":"hr_combi_boiler","dwtw":{"efficiency":0.4}},
+            "ventilation": {"system":"D","wtw_efficiency":0.85},
+            "cooling": {"generator":"compression","seer":4.0},
+            "pv": [{"peak_power_kwp":3.5,"azimuth_degrees":180.0,"tilt_degrees":35.0}]
+        }"#;
+        let e: EnergyInput = serde_json::from_str(json).unwrap();
+        assert!(e.heating.unwrap().source.is_none());
+        let dhw = e.dhw.unwrap();
+        assert!(dhw.source.is_none());
+        assert!(dhw.dwtw.unwrap().source.is_none());
+        assert!(e.ventilation.unwrap().source.is_none());
+        assert!(e.cooling.unwrap().source.is_none());
+        assert!(e.pv[0].source.is_none());
+    }
+
+    #[test]
+    fn source_none_is_omitted_from_json() {
+        // `skip_serializing_if` houdt de goldens byte-compatibel: een subsysteem
+        // zonder bron serialiseert geen `source`-sleutel.
+        let h = HeatingInput {
+            generator: HeatGeneratorType::HrBoiler,
+            cop: None,
+            hr_class: Some(HrBoilerClass::Hr107),
+            district_factor: None,
+            emission: None,
+            distribution_efficiency: None,
+            control_factor: None,
+            coverage_fraction: 1.0,
+            source: None,
+        };
+        let json = serde_json::to_string(&h).unwrap();
+        assert!(!json.contains("source"), "source zou weggelaten moeten zijn: {json}");
     }
 
     #[test]

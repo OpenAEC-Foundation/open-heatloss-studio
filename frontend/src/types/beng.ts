@@ -91,6 +91,52 @@ export interface BengResult {
   service_breakdown_kwh_m2: ServiceBreakdownKwhM2;
   /** Bekende vereenvoudigingen/stubs die op dit resultaat van toepassing zijn. */
   notes: string[];
+  /**
+   * Bronregistratie per deelsysteem (F4c-dossierplicht) — alleen niet-forfait
+   * bronnen. Additief; leeg voor projecten zonder bronopgave.
+   */
+  value_sources: ValueSourceReport[];
+}
+
+// ---------------------------------------------------------------------------
+// Bronregistratie (F4c) — dossierplicht van prestatiewaarden
+// ---------------------------------------------------------------------------
+
+/** Soort herkomst van een prestatiewaarde (serde snake_case). */
+export type ValueSourceKind =
+  | "forfait"
+  | "kwaliteitsverklaring"
+  | "gelijkwaardigheidsverklaring"
+  | "meting"
+  | "overig";
+
+/**
+ * Herkomst van de prestatiewaarden van één deelsysteem (NTA 8800-dossierplicht).
+ * Puur metadata — beïnvloedt de berekening niet. Korrel = deelsysteem (zie
+ * `energy.rs`-module-doc), dus één `source` per subsysteem, per PV-veld apart.
+ */
+export interface ValueSource {
+  kind: ValueSourceKind;
+  /** Referentie naar het brondocument (BCRG-attest, meetrapport, …). */
+  reference?: string | null;
+}
+
+/** Deelsysteem waarop een bronregistratie betrekking heeft (serde snake_case). */
+export type BengSubsystem =
+  | "heating"
+  | "dhw"
+  | "dwtw"
+  | "ventilation"
+  | "cooling"
+  | "pv";
+
+/** Eén doorgegeven bronregistratie in het resultaat (alleen niet-forfait). */
+export interface ValueSourceReport {
+  system: BengSubsystem;
+  /** Optioneel label (bv. PV-veld-naam/-id) om gelijksoortige bronnen te scheiden. */
+  label?: string | null;
+  kind: ValueSourceKind;
+  reference?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +176,8 @@ export interface HeatingInput {
   control_factor?: number | null;
   /** Dekkingsgraad (0..=1); Rust-default 1,0. */
   coverage_fraction?: number;
+  /** Herkomst van de verwarmingskentallen (dossierplicht; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /** Opwekker-type warm tapwater (serde snake_case). */
@@ -145,6 +193,8 @@ export interface DwtwInput {
   efficiency: number;
   /** Aandeel douche in Q_W;nd (0..=1); Rust-default 0,4. */
   douche_aandeel?: number | null;
+  /** Herkomst van het DWTW-rendement (dossierplicht; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /** Warm-tapwater-invoer (NTA 8800 H.13). */
@@ -162,6 +212,8 @@ export interface DhwInput {
   /** Zonneboiler aanwezig (V2-scope in de crate; nu louter invoer). */
   has_solar_boiler?: boolean;
   solar_boiler_fraction?: number | null;
+  /** Herkomst van de tapwaterkentallen (dossierplicht; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /**
@@ -181,6 +233,8 @@ export interface VentilationInput {
   mechanical_supply_m3_per_h?: number | null;
   mechanical_exhaust_m3_per_h?: number | null;
   infiltration_m3_per_h?: number | null;
+  /** Herkomst van de ventilatiekentallen (η_WTW, SFP; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /** Koudeopwekker-type (serde snake_case). */
@@ -195,6 +249,8 @@ export interface CoolingInput {
   cop?: number | null;
   /** Benuttingsfractie (0..=1) voor vrije koeling. */
   free_cooling_fraction?: number | null;
+  /** Herkomst van de koelkentallen (SEER/COP; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /** Eén PV-veld/-string (NTA 8800 H.16). */
@@ -210,6 +266,8 @@ export interface PvInput {
   system_efficiency?: number | null;
   inverter_efficiency?: number | null;
   shadow_factor?: number | null;
+  /** Herkomst van de PV-kentallen (per veld apart; puur metadata). */
+  source?: ValueSource | null;
 }
 
 /** BACS-klasse (serde UPPERCASE; NEN-EN 15232). */

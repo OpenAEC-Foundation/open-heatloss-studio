@@ -364,6 +364,7 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
                     system_efficiency: None,
                     inverter_efficiency: None,
                     shadow_factor: None,
+                    source: None,
                 })
                 .collect()
         })
@@ -379,6 +380,7 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
             distribution_efficiency: None,
             control_factor: None,
             coverage_fraction: heat["coverageFraction"].as_f64().unwrap_or(1.0),
+            source: None,
         }),
         dhw: Some(DhwInput {
             generator: DhwGeneratorType::HeatPump,
@@ -386,6 +388,7 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
             dwtw: None,
             has_solar_boiler: false,
             solar_boiler_fraction: None,
+            source: None,
         }),
         ventilation: Some(VentilationInput {
             system: VentilationSystemType::D,
@@ -395,12 +398,14 @@ fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> Proj
             mechanical_supply_m3_per_h: None,
             mechanical_exhaust_m3_per_h: None,
             infiltration_m3_per_h: None,
+            source: None,
         }),
         cooling: Some(CoolingInput {
             generator: CoolingGeneratorType::Compression,
             seer: cool["eer"].as_f64(),
             cop: None,
             free_cooling_fraction: None,
+            source: None,
         }),
         pv,
         automation: None,

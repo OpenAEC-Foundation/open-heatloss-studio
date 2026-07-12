@@ -7,7 +7,8 @@ use super::*;
 
 use crate::energy::{
     CoolingGeneratorType, CoolingInput, DhwGeneratorType, DhwInput, EnergyInput, HeatEmissionType,
-    HeatGeneratorType, HeatingInput, PvInput, VentilationInput, VentilationSystemType,
+    HeatGeneratorType, HeatingInput, PvInput, ValueSource, ValueSourceKind, VentilationInput,
+    VentilationSystemType,
 };
 use crate::geometry::{
     BoundaryKind, Construction, ConstructionKind, Opening, OpeningKind, SharedGeometry, Space,
@@ -152,6 +153,7 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
             distribution_efficiency: None,
             control_factor: None,
             coverage_fraction: 1.0,
+            source: None,
         }),
         dhw: Some(DhwInput {
             generator: DhwGeneratorType::HeatPump,
@@ -159,6 +161,7 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
             dwtw: None,
             has_solar_boiler: false,
             solar_boiler_fraction: None,
+            source: None,
         }),
         ventilation: Some(VentilationInput {
             system: VentilationSystemType::D,
@@ -168,12 +171,14 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
             mechanical_supply_m3_per_h: Some(150.0),
             mechanical_exhaust_m3_per_h: Some(150.0),
             infiltration_m3_per_h: None,
+            source: None,
         }),
         cooling: Some(CoolingInput {
             generator: CoolingGeneratorType::FreeCooling,
             seer: None,
             cop: None,
             free_cooling_fraction: Some(0.4),
+            source: None,
         }),
         pv: if pv_kwp > 0.0 {
             vec![PvInput {
@@ -185,6 +190,7 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
                 system_efficiency: None,
                 inverter_efficiency: None,
                 shadow_factor: None,
+                source: None,
             }]
         } else {
             vec![]
@@ -342,6 +348,7 @@ fn free_cooling_yields_renewable_cold_raising_beng3() {
             seer: None,
             cop: None,
             free_cooling_fraction: None,
+            source: None,
         });
     }
     let compression = compute_beng(&p).expect("compression ok");
@@ -562,4 +569,145 @@ fn result_serializes_to_json() {
     let json = serde_json::to_string(&r).unwrap();
     let back: BengResult = serde_json::from_str(&json).unwrap();
     assert_eq!(r, back);
+}
+
+// ---------------------------------------------------------------------------
+// Bronregistratie (F4c) — doorvoer naar notes + value_sources, calc-invariant
+// ---------------------------------------------------------------------------
+
+/// Basis met een DWTW-*unit* (echte reken-invoer) zodat de bron-metadata op een
+/// bestaand veld gehangen kan worden zonder de berekening te veranderen.
+fn base_with_dwtw() -> ProjectV2 {
+    let mut p = synthetic_rijtjeshuis(4.0);
+    if let Some(d) = p.energy.as_mut().and_then(|e| e.dhw.as_mut()) {
+        d.dwtw = Some(crate::energy::DwtwInput {
+            efficiency: 0.45,
+            douche_aandeel: None,
+            source: None,
+        });
+    }
+    p
+}
+
+/// Hang niet-forfaitaire bron-metadata op verwarming, de bestaande DWTW-unit en
+/// het eerste PV-veld — puur metadata, verandert géén reken-invoer.
+fn attach_sources(p: &mut ProjectV2) {
+    let e = p.energy.as_mut().expect("energy");
+    if let Some(h) = e.heating.as_mut() {
+        h.source = Some(ValueSource {
+            kind: ValueSourceKind::Kwaliteitsverklaring,
+            reference: Some("BCRG-20231234".into()),
+        });
+    }
+    if let Some(w) = e.dhw.as_mut().and_then(|d| d.dwtw.as_mut()) {
+        w.source = Some(ValueSource {
+            kind: ValueSourceKind::Gelijkwaardigheidsverklaring,
+            reference: None,
+        });
+    }
+    if let Some(pv) = e.pv.first_mut() {
+        pv.source = Some(ValueSource {
+            kind: ValueSourceKind::Meting,
+            reference: Some("  MEET-2024-07  ".into()),
+        });
+    }
+}
+
+#[test]
+fn value_sources_flow_to_report_and_notes() {
+    let mut p = base_with_dwtw();
+    attach_sources(&mut p);
+    let r = compute_beng(&p).expect("compute_beng ok");
+
+    // Gestructureerd rapport-veld: drie niet-forfaitaire bronnen.
+    assert_eq!(r.value_sources.len(), 3, "value_sources: {:?}", r.value_sources);
+    let heating = r
+        .value_sources
+        .iter()
+        .find(|s| s.system == BengSubsystem::Heating)
+        .expect("heating-bron");
+    assert_eq!(heating.kind, ValueSourceKind::Kwaliteitsverklaring);
+    assert_eq!(heating.reference.as_deref(), Some("BCRG-20231234"));
+    assert!(r.value_sources.iter().any(|s| s.system == BengSubsystem::Dwtw));
+    let pv = r
+        .value_sources
+        .iter()
+        .find(|s| s.system == BengSubsystem::Pv)
+        .expect("pv-bron");
+    assert_eq!(pv.label.as_deref(), Some("dak-zuid")); // uit PvInput.id
+    // De referentie is getrimd opgenomen in het rapport-veld ("  MEET-...  " → "MEET-...").
+    assert_eq!(pv.reference.as_deref(), Some("MEET-2024-07"));
+
+    // Menselijk-leesbare doorvoer in notes (transparantie).
+    assert!(
+        r.notes.iter().any(|n| n.contains("BCRG-20231234")),
+        "notes zou de kwaliteitsverklaring moeten noemen: {:?}",
+        r.notes
+    );
+    // Referentie wordt getrimd in de note.
+    assert!(r.notes.iter().any(|n| n.contains("ref. MEET-2024-07")));
+}
+
+#[test]
+fn forfait_source_is_not_reported() {
+    // Een expliciet forfait = norm-default → geen dossierstuk, geen report-entry.
+    let mut p = synthetic_rijtjeshuis(0.0);
+    if let Some(h) = p.energy.as_mut().and_then(|e| e.heating.as_mut()) {
+        h.source = Some(ValueSource {
+            kind: ValueSourceKind::Forfait,
+            reference: None,
+        });
+    }
+    let r = compute_beng(&p).expect("compute_beng ok");
+    assert!(r.value_sources.is_empty(), "forfait mag niet gerapporteerd: {:?}", r.value_sources);
+}
+
+#[test]
+fn reference_is_trimmed_and_capped_at_200_chars() {
+    // Vrije-tekst-referentie mag notes/rapport/PDF niet opblazen: getrimd +
+    // afgekapt op 200 tekens bij het opnemen (de ruwe DTO-invoer blijft heel).
+    let mut p = synthetic_rijtjeshuis(0.0);
+    let long = format!("  {}  ", "x".repeat(500));
+    if let Some(h) = p.energy.as_mut().and_then(|e| e.heating.as_mut()) {
+        h.source = Some(ValueSource {
+            kind: ValueSourceKind::Overig,
+            reference: Some(long.clone()),
+        });
+    }
+    let r = compute_beng(&p).expect("compute_beng ok");
+    let heating = r
+        .value_sources
+        .iter()
+        .find(|s| s.system == BengSubsystem::Heating)
+        .expect("heating-bron");
+    let reference = heating.reference.as_deref().expect("reference aanwezig");
+    assert_eq!(reference.chars().count(), 200, "referentie moet op 200 tekens gekapt zijn");
+    assert!(reference.chars().all(|c| c == 'x'), "witruimte moet getrimd zijn");
+    // De note draagt dezelfde gekapte referentie (geen 500-teken-lap): prefix
+    // (~60) + de 200-teken-cap, ruim onder de 500-teken-invoer.
+    let note = r.notes.iter().find(|n| n.contains("ref. ")).expect("bron-note");
+    assert!(note.chars().count() < 300, "note mag niet opgeblazen zijn: {} tekens", note.chars().count());
+}
+
+#[test]
+fn source_metadata_does_not_change_the_calculation() {
+    // Bronregistratie is puur metadata: elke berekende indicator is identiek met
+    // of zonder bron; alleen notes + value_sources verschillen. Beide projecten
+    // hebben dezelfde reken-invoer (incl. DWTW-unit) — enige verschil = de bron.
+    let base = compute_beng(&base_with_dwtw()).expect("base");
+    let mut sourced_project = base_with_dwtw();
+    attach_sources(&mut sourced_project);
+    let sourced = compute_beng(&sourced_project).expect("sourced");
+
+    assert_eq!(base.beng1, sourced.beng1);
+    assert_eq!(base.beng2, sourced.beng2);
+    assert_eq!(base.beng3, sourced.beng3);
+    assert_eq!(base.tojuli, sourced.tojuli);
+    assert_eq!(base.energy_label, sourced.energy_label);
+    assert_eq!(base.service_breakdown_kwh_m2, sourced.service_breakdown_kwh_m2);
+    assert_eq!(base.renewable_share, sourced.renewable_share);
+
+    // Metadata verschilt wél.
+    assert!(base.value_sources.is_empty());
+    assert!(!sourced.value_sources.is_empty());
 }

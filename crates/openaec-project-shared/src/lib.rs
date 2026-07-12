@@ -33,8 +33,8 @@ pub mod view;
 pub use tojuli::{compute_tojuli_full, TojuliError, TojuliFullInputs, TojuliResult};
 
 pub use beng::{
-    compute_beng, BengError, BengResult, IndicatorReport, ServiceBreakdownKwhM2,
-    TojuliBengSummary, TojuliMethod,
+    compute_beng, BengError, BengResult, BengSubsystem, IndicatorReport, ServiceBreakdownKwhM2,
+    TojuliBengSummary, TojuliMethod, ValueSourceReport,
 };
 
 pub use nta8800_view::{
@@ -46,7 +46,7 @@ pub use calcs::{Calcs, Iso51Inputs, TojuliInputs};
 pub use energy::{
     AutomationInput, BacsClassInput, CoolingGeneratorType, CoolingInput, DhwGeneratorType,
     DhwInput, DwtwInput, EnergyInput, HeatEmissionType, HeatGeneratorType, HeatingInput,
-    HrBoilerClass, PvInput, VentilationInput, VentilationSystemType,
+    HrBoilerClass, PvInput, ValueSource, ValueSourceKind, VentilationInput, VentilationSystemType,
 };
 pub use geometry::{Construction, ConstructionLayer, Opening, OpeningKind, SharedGeometry, Space};
 pub use project::{ProjectV2, SCHEMA_VERSION};

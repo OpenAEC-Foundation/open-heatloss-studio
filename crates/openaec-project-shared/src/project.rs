@@ -129,6 +129,7 @@ mod tests {
                 system_efficiency: None,
                 inverter_efficiency: None,
                 shadow_factor: None,
+                source: None,
             }],
             ..EnergyInput::default()
         });
