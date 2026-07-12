@@ -63,6 +63,42 @@ pub enum ShadingControl {
     Automatic,
 }
 
+/// Externe beschaduwing/belemmering van het zonontvangend vlak (horizon,
+/// overstek, zij-/verticale lamellen), NTA 8800 §17.3.
+///
+/// De belemmering grijpt aan als multiplicatieve factor `F_sh;obst;mi` op de
+/// zoninstraling `I_sol` in formule (7.33), losstaand van de beweegbare
+/// zonwering (die op de `g`-waarde werkt). De factor is asymmetrisch tussen
+/// warmte en koeling: de norm hanteert aparte tabellen 17.4 (verwarming) en
+/// 17.5 (koeling).
+///
+/// V1 modelleert alleen de twee uiteinden van de situatiekeuze uit §17.3.2:
+/// geen belemmering ([`Obstruction::None`], factor 1,0) en de "minimale
+/// belemmering" ([`Obstruction::Minimal`], §17.3.2 onder a) — de conservatieve
+/// referentiewaarde die de BENG-voorbeeldconcepten hanteren. De overige
+/// varianten (overstek, zijbelemmering, belemmering met hoogtehoek — §17.3.4
+/// e.v.) zijn V2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Obstruction {
+    /// Geen externe belemmering — `F_sh;obst;mi = 1,0` in elke maand.
+    #[default]
+    None,
+    /// Minimale belemmering (§17.3.2 onder a): standaard-horizon zonder
+    /// belemmeringen > 20° belemmeringshoek en zonder overstekken < 45°.
+    /// De maandfactoren volgen uit tabel 17.4 (warmte) resp. 17.5 (koeling).
+    Minimal,
+}
+
+impl Obstruction {
+    /// `true` wanneer er geen externe belemmering is (default). Gebruikt als
+    /// `skip_serializing_if` zodat bestaande project-JSON byte-identiek blijft.
+    #[must_use]
+    pub fn is_none(&self) -> bool {
+        matches!(self, Obstruction::None)
+    }
+}
+
 /// Beweegbare zonwering op een raam (screen, jaloezie, rolluik, uitval-/
 /// knikarmscherm), NTA 8800 §7.6.6.1.4, formules (7.42)/(7.43).
 ///
@@ -120,6 +156,12 @@ pub struct Window {
     /// JSON byte-identiek blijft.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub movable_shading: Option<MovableSunShading>,
+
+    /// Externe belemmering (NTA 8800 §17.3). Default [`Obstruction::None`] →
+    /// factor 1,0 (geen effect). Bij de default-waarde niet geserialiseerd
+    /// zodat bestaande project-JSON byte-identiek blijft.
+    #[serde(default, skip_serializing_if = "Obstruction::is_none")]
+    pub obstruction: Obstruction,
 }
 
 impl Window {
@@ -171,6 +213,7 @@ impl Window {
             g_value,
             frame_fraction,
             movable_shading: None,
+            obstruction: Obstruction::None,
         })
     }
 
@@ -178,6 +221,13 @@ impl Window {
     #[must_use]
     pub fn with_movable_shading(mut self, shading: MovableSunShading) -> Self {
         self.movable_shading = Some(shading);
+        self
+    }
+
+    /// Stel de externe belemmering in (builder-stijl), NTA 8800 §17.3.
+    #[must_use]
+    pub fn with_obstruction(mut self, obstruction: Obstruction) -> Self {
+        self.obstruction = obstruction;
         self
     }
 }
@@ -261,6 +311,23 @@ mod tests {
         let json = serde_json::to_string(&w).unwrap();
         let back: Window = serde_json::from_str(&json).unwrap();
         assert_eq!(w, back);
+    }
+
+    #[test]
+    fn default_window_omits_optionele_beschaduwingsvelden() {
+        // Byte-identiteit: een raam zonder zonwering/belemmering serialiseert
+        // zonder de nieuwe sleutels, zodat bestaande project-JSON onveranderd
+        // blijft. Deserialisatie van oude JSON (zonder de velden) levert de
+        // defaults op.
+        let w = ok_window();
+        let json = serde_json::to_string(&w).unwrap();
+        assert!(!json.contains("obstruction"), "obstruction lekt: {json}");
+        assert!(!json.contains("movable_shading"), "movable_shading lekt: {json}");
+
+        let legacy = r#"{"id":"w1","construction_id":"c","area":2.5,"orientation":"zuid","tilt":{"degrees":90.0},"u_value":1.1,"g_value":0.55,"frame_fraction":0.25}"#;
+        let w: Window = serde_json::from_str(legacy).unwrap();
+        assert_eq!(w.obstruction, Obstruction::None);
+        assert!(w.movable_shading.is_none());
     }
 
     #[test]

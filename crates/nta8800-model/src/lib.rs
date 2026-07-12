@@ -43,7 +43,7 @@ pub mod zoning;
 pub use climate::ClimateData;
 pub use error::{ModelError, ModelResult};
 pub use geometry::{
-    Construction, ConstructionLayer, FrameType, GlassType, MovableSunShading, Opening,
+    Construction, ConstructionLayer, FrameType, GlassType, MovableSunShading, Obstruction, Opening,
     ShadingControl, ThermalBridgeCategory, ThermalBridgeLinear, ThermalBridgePoint, Window,
 };
 pub use location::{ClimateZone, LatLon, Location, Orientation, Tilt};

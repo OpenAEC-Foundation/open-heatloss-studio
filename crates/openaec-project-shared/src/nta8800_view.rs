@@ -259,6 +259,8 @@ fn map_window(
         // Beweegbare zonwering 1-op-1 door (identiteits-mapping): de DTO draagt
         // reeds het norm-type nta8800_model::MovableSunShading.
         movable_shading: opening.movable_shading,
+        // Externe belemmering (§17.3) idem 1-op-1 door.
+        obstruction: opening.obstruction,
     })
 }
 
@@ -335,6 +337,7 @@ mod tests {
                     g_value: Some(0.6),
                     frame_fraction: Some(0.2),
                     movable_shading: None,
+                    obstruction: Default::default(),
                 }],
                 layers: vec![],
                 adjacent_space_id: None,

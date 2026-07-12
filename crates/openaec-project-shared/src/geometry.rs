@@ -147,6 +147,15 @@ pub struct Opening {
     /// niet geserialiseerd → bestaande project-JSON blijft byte-identiek.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub movable_shading: Option<nta8800_model::MovableSunShading>,
+
+    /// Externe belemmering van dit raam (NTA 8800 §17.3). Default
+    /// [`nta8800_model::Obstruction::None`] → factor 1,0. Bij de default-waarde
+    /// niet geserialiseerd zodat bestaande project-JSON byte-identiek blijft.
+    /// Net als de zonwering hoort de belemmering per raam (formule 7.33 werkt op
+    /// `I_sol` per raam); opake deuren dragen geen zonwinst, dus de factor is
+    /// daar zonder effect.
+    #[serde(default, skip_serializing_if = "nta8800_model::Obstruction::is_none")]
+    pub obstruction: nta8800_model::Obstruction,
 }
 
 /// Soort opening.

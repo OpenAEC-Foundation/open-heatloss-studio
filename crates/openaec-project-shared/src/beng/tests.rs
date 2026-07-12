@@ -41,6 +41,7 @@ fn wall(
                 g_value: Some(0.6),
                 frame_fraction: Some(0.25),
                 movable_shading: None,
+                obstruction: Default::default(),
             }]
         } else {
             vec![]
@@ -98,6 +99,7 @@ fn face(
                 g_value: Some(0.6),
                 frame_fraction: Some(0.25),
                 movable_shading: None,
+                obstruction: Default::default(),
             }]
         } else {
             vec![]
@@ -190,6 +192,73 @@ fn synthetic_rijtjeshuis(pv_kwp: f64) -> ProjectV2 {
     });
 
     p
+}
+
+/// Zet op elk raam-`Opening` een beweegbare zonwering + externe belemmering.
+/// Gebruikt door de F3d-2-smoke om de RVO-typische instelling na te bootsen.
+fn apply_shading(p: &mut ProjectV2, shading: Option<nta8800_model::MovableSunShading>, obstruction: nta8800_model::Obstruction) {
+    for space in &mut p.geometry.spaces {
+        for c in &mut space.constructions {
+            for o in &mut c.openings {
+                if matches!(o.kind, OpeningKind::Window) {
+                    o.movable_shading = shading;
+                    o.obstruction = obstruction;
+                }
+            }
+        }
+    }
+}
+
+/// F3d-2 smoke — WP-bodem-tussenwoning, PV = 0 (matcht het F2b-anker).
+/// Rapporteert B1/B2/B3/koeling voor drie stappen en toetst tegen het
+/// RVO-anker (54,8 / 29,3 / 59 %). `cargo test -p openaec-project-shared
+/// f3d2_smoke -- --ignored --nocapture`.
+#[test]
+#[ignore = "smoke/diagnostiek — draai handmatig met --nocapture"]
+fn f3d2_smoke_wp_tussenwoning() {
+    use nta8800_model::{MovableSunShading, Obstruction, ShadingControl};
+    let screens = MovableSunShading { f_c: 0.20, control: ShadingControl::ManualResidential };
+
+    let report = |label: &str, p: &ProjectV2| {
+        let r = compute_beng(p).expect("compute_beng ok");
+        println!(
+            "{label:<28} B1={:6.1}  B2={:6.1}  B3={:5.1}%  koeling={:6.2} kWh/m²  TOjuli={:.2}K",
+            r.beng1.value,
+            r.beng2.value,
+            r.beng3.value,
+            r.service_breakdown_kwh_m2.cooling,
+            r.tojuli.max_tojuli_k,
+        );
+        r
+    };
+
+    println!("\n=== F3d-2 smoke — WP-tussenwoning, PV=0, RVO-anker B1 54,8 / B2 29,3 / B3 59% ===");
+    let base = synthetic_rijtjeshuis(0.0);
+    report("baseline (geen zonwering)", &base);
+
+    let mut screens_only = synthetic_rijtjeshuis(0.0);
+    apply_shading(&mut screens_only, Some(screens), Obstruction::None);
+    report("screens (split, geen belemm.)", &screens_only);
+
+    let mut full = synthetic_rijtjeshuis(0.0);
+    apply_shading(&mut full, Some(screens), Obstruction::Minimal);
+    let r_full = report("screens + belemmering (F3d-2)", &full);
+
+    // Variant zonder actieve koeling → per-oriëntatie-TOjuli (§5.7.2).
+    let mut no_cool = synthetic_rijtjeshuis(0.0);
+    apply_shading(&mut no_cool, Some(screens), Obstruction::Minimal);
+    if let Some(e) = no_cool.energy.as_mut() {
+        e.cooling = None;
+    }
+    let r_nc = compute_beng(&no_cool).expect("compute_beng ok");
+    println!(
+        "zonder koeling (F3d-2)       TOjuli={:.2}K (limiet {:.2}K)  method={:?}",
+        r_nc.tojuli.max_tojuli_k, r_nc.tojuli.limit_k, r_nc.tojuli.method
+    );
+
+    // Zwakke sanity (geen anker-assert; kalibratie vergt realistische invoer):
+    // de belemmering + balans-splitsing tillen B1 t.o.v. het screens-only-geval.
+    assert!(r_full.beng1.value.is_finite());
 }
 
 #[test]

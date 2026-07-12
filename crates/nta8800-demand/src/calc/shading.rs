@@ -32,7 +32,26 @@
 
 use nta8800_model::location::{Orientation, Tilt};
 use nta8800_model::time::{Month, MonthlyProfile};
-use nta8800_model::ShadingControl;
+use nta8800_model::{Obstruction, ShadingControl};
+
+/// Balans-tak waarvoor een zonwinst-reductie wordt bepaald.
+///
+/// De NTA 8800 houdt de warmte- en koudebalans strikt gescheiden voor beide
+/// beschaduwingsmechanismen:
+/// - Beweegbare zonwering: voor de **warmtebehoefte van woningen** geldt
+///   `f_sh;with = 0` (§7.6.6.1.4 lid 1) — correct ingeregelde zonwering wordt
+///   bij de warmtevraag niet ingezet, dus geen g-reductie. Bij de koudevraag
+///   geldt het volledige maandprofiel (tabel 7.7/7.9).
+/// - Externe belemmering (§17.3): tabel 17.4 voor verwarming, tabel 17.5 voor
+///   koeling. Bij minimale belemmering is 17.5 uniform 1,00; 17.4 kent
+///   winterreducties (de standaard-horizon blokkeert de lage winterzon).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SolarBalance {
+    /// Warmtebalans (`Q_H;nd`).
+    Heating,
+    /// Koudebalans (`Q_C;nd`).
+    Cooling,
+}
 
 /// Grens waaronder een helling als "horizontaal" wordt geklasseerd voor de
 /// `f_sh;with`-kolomkeuze (schuin ≤ 22,5° → horizontaal, ≤ 67,5° → 45°,
@@ -199,6 +218,189 @@ pub fn movable_shading_g_factor(
     MonthlyProfile::new(out)
 }
 
+// ---------------------------------------------------------------------------
+// Externe belemmering — NTA 8800 §17.3 (formule 7.33, factor F_sh;obst;mi)
+// ---------------------------------------------------------------------------
+
+/// Tabelblok voor `F_sh;obst;mi` bij minimale belemmering, zelfde indeling als
+/// [`FshWithTable`]: 12 maanden × [N,NO,O,ZO,Z,ZW,W,NW] voor de verticale (90°)
+/// en de 45°-kolom, plus de horizontale kolom (0°, oriëntatie-onafhankelijk).
+struct ObstructionTable {
+    vertical: [[f64; 8]; 12],
+    sloped_45: [[f64; 8]; 12],
+    horizontal: [f64; 12],
+}
+
+/// Tabel 17.4 — `F_sh;obst;mi` bij minimale belemmering (§17.3.2 onder a) voor
+/// de **warmtebehoefteberekening**, NTA 8800:2025+C1 p. 708-714. Verticaal 90°,
+/// schuin naar boven 45°, horizontaal 0°. De lage winterwaarden voor de
+/// zuidgeoriënteerde kolommen weerspiegelen de standaard-horizon die de lage
+/// winterzon blokkeert; de horizontale kolom is per oriëntatie identiek 1,00.
+/// (Transcriptie via PyMuPDF, pixmap-geverifieerd — zie het F3d-analyse-doc.)
+const FSH_OBST_HEATING: ObstructionTable = ObstructionTable {
+    // rij = maand (jan..dec), kolom = N,NO,O,ZO,Z,ZW,W,NW
+    vertical: [
+        [1.00, 1.00, 0.92, 0.48, 0.23, 0.49, 0.85, 0.97], // jan
+        [1.00, 0.96, 0.79, 0.81, 0.91, 0.83, 0.85, 0.97], // feb
+        [1.00, 0.97, 0.82, 0.87, 1.00, 0.93, 0.89, 0.96], // mrt
+        [0.99, 0.97, 0.91, 0.95, 1.00, 0.92, 0.82, 0.87], // apr
+        [0.97, 0.93, 0.95, 1.00, 1.00, 0.99, 0.88, 0.85], // mei
+        [0.97, 0.88, 0.90, 1.00, 1.00, 1.00, 0.93, 0.91], // jun
+        [0.97, 0.91, 0.93, 0.99, 1.00, 1.00, 0.92, 0.90], // jul
+        [0.98, 0.98, 0.94, 0.98, 1.00, 0.99, 0.89, 0.88], // aug
+        [1.00, 0.97, 0.87, 0.92, 1.00, 0.91, 0.85, 0.96], // sep
+        [1.00, 0.96, 0.84, 0.86, 0.97, 0.88, 0.83, 0.97], // okt
+        [1.00, 0.98, 0.92, 0.70, 0.61, 0.71, 0.90, 0.99], // nov
+        [1.00, 1.00, 0.86, 0.40, 0.19, 0.58, 0.87, 1.00], // dec
+    ],
+    sloped_45: [
+        [1.00, 0.99, 0.92, 0.56, 0.29, 0.57, 0.86, 0.97], // jan
+        [1.00, 0.92, 0.83, 0.86, 0.93, 0.87, 0.85, 0.93], // feb
+        [1.00, 0.88, 0.83, 0.89, 1.00, 0.94, 0.86, 0.89], // mrt
+        [0.84, 0.80, 0.88, 0.93, 1.00, 0.93, 0.79, 0.79], // apr
+        [0.65, 0.74, 0.89, 0.96, 0.99, 0.95, 0.80, 0.70], // mei
+        [0.68, 0.78, 0.85, 0.96, 0.96, 0.94, 0.86, 0.75], // jun
+        [0.69, 0.81, 0.89, 0.96, 0.98, 0.93, 0.85, 0.77], // jul
+        [0.74, 0.80, 0.88, 0.94, 0.99, 0.96, 0.83, 0.76], // aug
+        [0.96, 0.85, 0.86, 0.92, 1.00, 0.91, 0.81, 0.87], // sep
+        [1.00, 0.90, 0.81, 0.89, 0.97, 0.90, 0.86, 0.92], // okt
+        [1.00, 0.95, 0.86, 0.76, 0.66, 0.77, 0.92, 0.97], // nov
+        [1.00, 0.99, 0.90, 0.48, 0.27, 0.65, 0.85, 1.00], // dec
+    ],
+    // Tabel 17.4, kolom 0° (Hor.): per oriëntatie identiek 1,00 (geen
+    // azimuth-afhankelijke horizonblokkering voor een plat vlak).
+    horizontal: [1.00; 12],
+};
+
+/// `F_sh;obst;mi` per maand voor een raam, NTA 8800 §17.3.
+///
+/// - [`Obstruction::None`] → 1,0 in elke maand (geen belemmering).
+/// - [`Obstruction::Minimal`] + [`SolarBalance::Heating`] → tabel 17.4.
+/// - [`Obstruction::Minimal`] + [`SolarBalance::Cooling`] → tabel 17.5, die bij
+///   minimale belemmering uniform 1,00 is ("Elke oriëntatie / Elke maand",
+///   NTA 8800:2025+C1 p. 715) — dus geen koudereductie.
+///
+/// De hellingskolom wordt geforfaiteerd volgens dezelfde bucketing als
+/// [`fsh_with`] (≤ 22,5° → horizontaal, ≤ 67,5° → 45°, daarboven verticaal;
+/// norm-interpolatie tussen hellingshoeken = restpunt).
+#[must_use]
+pub fn obstruction_g_factor(
+    obstruction: Obstruction,
+    orientation: Orientation,
+    tilt: Tilt,
+    balance: SolarBalance,
+) -> MonthlyProfile<f64> {
+    // Tabel 17.5 (koeling, minimale belemmering) is uniform 1,00 → alleen de
+    // warmtebalans kent een belemmeringsreductie.
+    if obstruction == Obstruction::None || balance == SolarBalance::Cooling {
+        return MonthlyProfile::from_constant(1.0);
+    }
+    let table = &FSH_OBST_HEATING;
+
+    // Horizontaal (plat) raam of ontbrekende azimuth → horizontale kolom (1,00).
+    if tilt.degrees <= TILT_HORIZONTAL_MAX_DEG || orientation_index(orientation).is_none() {
+        return MonthlyProfile::new(table.horizontal);
+    }
+    let Some(col) = orientation_index(orientation) else {
+        return MonthlyProfile::new(table.horizontal);
+    };
+    let block = if tilt.degrees <= TILT_SLOPED_MAX_DEG {
+        &table.sloped_45
+    } else {
+        &table.vertical
+    };
+    let mut out = [0.0_f64; 12];
+    for month in Month::all() {
+        out[month.index()] = block[month.index()][col];
+    }
+    MonthlyProfile::new(out)
+}
+
+// ---------------------------------------------------------------------------
+// F_c-forfaits — NTA 8800 tabel 7.5/7.6 (p. 199)
+// ---------------------------------------------------------------------------
+
+/// Type beweegbare zonwering met een oriëntatie-onafhankelijke `F_c`-forfait
+/// uit NTA 8800 tabel 7.5 (p. 199). De kleur-varianten dekken het
+/// schakelcriterium (`T_s`/`R_s`); "onbekend" is de altijd-toepasbare default.
+///
+/// De caller mag `F_c` ook rechtstreeks op [`nta8800_model::MovableSunShading`]
+/// zetten; deze enum is een norm-verankerde afleiding voor het gangbare geval.
+/// Oriëntatie-afhankelijke uitval-/knikarmschermen (tabel 7.6) staan in
+/// [`awning_f_c`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SunShadingType {
+    /// Buitenscreen, zwart/antraciet/donkerbruin (`T_s < 0,07`).
+    ScreenDark,
+    /// Buitenscreen, overige kleuren (`T_s < 0,17`).
+    ScreenColored,
+    /// Buitenscreen, wit (`T_s ≥ 0,17`).
+    ScreenWhite,
+    /// Buitenscreen, onbekende kleur (default).
+    ScreenUnknown,
+    /// Buitenjaloezie, zwart/antraciet/donkerbruin (`R_s < 0,3`).
+    BlindDark,
+    /// Buitenjaloezie, overige kleuren (`R_s < 0,6`).
+    BlindColored,
+    /// Buitenjaloezie, wit (`R_s ≥ 0,6`).
+    BlindWhite,
+    /// Buitenjaloezie, onbekende kleur.
+    BlindUnknown,
+    /// Buitenrolluik, overige kleuren (`R_s ≤ 0,70`).
+    RollerShutterColored,
+    /// Buitenrolluik, wit (`R_s > 0,70`).
+    RollerShutterWhite,
+    /// Buitenrolluik, onbekende kleur.
+    RollerShutterUnknown,
+    /// Gemetalliseerd weefsel, binnen toegepast (`R_s > 0,72`).
+    MetallizedFabricInterior,
+}
+
+impl SunShadingType {
+    /// Forfaitaire `F_c` uit NTA 8800 tabel 7.5 (p. 199).
+    #[must_use]
+    // Norm-onderscheiden zonwering-categorieën die toevallig hetzelfde forfait
+    // delen (bv. onbekend screen 0,20 vs witte jaloezie 0,20) blijven bewust
+    // aparte match-armen — de tabelstructuur is dan 1-op-1 herleidbaar.
+    #[allow(clippy::match_same_arms)]
+    pub fn f_c(self) -> f64 {
+        match self {
+            SunShadingType::ScreenDark => 0.12,
+            SunShadingType::ScreenColored | SunShadingType::ScreenUnknown => 0.20,
+            SunShadingType::ScreenWhite => 0.25,
+            SunShadingType::BlindDark => 0.05,
+            SunShadingType::BlindColored | SunShadingType::BlindUnknown => 0.10,
+            SunShadingType::BlindWhite => 0.20,
+            SunShadingType::RollerShutterColored | SunShadingType::RollerShutterUnknown => 0.11,
+            SunShadingType::RollerShutterWhite => 0.04,
+            SunShadingType::MetallizedFabricInterior => 0.45,
+        }
+    }
+}
+
+/// Uitval-/knikarmscherm — oriëntatie-afhankelijke `F_c` uit NTA 8800 tabel 7.6
+/// (p. 199, gebaseerd op HR++-glas). Voor tussenliggende oriëntaties geldt de
+/// dichtstbijzijnde; de tabel groepeert {NO,NW}, {O,W} en {ZO,ZW}. Horizontaal
+/// heeft geen azimuth → valt op de Noord-kolom (conservatief hoogst).
+#[must_use]
+pub fn awning_f_c(retractable: bool, orientation: Orientation) -> f64 {
+    // Kolommen: N | NO,NW | O,W | ZO,ZW | Z
+    let (n, no_nw, o_w, zo_zw, z) = if retractable {
+        // Knikarmscherm.
+        (0.90, 0.80, 0.65, 0.55, 0.50)
+    } else {
+        // Uitvalscherm.
+        (0.50, 0.45, 0.35, 0.35, 0.35)
+    };
+    match orientation {
+        Orientation::Noord | Orientation::Horizontaal => n,
+        Orientation::NoordOost | Orientation::NoordWest => no_nw,
+        Orientation::Oost | Orientation::West => o_w,
+        Orientation::ZuidOost | Orientation::ZuidWest => zo_zw,
+        Orientation::Zuid => z,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,5 +451,112 @@ mod tests {
         let f = fsh_with(Orientation::Horizontaal, Tilt::HORIZONTAL, ShadingControl::Automatic);
         // Juli horizontaal automatisch = 0,92.
         assert!((f[Month::Juli] - 0.92).abs() < 1e-12, "juli = {}", f[Month::Juli]);
+    }
+
+    // --- Externe belemmering §17.3 (tabel 17.4/17.5) ---
+
+    #[test]
+    fn obstruction_none_is_altijd_een() {
+        for balance in [SolarBalance::Heating, SolarBalance::Cooling] {
+            let f =
+                obstruction_g_factor(Obstruction::None, Orientation::Zuid, Tilt::VERTICAL, balance);
+            for m in Month::all() {
+                assert!((f[m] - 1.0).abs() < 1e-12, "{m:?} = {}", f[m]);
+            }
+        }
+    }
+
+    #[test]
+    fn obstruction_cooling_is_altijd_een() {
+        // Tabel 17.5 minimale belemmering = uniform 1,00.
+        let f = obstruction_g_factor(
+            Obstruction::Minimal,
+            Orientation::Zuid,
+            Tilt::VERTICAL,
+            SolarBalance::Cooling,
+        );
+        for m in Month::all() {
+            assert!((f[m] - 1.0).abs() < 1e-12, "{m:?} = {}", f[m]);
+        }
+    }
+
+    #[test]
+    fn obstruction_heating_zuid_verticaal_blokkeert_winter() {
+        // Tabel 17.4 Zuid vert.: jan 0,23 / dec 0,19 (lage winterzon geblokkeerd),
+        // zomer ≈ 1,00.
+        let f = obstruction_g_factor(
+            Obstruction::Minimal,
+            Orientation::Zuid,
+            Tilt::VERTICAL,
+            SolarBalance::Heating,
+        );
+        assert!((f[Month::Januari] - 0.23).abs() < 1e-12, "jan = {}", f[Month::Januari]);
+        assert!((f[Month::December] - 0.19).abs() < 1e-12, "dec = {}", f[Month::December]);
+        assert!((f[Month::Juni] - 1.00).abs() < 1e-12, "jun = {}", f[Month::Juni]);
+        // Winter fors gereduceerd t.o.v. zomer.
+        assert!(f[Month::December] < 0.5 * f[Month::Juni]);
+    }
+
+    #[test]
+    fn obstruction_heating_horizontaal_is_een() {
+        // Tabel 17.4 kolom 0° = 1,00 voor elke oriëntatie.
+        let f = obstruction_g_factor(
+            Obstruction::Minimal,
+            Orientation::Horizontaal,
+            Tilt::HORIZONTAL,
+            SolarBalance::Heating,
+        );
+        for m in Month::all() {
+            assert!((f[m] - 1.0).abs() < 1e-12, "{m:?} = {}", f[m]);
+        }
+    }
+
+    #[test]
+    fn obstruction_heating_tabel_steekproef() {
+        // ≥6 H-waarden tegen de getranscribeerde tabel 17.4 (p. 708-714),
+        // pixmap-geverifieerd. (orientatie, tilt, maand, verwachte F_sh;obst).
+        let cases = [
+            (Orientation::Zuid, Tilt::VERTICAL, Month::Januari, 0.23),
+            (Orientation::Zuid, Tilt::VERTICAL, Month::November, 0.61),
+            (Orientation::Oost, Tilt::VERTICAL, Month::Februari, 0.79),
+            (Orientation::Oost, Tilt::VERTICAL, Month::December, 0.86),
+            (Orientation::ZuidOost, Tilt::VERTICAL, Month::Januari, 0.48),
+            (Orientation::West, Tilt::VERTICAL, Month::April, 0.82),
+            (Orientation::Noord, Tilt::VERTICAL, Month::Mei, 0.97),
+            (Orientation::Zuid, Tilt { degrees: 45.0 }, Month::Januari, 0.29),
+            (Orientation::Oost, Tilt { degrees: 45.0 }, Month::Mei, 0.89),
+        ];
+        for (o, t, m, expected) in cases {
+            let f = obstruction_g_factor(Obstruction::Minimal, o, t, SolarBalance::Heating);
+            assert!(
+                (f[m] - expected).abs() < 1e-12,
+                "{o:?} {t:?} {m:?}: {} != {expected}",
+                f[m]
+            );
+        }
+    }
+
+    // --- F_c-forfaits tabel 7.5/7.6 ---
+
+    #[test]
+    fn f_c_forfaits_tabel_7_5() {
+        assert!((SunShadingType::ScreenDark.f_c() - 0.12).abs() < 1e-12);
+        assert!((SunShadingType::ScreenUnknown.f_c() - 0.20).abs() < 1e-12);
+        assert!((SunShadingType::ScreenWhite.f_c() - 0.25).abs() < 1e-12);
+        assert!((SunShadingType::BlindDark.f_c() - 0.05).abs() < 1e-12);
+        assert!((SunShadingType::RollerShutterWhite.f_c() - 0.04).abs() < 1e-12);
+        assert!((SunShadingType::MetallizedFabricInterior.f_c() - 0.45).abs() < 1e-12);
+    }
+
+    #[test]
+    fn awning_f_c_tabel_7_6() {
+        // Uitvalscherm: N 0,50 / Z 0,35. Knikarmscherm: N 0,90 / Z 0,50.
+        assert!((awning_f_c(false, Orientation::Noord) - 0.50).abs() < 1e-12);
+        assert!((awning_f_c(false, Orientation::Zuid) - 0.35).abs() < 1e-12);
+        assert!((awning_f_c(true, Orientation::Noord) - 0.90).abs() < 1e-12);
+        assert!((awning_f_c(true, Orientation::Zuid) - 0.50).abs() < 1e-12);
+        // Groepering {O,W}: knikarm = 0,65.
+        assert!((awning_f_c(true, Orientation::Oost) - awning_f_c(true, Orientation::West)).abs() < 1e-12);
+        assert!((awning_f_c(true, Orientation::Oost) - 0.65).abs() < 1e-12);
     }
 }

@@ -94,7 +94,7 @@ splitsing van `Q_sol` in een warmte- en een koel-variant).
 
 ---
 
-## 2. Mechanisme 1 — externe belemmering (F3d-2, geanalyseerd, nog niet bedraad)
+## 2. Mechanisme 1 — externe belemmering (F3d-2, geïmplementeerd)
 
 ### 2.1 Formule & bepaling (§17.3, p. 697-708)
 
@@ -116,16 +116,72 @@ De lage winterwaarden (standaard-horizon blokkeert de lage winterzon) → tabel
 17.4 **verhoogt** de warmtebehoefte, en is ≈1,0 in de zomer (weinig effect op
 koeling). De koeltabel 17.5 (p. 709 e.v.) geeft eigen, hogere zomerwaarden.
 
-### 2.2 Waarom nog niet bedraad
+### 2.2 Bevinding transcriptie — 17.5 is triviaal
 
-1. **H/C-tabelkeuze onmogelijk in single-Q_sol.** 17.4 (H) en 17.5 (C) zijn
-   verschillend; met één gedeeld `Q_sol` is er geen correcte keuze. Symmetrische
-   toepassing van 17.4 zou de zomer-koelwinst niet corrigeren, van 17.5 de
-   winter-warmtewinst wegsnijden. → vereist de balans-splitsing (F3d-2).
-2. **Transcriptie-omvang.** Tabellen 17.4/17.5 zijn 8 oriëntaties × 13
-   hellingen × 12 maanden × 2 = ~2500 waarden; disproportioneel voor een
-   niet-bedrade factor. Het `Opening.movable_shading`-veld is al toekomstvast;
-   een `obstruction`-veld volgt bij F3d-2 samen met de balans-splitsing.
+Bij het uitlezen van de PDF (PyMuPDF, tekstlaag) bleek tabel **17.5 (koeling)**
+géén per-oriëntatie/helling-blok te zijn maar één regel:
+
+> **Elke oriëntatie · Elke maand · alle hellingen = 1,00** (p. 715).
+
+Fysisch logisch: bij minimale belemmering blokkeert de standaard-horizon de
+**hoge** zomerzon niet, dus de koelwinst wordt niet gereduceerd. Alleen tabel
+**17.4 (verwarming)** kent reële waarden (< 1 in de winter, de lage winterzon
+wordt wél geblokkeerd). Dit halveert de transcriptie-omvang én maakt de bedrading
+eenvoudig: `F_sh;obst` grijpt uitsluitend op de **warmtebalans** aan.
+
+Tabel 17.4 is per oriëntatie 12 maanden × 13 hellingen (90°…0° schuin-omhoog +
+105°…180° schuin-omlaag). V1 bedraadt de drie buckets die met de bestaande
+`f_sh;with`-bucketing overeenkomen: **90° (verticaal), 45°, 0° (horizontaal)**.
+De 0°-kolom is per oriëntatie identiek 1,00 (een plat vlak kent geen
+azimuth-afhankelijke horizonblokkering). De schuin-omlaag-kolommen (105°–180°)
+en de tussenliggende hellingen (75/60/30/15°) zijn V2 (norm-interpolatie).
+
+**Provenance & verificatie.** Tabel 17.4: PDF p. 708–714 (fysieke pagina-idx
+707–713 + kop van 714). Tekstextractie kruisgecheckt met een pixmap-render
+(matrix 2,2×) van de Oost-pagina (idx 711): 24 waarden — verticaal, 45° én
+horizontaal — één-op-één gelijk aan de tekstextractie. De Zuid-verticaal-rij
+`[0,23 0,91 1,00 … 0,97 0,61 0,19]` matcht bovendien de onafhankelijke
+hand-transcriptie in §2.1. Tabel 17.5 (uniform 1,00) is direct van p. 715
+overgenomen. F_c-forfaits (tabel 7.5/7.6) van p. 199.
+
+### 2.3 Code-plek (F3d-2)
+
+| Norm | Code |
+|---|---|
+| tabel 17.4 (H, minimale belemmering) | `shading::FSH_OBST_HEATING` |
+| tabel 17.5 (C) = 1,00 | impliciet: `obstruction_g_factor(_, _, _, Cooling)` → 1,0 |
+| factor `F_sh;obst;mi` per raam | `shading::obstruction_g_factor(obstruction, or, tilt, balance)` |
+| belemmering op raamniveau | `Window.obstruction: Obstruction{None,Minimal}` ← `Opening.obstruction` (identiteits-mapping in `map_window`) |
+| toepassing in 7.33 | `solar_gains::monthly_solar_gains(.., balance)` — multiplicatief met de zonwering |
+
+**Motivatie tabelplek.** De 17.4-data staan in `nta8800-demand::calc::shading`,
+naast de bestaande 7.7/7.9-tabellen — níét in `nta8800-tables`. Beide
+beschaduwingsmechanismen (§7.6.6 zonwering, §17.3 belemmering) voeden dezelfde
+formule (7.33) op dezelfde code-plek (`solar_gains`); co-locatie houdt het
+beschaduwings-domein cohesief en vermijdt het splitsen van verwante forfaits over
+twee crates. (Consistent met de bestaande F3d-1-keuze.)
+
+## 2b. Balans-splitsing Q_sol → warmte/koeling (F3d-2 kern)
+
+`calculate_demand` berekent nu **twee** zonwinst-profielen via
+`monthly_solar_gains(.., SolarBalance::{Heating,Cooling})`:
+
+| balanstak | beweegbare zonwering | §17.3-belemmering | voedt |
+|---|---|---|---|
+| `Heating` | **uit** (`f_sh;with = 0`, §7.6.6.1.4 lid 1 woningen) | tabel 17.4 | γ_H → η_H → Q_H;nd |
+| `Cooling` | maandprofiel tabel 7.7/7.9 | tabel 17.5 = 1,00 | γ_C → η_C → Q_C;nd |
+
+**Minst-invasieve norm-conforme plek.** De H.7-maandbalans hanteerde al aparte
+benuttingsfactoren η_H/η_C; het enige gedeelde punt was `Q_gn = Q_int + Q_sol`.
+De splitsing zit daarom precies daar: `Q_int` blijft gedeeld, `Q_sol` splitst in
+een warmte- en een koelvariant, elk met zijn eigen γ. Geen wijziging aan de
+benuttings-, τ- of koelformules. `DemandBreakdown.monthly_q_sol` rapporteert de
+warmtebalans-variant (identiek aan koeling wanneer geen zonwering/belemmering).
+
+**Default byte-identiek:** zonder `movable_shading` én zonder `obstruction` zijn
+beide factoren 1,0 in elke maand voor beide takken ⇒ `Q_sol;H = Q_sol;C = Q_sol`
+zoals voorheen. Vastgepind in `solar_gains::geen_zonwering_is_identiek_aan_voorheen`
+(nu over beide balanstakken).
 
 ---
 
@@ -180,17 +236,43 @@ verfijningen.
 
 ---
 
-## 5. Restpunten voor F3d-2
+## 4b. Smoke F3d-2 — belemmering + balans-splitsing
 
-1. **Balans-splitsing `Q_sol` → warmte-/koel-variant** in `nta8800-demand`, zodat
-   (a) `f_sh;with = 0` voor woning-warmtevraag exact wordt nageleefd en (b) de
-   H/C-`F_sh;obst`-tabellen (17.4 vs 17.5) elk op de juiste balans landen.
-2. **Externe belemmering §17.3** bedraden: tabellen 17.4 (H) / 17.5 (C)
-   "minimale belemmering" + `Opening.obstruction`-veld + mapper. Model/DTO zijn
-   hier al op voorbereid (additief patroon identiek aan `movable_shading`).
-3. **Norm-interpolatie hellingshoek** voor `f_sh;with` (lineair tussen 90°/45°/0°)
-   i.p.v. de huidige bucket-forfait.
-4. **`F_c`-forfaittabellen 7.5/7.6** in code (nu levert de caller `f_c` expliciet);
-   optioneel een `SunShadingType`-enum met kleur/oriëntatie-lookup.
-5. **Goldens activeren (F3d-2):** de `#[ignore]`-F0-goldens blijven ongewijzigd;
-   activatie valt buiten F3d-1.
+WP-bodem-tussenwoning, PV = 0, handbediende buitenscreens `F_c = 0,20` op ZW/NO,
+minimale belemmering. Draai: `cargo test -p openaec-project-shared f3d2_smoke --
+--ignored --nocapture`.
+
+| Stap | B1 | B2 | B3 | koeling kWh/m² | TOjuli (geen koeling) |
+|---|---|---|---|---|---|
+| baseline (geen zonwering) | 60,9 | 41,8 | 52,1 % | 22,48 | — |
+| screens (split, geen belemm.) | 39,7 | 33,1 | 51,7 % | 13,87 | — |
+| **screens + belemmering (F3d-2)** | **41,2** | **33,7** | **52,2 %** | **13,87** | **12,62 K** |
+| RVO-anker | 54,8 | 29,3 | 59 % | — | ≤ 1,2 K |
+
+**Duiding.**
+- **B1** komt van de belemmering (§17.3 tabel 17.4): 39,7 → 41,2. De splitsing
+  haalt de zonwering ván de warmtebalans (screens verhogen Q_H níét meer,
+  `f_sh;with=0`), de belemmering verlaagt de winter-warmtewinst juist → netto
+  duwt de belemmering B1 richting het anker. Het residu (41,2 vs 54,8) is de
+  agressieve `F_c=0,20` op grote ZW-beglazing + het ongekalibreerde synthetische
+  fixture (geen RVO-1:1-invoer), níét een normfout.
+- **Koeling / B2 / TOjuli** wijzigen niet door de belemmering: tabel 17.5 is
+  uniform 1,00 op de koudebalans. TOjuli (12,62 K) blijft dus de F3d-1-waarde;
+  het afknijpen van TOjuli vergt de koel-zijdige verfijning (F3c-restant), niet
+  §17.3.
+
+## 5. Restpunten voor F3d-3
+
+1. ~~Balans-splitsing `Q_sol` → warmte/koel-variant~~ — **klaar (F3d-2)**, zie §2b.
+2. ~~Externe belemmering §17.3 bedraden~~ — **klaar (F3d-2)**: tabel 17.4 (H) in
+   `FSH_OBST_HEATING`, 17.5 (C) = 1,00, `Window.obstruction`-veld + mapper.
+3. **Norm-interpolatie hellingshoek** (lineair tussen 90°/45°/0°) voor zowel
+   `f_sh;with` als `F_sh;obst`, plus de schuin-omlaag-kolommen (105°–180°) en de
+   overige belemmerings-varianten (§17.3.4 e.v.: overstek, zijbelemmering,
+   hoogtehoek). Nu: bucket-forfait + alleen "minimale belemmering".
+4. **`F_c`-forfaittabellen 7.5/7.6** — **klaar (F3d-2)** als `SunShadingType`
+   (tabel 7.5) + `awning_f_c` (tabel 7.6); de caller mag `f_c` nog steeds
+   rechtstreeks op `MovableSunShading` zetten. Optioneel: de DTO een
+   `SunShadingType` laten dragen i.p.v. een kale `f_c`.
+5. **Goldens activeren (F3d-3):** de `#[ignore]`-F0-goldens blijven ongewijzigd
+   in F3d-2; activatie + anker-kalibratie is F3d-3.

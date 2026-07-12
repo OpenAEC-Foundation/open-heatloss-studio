@@ -13,4 +13,4 @@ pub mod window;
 pub use construction::{Construction, ConstructionLayer};
 pub use opening::Opening;
 pub use thermal_bridge::{ThermalBridgeCategory, ThermalBridgeLinear, ThermalBridgePoint};
-pub use window::{FrameType, GlassType, MovableSunShading, ShadingControl, Window};
+pub use window::{FrameType, GlassType, MovableSunShading, Obstruction, ShadingControl, Window};

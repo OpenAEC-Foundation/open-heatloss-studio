@@ -20,6 +20,7 @@ use nta8800_model::{ClimateData, Rekenzone};
 use nta8800_transmission::TransmissionResult;
 use nta8800_ventilation::VentilationResult;
 
+use crate::calc::shading::SolarBalance;
 use crate::errors::DemandCalcResult;
 use crate::model::{CoolingSetpoint, HeatingSetpoint, InternalGains, ThermalMassInput};
 use crate::result::{DemandBreakdown, DemandResult};
@@ -98,9 +99,15 @@ pub fn calculate_demand(
     let a_heat = utilization::a_parameter(tau_hours);
     let a_cool = utilization::a_parameter(tau_hours);
 
-    // ---- Q_int, Q_sol ----
+    // ---- Q_int, Q_sol (balans-gescheiden, §7.6.6.1.4 + §17.3) ----
+    // De zonwinst verschilt tussen de warmte- en koudebalans: beweegbare
+    // zonwering geldt (voor woningen) alleen bij koeling (f_sh;with = 0 bij
+    // verwarming), en de §17.3-belemmering hanteert tabel 17.4 (H) vs 17.5 (C).
     let monthly_q_int = internal_gains::monthly_internal_gains(internal_gains, zone.floor_area);
-    let monthly_q_sol = solar_gains::monthly_solar_gains(windows, climate, shading_factor);
+    let monthly_q_sol_heating =
+        solar_gains::monthly_solar_gains(windows, climate, shading_factor, SolarBalance::Heating);
+    let monthly_q_sol_cooling =
+        solar_gains::monthly_solar_gains(windows, climate, shading_factor, SolarBalance::Cooling);
 
     // ---- Maandlus: Q_ht, Q_gn, γ, η, Q_nd ----
     let mut out_q_ht = [0.0_f64; 12];
@@ -114,25 +121,28 @@ pub fn calculate_demand(
         let idx = month.index();
 
         let q_ht: Energy = transmission.monthly_q_t[month] + ventilation.monthly_q_v[month];
-        let q_gn: Energy = monthly_q_int[month] + monthly_q_sol[month];
+        let q_gn_heating: Energy = monthly_q_int[month] + monthly_q_sol_heating[month];
+        let q_gn_cooling: Energy = monthly_q_int[month] + monthly_q_sol_cooling[month];
 
         out_q_ht[idx] = q_ht;
-        out_q_gn[idx] = q_gn;
+        // Breakdown rapporteert de warmtebalans-winst (Q_H;gn); zonder zonwering/
+        // belemmering zijn beide balansen identiek → byte-identiek aan voorheen.
+        out_q_gn[idx] = q_gn_heating;
 
-        let gamma_h = monthly_balance::gamma(q_gn, q_ht);
+        let gamma_h = monthly_balance::gamma(q_gn_heating, q_ht);
         let eta_h = utilization::utilization_heating(gamma_h, a_heat);
         out_eta_heating[idx] = eta_h;
-        out_heating_demand[idx] = monthly_balance::heating_demand(q_ht, q_gn, eta_h);
+        out_heating_demand[idx] = monthly_balance::heating_demand(q_ht, q_gn_heating, eta_h);
 
         // γ_C: volgens NTA 8800 formule (7.11) gebruikt koeling dezelfde
-        // γ = Q_gn / Q_ht definitie als warmte. V1 hergebruikt Q_ht/Q_gn
-        // uit de transmission/ventilation-cases (die tegen H-setpoint zijn
-        // berekend). De koelmodus gebruikt `utilization_cooling` met γ^(-a)
-        // vorm; in de limiet γ_C >> 1 benadert η_C,ls → 1.
-        let gamma_c = gamma_h;
+        // γ = Q_gn / Q_ht definitie als warmte, maar met de koudebalans-zonwinst
+        // (beweegbare zonwering actief, §17.3-koeltabel). De koelmodus gebruikt
+        // `utilization_cooling` met γ^(-a) vorm; in de limiet γ_C >> 1 benadert
+        // η_C,ls → 1.
+        let gamma_c = monthly_balance::gamma(q_gn_cooling, q_ht);
         let eta_c = utilization::utilization_cooling(gamma_c, a_cool);
         out_eta_cooling[idx] = eta_c;
-        out_cooling_demand[idx] = monthly_balance::cooling_demand(q_ht, q_gn, eta_c);
+        out_cooling_demand[idx] = monthly_balance::cooling_demand(q_ht, q_gn_cooling, eta_c);
     }
 
     let monthly_q_ht = MonthlyProfile::new(out_q_ht);
@@ -151,7 +161,9 @@ pub fn calculate_demand(
         breakdown: DemandBreakdown {
             monthly_q_ht,
             monthly_q_gn,
-            monthly_q_sol,
+            // Rapporteer de warmtebalans-zonwinst (Q_sol op Q_H); identiek aan de
+            // koudebalans-zonwinst wanneer geen zonwering/belemmering aanwezig is.
+            monthly_q_sol: monthly_q_sol_heating,
             monthly_q_int,
             monthly_utilization_heating: MonthlyProfile::new(out_eta_heating),
             monthly_utilization_cooling: MonthlyProfile::new(out_eta_cooling),

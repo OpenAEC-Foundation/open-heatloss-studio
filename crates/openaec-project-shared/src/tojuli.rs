@@ -892,6 +892,7 @@ mod tests {
                         g_value: Some(0.6),
                         frame_fraction: Some(0.2),
                         movable_shading: None,
+                        obstruction: Default::default(),
                     }],
                     layers: vec![],
                     adjacent_space_id: None,
