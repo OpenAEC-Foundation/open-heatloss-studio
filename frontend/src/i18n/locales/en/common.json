@@ -79,6 +79,7 @@
     "materials": "Materials",
     "projects": "Projects",
     "warmteverliesInstellingen": "Settings",
+    "beng": "BENG",
     "help": "Help & documentation",
     "unsaved": "Unsaved",
     "saved": "Saved",
@@ -87,6 +88,7 @@
       "warmteverlies": "Heat loss",
       "ventilatie": "Ventilation",
       "tojuli": "Summer overheating",
+      "beng": "BENG",
       "rcwaarde": "R-value",
       "library": "Library",
       "help": "Help"

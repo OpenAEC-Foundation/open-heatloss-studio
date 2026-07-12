@@ -13,6 +13,7 @@ import { Results } from "./pages/Results";
 import { WarmteverliesInstellingen } from "./pages/WarmteverliesInstellingen";
 import { Tojuli } from "./pages/Tojuli";
 import { TojuliFull } from "./pages/TojuliFull";
+import { Beng } from "./pages/Beng";
 import { VentilationBalance } from "./pages/VentilationBalance";
 import { DoorGapCalculator } from "./pages/DoorGapCalculator";
 import { Modeller } from "./pages/Modeller";
@@ -48,6 +49,7 @@ export function App() {
             <Route path="/uw" element={<UwCalculator />} />
             <Route path="/tojuli/quick" element={<Tojuli />} />
             <Route path="/tojuli" element={<TojuliFull />} />
+            <Route path="/beng" element={<Beng />} />
             <Route path="/ventilation" element={<VentilationBalance />} />
             <Route path="/tools/deurspleet" element={<DoorGapCalculator />} />
             <Route path="/library" element={<Library />} />

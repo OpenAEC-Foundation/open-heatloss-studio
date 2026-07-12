@@ -168,6 +168,7 @@ type GroupKey =
   | "warmteverlies"
   | "ventilatie"
   | "tojuli"
+  | "beng"
   | "rcwaarde"
   | "library"
   | "help";
@@ -237,6 +238,14 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
         labelKey: "sidebar.tojuli.quick",
         Icon: IconBarChart,
       },
+    ],
+  },
+  {
+    key: "beng",
+    titleKey: "sidebar.groups.beng",
+    defaultCollapsed: false,
+    items: [
+      { to: "/beng", labelKey: "sidebar.beng", Icon: IconBarChart },
     ],
   },
   {

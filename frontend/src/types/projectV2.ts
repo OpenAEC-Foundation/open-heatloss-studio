@@ -14,6 +14,7 @@
  */
 
 import type { Project } from "./project";
+import type { EnergyInput } from "./beng";
 
 export const SCHEMA_VERSION_V2 = 2 as const;
 
@@ -583,6 +584,13 @@ export interface ProjectV2 {
   shared: SharedProject;
   geometry: SharedGeometry;
   calcs: Calcs;
+  /**
+   * Additief installatie-/opwek-invoerblok voor de NTA 8800 / BENG-keten.
+   * Spiegel van de Rust `ProjectV2::energy` (`Option<EnergyInput>` met
+   * `#[serde(default, skip_serializing_if)]`): afwezig → geen BENG-invoer
+   * (`compute_beng` geeft dan 422). Wordt door de BENG-tab gevuld.
+   */
+  energy?: EnergyInput | null;
 }
 
 // ---------------------------------------------------------------------------

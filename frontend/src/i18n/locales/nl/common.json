@@ -79,6 +79,7 @@
     "materials": "Materialen",
     "projects": "Projecten",
     "warmteverliesInstellingen": "Instellingen",
+    "beng": "BENG",
     "help": "Help & documentatie",
     "unsaved": "Niet opgeslagen",
     "saved": "Opgeslagen",
@@ -87,6 +88,7 @@
       "warmteverlies": "Warmteverlies",
       "ventilatie": "Ventilatie",
       "tojuli": "TO-juli",
+      "beng": "BENG",
       "rcwaarde": "Rc-waarde",
       "library": "Bibliotheek",
       "help": "Help"

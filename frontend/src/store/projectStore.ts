@@ -14,6 +14,7 @@ import type {
   Zone,
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
+import type { EnergyInput } from "../types/beng";
 import { isIsso53Heating } from "../lib/normSwitch";
 import {
   DEFAULT_ISSO53_BUILDING,
@@ -148,6 +149,14 @@ interface ProjectStore {
    */
   ventilation: VentilationState;
   /**
+   * NTA 8800 / BENG installatie-invoerblok (`ProjectV2::energy`). Additief op
+   * het project en alleen door de BENG-tab gebruikt; `null` = nog niets
+   * ingevuld. Wordt gepersisteerd (localStorage) maar reist nog NIET mee in de
+   * server-/`.ifcenergy`-envelope (F4c). Bij projectwissel/-reset teruggezet
+   * naar `null` zodat installatie-invoer niet naar een ander project lekt.
+   */
+  energy: EnergyInput | null;
+  /**
    * Calculation result (null if not yet calculated). Houdt een ISSO 51
    * (`ProjectResult`) of ISSO 53 (`Isso53ProjectResult`) resultaat —
    * consumers discrimineren op `norm`, niet op het result-shape zelf.
@@ -180,6 +189,13 @@ interface ProjectStore {
   updateSharedExtra: (partial: Partial<SharedExtra>) => void;
   /** Vervang volledige sidecar (gebruikt bij load van V2 JSON). */
   setSharedExtra: (extra: SharedExtra) => void;
+  /**
+   * Merge een partial op het BENG `energy`-blok (bootstrapt `{}` als er nog
+   * niets is). Zet `isDirty`.
+   */
+  updateEnergy: (partial: Partial<EnergyInput>) => void;
+  /** Vervang (of wis met `null`) het volledige BENG `energy`-blok. */
+  setEnergy: (energy: EnergyInput | null) => void;
   /**
    * Zet de actieve norm. Wordt aangeroepen door de Backstage NormChoiceModal
    * bij nieuw-project en (in fase 4) door de wissel-flow.
@@ -424,6 +440,7 @@ export const useProjectStore = create<ProjectStore>()(
         terminals: [],
         rooms: {},
       },
+      energy: null,
       result: null,
       error: null,
       isCalculating: false,
@@ -442,6 +459,23 @@ export const useProjectStore = create<ProjectStore>()(
         })),
 
       setSharedExtra: (extra) => set({ sharedExtra: extra }),
+
+      updateEnergy: (partial) =>
+        set((state) => {
+          // Merge alleen gedefinieerde keys: `undefined` betekent "niet
+          // aanraken" (voorkomt dat een stray `undefined` een bestaand
+          // deelsysteem stil wist bij een spread). Expliciet `null` blijft
+          // "wis dit deelsysteem" — de clear-conventie van dit blok.
+          const next: EnergyInput = { ...(state.energy ?? {}) };
+          for (const [key, value] of Object.entries(partial)) {
+            if (value !== undefined) {
+              (next as Record<string, unknown>)[key] = value;
+            }
+          }
+          return { energy: next, isDirty: true };
+        }),
+
+      setEnergy: (energy) => set({ energy, isDirty: true }),
 
       setNorm: (norm) => set({ norm, isDirty: true }),
 
@@ -687,6 +721,9 @@ export const useProjectStore = create<ProjectStore>()(
                     : {}),
                 }
               : { terminals: [], rooms: {} },
+            // BENG-invoer reist (nog) niet mee in de envelope → altijd leeg bij
+            // een projectwissel; geen lek naar het volgende project.
+            energy: null,
             isDirty: true,
             result: null,
             error: null,
@@ -738,6 +775,8 @@ export const useProjectStore = create<ProjectStore>()(
                   : {}),
               }
             : { terminals: [], rooms: {} },
+          // BENG-invoer zit nog niet in de server-envelope → leeg bij load.
+          energy: null,
           activeProjectId: id,
           result,
           isDirty: false,
@@ -787,6 +826,7 @@ export const useProjectStore = create<ProjectStore>()(
           isso53Building: { ...DEFAULT_ISSO53_BUILDING },
           isso53Rooms: {},
           ventilation: { terminals: [], rooms: {} },
+          energy: null,
           result: null,
           error: null,
           isCalculating: false,
@@ -1134,6 +1174,7 @@ export function partializeProjectStore(state: ProjectStore) {
     isso53Building: state.isso53Building,
     isso53Rooms: state.isso53Rooms,
     ventilation: state.ventilation,
+    energy: state.energy,
     result: state.result,
     isDirty: state.isDirty,
     activeProjectId: state.activeProjectId,
@@ -1179,6 +1220,8 @@ export function mergePersistedProjectStore(
     })(),
     isso53Rooms:
       (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
+    // Silent migration voor projecten van vóór de BENG-tab (geen energy-blok).
+    energy: (persisted as Partial<ProjectStore>)?.energy ?? null,
     // Silent migration voor projecten van vóór de ventilatiebalans-module.
     ventilation: (() => {
       const v = (persisted as Partial<ProjectStore>)?.ventilation;
