@@ -190,6 +190,244 @@ const UNIEC_FIXTURES: &[(&str, &str, &str)] = &[
 ];
 
 // ---------------------------------------------------------------------------
+// `.oes.json` (open-energy-studio project{}-schema) → `ProjectV2`
+// ---------------------------------------------------------------------------
+//
+// De Uniec-fixtures dragen John Heikens' `project{}`-blok (engine-compleet:
+// 1 rekenzone met per-oriëntatie-gevelvlakken + ramen, constructies met U-waarde,
+// installaties per dienst). Dit is een ánder schema dan `ProjectV2`; deze
+// converter is de deterministische brug. Elke aanname is herleidbaar tot een
+// oes-veld; de gedocumenteerde gaten (koudebruggen, gemeten qv10) staan in de
+// fixture-README's onder "Bekende engine-gaps".
+
+use openaec_project_shared::beng::{compute_beng, BengResult};
+use openaec_project_shared::energy::{
+    CoolingGeneratorType, CoolingInput, DhwGeneratorType, DhwInput, EnergyInput, HeatEmissionType,
+    HeatGeneratorType, HeatingInput, PvInput, VentilationInput, VentilationSystemType,
+};
+use openaec_project_shared::geometry::{
+    BoundaryKind, Construction, ConstructionKind, Opening, OpeningKind, SharedGeometry, Space,
+};
+use openaec_project_shared::shared::{BuildingTypeShared, ResidentialType};
+use openaec_project_shared::ProjectV2;
+
+/// oes-oriëntatiecode → azimut in graden (DTO-conventie 0 = noord, kloksgewijs).
+/// `horizontal`/onbekend → `None` (geen oriëntatiegebonden vlak).
+fn oes_orientation_deg(o: &str) -> Option<f64> {
+    match o {
+        "N" => Some(0.0),
+        "NE" => Some(45.0),
+        "E" => Some(90.0),
+        "SE" => Some(135.0),
+        "S" => Some(180.0),
+        "SW" => Some(225.0),
+        "W" => Some(270.0),
+        "NW" => Some(315.0),
+        _ => None,
+    }
+}
+
+/// Bouw een [`ProjectV2`] uit een `.oes.json`-`project{}`-blok.
+///
+/// **Mapping-keuzes (provenance = oes-veld):**
+/// - Geometrie: elk `surface` → één [`Construction`]; `type` wall/roof/floor →
+///   [`ConstructionKind`] + [`BoundaryKind`] (wall/roof = `Exterior`, floor =
+///   `Ground`). Slope: wall 90°, hellend dak 45°, vloer geen. U-waarde uit het
+///   `constructions[]`-blok via `constructionId`. Ramen → [`Opening`] (incl. de
+///   als raam-met-`gValue=0` gemodelleerde deuren — behoudt hun U·A, 0 zonwinst).
+/// - `Space.floor_area_m2` = `zone.floorArea` (= A_g), níet het vloer-surface
+///   (grondcontact). `height_m` = `zone.height` (levert `floorArea·height` =
+///   `zone.volume`).
+/// - Installaties: heat_pump_air + vloerverwarming; tapwater-WP (`efficiency` =
+///   SCOP_W); ventilatie D met `sfp/3,6` (oes W/(dm³/s) → W/(m³/h)) en
+///   `wtw_efficiency = Some(η)` (η = 0 in de bron: geen effectieve WTW, maar de
+///   `Some`-tak activeert de fan-SFP-doorgifte); compressiekoeling (`eer` = SEER);
+///   PV-velden 1-op-1.
+///
+/// **Niet-injecteerbaar (→ norm-forfait, gedocumenteerde gap):** de gemeten
+/// `airTightness.qv10` (geen ProjectV2-veld → infiltratie valt op het
+/// tabel-11.13-forfait per [`BuildingLeakageType`]) en de expliciete
+/// `thermalBridges` (de nta8800-view propageert `thermal_bridges_linear` niet →
+/// H_T zonder koudebrugtoeslag). `subtype` stuurt uitsluitend dat
+/// leakage-forfait; het is per case op de werkelijke typologie gezet.
+fn oes_to_projectv2(input: &serde_json::Value, subtype: ResidentialType) -> ProjectV2 {
+    let project = &input["project"];
+
+    let mut con_u: BTreeMap<String, f64> = BTreeMap::new();
+    for c in project["constructions"].as_array().expect("constructions[]") {
+        con_u.insert(
+            c["id"].as_str().expect("construction.id").to_string(),
+            c["uValue"].as_f64().expect("construction.uValue"),
+        );
+    }
+
+    let zone = &project["zones"][0];
+    let floor_area = zone["floorArea"].as_f64().expect("zone.floorArea");
+    let height = zone["height"].as_f64().expect("zone.height");
+
+    let mut constructions: Vec<Construction> = Vec::new();
+    for s in zone["surfaces"].as_array().expect("surfaces[]") {
+        let stype = s["type"].as_str().expect("surface.type");
+        let (kind, boundary, slope) = match stype {
+            "wall" => (ConstructionKind::Wall, BoundaryKind::Exterior, Some(90.0)),
+            "roof" => (ConstructionKind::Roof, BoundaryKind::Exterior, Some(45.0)),
+            "floor" => (ConstructionKind::Floor, BoundaryKind::Ground, None),
+            other => panic!("onbekend oes surface.type: {other}"),
+        };
+        let cid = s["constructionId"].as_str().expect("surface.constructionId");
+        let u = *con_u.get(cid).unwrap_or_else(|| panic!("geen constructie {cid}"));
+
+        let mut openings: Vec<Opening> = Vec::new();
+        if let Some(wins) = s["windows"].as_array() {
+            for w in wins {
+                openings.push(Opening {
+                    id: w["id"].as_str().unwrap_or("win").to_string(),
+                    kind: OpeningKind::Window,
+                    area_m2: w["area"].as_f64().expect("window.area"),
+                    u_value: w["uValue"].as_f64().expect("window.uValue"),
+                    g_value: Some(w["gValue"].as_f64().unwrap_or(0.0)),
+                    frame_fraction: None,
+                    movable_shading: None,
+                    obstruction: Default::default(),
+                });
+            }
+        }
+
+        constructions.push(Construction {
+            id: s["id"].as_str().unwrap_or("surf").to_string(),
+            description: s["name"].as_str().unwrap_or("").to_string(),
+            kind,
+            boundary,
+            area_m2: s["area"].as_f64().expect("surface.area"),
+            u_value: u,
+            orientation_deg: oes_orientation_deg(s["orientation"].as_str().unwrap_or("horizontal")),
+            slope_deg: slope,
+            openings,
+            layers: vec![],
+            adjacent_space_id: None,
+            psi_thermal_bridge: None,
+        });
+    }
+
+    let mut p = ProjectV2::new(project["name"].as_str().unwrap_or("oes-project"));
+    p.shared.building_type = BuildingTypeShared::Woning { subtype };
+    p.shared.gross_floor_area_m2 = Some(floor_area);
+    p.shared.construction_year = Some(2020);
+    p.geometry = SharedGeometry {
+        spaces: vec![Space {
+            id: zone["id"].as_str().unwrap_or("zone").to_string(),
+            name: zone["name"].as_str().unwrap_or("zone").to_string(),
+            function: None,
+            floor_area_m2: floor_area,
+            height_m: height,
+            theta_i_winter_c: Some(20.0),
+            theta_i_summer_c: Some(24.0),
+            constructions,
+        }],
+    };
+
+    let heat = &project["heatingSystems"][0];
+    let hw = &project["hotWaterSystems"][0];
+    let vent = &project["ventilationSystems"][0];
+    let cool = &project["coolingSystems"][0];
+
+    let pv: Vec<PvInput> = project["solarPV"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|v| PvInput {
+                    id: v["id"].as_str().map(String::from),
+                    name: v["name"].as_str().map(String::from),
+                    peak_power_kwp: v["peakPower"].as_f64().expect("pv.peakPower"),
+                    azimuth_degrees: oes_orientation_deg(v["orientation"].as_str().unwrap_or("S"))
+                        .unwrap_or(180.0),
+                    tilt_degrees: v["tilt"].as_f64().unwrap_or(30.0),
+                    system_efficiency: None,
+                    inverter_efficiency: None,
+                    shadow_factor: None,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    p.energy = Some(EnergyInput {
+        heating: Some(HeatingInput {
+            generator: HeatGeneratorType::HeatPumpAir,
+            cop: heat["cop"].as_f64(),
+            hr_class: None,
+            district_factor: None,
+            emission: Some(HeatEmissionType::FloorHeating),
+            distribution_efficiency: None,
+            control_factor: None,
+            coverage_fraction: heat["coverageFraction"].as_f64().unwrap_or(1.0),
+        }),
+        dhw: Some(DhwInput {
+            generator: DhwGeneratorType::HeatPump,
+            efficiency: hw["efficiency"].as_f64(),
+            dwtw: None,
+            has_solar_boiler: false,
+            solar_boiler_fraction: None,
+        }),
+        ventilation: Some(VentilationInput {
+            system: VentilationSystemType::D,
+            wtw_efficiency: Some(vent["heatRecoveryEfficiency"].as_f64().unwrap_or(0.0)),
+            sfp_w_per_m3h: vent["sfp"].as_f64().map(|s| s / 3.6),
+            bypass_enabled: false,
+            mechanical_supply_m3_per_h: None,
+            mechanical_exhaust_m3_per_h: None,
+            infiltration_m3_per_h: None,
+        }),
+        cooling: Some(CoolingInput {
+            generator: CoolingGeneratorType::Compression,
+            seer: cool["eer"].as_f64(),
+            cop: None,
+            free_cooling_fraction: None,
+        }),
+        pv,
+        automation: None,
+    });
+
+    p
+}
+
+/// Subtype per Uniec-case (stuurt uitsluitend het infiltratie-leakage-forfait).
+/// Gouda: vrijstaand met kap. Aalten: vrijstaande woning met zadeldak.
+fn uniec_subtype(case: &str) -> ResidentialType {
+    match case {
+        "gouda-2467" | "aalten-2522" => ResidentialType::Detached,
+        other => panic!("onbekende uniec-case: {other}"),
+    }
+}
+
+/// Diagnostische meting — print berekend/expected/delta voor beide Uniec-cases.
+/// `cargo test -p openaec-project-shared --test beng_golden uniec_measure -- --ignored --nocapture`.
+#[test]
+#[ignore = "diagnostiek — draai handmatig met --nocapture"]
+fn uniec_measure() {
+    for (name, exp_raw, input_raw) in UNIEC_FIXTURES {
+        let fx: UniecExpected = serde_json::from_str(exp_raw).unwrap();
+        let input: serde_json::Value = serde_json::from_str(input_raw).unwrap();
+        let project = oes_to_projectv2(&input, uniec_subtype(name));
+        let r: BengResult = compute_beng(&project).expect("compute_beng ok");
+        let e = &fx.expected;
+        let d = |calc: f64, exp: f64| (calc - exp) / exp * 100.0;
+        println!("\n=== {name} (A_g={:.1} A_ls={:.1} vf={:.2}) ===", r.a_g_m2, r.a_ls_m2, r.als_ag_ratio);
+        println!("  BENG1  calc={:7.2}  exp={:7.2}  d={:+6.1}%  (lim {:.1})", r.beng1.value, e.beng1_kwh_m2_jr, d(r.beng1.value, e.beng1_kwh_m2_jr), e.beng1_limit_kwh_m2_jr);
+        println!("  BENG2  calc={:7.2}  exp={:7.2}  d={:+6.1}%  (lim {:.1})", r.beng2.value, e.beng2_kwh_m2_jr, d(r.beng2.value, e.beng2_kwh_m2_jr), e.beng2_limit_kwh_m2_jr);
+        println!("  BENG3  calc={:7.2}  exp={:7.2}  d={:+6.1}pp (lim {:.0})", r.beng3.value, e.beng3_pct, r.beng3.value - e.beng3_pct, e.beng3_limit_pct);
+        println!("  label  calc={:>6}  exp={:>6}", r.energy_label, e.energy_label);
+        let sb = &r.service_breakdown_kwh_m2;
+        println!("  sub/m² heating={:6.2} dhw={:6.2} cooling={:6.2} fans={:6.2} pv={:6.2}", sb.heating, sb.dhw, sb.cooling, sb.ventilation_aux, sb.pv);
+        println!("  sub-totaal (primair kWh, ·A_g): heating={:6.0}(exp {}) dhw={:6.0}(exp {}) cooling={:6.0}(exp {}) fans={:6.0}(exp {}) pv={:7.0}(exp {})",
+            sb.heating * r.a_g_m2, e.heating_primary_kwh,
+            sb.dhw * r.a_g_m2, e.hot_water_primary_kwh,
+            sb.cooling * r.a_g_m2, e.cooling_primary_kwh,
+            sb.ventilation_aux * r.a_g_m2, e.fans_primary_kwh,
+            sb.pv * r.a_g_m2, e.pv_production_kwh);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Vangnet-test (draait mee in `cargo test`) — provenance-discipline
 // ---------------------------------------------------------------------------
 
@@ -353,15 +591,19 @@ fn rvo_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
         serde_json::from_str(input_raw).unwrap_or_else(|e| panic!("{name}: input: {e}"));
     assert_eq!(fx.concepts.len(), 3);
 
-    // Zodra F2 klaar is:
-    //   1. Reconstrueer een ProjectV2 per concept (wacht op Bijlage 4-geometrie).
+    // compute_beng (F2) bestaat; de blokkade is de INVOER: de per-gevel-geometrie
+    // (gevelvlakken m², ramen per oriëntatie, Als) staat niet in de publieke RVO-
+    // PDF's maar in de niet-gepubliceerde Bijlage 4 (Excel). Zodra die er is:
+    //   1. Reconstrueer een ProjectV2 per concept (analoog aan oes_to_projectv2).
     //   2. let result = compute_beng(&project);
     //   3. Vergelijk result.beng1/2/3 + tojuli met c.expected binnen fx.tolerance.
-    unimplemented!("compute_beng ontbreekt nog — F2 (case {name})");
+    unimplemented!("RVO Bijlage 4-geometrie ontbreekt — invoer-blokkade (case {name})");
 }
 
 #[test]
-#[ignore = "wacht op compute_beng (F2)"]
+#[ignore = "geometrie-reconstructie geblokkeerd op RVO Bijlage 4 (per-gevel m²/ramen/Als \
+            ontbreken in de publieke PDF); input.json is documentatie-only. compute_beng (F2) \
+            bestaat — dit is een invoer-provenance-blokkade, geen engine-blokkade. Zie README."]
 fn rvo_tussenwoning_m_g13() {
     rvo_golden_body(
         "tussenwoning-m-g13",
@@ -371,7 +613,9 @@ fn rvo_tussenwoning_m_g13() {
 }
 
 #[test]
-#[ignore = "wacht op compute_beng (F2)"]
+#[ignore = "geometrie-reconstructie geblokkeerd op RVO Bijlage 4 (per-gevel m²/ramen/Als \
+            ontbreken in de publieke PDF); input.json is documentatie-only. compute_beng (F2) \
+            bestaat — invoer-provenance-blokkade, geen engine-blokkade. Zie README."]
 fn rvo_hoekwoning_m_g11() {
     rvo_golden_body(
         "hoekwoning-m-g11",
@@ -381,7 +625,9 @@ fn rvo_hoekwoning_m_g11() {
 }
 
 #[test]
-#[ignore = "wacht op compute_beng (F2)"]
+#[ignore = "geometrie-reconstructie geblokkeerd op RVO Bijlage 4 (per-gevel m²/ramen/Als \
+            ontbreken in de publieke PDF); input.json is documentatie-only. compute_beng (F2) \
+            bestaat — invoer-provenance-blokkade, geen engine-blokkade. Zie README."]
 fn rvo_vrijstaande_l_g12() {
     rvo_golden_body(
         "vrijstaande-l-g12",
@@ -394,7 +640,10 @@ fn rvo_vrijstaande_l_g12() {
 // Uniec-replay-goldens (rood — wachten op compute_beng, F2)
 // ---------------------------------------------------------------------------
 
-/// Structuur-check + rode golden voor één certified Uniec-project.
+/// End-to-end golden voor één certified Uniec-project: `.oes.json` →
+/// [`oes_to_projectv2`] → [`compute_beng`], daarna BENG 1/2/3 + label binnen de
+/// per-case-tolerantie uit `expected.json`. Anti-fudge: de tolerantie is de
+/// bron-tolerantie, niet opgerekt naar de huidige engine-afstand.
 fn uniec_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
     let fx: UniecExpected =
         serde_json::from_str(expected_raw).unwrap_or_else(|e| panic!("{name}: expected: {e}"));
@@ -403,21 +652,55 @@ fn uniec_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
     assert!(input["project"].is_object(), "{name}: project{{}}-blok ontbreekt");
     assert!(fx.expected.beng1_kwh_m2_jr > 0.0);
 
-    // Zodra F2 klaar is:
-    //   1. let project = ProjectV2::from(&input["project"]);  // .oes.json → ProjectV2
-    //   2. let result = compute_beng(&project);
-    //   3. Vergelijk result.beng1/2/3 + sub-totalen met fx.expected binnen fx.tolerance.
-    unimplemented!("compute_beng ontbreekt nog — F2 (case {name})");
+    let project = oes_to_projectv2(&input, uniec_subtype(name));
+    let r = compute_beng(&project).unwrap_or_else(|e| panic!("{name}: compute_beng: {e}"));
+    let e = &fx.expected;
+    let t = &fx.tolerance;
+
+    let rel_pct = |calc: f64, exp: f64| (calc - exp) / exp * 100.0;
+    assert!(
+        rel_pct(r.beng1.value, e.beng1_kwh_m2_jr).abs() <= t.beng1_pct,
+        "{name}: BENG1 {:.2} wijkt {:+.1}% af (tol ±{:.0}%) van {:.2}",
+        r.beng1.value,
+        rel_pct(r.beng1.value, e.beng1_kwh_m2_jr),
+        t.beng1_pct,
+        e.beng1_kwh_m2_jr
+    );
+    assert!(
+        rel_pct(r.beng2.value, e.beng2_kwh_m2_jr).abs() <= t.beng2_pct,
+        "{name}: BENG2 {:.2} wijkt {:+.1}% af (tol ±{:.0}%) van {:.2}",
+        r.beng2.value,
+        rel_pct(r.beng2.value, e.beng2_kwh_m2_jr),
+        t.beng2_pct,
+        e.beng2_kwh_m2_jr
+    );
+    assert!(
+        (r.beng3.value - e.beng3_pct).abs() <= t.beng3_abs_pp,
+        "{name}: BENG3 {:.2} wijkt {:+.1}pp af (tol ±{:.1}pp) van {:.2}",
+        r.beng3.value,
+        r.beng3.value - e.beng3_pct,
+        t.beng3_abs_pp,
+        e.beng3_pct
+    );
+    assert_eq!(
+        r.energy_label, e.energy_label,
+        "{name}: energielabel {} ≠ certified {}",
+        r.energy_label, e.energy_label
+    );
 }
 
 #[test]
-#[ignore = "wacht op compute_beng (F2)"]
+#[ignore = "F3d-3 gap: PV-west valt door de map_pv-azimuthnormalisatie (270°→−90°, cos-clamp) op ~0 \
+            → BENG2 +94%, BENG3 −40pp; koeling +517% (F_sh=1,0), verwarming −58% (koudebruggen niet \
+            gepropageerd). Buiten ±6/8/3pp. Zie fixture-README §engine-gaps."]
 fn uniec_gouda_2467() {
     uniec_golden_body("gouda-2467", UNIEC_GOUDA_EXPECTED, UNIEC_GOUDA_INPUT);
 }
 
 #[test]
-#[ignore = "wacht op compute_beng (F2)"]
+#[ignore = "F3d-3 gap: PV-noord uit de bron (orientation \"N\") levert ~0 vs certified 3811 kWh \
+            (bron-inconsistentie), plus koeling +108% / verwarming −47% → BENG2 +175%, BENG3 −43pp. \
+            Buiten ±6/10/3pp. Zie fixture-README §engine-gaps."]
 fn uniec_aalten_2522() {
     uniec_golden_body("aalten-2522", UNIEC_AALTEN_EXPECTED, UNIEC_AALTEN_INPUT);
 }

@@ -23,6 +23,11 @@ De geometrie in het `project{}`-blok is een **benadering** van de originele cert
 
 ## Status
 
-🔴 **Rood/`#[ignore]`** — activeren in fase F3 zodra `compute_beng(ProjectV2)` bestaat. Harnas: `crates/openaec-project-shared/tests/beng_golden.rs`.
+🔴 **Rood/`#[ignore]`** — de goldens zijn in F3d-3 **end-to-end aangesloten** (`oes_to_projectv2` → `compute_beng` in `crates/openaec-project-shared/tests/beng_golden.rs`) met de tolerantie-asserts uit `expected.json`, maar blijven `#[ignore]`: beide cases vallen ver buiten tolerantie. Per-case meting + gap-analyse staan in `gouda-2467/README.md` en `aalten-2522/README.md`.
 
-De sub-totalen (`heating_primary_kwh` etc. in `expected.json.expected`) zijn nu al vastgelegd zodat F3 per-dienst kan diagnosticeren welke crate afwijkt, niet alleen de eindindicator.
+**Top-3 engine-gaps (op gemeten impact, beide cases):**
+1. **PV** — Gouda: west-string op ~0 door de `map_pv`-azimuthnormalisatie (270°→−90°) i.c.m. de `cos((γ−180)/2)`-clamp in `nta8800-pv` (engine-inconsistentie ±180 vs 0-360). Aalten: bron-`orientation="N"` strookt niet met de certified opbrengst (3811 kWh). Dominant voor BENG 2/3.
+2. **Koeling** — `Q_C;nd` met `F_sh = 1,0` (whole-zone) overschat de koudebehoefte (+108% Aalten, +517% Gouda).
+3. **Verwarming** — koudebruggen (`thermalBridges`) niet gepropageerd + gemeten `qv10` niet injecteerbaar → H_T/H_ve te laag → Q_H;nd −47…−58%.
+
+De sub-totalen (`heating_primary_kwh` etc. in `expected.json.expected`) waren vooraf al vastgelegd; ze maakten deze per-dienst-diagnose mogelijk (welke crate afwijkt, niet alleen de eindindicator). De diagnostische meting draai je met `cargo test -p openaec-project-shared --test beng_golden uniec_measure -- --ignored --nocapture`. Anti-fudge: `expected.json` en de toleranties zijn niet aangepast.

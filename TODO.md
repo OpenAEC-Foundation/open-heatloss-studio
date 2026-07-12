@@ -262,7 +262,8 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
       - [x] **F3d-3 ✅ (12-07)** balans-splitsing Q_sol H/C-variant — Q_gn = Q_int + Q_sol nu apart voor warmte- (f_sh;with=0, §7.6.6.1.4 woningen) en koelbalans (f_sh;with-maandprofiel), elk eigen γ/η. Smoke WP-tussenwoning: B1 60,9→41,2 · B2 41,8→33,7 · koeling 22,5→13,9 kWh/m².
       - [x] **F3d-4 ✅ (12-07)** F_c-tabellen 7.5/7.6 (p.199) als consts verankerd.
       - [ ] **F3d-5** — helling-interpolatie f_sh;with (nu 3 discrete standen verticaal/45°/horizontaal) + tussenhellingen = V2
-      - [ ] **F3d-6** — F3d-goldens activeren (nu smoke-only via `f3d2_smoke_wp_tussenwoning`, `#[ignore]` + `--nocapture`)
+      - [ ] **F3d-6** — F3d-goldens activeren: **geprobeerd 12-07, 0/5 geactiveerd** (anti-fudge: `expected.json`/`input.json` onaangeraakt, gaps gemeten en gedocumenteerd in `#[ignore]`-redenen + README's). Geblokkeerd op: (a) RVO-cases (3×) — per-gevel-geometrie zit in niet-publieke Bijlage 4-Excel [USER moet opvragen]; `input.json` blijft documentatie-only. (b) Uniec Gouda/Aalten buiten tolerantie — PV-west/noord ≈0 door cos-clamp zonder hoek-wrap in `nta8800-pv/src/calc/mod.rs:164` (tabel 16.2 nooit geïmplementeerd) → B2 +94/+175%, B3 −40/−43pp; koeling +517% (zonwering-mapping Uniec); verwarming −58% (koudebruggen niet gepropageerd in Uniec-mapping) [F3d-7]. Nieuwe diagnostiektest `uniec_measure` toegevoegd.
+      - [ ] **F3d-7** — PV-tabel-16.2 hoek-wrap (`nta8800-pv/src/calc/mod.rs:164`) + koudebruggen-propagatie in Uniec-mapping, dan F3d-6 herkansen
 - [ ] **Utiliteitsbouw peak-koellast fixture** — folder + expected.json klaar (2026-05-28), wacht op peak-cooling engine
 
 ### Optioneel later

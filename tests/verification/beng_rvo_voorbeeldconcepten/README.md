@@ -48,4 +48,4 @@ Beoordeeld: `tests/references/referentiegebouwen-beng-2017.pdf` (RVO/DGMR e20151
 
 ## Status
 
-🔴 **Rood/`#[ignore]`** — activeren gebeurt in fase F3 zodra `compute_beng` bestaat. Harnas: `crates/openaec-project-shared/tests/beng_golden.rs`.
+🔴 **Rood/`#[ignore]`** — **niet** door de engine geblokkeerd: `compute_beng` bestaat sinds F2 en is voor de Uniec-cases end-to-end aangesloten. Deze drie RVO-cases blijven `#[ignore]` op een **invoer-provenance-blokkade**: de per-gevel-geometrie (gevelvlakken m², ramen per oriëntatie, Als) staat niet in de publieke PDF's maar in de niet-gepubliceerde RVO Bijlage 4 (Excel). `input.json` is daarom documentatie-only en niet machine-inleesbaar. Zodra Bijlage 4 er is, verloopt de reconstructie analoog aan `oes_to_projectv2` (Uniec-harnas). Harnas: `crates/openaec-project-shared/tests/beng_golden.rs`.
