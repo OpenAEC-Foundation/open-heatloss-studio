@@ -1,0 +1,13 @@
+{
+  "_comment": "EP-W002c (ISSO 54 v2.0, p7). Delta-representatie: EPW001-basis + expliciete detailberekening thermische bruggen (vervangt de forfaitaire koudebruggen). Geometrie/constructies/installaties ongewijzigd t.o.v. epw001/input.json.",
+  "base_test": "epw001",
+  "delta": {
+    "onderwerp": "Detailberekening thermische bruggen (i.p.v. forfaitair)",
+    "thermal_bridges": [
+      { "id": "tb-gevel-gevel", "description": "aansluitingen tussen gevels", "psi_w_per_mk": 0.1, "length_m": 21.6, "provenance": "p7: 'psi=0,1 W/mK, lengte= 21,6 m' (doorgehaald 20,8)" },
+      { "id": "tb-gevel-dak", "description": "aansluitingen gevel-dak", "psi_w_per_mk": 0.04, "length_m": 28.0, "provenance": "p7: 'psi=0,04 W/mK, lengte=28 m'" },
+      { "id": "tb-vloer-gevel", "description": "aansluitingen vloer-gevel", "psi_w_per_mk": -0.18, "length_m": 28.0, "provenance": "p7: 'psi=-0,18 W/mK, lengte=28 m'" },
+      { "id": "tb-kozijn-gevel", "description": "aansluitingen kozijn-gevel", "psi_w_per_mk": 0.05, "length_m": 40.0, "provenance": "p7: 'psi=0,05 W/mK, lengte= 40 m'" }
+    ]
+  }
+}

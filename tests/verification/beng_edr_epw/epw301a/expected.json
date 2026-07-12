@@ -1,0 +1,31 @@
+{
+  "case": "epw301a",
+  "test": "EP-W301a",
+  "omschrijving": "EPW001 met een toegevoegde koelinstallatie: individuele elektrische compressiekoelmachine met vloerkoeling (12/16). Referentiesituatie van de koeltestreeks.",
+  "delta_vs_epw001": "Koelinstallatie toegevoegd (EPW001 koelt niet): compressiekoeling + vloerkoeling 12/16. Overige kenmerken ongewijzigd.",
+  "source": {
+    "document": "ISSO 54 - EDR testen NTA 8800 (2022), versie 2.0",
+    "vastgesteld": "CCvD InstallQ, 12-05-2022",
+    "norm_versie_gerekend": "NTA 8800 (januari 2022)",
+    "invoer_pages": [31],
+    "invoer_section": "2.5 preambule + 2.5.1 Test EP-W301 (deeltest a), p31",
+    "results_source": "Bijlage 2 (apart Excel-document) — NIET in bezit",
+    "note": "Activeert de koelvraag (Q_C) + koelopwekking (EER). Bekende engine-zwakte: koeling +506% in de Uniec-crosscheck (F_sh=1,0), dus diagnostisch waardevol."
+  },
+  "tolerance": {
+    "afkeur_pct": 1.0,
+    "motivatie": "Officiele EDR-afkeurtolerantie (ISSO 54 p67): >1,0% = afkeuring. Verruimen verboden."
+  },
+  "geometry_expected": {
+    "_comment": "Ongewijzigd t.o.v. EPW001 (installatie-delta raakt geen vlakoppervlak).",
+    "ag_m2": { "value": 96.0, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_m2": { "value": 247.2, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_ag_ratio": { "value": 2.575, "provenance": "afgeleid: 247,2 / 96" }
+  },
+  "grootheden": {
+    "_comment": "Bijlage 2-Excel (niet in bezit) -> value=null + blocked_on. EC;ci is nu niet-nul (EPW001 koelt niet); scherpe test voor de koel-tak waar de engine het verst afligt.",
+    "ep1_energiebehoefte_kwh_m2": { "symbool": "EP1 / E;we;H+C;nd", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 1" },
+    "ep2_primair_fossiel_kwh_m2": { "symbool": "EP2 / E;we;PTot", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 2" },
+    "ec_ci_kwh": { "symbool": "EC;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 12" }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "case": "epw001",
+  "test": "EP-W001",
+  "omschrijving": "EDR-referentiewoning: vrijstaand grondgebonden, 2 bouwlagen, 1 rekenzone, plat dak, ramen alleen zuid. HR107-combiketel, D2-ventilatie met WTW, geen koeling, geen PV.",
+  "delta_vs_epw001": null,
+  "source": {
+    "document": "ISSO 54 - EDR testen NTA 8800 (2022), versie 2.0",
+    "vastgesteld": "CCvD InstallQ, 12-05-2022 (vervangt v2.0 nov-2021)",
+    "norm_versie_gerekend": "NTA 8800 (januari 2022)",
+    "invoer_pages": [4, 5, 6],
+    "invoer_figure": "Figuur 1 (p4): gevelaanzicht/plattegrond, maten in m",
+    "invoer_table": "tabel 1 (p5): oppervlakte + thermische eigenschappen dichte constructies",
+    "results_source": "Bijlage 2 (apart Excel-document) — NIET in bezit; p67 verwijst er alleen naar",
+    "note": "De PDF bevat geen enkel resultaatgetal. Alle energie-eindwaarden zijn geblokkeerd op het Bijlage 2-Excel."
+  },
+  "tolerance": {
+    "afkeur_pct": 1.0,
+    "motivatie": "Officiele EDR-afkeurtolerantie (ISSO 54 p67): afkeuring bij >1,0% afwijking, boven of onder. Attesteringsniveau. Geldt zowel voor de nu-assertbare geometrie (Ag/Als) als, zodra beschikbaar, voor de Bijlage 2-eindwaarden. Verruimen verboden."
+  },
+  "geometry_expected": {
+    "_comment": "Uit de PDF-tekst (p5) — NIET Excel-geblokkeerd; assertbaar zodra edr_to_projectv2 bestaat. Eerste fase-2-activatie.",
+    "ag_m2": { "value": 96.0, "provenance": "p5: 'Gebruiksoppervlakte Ag = 96 m2 (bouwlaag 1 = 48,0; bouwlaag 2 = 48,0)'" },
+    "als_m2": { "value": 247.2, "provenance": "p5: 'Omhullend oppervlak Ao = 247,2 m2' = dak 48 + vloer 48 + zuid 43,2 + noord 43,2 + oost 32,4 + west 32,4" },
+    "als_ag_ratio": { "value": 2.575, "provenance": "afgeleid: 247,2 / 96" },
+    "volume_m3": { "value": 259.2, "provenance": "p5: 'V = 259,2 m3 (129,6 per bouwlaag)'" },
+    "perimeter_bg_vloer_m": { "value": 28.0, "provenance": "p5: 'De perimeter conform NEN 1068 bedraagt 28 m'" }
+  },
+  "grootheden": {
+    "_comment": "h5 'Eisen aan de uitvoer' (p53). Alle waarden staan in Bijlage 2-Excel (niet in bezit) -> value=null + blocked_on. Anti-fudge: niet vullen met engine-uitkomst.",
+    "ep1_energiebehoefte_kwh_m2": { "symbool": "EP1 / E;we;H+C;nd", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 1" },
+    "ep2_primair_fossiel_kwh_m2": { "symbool": "EP2 / E;we;PTot", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 2" },
+    "ep3_aandeel_hernieuwbaar_pct": { "symbool": "EP3 / RER;PrenTot", "eenheid": "%", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 3" },
+    "qh_nd_net_kwh_m2": { "symbool": "QH,nd;net", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 4" },
+    "tojuli_max": { "symbool": "TOjuli;max", "eenheid": "-", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 5" },
+    "eh_ci_kwh": { "symbool": "EH;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 8" },
+    "ev_ci_kwh": { "symbool": "EV;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 10" },
+    "ec_ci_kwh": { "symbool": "EC;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 12" },
+    "ew_ci_kwh": { "symbool": "EW;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 13" },
+    "waux_tot_kwh": { "symbool": "Waux;tot", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 14" }
+  }
+}

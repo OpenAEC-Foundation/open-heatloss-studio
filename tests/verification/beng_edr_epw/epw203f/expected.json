@@ -1,0 +1,32 @@
+{
+  "case": "epw203f",
+  "test": "EP-W203f",
+  "omschrijving": "EPW001 met elektrische lucht/water-warmtepomp (buitenlucht, 55/47, COP conform tabel 9.28) i.p.v. de HR107-combiketel voor ruimteverwarming.",
+  "delta_vs_epw001": "Verwarmingsopwekker HR107-combiketel -> elektrische WP buitenlucht 55/47 (COP conform). Tapwater-toewijzing niet expliciet (zie input.json dhw_note).",
+  "source": {
+    "document": "ISSO 54 - EDR testen NTA 8800 (2022), versie 2.0",
+    "vastgesteld": "CCvD InstallQ, 12-05-2022",
+    "norm_versie_gerekend": "NTA 8800 (januari 2022)",
+    "invoer_pages": [25],
+    "invoer_section": "2.4.3 Test EP-W203 (deeltest f), p25",
+    "results_source": "Bijlage 2 (apart Excel-document) — NIET in bezit",
+    "note": "Lucht-WP is de F3d-4-relevante generator; verschuift EP2 (elektrisch i.p.v. gas) en EP3 (aandeel hernieuwbaar)."
+  },
+  "tolerance": {
+    "afkeur_pct": 1.0,
+    "motivatie": "Officiele EDR-afkeurtolerantie (ISSO 54 p67): >1,0% = afkeuring. Verruimen verboden."
+  },
+  "geometry_expected": {
+    "_comment": "Ongewijzigd t.o.v. EPW001 (opwekker-delta raakt geen vlakoppervlak).",
+    "ag_m2": { "value": 96.0, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_m2": { "value": 247.2, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_ag_ratio": { "value": 2.575, "provenance": "afgeleid: 247,2 / 96" }
+  },
+  "grootheden": {
+    "_comment": "Bijlage 2-Excel (niet in bezit) -> value=null + blocked_on. WP verschuift EP2 (elektrisch) en EP3 (hernieuwbaar aandeel) sterk t.o.v. de gasketel-referentie.",
+    "ep1_energiebehoefte_kwh_m2": { "symbool": "EP1 / E;we;H+C;nd", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 1" },
+    "ep2_primair_fossiel_kwh_m2": { "symbool": "EP2 / E;we;PTot", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 2" },
+    "ep3_aandeel_hernieuwbaar_pct": { "symbool": "EP3 / RER;PrenTot", "eenheid": "%", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 3" },
+    "eh_ci_kwh": { "symbool": "EH;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 8" }
+  }
+}

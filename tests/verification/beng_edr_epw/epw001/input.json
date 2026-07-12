@@ -1,0 +1,153 @@
+{
+  "_comment": "EDR-referentietest EP-W001 (ISSO 54 v2.0, p4-6). ProjectV2-nabij tussenschema; best-effort documentatie. Geometrie-conventie: construction.area_m2 = bruto vlak incl. raamopening, ramen als openings[] (zie ../README.md). Alle waarden hebben provenance in expected.json/README.md.",
+  "name": "EDR EP-W001 referentiewoning",
+  "shared": {
+    "building_type": "Woning",
+    "residential_subtype": "Detached",
+    "construction_year": 2021,
+    "gross_floor_area_m2": 96.0
+  },
+  "geometry": {
+    "spaces": [
+      {
+        "id": "zone-1",
+        "name": "rekenzone 1 (2 bouwlagen)",
+        "floor_area_m2": 96.0,
+        "height_m": 5.4,
+        "volume_m3": 259.2,
+        "theta_i_winter_c": 20.0,
+        "theta_i_summer_c": 24.0,
+        "constructions": [
+          {
+            "id": "dak",
+            "description": "Horizontaal dak, grenst buiten",
+            "kind": "Roof",
+            "boundary": "Exterior",
+            "area_m2": 48.0,
+            "rc_m2k_w": 6.0,
+            "u_value": 0.162,
+            "orientation_deg": null,
+            "slope_deg": 0.0,
+            "openings": []
+          },
+          {
+            "id": "bg-vloer",
+            "description": "Begane-grondvloer op grond (warmteverlies hfdst. 8 NTA 8800, perimeter 28 m)",
+            "kind": "Floor",
+            "boundary": "Ground",
+            "area_m2": 48.0,
+            "rc_m2k_w": 6.0,
+            "u_value": null,
+            "perimeter_m": 28.0,
+            "orientation_deg": null,
+            "slope_deg": null,
+            "openings": []
+          },
+          {
+            "id": "gevel-zuid",
+            "description": "Buitengevel zuid (bruto 43,2; dicht 19,2; raam 24,0)",
+            "kind": "Wall",
+            "boundary": "Exterior",
+            "area_m2": 43.2,
+            "rc_m2k_w": 6.0,
+            "u_value": 0.162,
+            "orientation_deg": 180.0,
+            "slope_deg": 90.0,
+            "openings": [
+              { "id": "raam-zuid-1", "kind": "Window", "area_m2": 6.0, "u_value": 1.8, "g_value": 0.7, "frame_fraction": 0.25 },
+              { "id": "raam-zuid-2", "kind": "Window", "area_m2": 6.0, "u_value": 1.8, "g_value": 0.7, "frame_fraction": 0.25 },
+              { "id": "raam-zuid-3", "kind": "Window", "area_m2": 6.0, "u_value": 1.8, "g_value": 0.7, "frame_fraction": 0.25 },
+              { "id": "raam-zuid-4", "kind": "Window", "area_m2": 6.0, "u_value": 1.8, "g_value": 0.7, "frame_fraction": 0.25 }
+            ]
+          },
+          {
+            "id": "gevel-noord",
+            "description": "Buitengevel noord (dicht, geen ramen)",
+            "kind": "Wall",
+            "boundary": "Exterior",
+            "area_m2": 43.2,
+            "rc_m2k_w": 6.0,
+            "u_value": 0.162,
+            "orientation_deg": 0.0,
+            "slope_deg": 90.0,
+            "openings": []
+          },
+          {
+            "id": "gevel-oost",
+            "description": "Buitengevel oost",
+            "kind": "Wall",
+            "boundary": "Exterior",
+            "area_m2": 32.4,
+            "rc_m2k_w": 6.0,
+            "u_value": 0.162,
+            "orientation_deg": 90.0,
+            "slope_deg": 90.0,
+            "openings": []
+          },
+          {
+            "id": "gevel-west",
+            "description": "Buitengevel west",
+            "kind": "Wall",
+            "boundary": "Exterior",
+            "area_m2": 32.4,
+            "rc_m2k_w": 6.0,
+            "u_value": 0.162,
+            "orientation_deg": 270.0,
+            "slope_deg": 90.0,
+            "openings": []
+          }
+        ]
+      }
+    ],
+    "thermal_bridges": []
+  },
+  "thermal_mass": {
+    "dm_kj_m2k": 450.0,
+    "bouwwijze": "Betonnen wand-vloer skeletbouw / dragend metselwerk met massieve betonnen vloeren; plafond 'geen of open' (tabel 7.10 NTA 8800)"
+  },
+  "infiltration": {
+    "method": "forfaitair",
+    "qv10_spec_reken_dm3_s_m2": 0.7,
+    "f_type": 1.4,
+    "building_height_m": 5.4,
+    "note": "tabel 11.14 NTA 8800; ftype vrijstaand = 1,4; geen open verbrandingstoestellen"
+  },
+  "energy": {
+    "heating": {
+      "generator": "HR107 combiketel (individueel, modulerend)",
+      "efficiency_gen": 0.95,
+      "install_year": 2021,
+      "temperature_level": "LT 45/40",
+      "emission": "vloerverwarming (deklaag 1,8 cm, EN 442/1264)",
+      "control_delta_theta_room_k": -0.5,
+      "inside_thermal_envelope": true,
+      "distribution": "twee-pijps, waterzijdig ingeregeld, forfaitaire leidinglengte/psi, geen aanvullende pomp, geen warmtemeter"
+    },
+    "dhw": {
+      "generator": "HR107 combiketel (zelfde toestel)",
+      "tap_class": "CW5",
+      "storage": false,
+      "gaskeur": "HR + CW",
+      "tap_pipe_kitchen_m": 8.5,
+      "tap_pipe_shower_m": 5.0,
+      "pipe_inner_diameter_gt_10mm": true,
+      "circulation_pipe": false,
+      "shower_wtw": false
+    },
+    "ventilation": {
+      "system": "D2 (gebalanceerd, mechanische toe- en afvoer met WTW)",
+      "wtw_type": "tegenstroomwarmtewisselaar (kunststof)",
+      "supply_duct_length_m": 1.0,
+      "supply_duct_insulated": true,
+      "bypass_fraction": 1.0,
+      "luka_class": "C",
+      "flea_du": 1.05,
+      "fan_power": "forfaitair",
+      "unit_in_heated_zone": true,
+      "ahu": false
+    },
+    "cooling": null,
+    "pv": [],
+    "summer_night_ventilation": false
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "case": "epw101p",
+  "test": "EP-W101p",
+  "omschrijving": "EPW001 met ventilatiesysteem D1 (gebalanceerd zonder WTW) i.p.v. D2. Test de WTW-uitschakeling en de ventilatie/infiltratie-tak.",
+  "delta_vs_epw001": "Ventilatie D2 (met WTW) -> D1 (geen WTW), centraal, LUKA C. Overige kenmerken ongewijzigd.",
+  "source": {
+    "document": "ISSO 54 - EDR testen NTA 8800 (2022), versie 2.0",
+    "vastgesteld": "CCvD InstallQ, 12-05-2022",
+    "norm_versie_gerekend": "NTA 8800 (januari 2022)",
+    "invoer_pages": [20],
+    "invoer_section": "2.3.1 Test EP-W101 (deeltest p), p20",
+    "results_source": "Bijlage 2 (apart Excel-document) — NIET in bezit",
+    "note": "Contrast met EPW001's D2+WTW; verwarmingsvraag stijgt door verlies van warmteterugwinning."
+  },
+  "tolerance": {
+    "afkeur_pct": 1.0,
+    "motivatie": "Officiele EDR-afkeurtolerantie (ISSO 54 p67): >1,0% = afkeuring. Verruimen verboden."
+  },
+  "geometry_expected": {
+    "_comment": "Ongewijzigd t.o.v. EPW001 (installatie-delta raakt geen vlakoppervlak).",
+    "ag_m2": { "value": 96.0, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_m2": { "value": 247.2, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_ag_ratio": { "value": 2.575, "provenance": "afgeleid: 247,2 / 96" }
+  },
+  "grootheden": {
+    "_comment": "Bijlage 2-Excel (niet in bezit) -> value=null + blocked_on. EP1/Q_H;nd stijgen door wegvallen WTW; EV;ci (ventilatie-hulpenergie) wijzigt.",
+    "ep1_energiebehoefte_kwh_m2": { "symbool": "EP1 / E;we;H+C;nd", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 1" },
+    "ep2_primair_fossiel_kwh_m2": { "symbool": "EP2 / E;we;PTot", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 2" },
+    "qh_nd_net_kwh_m2": { "symbool": "QH,nd;net", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 4" },
+    "ev_ci_kwh": { "symbool": "EV;ci", "eenheid": "kWh", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 10" }
+  }
+}

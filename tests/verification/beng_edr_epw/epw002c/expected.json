@@ -1,0 +1,32 @@
+{
+  "case": "epw002c",
+  "test": "EP-W002c",
+  "omschrijving": "EPW001 met detailberekening van thermische bruggen (expliciete psi + lengtes i.p.v. forfaitaire koudebruggen).",
+  "delta_vs_epw001": "Vervang forfaitaire koudebruggen door 4 expliciete lineaire bruggen (gevel-gevel, gevel-dak, vloer-gevel, kozijn-gevel). Overige kenmerken ongewijzigd.",
+  "source": {
+    "document": "ISSO 54 - EDR testen NTA 8800 (2022), versie 2.0",
+    "vastgesteld": "CCvD InstallQ, 12-05-2022",
+    "norm_versie_gerekend": "NTA 8800 (januari 2022)",
+    "invoer_pages": [7],
+    "invoer_section": "2.2.1 Test EP-W002 (deeltest c), p7",
+    "results_source": "Bijlage 2 (apart Excel-document) — NIET in bezit",
+    "note": "Geometrie/installaties = EPW001; enige delta is de koudebrug-detaillering."
+  },
+  "tolerance": {
+    "afkeur_pct": 1.0,
+    "motivatie": "Officiele EDR-afkeurtolerantie (ISSO 54 p67): >1,0% = afkeuring. Verruimen verboden."
+  },
+  "geometry_expected": {
+    "_comment": "Ongewijzigd t.o.v. EPW001 (koudebrug-delta raakt geen vlakoppervlak).",
+    "ag_m2": { "value": 96.0, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_m2": { "value": 247.2, "provenance": "EPW001 p5 (ongewijzigd)" },
+    "als_ag_ratio": { "value": 2.575, "provenance": "afgeleid: 247,2 / 96" }
+  },
+  "grootheden": {
+    "_comment": "Bijlage 2-Excel (niet in bezit) -> value=null + blocked_on. Deze test is de scherpste vangrail voor de F3d-4 koudebrug-propagatie (Sigma psi*L in H_D).",
+    "ep1_energiebehoefte_kwh_m2": { "symbool": "EP1 / E;we;H+C;nd", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 1" },
+    "ep2_primair_fossiel_kwh_m2": { "symbool": "EP2 / E;we;PTot", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 2" },
+    "ep3_aandeel_hernieuwbaar_pct": { "symbool": "EP3 / RER;PrenTot", "eenheid": "%", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 3" },
+    "qh_nd_net_kwh_m2": { "symbool": "QH,nd;net", "eenheid": "kWh/m2", "value": null, "blocked_on": "Bijlage 2 Excel", "provenance": "p53 h5 rij 4" }
+  }
+}

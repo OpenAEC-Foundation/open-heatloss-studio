@@ -1,0 +1,14 @@
+{
+  "_comment": "EP-W101p (ISSO 54 v2.0, p20). Delta: ventilatiesysteem D2 -> D1 (geen WTW), centraal, LUKA C. Overige kenmerken = EPW001.",
+  "base_test": "epw001",
+  "delta": {
+    "onderwerp": "Ventilatiesysteem D2 -> D1 (geen WTW)",
+    "ventilation_override": {
+      "system": "D1",
+      "wtw": false,
+      "luka_class": "C",
+      "topology": "centraal",
+      "provenance": "p20, 2.3.1 Test EP-W101 deeltest p: 'Systeem D1 / Luchtdichtheid kanalen is LUKA C / Geen WTW / Centraal systeem'"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "_comment": "EP-W004d (ISSO 54 v2.0, p8). Delta: hoofdgevel (raamgevel) draait van Zuid naar Noord; alle overige gevels draaien mee (gebouw roteert 180 graden). Vlakoppervlakken ongewijzigd; alleen de orientatie per gevel wijzigt. Overige kenmerken = EPW001.",
+  "base_test": "epw001",
+  "delta": {
+    "onderwerp": "Orientatie hoofdgevel Zuid -> Noord (gebouw draait mee)",
+    "orientation_overrides": {
+      "gevel-zuid": { "new_orientation_deg": 0.0, "note": "raamgevel wijst nu noord" },
+      "gevel-noord": { "new_orientation_deg": 180.0, "note": "wijst nu zuid" },
+      "gevel-oost": { "new_orientation_deg": 270.0, "note": "wijst nu west" },
+      "gevel-west": { "new_orientation_deg": 90.0, "note": "wijst nu oost" }
+    },
+    "provenance": "p8, 2.2.3 Test EP-W004 deeltest d: 'Noord'. 'De oriuentatie van de hoofdgevel (gevel met ramen) wordt gewijzigd. De overige gevels draaien mee.'"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "EP-W203f (ISSO 54 v2.0, p25). Delta: opwekker ruimteverwarming HR107-combiketel -> elektrische warmtepomp op buitenlucht, ontwerptemperatuurklasse 55/47, COP voldoet aan tabel 9.28. Test wijzigt de VERWARMINGS-opwekker; DHW-toewijzing niet expliciet in de tekst (zie note).",
+  "base_test": "epw001",
+  "delta": {
+    "onderwerp": "Ruimteverwarming HR107 -> elektrische warmtepomp buitenlucht",
+    "heating_override": {
+      "generator": "elektrische warmtepomp",
+      "source": "buitenlucht",
+      "temperature_class": "55/47",
+      "cop_meets_table_9_28": true,
+      "provenance": "p25, 2.4.3 Test EP-W203 deeltest f: 'Elektrische warmtepomp / Bron buitenlucht / Ontwerptemperatuurklasse 55/47 / COP voldoet aan eisen tabel 9.28'"
+    },
+    "dhw_note": "EPW203 test uitsluitend de opwekker voor VERWARMING. De tekst noemt geen tapwater-wijziging; toewijzing (HR107-combi vs. WP) is niet expliciet en volgt uit Bijlage 2. Aanname documenteren bij fase-2-activatie."
+  }
+}

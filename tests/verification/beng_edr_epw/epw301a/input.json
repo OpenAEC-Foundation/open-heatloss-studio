@@ -1,0 +1,16 @@
+{
+  "_comment": "EP-W301a (ISSO 54 v2.0, p31). Delta: EPW001 (geen koeling) krijgt een koelinstallatie toegevoegd. EPW301a = referentiesituatie van de koeltestreeks (§2.5 preambule + deeltest a). Overige kenmerken = EPW001.",
+  "base_test": "epw001",
+  "delta": {
+    "onderwerp": "Koelinstallatie toegevoegd (compressie, vloerkoeling)",
+    "cooling_override": {
+      "generator": "individuele elektrische compressiekoelmachine",
+      "emission": "vloerkoeling",
+      "design_temperature": "12/16",
+      "waterside_balancing": "onbekend",
+      "room_control": "onbekend",
+      "distribution": "geen leidingen door ongeconditioneerde ruimte; leidingen/kleppen/beugels geisoleerd; geen warmtemeter; pomp aanwezig",
+      "provenance": "p31, 2.5 preambule (koelinstallatie-basis) + 2.5.1 Test EP-W301 deeltest a ('Referentiesituatie')"
+    }
+  }
+}

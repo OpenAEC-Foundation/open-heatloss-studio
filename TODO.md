@@ -271,7 +271,9 @@ DGMR-aanvraag is hiermee **niet meer nodig**.
 
 ### Optioneel later
 
-- [ ] ISSO 54 testset (BRL 9501 attestering, ~€1500 BouwZo trial) — alleen relevant voor formele software-attestering
+- [x] **F3d-5 fase 1 ✅ (12-07)** — ISSO 54 EDR-attesteringstestset (BRL 9501 NTA8800 v2.0, InstallQ CCvD 12-05-2022) geëxtraheerd als rode golden-laag: 6 EPW-fixtures (epw001/002c/004d/101p/203f/301a) onder `tests/verification/beng_edr_epw/`, invoer volledig normatief uit de PDF-tekst (spiegelbeeld van de RVO-set: dáár ontbreekt de invoer, hier de uitkomsten). Officiële afkeurtolerantie ±1,0%, provenance (pagina/figuur) per waarde, PDF zelf buiten de repo (licentie). Harnas: `crates/openaec-project-shared/tests/edr_golden.rs`, 1 passed / 7 ignored. Analyse: `docs/2026-07-12-f3d5-edr-testset-analyse.md`.
+- [ ] **F3d-5 fase 2a** — `edr_to_projectv2`-builder + geometrie-golden activeren (Ag≈96 m²/Als≈247,2 m² op EPW001, niet Excel-geblokkeerd, ±1%).
+- [ ] **[USER] EDR Bijlage 2-Excel (eindwaarden)** verwerven via InstallQ/ISSO 54-bron — blokkeert alle energie-eindwaarde-asserts in `edr_golden.rs` tot dan.
 - [ ] Uniec voorbeeldproject — Uniec is cloud-only SaaS, geen lokale bestanden mogelijk zonder DGMR-samenwerking
 
 ## 🎯 v1.0 Release Criteria
