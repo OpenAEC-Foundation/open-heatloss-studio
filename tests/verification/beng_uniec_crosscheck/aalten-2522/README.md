@@ -4,6 +4,7 @@ Grondgebonden woning, **2522 Woning Aalten**. Certified met **Uniec 3.3.2.1 / Be
 
 - **Invoer:** `input.oes.json` (kopie van `open-energy-studio/training-data/2522-woning-aalten.oes.json`, John Heikens, LGPL-3.0). Bevat het volledige `project{}`-blok (1 rekenzone, 1 verwarming, 1 ventilatie, 1 koeling, 1 tapwater, 1 PV, 3 constructies) + `meta`.
 - **Expected:** `expected.json`, waarden EXACT uit `meta.uniecReference` (JSON-paden in `provenance`).
+- **Uniec-invoercapture:** `uniec_fields_capture.json` — volledige velden-dump van alle 20 Uniec 3-invoerpagina's van deze case (alleen-lezen Playwright-walk). Geïnventariseerd + geanalyseerd in `docs/2026-07-12-uniec-velden-inventarisatie.md`.
 
 | Indicator | Certified | Limiet |
 |---|---|---|
