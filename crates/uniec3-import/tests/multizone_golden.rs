@@ -1,13 +1,16 @@
-//! MZ-V2a multi-rekenzone-golden — projectnr. 2176 (vrijstaande woning, 3 rekenzones).
+//! MZ-V2b multi-rekenzone-golden — projectnr. 2176 (vrijstaande woning, 3 rekenzones).
 //!
 //! Importeert het lokale drie-rekenzone-`.uniec3` (vrijstaande woning met kelder,
 //! app 3.3.6) en pint de importer-kant vast: 3 rekenzones, A_g;tot = 435,10 m²
 //! (Σ 159 + 117,1 + 159), en het gecertificeerde BENG-triplet uit de summary.
-//! Daarna draait [`compute_beng`] op het gepoolde project en **rapporteert**
-//! (zonder tolerantie-assert) de indicatieve delta t.o.v. de certified cijfers —
-//! dit resultaat is bewust indicatief (§6.6.2 vereist per-rekenzone-rekenen, dat
-//! is MZ-V2b). De enige harde eis op de reken-kant is dat de indicatief-note
-//! aanwezig is.
+//! Daarna draait [`compute_beng`] via het **norm-exacte per-rekenzone-pad**
+//! (MZ-V2b, §6.6.2/§8.2.2 formule 10.19: demand per zone, dan gesommeerd) en
+//! toetst de energiebehoefte-indicator **BENG 1** binnen de reguliere
+//! F8-tolerantie (±6 %). BENG 2/3 worden **gerapporteerd, niet geasserteerd**: hun
+//! restgap is dezelfde **PV-saldering-normversie**-discrepantie als bij de
+//! single-zone Aalten/Gouda-goldens (NTA 8800:2025+C1 §5.5.2 salderert PV-export
+//! volledig tegen fP;exp;el = 1,45; certified Uniec 3.3.x crediteert ~64 %), géén
+//! multi-zone-demand-fout. Zie de V2a→V2b-meting hieronder + het MZ-doc §11.
 //!
 //! Het bron-`.uniec3` is gitignored (klantdata, publieke repo) en wordt via een
 //! glob op `*.uniec3` in de golden-map gevonden — de bestandsnaam zelf (klantdata)
@@ -41,6 +44,11 @@ fn read_golden_uniec3() -> Option<Vec<u8>> {
         }
     }
 }
+
+/// F8-tolerantie voor de energiebehoefte-indicator BENG 1 (identiek aan de
+/// single-zone Aalten-golden: ±6 %). BENG 1 = (Q_H;nd + Q_C;nd)/A_g;tot en is dus
+/// de zuivere maat voor de per-rekenzone-demand die MZ-V2b levert.
+const BENG1_TOL_PCT: f64 = 6.0;
 
 #[test]
 fn woning_2176_imports_three_zones_with_pooled_a_g() {
@@ -95,31 +103,47 @@ fn woning_2176_imports_three_zones_with_pooled_a_g() {
         result.warnings
     );
 
-    // ---- Gepoolde (indicatieve) BENG t.o.v. certified — RAPPORTEREN, niet asserten.
-    let r = compute_beng(&result.project).expect("compute_beng op gepoold project");
-    println!("\n=== Woning 2176 — 3 rekenzones, gepoold/indicatief ===");
+    // ---- MZ-V2b: per-rekenzone-demand → BENG 1 binnen F8-tol; BENG 2/3 gerapporteerd.
+    let r = compute_beng(&result.project).expect("compute_beng op multi-zone project");
+    let d1 = (r.beng1.value - beng1) / beng1 * 100.0;
+    println!("\n=== Woning 2176 — 3 rekenzones, MZ-V2b per-zone ===");
     println!("A_g;tot = {a_g_sum:.2} m² (certified {:?})", c.gebruiks_opp_m2);
     println!(
-        "BENG 1  gepoold {:7.2}  certified {beng1:7.2}  Δ {:+.2}",
+        "BENG 1  V2b {:7.2}  certified {beng1:7.2}  Δ {:+.2} ({d1:+.1} %)  [tol ±{BENG1_TOL_PCT} %]",
         r.beng1.value,
         r.beng1.value - beng1
     );
     println!(
-        "BENG 2  gepoold {:7.2}  certified {beng2:7.2}  Δ {:+.2}",
+        "BENG 2  V2b {:7.2}  certified {beng2:7.2}  Δ {:+.2}  (PV-saldering-normversie, niet geasserteerd)",
         r.beng2.value,
         r.beng2.value - beng2
     );
     println!(
-        "BENG 3  gepoold {:7.2}  certified {beng3:7.2}  Δ {:+.2}",
+        "BENG 3  V2b {:7.2}  certified {beng3:7.2}  Δ {:+.2}  (idem, niet geasserteerd)",
         r.beng3.value,
         r.beng3.value - beng3
     );
 
-    // Enige harde eis op de reken-kant: de indicatief-note is aanwezig (bewust
-    // GEEN tolerantie-assert op de BENG-cijfers — dat is MZ-V2b).
+    // (1) Norm-exact-note: geen INDICATIEF (MZ-V2a) meer, wél de MZ-V2b-note.
     assert!(
-        r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
-        "gepoolde multi-zone-berekening moet een indicatief-note dragen: {:?}",
+        !r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
+        "V2b-pad mag geen INDICATIEF (MZ-V2a)-note meer dragen: {:?}",
         r.notes
+    );
+    assert!(
+        r.notes.iter().any(|n| n.contains("MZ-V2b (norm-exact)")),
+        "multi-zone-berekening moet de MZ-V2b-norm-exact-note dragen: {:?}",
+        r.notes
+    );
+
+    // (2) BENG 1 (energiebehoefte) binnen de reguliere F8-tolerantie — de zuivere
+    // maat voor de per-rekenzone-demand die V2b levert (V2a-gepoold was −12,5 %,
+    // buiten tol; V2b brengt het naar ~−4,8 %). BENG 2/3 blijven gated door de
+    // PV-saldering-normversie (zelfde artefact als de single-zone goldens), géén
+    // multi-zone-fout → bewust NIET geasserteerd (anti-fudge).
+    assert!(
+        d1.abs() <= BENG1_TOL_PCT,
+        "BENG 1 = {:.2} vs certified {beng1:.2} = {d1:+.1} %, buiten ±{BENG1_TOL_PCT} %",
+        r.beng1.value
     );
 }

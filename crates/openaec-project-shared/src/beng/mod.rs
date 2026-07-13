@@ -63,6 +63,7 @@ use nta8800_tables::climate::de_bilt_climate_data;
 use nta8800_tables::thermal_capacity::FloorMassClass;
 use nta8800_ventilation::calculate_ventilation;
 use nta8800_demand::{DemandBreakdown, DemandResult};
+use nta8800_demand::model::{InternalGains, ThermalMassInput};
 
 use crate::energy::{
     DhwGeneratorType, EnergyInput, HeatGeneratorType, ValueSource, ValueSourceKind,
@@ -305,10 +306,14 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     // draait ongewijzigd. Zonder beng_geometry blijft alles byte-identiek (geen
     // extra note, geen kloon).
     // C3: thermische massa (C_m) + interne warmtewinst (Φ_int) worden — alleen in
-    // de bridged BENG-tak — uit de eerste rekenzone afgeleid en via de
-    // TO-juli-inputs doorgegeven; `None` laat de defaults staan (additief).
+    // de bridged BENG-tak — uit de rekenzone(s) afgeleid en via de TO-juli-inputs
+    // doorgegeven; `None` laat de defaults staan (additief). Bij één rekenzone
+    // dragen `beng_thermal_mass`/`beng_internal_gains` het enkelvoudige pad; bij
+    // meerdere rekenzones (MZ-V2b) vult `zone_plan` de per-zone demand-lus (C_m per
+    // zone, Φ_int uniform) en blijft `beng_thermal_mass` `None`.
     let mut beng_thermal_mass = None;
     let mut beng_internal_gains = None;
+    let mut zone_plan: Vec<ZonePlan> = Vec::new();
 
     let bridged;
     let project = match project.beng_geometry.as_ref() {
@@ -316,19 +321,97 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
             let geometry = geometry_bridge::beng_geometry_to_shared(bg, &project.geometry)?;
             let a_g_total: f64 = bg.zones.iter().map(|z| z.a_g_m2).sum();
             let n_gevels: usize = bg.zones.iter().map(|z| z.gevels.len()).sum();
-            // C3a/C3b + MZ-V2a — de keten poolt alle rekenzones tot één rekenzone
-            // (zie `view.rekenzones.first()` hieronder). De thermische massa (C3a)
-            // leiden we daarom af uit de **dominante** zone (grootste A_g); de
-            // interne warmtewinst (C3b) schaalt met A_g;tot = Σ zones (§6.6.2). Bij
-            // één zone valt beide samen met die ene zone (byte-identiek gedrag).
             let usage_for_dynamics = map_usage_function(&project.shared.building_type);
-            // Tie-break bij exact gelijke A_g: `max_by` retourneert het **laatste**
-            // maximale element in iteratievolgorde (Rust-std-garantie); met `total_cmp`
-            // is de keuze dus volledig deterministisch (geen NaN-afhankelijkheid). Bewust
-            // vastgelegd — relevant voor MZ-V2b, dat per-zone rekent en dezelfde
-            // dominante-zone-keuze reproduceerbaar moet houden.
-            let dominant_zone = bg.zones.iter().max_by(|a, b| a.a_g_m2.total_cmp(&b.a_g_m2));
-            if let Some(zone) = dominant_zone {
+            let multi = bg.zones.len() > 1;
+
+            // C3b — interne warmtewinst woningbouw (formule 7.21). Uniform over de
+            // rekenzones: de per-zone-flux Φ_int;zi = 180·N_woon;zi·N_P;woon;zi/A_g;zi
+            // reduceert via N_woon;zi = A_g;zi/A_g;tot (formule 6.2b) tot de
+            // constante 180·N_P(A_g;tot)/A_g;tot, gelijk aan de unit-brede waarde
+            // (MZ-doc §10.2). Alleen woonfunctie; utiliteit (7.25) blijft forfaitair.
+            // De `a_g_total > 0`-guard is defensief: `beng_geometry_to_shared`
+            // valideert al elke `a_g_m2 > 0` (`beng_geometry.rs`), maar zonder deze
+            // guard zou een (hypothetische) A_g;tot = 0 in
+            // `derive_internal_gains_woningbouw` een deling door nul (flux = +inf →
+            // `.expect()`-panic) geven; bij A_g;tot = 0 vallen we hier terug op het
+            // forfait (default `InternalGains`), identiek aan het pre-V2b-gedrag.
+            if usage_for_dynamics == UsageFunction::Woonfunctie && a_g_total > 0.0 {
+                // N_woon = 1: grondgebonden woning (§6.6.7); meervoudige
+                // woonfuncties (appartementgebouw) zijn multi-UNIT (apart).
+                let gains = dynamics::derive_internal_gains_woningbouw(a_g_total, 1.0);
+                let flux = gains.heat_flux_per_m2[Month::Juli];
+                beng_internal_gains = Some(gains);
+                notes.push(format!(
+                    "Interne warmtewinst (C3b): woningbouw formule 7.21 \
+                     (Φ_int = 180·N_woon·N_P;woon/A_g;tot = {flux:.2} W/m², N_woon = 1, \
+                     A_g;tot = {a_g_total:.2} m²) i.p.v. het forfait 3 W/m² (tabel 7.6)."
+                ));
+            }
+
+            if multi {
+                // MZ-V2b — per-rekenzone demand: bouw een `ZonePlan` per zone met een
+                // sub-geometrie (alleen die zone's `Space`, koudebruggen A_g-proportioneel),
+                // de zone-eigen C_m (§7.7) en A_g;zi. De demand-lus hieronder rekent per
+                // zone en sommeert (§6.6.2/§8.2.2 formule 10.19); de uniforme Φ_int-flux
+                // (hierboven) reist mee via de TO-juli-inputs.
+                for (i, zone) in bg.zones.iter().enumerate() {
+                    let frac = if a_g_total > 0.0 { zone.a_g_m2 / a_g_total } else { 0.0 };
+                    let sub_geometry = SharedGeometry {
+                        spaces: vec![geometry.spaces[i].clone()],
+                        // Koudebruggen (§8.2.3) zijn niet zone-geattribueerd in de
+                        // BENG-invoer; verdeel A_g-proportioneel (Σψ·L blijft behouden,
+                        // MZ-doc §10.6). Korpus multi-zone draagt er geen.
+                        thermal_bridges: geometry
+                            .thermal_bridges
+                            .iter()
+                            .map(|tb| {
+                                let mut t = tb.clone();
+                                t.length_m *= frac;
+                                t
+                            })
+                            .collect(),
+                    };
+                    // C3a — C_m per zone uit die zone's eigen bouwwijze-codes (§7.7,
+                    // tabel 7.10). `None` (onbekend/ontbrekend) → light_woning-default.
+                    let thermal_mass = dynamics::derive_thermal_mass(zone, usage_for_dynamics);
+                    let naam = if zone.naam.is_empty() {
+                        zone.id.clone()
+                    } else {
+                        zone.naam.clone()
+                    };
+                    notes.push(match &thermal_mass {
+                        Some(_) => format!(
+                            "Rekenzone '{naam}' (A_g;zi = {:.2} m²): C_m uit bouwwijze \
+                             (vloer {}, wand {}) via tabel 7.10/7.11/7.12 (§7.7).",
+                            zone.a_g_m2,
+                            zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
+                            zone.bouwwijze_wand.as_deref().unwrap_or("—"),
+                        ),
+                        None => format!(
+                            "Rekenzone '{naam}' (A_g;zi = {:.2} m²): bouwwijze-code ontbreekt/\
+                             onbekend — C_m valt terug op de default lichte woning (D_m = 55).",
+                            zone.a_g_m2,
+                        ),
+                    });
+                    zone_plan.push(ZonePlan {
+                        geometry: sub_geometry,
+                        a_g: zone.a_g_m2,
+                        thermal_mass,
+                    });
+                }
+                notes.push(format!(
+                    "MZ-V2b (norm-exact): {} rekenzones, per rekenzone gerekend en \
+                     gesommeerd conform NTA 8800 §6.6.2/§8.2.2 (formule 10.19) — Q_H;nd/\
+                     Q_C;nd/Q_C;use per zone (eigen C_m §7.7, eigen τ, uniforme Φ_int uit \
+                     A_g;tot §7.5.2.1/formule 6.2b), daarna gesommeerd; A_g;tot = {a_g_total:.2} \
+                     m². Gedeelde installaties (verwarming/tapwater/ventilatie/koeling/PV) \
+                     op de gesommeerde behoefte (p. 536, distributie naar rato A_g p. 286). \
+                     TOjuli per zone, maatgevend = max (§5.7.2).",
+                    bg.zones.len(),
+                ));
+            } else if let Some(zone) = bg.zones.first() {
+                // Eén rekenzone (bridged): C_m uit die ene zone — byte-identiek aan het
+                // enkelvoudige V2a-pad.
                 // C3a — bouwwijze-codes → C_m (tabel 7.10). `None` bij onbekende/
                 // ontbrekende code → default `light_woning()`.
                 beng_thermal_mass = dynamics::derive_thermal_mass(zone, usage_for_dynamics);
@@ -372,43 +455,6 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                          default lichte woning (D_m = 55)."
                             .into(),
                     ),
-                }
-                // C3b — interne warmtewinst woningbouw (formule 7.21). Alleen voor
-                // de woonfunctie; utiliteit (formule 7.25) blijft forfaitair (F5).
-                if usage_for_dynamics == UsageFunction::Woonfunctie {
-                    // N_woon = 1: grondgebonden woning (§6.6.7); meervoudige
-                    // woonfuncties (appartementgebouw) zijn multi-UNIT (apart).
-                    // MZ-V2a: Φ_int schaalt met A_g;tot = Σ rekenzones (§6.6.2,
-                    // formule 7.21), niet met de eerste zone — bij N > 1 gaf de
-                    // eerste-zone-A_g een te lage interne winst.
-                    let gains = dynamics::derive_internal_gains_woningbouw(a_g_total, 1.0);
-                    let flux = gains.heat_flux_per_m2[Month::Juli];
-                    beng_internal_gains = Some(gains);
-                    notes.push(format!(
-                        "Interne warmtewinst (C3b): woningbouw formule 7.21 \
-                         (Φ_int = 180·N_woon·N_P;woon/A_g;tot = {flux:.2} W/m², N_woon = 1, \
-                         A_g;tot = {a_g_total:.2} m²) i.p.v. het forfait 3 W/m² (tabel 7.6)."
-                    ));
-                }
-                // MZ-V2a — indicatief-markering + dominante-zone-documentatie bij
-                // meerdere rekenzones (gepoold tot één; §6.6.2 vereist per-zone).
-                if bg.zones.len() > 1 {
-                    let dom_naam = if zone.naam.is_empty() {
-                        zone.id.as_str()
-                    } else {
-                        zone.naam.as_str()
-                    };
-                    notes.push(format!(
-                        "INDICATIEF (MZ-V2a): {} rekenzones gepoold tot één rekenzone \
-                         (A_g;tot = {a_g_total:.2} m²). De lineaire posten (transmissie \
-                         Σ A·U, ventilatie, A_g) zijn exact; de niet-lineaire winstbenutting η \
-                         en tijdconstante τ zijn over de gepoolde schil bepaald i.p.v. per \
-                         rekenzone. NTA 8800 §6.6.2/§8.2.2 vereist per-rekenzone-rekenen \
-                         (norm-exact = MZ-V2b). Thermische massa (C_m) is uit de dominante \
-                         zone '{dom_naam}' (grootste A_g = {:.2} m²) afgeleid.",
-                        bg.zones.len(),
-                        zone.a_g_m2,
-                    ));
                 }
             }
             let mut p = project.clone();
@@ -471,11 +517,28 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         heating_setpoint_c: 20.0,
         cooling_setpoint_c: 24.0,
         // C3 — thermische massa + interne warmtewinst uit de BENG-rekenzone
-        // (afgeleid in de brug hierboven); `None` laat de defaults staan.
+        // (afgeleid in de brug hierboven); `None` laat de defaults staan. De
+        // interne warmtewinst wordt gekloond zodat de multi-zone-lus
+        // (`compute_demand_multizone`) dezelfde uniforme flux kan doorgeven.
         thermal_mass: beng_thermal_mass,
-        internal_gains: beng_internal_gains,
+        internal_gains: beng_internal_gains.clone(),
     };
-    let tj = compute_tojuli_full(&effective, &tojuli_inputs)?;
+    // MZ-V2b: bij meerdere rekenzones rekent de demand per zone en sommeert
+    // (§6.6.2/§8.2.2 formule 10.19); anders het bestaande enkelvoudige pad
+    // (N = 1 byte-identiek). Levert een aggregaat-`TojuliResult` (gesommeerde
+    // Q_H;nd/Q_C;nd/Q_C;use + H_T/H_V/rencold) en — bij multi-zone — de
+    // maatgevende (max) TOjuli-samenvatting over de zones.
+    let (tj, multizone_tojuli) = if zone_plan.len() > 1 {
+        compute_demand_multizone(
+            project,
+            &zone_plan,
+            &tojuli_inputs,
+            beng_internal_gains.as_ref(),
+            energy.cooling.is_some(),
+        )?
+    } else {
+        (compute_tojuli_full(&effective, &tojuli_inputs)?, None)
+    };
     let demand = demand_shell(&tj);
 
     // ---- Automation-factoren (toegepast op de dienst-energie) ----
@@ -677,7 +740,10 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     let beng3 = indicator_report(indicators.beng3_renewable_pct, assessment.map(|a| a.beng3));
 
     // ---- TOjuli ----
-    let tojuli = compute_tojuli_summary(&tj, &project.geometry, energy.cooling.is_some());
+    // Multi-zone: maatgevende (max) per-zone-toets uit de demand-lus (§5.7.2 werkt
+    // per rekenzone). Single-zone: de whole-zone-toets op de gepoolde geometrie.
+    let tojuli = multizone_tojuli
+        .unwrap_or_else(|| compute_tojuli_summary(&tj, &project.geometry, energy.cooling.is_some()));
     if matches!(tojuli.method, TojuliMethod::PerOrientation) {
         notes.push(
             "TOjuli per oriëntatie (§5.7.2, formule 5.40 op de acht kompasrichtingen). De teller \
@@ -1058,6 +1124,114 @@ fn demand_shell(tj: &TojuliResult) -> DemandResult {
             time_constant_hours: tj.tau_hours,
         },
     }
+}
+
+// ---------------------------------------------------------------------------
+// MZ-V2b — per-rekenzone demand
+// ---------------------------------------------------------------------------
+
+/// Demand-plan voor één rekenzone in de MZ-V2b per-zone-lus.
+///
+/// Draagt de zone-eigen sub-geometrie (alleen díe zone's `Space` +
+/// A_g-proportionele koudebruggen), de zone-A_g en de zone-eigen thermische massa
+/// (§7.7). De uniforme interne warmtewinst (Φ_int, §10.2 van het MZ-doc) reist
+/// niet mee in het plan maar wordt in [`compute_demand_multizone`] aan elke zone
+/// doorgegeven.
+struct ZonePlan {
+    /// Sub-geometrie met alleen deze rekenzone's `Space`.
+    geometry: SharedGeometry,
+    /// Gebruiksoppervlakte A_g;zi [m²] (§6.6.3).
+    a_g: f64,
+    /// Zone-eigen effectieve interne warmtecapaciteit C_m (§7.7); `None` → default.
+    thermal_mass: Option<ThermalMassInput>,
+}
+
+/// Voer de demand-tak per rekenzone uit en sommeer (NTA 8800 §6.6.2/§8.2.2,
+/// formule 10.19).
+///
+/// Voor elke [`ZonePlan`] draait [`compute_tojuli_full`] op een sub-`ProjectV2`
+/// (unit-brede installatie-/ventilatie-/infiltratievelden, maar met **alleen die
+/// zone's geometrie** en `gross_floor_area_m2 = A_g;zi`), met de zone-eigen C_m en
+/// de uniforme Φ_int-flux. De maandprofielen `Q_H;nd`/`Q_C;nd`/`Q_C;use` en de
+/// jaarposten (`H_T`, `H_V`, rencold) worden gesommeerd tot één aggregaat-
+/// [`TojuliResult`] dat de bestaande dienst-/EP-/BENG-staart ongewijzigd voedt.
+/// TOjuli wordt per zone getoetst; de maatgevende (max) samenvatting komt terug.
+///
+/// De tijdconstante τ van het aggregaat is A_g-gewogen — puur diagnostisch
+/// ([`demand_shell`] zet de sub-termen op nul; de dienst-crates lezen τ niet).
+fn compute_demand_multizone(
+    base: &ProjectV2,
+    zone_plan: &[ZonePlan],
+    base_inputs: &TojuliFullInputs,
+    internal_gains: Option<&InternalGains>,
+    actively_cooled: bool,
+) -> Result<(TojuliResult, Option<TojuliBengSummary>), BengError> {
+    let mut q_h = [0.0_f64; 12];
+    let mut q_c_nd = [0.0_f64; 12];
+    let mut q_c_use = [0.0_f64; 12];
+    let mut annual_q_c_use = 0.0;
+    let mut annual_rencold = 0.0;
+    let mut h_t = 0.0;
+    let mut h_v = 0.0;
+    let mut tau_weighted = 0.0;
+    let mut a_g_total = 0.0;
+    let mut best_tojuli: Option<TojuliBengSummary> = None;
+
+    for zp in zone_plan {
+        let mut sub = base.clone();
+        sub.geometry = zp.geometry.clone();
+        // A_g;zi voedt de zi-geïndexeerde ventilatie-forfait q_V;ODA;req (§11.2.2)
+        // en het drukmodel; q_v10;spec (per m²) op de unit-shared werkt per zone
+        // correct (MZ-doc §10.4).
+        sub.shared.gross_floor_area_m2 = Some(zp.a_g);
+        let effective = effective_project_with_ventilation(&sub);
+
+        let mut inputs = base_inputs.clone();
+        inputs.thermal_mass = zp.thermal_mass;
+        inputs.internal_gains = internal_gains.cloned();
+
+        let tj = compute_tojuli_full(&effective, &inputs)?;
+
+        for (i, (h, c)) in tj
+            .monthly_q_h_nd_mj
+            .as_array()
+            .iter()
+            .zip(tj.monthly_q_c_nd_mj.as_array().iter())
+            .enumerate()
+        {
+            q_h[i] += h;
+            q_c_nd[i] += c;
+            q_c_use[i] += tj.monthly_q_c_use_mj.as_array()[i];
+        }
+        annual_q_c_use += tj.annual_q_c_use_mj;
+        annual_rencold += tj.annual_rencold_mj;
+        h_t += tj.transmission_h_t_w_per_k;
+        h_v += tj.ventilation_h_v_w_per_k;
+        tau_weighted += tj.tau_hours * zp.a_g;
+        a_g_total += zp.a_g;
+
+        // TOjuli per zone (§5.7.2); maatgevende = hoogste over de zones.
+        let summary = compute_tojuli_summary(&tj, &zp.geometry, actively_cooled);
+        best_tojuli = match best_tojuli {
+            Some(b) if b.max_tojuli_k >= summary.max_tojuli_k => Some(b),
+            _ => Some(summary),
+        };
+    }
+
+    let climate = de_bilt_climate_data();
+    let agg = TojuliResult {
+        monthly_q_c_nd_mj: MonthlyProfile::new(q_c_nd),
+        monthly_q_c_use_mj: MonthlyProfile::new(q_c_use),
+        annual_q_c_use_mj: annual_q_c_use,
+        annual_q_c_use_kwh: annual_q_c_use / MJ_PER_KWH,
+        annual_rencold_mj: annual_rencold,
+        monthly_q_h_nd_mj: MonthlyProfile::new(q_h),
+        transmission_h_t_w_per_k: h_t,
+        ventilation_h_v_w_per_k: h_v,
+        monthly_theta_e_c: climate.outdoor_temperature,
+        tau_hours: if a_g_total > 0.0 { tau_weighted / a_g_total } else { 0.0 },
+    };
+    Ok((agg, best_tojuli))
 }
 
 /// De acht kompas-oriëntaties waarover NTA 8800 §5.7.2 (Stap A, p. 116) de

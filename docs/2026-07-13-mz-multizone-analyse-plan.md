@@ -246,3 +246,149 @@ A_ls, géén P/A-eis). Fix in `geometry.rs` `map_adjacency`: `VL_WATER` → `Wat
 **mapping-gap, geen ontbrekende brondata**. Resultaat: **smoke 52/52 OK**. Synthetische
 `floating_home_water_floor_and_wall_map_to_water`-test dekt vloer + onderwaterlijn-gevel +
 referentie-bovenwaterlijn-gevel (blijft buitenlucht-N).
+
+## 10. MZ-V2b norm-analyse — zone-allocatie van C_m, Φ_int, ventilatie, TOjuli
+
+Norm-verificatie vóór de per-zone-implementatie. Alle citaten uit
+NTA 8800:2025+C1:2026 (nl-editie, PyMuPDF-extract; paginanr. = PDF-pagina).
+
+### 10.1 Grondregel: per rekenzone rekenen, dan sommeren (geen pooling)
+
+- **§6.6.2 (p. 158):** *"De totale gebruiksoppervlakte van de thermische zone (A_g;tot) wordt
+  bepaald als de som van de gebruiksoppervlakten van alle rekenzones."* → BENG-noemer = Σ A_g;zi.
+  Certified-bevestigd: 435,10 = 159 + 117,1 + 159 (woning 2176).
+- **§8.2.2 + formule (10.19) (p. 377):** de koudebehoefte van de **thermische zone** `zt,j`
+  = Σ over de rekenzones van de per-zone `Q_C;nd;zi;mi` (elke `Q_C;nd;zi` "bepaald zoals in
+  8.2.2"). Idem voor `Q_H;nd`. De norm sommeert per-zone-uitkomsten; hij poolt de schil **niet**.
+
+De V2a-pooling (Σ spaces → 1 rekenzone, dan één maandbalans) is dus alleen exact voor de
+**lineaire** posten (Σ A·U, A_g, infiltratie-C_lea). De niet-lineaire winstbenutting η (§7.2.2,
+formule 7.6: γ = Q_gn/Q_ht, dan η(γ,τ)) en de tijdconstante τ = C_m·A_g/(H_T+H_V) worden bij
+pooling over de gecombineerde schil bepaald i.p.v. per zone → de V2a-`INDICATIEF`-afwijking.
+
+### 10.2 Interne warmtewinst Φ_int per zone — de N_woon;zi-sleutel (kern-vondst)
+
+Formule **(7.21) (p. 177)** is expliciet **zi-geïndexeerd**:
+
+> `Q_H/C;int;dir;zi;mi = 180 · N_woon;zi · N_P;woon;zi · 0,001 · t_mi`
+
+met `N_P;woon;zi = f(A_g;zi / N_woon;zi)` (formules 7.22–7.24, piecewise). De vraag was: komt
+`N_P` per zone uit die zone's eigen A_g, of uit A_g;tot? Antwoord in **§6.6.6, formule (6.2b)
+(p. 160) + OPMERKING 2 (p. 161):**
+
+> `N_woon;zi = N_woon · A_g;zi / Σ A_g;zi`  — *"Indien de woonfunctie is verdeeld in
+> verschillende zones, is N_woon;zi kleiner dan 1. Dit is de fractie van de rekenzone in de
+> totale woningoppervlakte."*
+
+Voor één woning over N rekenzones (N_woon = 1) geldt dus `N_woon;zi = A_g;zi / A_g;tot`, en
+daarmee:
+
+```
+x_zi = A_g;zi / N_woon;zi = A_g;zi / (A_g;zi/A_g;tot) = A_g;tot   (voor ELKE zone)
+```
+
+**Gevolg:** `N_P;woon;zi = N_P(A_g;tot)` is voor elke zone gelijk (geëvalueerd op de héle
+woningoppervlakte), en de per-zone **flux** Φ_int;zi [W/m²]
+`= 180·N_woon;zi·N_P / A_g;zi = 180·N_P(A_g;tot)/A_g;tot` is **uniform over alle zones** en gelijk
+aan de unit-brede flux die V2a al berekent via `derive_internal_gains_woningbouw(a_g_total, 1.0)`.
+Σ_zi Q_int;zi = 180·N_P(A_g;tot)·Σ N_woon;zi = 180·N_P(A_g;tot) — identiek aan de unit-som.
+
+**Implementatie-consequentie:** V2b geeft aan élke zone dezelfde `internal_gains`-flux (uit
+A_g;tot). De demand-crate vermenigvuldigt die met de zone-eigen A_g;zi (`Q_int = Φ_int·A_g·t·0,0036`,
+`internal_gains.rs:50`) → per-zone Q_int correct, som correct. **Anti-valkuil:** Φ_int naïef
+per-zone uit A_g;zi berekenen (zónder de N_woon;zi-fractie) is fout — dat overschat kleine zones
+(kelder) fors, want N_P(A_g;zi) ≠ N_P(A_g;tot).
+
+### 10.3 Thermische massa C_m per zone (§7.7)
+
+C_m volgt de bouwwijze en is **per rekenzone** verschillend (§7.7 tabel 7.10/7.11/7.12).
+**§6.5 OPMERKING 4 (p. 157)** noemt dit expliciet als splits-drijfveer: *"delen van een gebouw
+met een zeer uiteenlopende thermische massa [mogen] niet zonder meer samengenomen worden in één
+rekenzone"* (kelder-beton vs. lichte woonlaag = precies het korpus-patroon). V2b leidt C_m per
+zone af uit die zone's eigen `bouwwijze_vloer/wand`-codes (`dynamics::derive_thermal_mass`);
+ontbrekende/onbekende code → `light_woning()`-default (per zone gemeld). V2a's dominante-zone-C_m
+vervalt op dit pad.
+
+### 10.4 Ventilatie + infiltratie: unit-breed, maar per-zone verdeeld
+
+- **Infiltratie:** de importer levert één `q_v10;spec` [dm³/(s·m²)] uit `INFILUNIT_QV`
+  (unit-breed, **per m²**). Omdat het een *specifieke* waarde is, geeft toepassing per zone met
+  A_g;zi de juiste per-zone-C_lea; Σ = unit-totaal. Geen per-zone q_v10 nodig (plan §6).
+- **Ventilatie-forfait:** `q_V;ODA;req` is in de norm **zi-geïndexeerd** (§11.2.2, o.a.
+  `q_v;ODA;req;des;zi;mi`, p. 81). Toepassing per zone met A_g;zi is dus norm-conform. De
+  woning-ondergrens is per zone **35·N_woon;zi** (formule **(11.64), p. 469**), niet de vlakke 35.
+  Voor woning-2176 zijn alle zones > 70 m²: `f_τ = min(0,38+A_g·0,006; 0,8)` zit op de cap 0,8 én
+  0,5·A_g;zi ≫ 35 → forfait exact lineair in A_g;zi (Σ = unit). De vlakke `.max(35)` in
+  `nta8800_q_v_oda_req_m3_per_h` overschat alleen **zeer kleine** zones (bv. woning-2703 kelder
+  4 m²); dat is een **gedocumenteerde restbenadering** op dit pad (zie §10.6), niet relevant voor
+  de golden. Signatuurwijziging van `compute_tojuli_full` daarvoor = niet nodig.
+- **Gedeelde installaties (VERW/TAPW/VENT/KOEL/PV):** hangen op UNIT-niveau → op de **som**.
+  **Tapwater p. 536:** *"Bij toepassing van één warmtapwatersysteem voor de gehele woning [...]
+  wordt de nettowarmtebehoefte voor alle rekenzones bepaald en samengenomen."* Distributieverliezen
+  naar rato A_g (p. 286). V2b houdt de dienst-keten (heating/dhw/cooling/vent-aux/EP) dus
+  ongewijzigd op A_g;tot + de gepoolde `Rekenzone` (unit-volume) — alleen de **demand** wordt per
+  zone bepaald en gesommeerd.
+
+### 10.5 TOjuli per zone (§5.7.2)
+
+De TOjuli-toets werkt per rekenzone (formule 5.40 per oriëntatie). V2b bepaalt TOjuli **per zone**
+op die zone's eigen schil + eigen `TojuliResult`, en neemt de **maatgevende = max over de zones**
+(consistent met de bestaande per-oriëntatie-max). Bij een actief gekoelde zone blijft `TOjuli = 0`.
+
+### 10.6 Restbenaderingen (eerlijk vermeld)
+
+1. **Koudebruggen (Σψ·L)** zitten niet zone-geattribueerd in de BENG-invoer (ze reizen mee uit de
+   ruimte-geometrie). V2b verdeelt ze **A_g-proportioneel** over de zones (length·frac); Σψ·L blijft
+   exact behouden. Korpus multi-zone-bestanden dragen er geen → nul effect; bij N = 1 → frac = 1
+   (identiek).
+2. **Ventilatie-ondergrens 35 dm³/s** wordt per zone op de vlakke waarde geknipt i.p.v.
+   35·N_woon;zi; alleen merkbaar bij zeer kleine zones (< ~70 m² unit-A_g of een mini-kelder).
+3. **Drukmodel-gebouwhoogte** is per zone gelijk (uit unit-`num_storeys`); tweede-orde op de
+   infiltratie-verdeling.
+
+### 10.7 Architectuurkeuze (minimaal-invasief)
+
+`compute_beng` krijgt bij `zones.len() > 1` een **per-zone demand-lus**: per zone een sub-`ProjectV2`
+(geometrie = alleen die zone's `Space`, `gross_floor_area_m2 = A_g;zi`, eigen C_m, unit-flux Φ_int),
+`compute_tojuli_full` per zone, dan de maandprofielen Q_H;nd/Q_C;nd/Q_C;use + H_T/H_V/rencold
+**gesommeerd** tot één aggregaat-`TojuliResult`. De bestaande dienst-/EP-/BENG-staart draait
+ongewijzigd op dat aggregaat + de gepoolde unit-`Rekenzone`. Bij `zones.len() ≤ 1` loopt exact het
+bestaande enkelvoudige pad (N = 1 byte-identiek — geen refactor-risico op Aalten/Gouda). Geen
+wijziging aan de service-crates of `compute_tojuli_full`-signatuur.
+
+## 11. MZ-V2b opgeleverd (13-07) — per-zone demand + meting
+
+**Gewijzigd:**
+
+| Bestand:regel | Wijziging |
+|---|---|
+| `crates/openaec-project-shared/src/beng/mod.rs` (bridging-arm + `ZonePlan` + `compute_demand_multizone`) | Bij `zones.len() > 1`: per-zone `ZonePlan` (sub-geometrie = 1 `Space` + A_g-proportionele koudebruggen, eigen C_m §7.7); demand-lus sommeert Q_H;nd/Q_C;nd/Q_C;use + H_T/H_V/rencold; uniforme Φ_int uit A_g;tot; TOjuli per zone = max. `INDICATIEF (MZ-V2a)`-note → `MZ-V2b (norm-exact)`-note + per-zone-C_m-notes. Single-zone/non-beng = ongewijzigd pad. |
+| `crates/uniec3-import/tests/multizone_golden.rs` | Golden woning-2176: assert V2b-note + **BENG 1 binnen F8-tol (±6 %)**; BENG 2/3 gerapporteerd (PV-saldering-normversie, niet geasserteerd). |
+| `crates/uniec3-import/tests/variation_smoke.rs` | Corpus-brede `compute_beng`-smoke (`#[ignore]`): 52/52 zonder fouten, 15 multi-zone incl. mini-kelder + drijvende woningen. |
+| `crates/openaec-project-shared/src/beng/tests.rs` | `multizone_emits_indicative_note` → `multizone_emits_v2b_note_and_per_zone_cm` (norm-exact-note + per-zone-C_m). |
+
+**Woning-2176-golden (3 zones, A_g 435,10) — V2a-gepoold vs V2b-per-zone vs certified:**
+
+| | V2a gepoold | V2b per-zone | Certified | Δ V2b | F8-tol | Status |
+|---|---|---|---|---|---|---|
+| BENG 1 | 63,41 | **68,99** | 72,49 | −4,8 % | ±6 % | ✅ **binnen tol** (geasserteerd) |
+| BENG 2 | 9,69 | 11,08 | 22,00 | −49,6 % | ±10 % | ⚠️ PV-normversie (niet geasserteerd) |
+| BENG 3 | 88,15 | 86,94 | 75,90 | +11,0 pp | ±3 pp | ⚠️ PV-normversie (niet geasserteerd) |
+
+V2b brengt de energiebehoefte-indicator **BENG 1** van V2a's −12,5 % (buiten tol) naar −4,8 %
+(**binnen** de reguliere F8-tolerantie) — precies wat het per-rekenzone-rekenen moet leveren. De
+per-zone-splitsing verhoogt de behoefte (de gunstige gepoolde winstbenutting tussen kelder en
+woonlaag vervalt), wat de V2a-onderschatting corrigeert.
+
+**BENG 2/3 restgap = PV-saldering-normversie, geen multi-zone-fout.** BENG 2 blijft ~−50 % en
+BENG 3 ~+11 pp — dezelfde discrepantie als de **single-zone** Aalten/Gouda-goldens (zie
+`beng_golden.rs` `#[ignore]`-redenen): NTA 8800:2025+C1 §5.5.2 salderert PV-export **volledig**
+tegen fP;exp;el = 1,45, terwijl certified Uniec 3.3.x maar ~64 % crediteert (ouder-norm partieel
+salderen). Dat BENG 1 (zuivere demand) wél binnen tol valt terwijl BENG 2 −50 % is, bewijst dat de
+restgap in de **installatie-/primair-energie-keten** zit, niet in de per-zone-demand. Anti-fudge:
+`expected.json`/`summary.json` onaangeraakt; geen tol-verruiming.
+
+**Byte-identiek N = 1:** Aalten `97,58 / 15,38 / 89,93` (heating 2172 kWh) en Gouda `82,98 / 4,27`
+(heating 4777 kWh) — identiek aan de C4+C5a-stand vóór V2b (single-zone loopt het ongewijzigde
+pad). **Corpus:** `compute_beng` draait 52/52 zonder fouten (37 single, 15 multi, incl.
+woning-2703 4 m²-kelder en de drijvende woningen). `cargo test --workspace` volledig groen.

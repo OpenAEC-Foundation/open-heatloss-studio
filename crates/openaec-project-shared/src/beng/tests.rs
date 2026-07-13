@@ -370,22 +370,33 @@ fn multizone_phi_int_scales_on_total_a_g() {
     );
 }
 
-/// De indicatief-markering + dominante-zone-documentatie verschijnen bij meerdere
-/// rekenzones; de dominante zone is die met het grootste A_g.
+/// MZ-V2b: bij meerdere rekenzones draagt het resultaat de norm-exact-note (geen
+/// INDICATIEF-markering meer) plus een per-zone-C_m-note per rekenzone.
 #[test]
-fn multizone_emits_indicative_note() {
+fn multizone_emits_v2b_note_and_per_zone_cm() {
     let mut p = synthetic_rijtjeshuis(0.0);
     p.beng_geometry = Some(multizone_beng_geometry(120.0, 40.0));
     let r = compute_beng(&p).expect("compute_beng ok");
 
     assert!(
-        r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
-        "indicatief-note ontbreekt: {:?}",
+        !r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
+        "V2b mag geen INDICATIEF (MZ-V2a)-note meer dragen: {:?}",
         r.notes
     );
     assert!(
-        r.notes.iter().any(|n| n.contains("dominante zone 'zone-groot'")),
-        "dominante-zone-note ontbreekt: {:?}",
+        r.notes.iter().any(|n| n.contains("MZ-V2b (norm-exact)")),
+        "V2b-norm-exact-note ontbreekt: {:?}",
+        r.notes
+    );
+    // Per-zone C_m-note voor beide rekenzones (§7.7).
+    assert!(
+        r.notes.iter().any(|n| n.contains("Rekenzone 'zone-groot'")),
+        "per-zone-note zone-groot ontbreekt: {:?}",
+        r.notes
+    );
+    assert!(
+        r.notes.iter().any(|n| n.contains("Rekenzone 'zone-klein'")),
+        "per-zone-note zone-klein ontbreekt: {:?}",
         r.notes
     );
 }
@@ -405,6 +416,32 @@ fn singlezone_beng_geometry_has_no_indicative_note() {
         "single-zone mag geen indicatief-note hebben: {:?}",
         r.notes
     );
+}
+
+/// QC-guard: een `beng_geometry` met **lege** zones + Woonfunctie mag niet paniken.
+/// De match-guard `!bg.zones.is_empty()` laat de bridging-arm niet toe → val terug
+/// op de ruimte-geometrie (pre-V2b-gedrag: geen bridging, geen C3b-Φ_int-deling).
+/// De defensieve `a_g_total > 0`-guard dekt bovendien een hypothetische A_g;tot = 0
+/// (die `beng_geometry.rs`-validatie al uitsluit). Reproduceert: `compute_beng` Ok
+/// zonder MZ-note.
+#[test]
+fn empty_zones_beng_geometry_does_not_panic() {
+    let mut p = synthetic_rijtjeshuis(0.0);
+    let mut geo = multizone_beng_geometry(90.0, 10.0);
+    geo.zones.clear();
+    p.beng_geometry = Some(geo);
+
+    // Mag niet paniken; de bridging-arm draait niet (lege zones) → ruimte-geometrie.
+    let r = compute_beng(&p).expect("lege zones: compute_beng valt terug op de ruimte-geometrie");
+    assert!(
+        !r.notes
+            .iter()
+            .any(|n| n.contains("MZ-V2b") || n.contains("INDICATIEF (MZ-V2a)")),
+        "lege zones mogen geen multi-zone-note geven (arm draaide niet): {:?}",
+        r.notes
+    );
+    // A_g volgt de ruimte-geometrie (87 m²), niet de lege BENG-zones.
+    assert!((r.a_g_m2 - 87.0).abs() < 1e-6, "A_g = {}", r.a_g_m2);
 }
 
 #[test]
