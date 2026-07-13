@@ -13,6 +13,9 @@ tests/references/*.pdf
 *.vp.zip
 tests/references/*.vp
 
+# Uniec 3 project exports -- contain customer/project data
+*.uniec3
+
 # Klant-/projectdocumenten (privacy)
 *.docx
 
