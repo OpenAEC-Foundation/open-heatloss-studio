@@ -15,6 +15,7 @@
 
 import type { Project } from "./project";
 import type { EnergyInput } from "./beng";
+import type { BengGeometry } from "./bengGeometry";
 
 export const SCHEMA_VERSION_V2 = 2 as const;
 
@@ -591,6 +592,14 @@ export interface ProjectV2 {
    * (`compute_beng` geeft dan 422). Wordt door de BENG-tab gevuld.
    */
   energy?: EnergyInput | null;
+  /**
+   * Additief gevel-georiënteerd geometrie-invoerblok (F6). Spiegel van de Rust
+   * `ProjectV2::beng_geometry` (`Option<BengGeometry>` met `#[serde(default,
+   * skip_serializing_if)]`): afwezig → geen gevel-geometrie, de backend valt
+   * terug op de room-geometrie. De `geometry_bridge` prefereert dit blok wanneer
+   * het aanwezig is. Wordt door de BENG-tab (geometrie-subtab) gevuld.
+   */
+  beng_geometry?: BengGeometry | null;
 }
 
 // ---------------------------------------------------------------------------

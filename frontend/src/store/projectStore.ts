@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import type { EnergyInput } from "../types/beng";
+import type { BengGeometry } from "../types/bengGeometry";
 import { isIsso53Heating } from "../lib/normSwitch";
 import {
   DEFAULT_ISSO53_BUILDING,
@@ -157,6 +158,15 @@ interface ProjectStore {
    */
   energy: EnergyInput | null;
   /**
+   * NTA 8800 / BENG gevel-georiënteerde geometrie-invoerblok
+   * (`ProjectV2::beng_geometry`, F6). Additief op het project en alleen door de
+   * BENG-tab gebruikt; `null` = nog niets ingevuld. Zelfde levensloop als
+   * {@link ProjectStore.energy}: gepersisteerd (localStorage), reist nog NIET
+   * mee in de server-/`.ifcenergy`-envelope, en wordt bij projectwissel/-reset
+   * teruggezet naar `null` zodat gevel-invoer niet naar een ander project lekt.
+   */
+  bengGeometry: BengGeometry | null;
+  /**
    * Calculation result (null if not yet calculated). Houdt een ISSO 51
    * (`ProjectResult`) of ISSO 53 (`Isso53ProjectResult`) resultaat —
    * consumers discrimineren op `norm`, niet op het result-shape zelf.
@@ -196,6 +206,15 @@ interface ProjectStore {
   updateEnergy: (partial: Partial<EnergyInput>) => void;
   /** Vervang (of wis met `null`) het volledige BENG `energy`-blok. */
   setEnergy: (energy: EnergyInput | null) => void;
+  /**
+   * Merge een partial op het `beng_geometry`-blok (bootstrapt `{}` als er nog
+   * niets is). Zelfde merge-semantiek als {@link ProjectStore.updateEnergy}:
+   * `undefined` = niet aanraken, expliciet `null` = wis die sleutel. Zet
+   * `isDirty`.
+   */
+  updateBengGeometry: (partial: Partial<BengGeometry>) => void;
+  /** Vervang (of wis met `null`) het volledige `beng_geometry`-blok. */
+  setBengGeometry: (geometry: BengGeometry | null) => void;
   /**
    * Zet de actieve norm. Wordt aangeroepen door de Backstage NormChoiceModal
    * bij nieuw-project en (in fase 4) door de wissel-flow.
@@ -441,6 +460,7 @@ export const useProjectStore = create<ProjectStore>()(
         rooms: {},
       },
       energy: null,
+      bengGeometry: null,
       result: null,
       error: null,
       isCalculating: false,
@@ -476,6 +496,22 @@ export const useProjectStore = create<ProjectStore>()(
         }),
 
       setEnergy: (energy) => set({ energy, isDirty: true }),
+
+      updateBengGeometry: (partial) =>
+        set((state) => {
+          // Identieke merge-semantiek als updateEnergy: `undefined` = "niet
+          // aanraken" (voorkomt dat een stray undefined een bestaande lijst
+          // stil wist), expliciet `null` blijft "wis deze sleutel".
+          const next: BengGeometry = { ...(state.bengGeometry ?? {}) };
+          for (const [key, value] of Object.entries(partial)) {
+            if (value !== undefined) {
+              (next as Record<string, unknown>)[key] = value;
+            }
+          }
+          return { bengGeometry: next, isDirty: true };
+        }),
+
+      setBengGeometry: (bengGeometry) => set({ bengGeometry, isDirty: true }),
 
       setNorm: (norm) => set({ norm, isDirty: true }),
 
@@ -724,6 +760,7 @@ export const useProjectStore = create<ProjectStore>()(
             // BENG-invoer reist (nog) niet mee in de envelope → altijd leeg bij
             // een projectwissel; geen lek naar het volgende project.
             energy: null,
+            bengGeometry: null,
             isDirty: true,
             result: null,
             error: null,
@@ -777,6 +814,7 @@ export const useProjectStore = create<ProjectStore>()(
             : { terminals: [], rooms: {} },
           // BENG-invoer zit nog niet in de server-envelope → leeg bij load.
           energy: null,
+          bengGeometry: null,
           activeProjectId: id,
           result,
           isDirty: false,
@@ -827,6 +865,7 @@ export const useProjectStore = create<ProjectStore>()(
           isso53Rooms: {},
           ventilation: { terminals: [], rooms: {} },
           energy: null,
+          bengGeometry: null,
           result: null,
           error: null,
           isCalculating: false,
@@ -1175,6 +1214,7 @@ export function partializeProjectStore(state: ProjectStore) {
     isso53Rooms: state.isso53Rooms,
     ventilation: state.ventilation,
     energy: state.energy,
+    bengGeometry: state.bengGeometry,
     result: state.result,
     isDirty: state.isDirty,
     activeProjectId: state.activeProjectId,
@@ -1222,6 +1262,8 @@ export function mergePersistedProjectStore(
       (persisted as Partial<ProjectStore>)?.isso53Rooms ?? current.isso53Rooms,
     // Silent migration voor projecten van vóór de BENG-tab (geen energy-blok).
     energy: (persisted as Partial<ProjectStore>)?.energy ?? null,
+    // Silent migration voor projecten van vóór het beng_geometry-blok (F6).
+    bengGeometry: (persisted as Partial<ProjectStore>)?.bengGeometry ?? null,
     // Silent migration voor projecten van vóór de ventilatiebalans-module.
     ventilation: (() => {
       const v = (persisted as Partial<ProjectStore>)?.ventilation;

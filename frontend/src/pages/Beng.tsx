@@ -44,6 +44,13 @@ import {
   formatValueSourceReport,
 } from "../lib/valueSource";
 import type { ProjectV2 } from "../types/projectV2";
+import {
+  INPUT_CLASS,
+  LabeledField,
+  NumberField,
+  SelectField,
+} from "../components/beng/fields";
+import { BengGeometryEditor } from "../components/beng/BengGeometryEditor";
 
 // ---------------------------------------------------------------------------
 // Keuzelijsten (label + serde-waarde). De serde-waarde is normatief
@@ -103,95 +110,9 @@ const BACS_CLASSES: Array<{ value: BacsClassInput; label: string }> = [
 ];
 
 // ---------------------------------------------------------------------------
-// Kleine invoer-primitieven (styling spiegelt TojuliFull)
+// Kleine invoer-primitieven leven in `components/beng/fields` (gedeeld met de
+// gevel-geometrie-editor). Beng-specifieke wrappers staan hieronder.
 // ---------------------------------------------------------------------------
-
-const INPUT_CLASS =
-  "rounded-md border border-[var(--oaec-border)] bg-[var(--oaec-bg-input)] px-3 py-1.5 text-on-surface focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary";
-
-function LabeledField({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="font-medium text-on-surface">{label}</span>
-      {children}
-      {hint && <span className="text-xs text-on-surface-muted">{hint}</span>}
-    </label>
-  );
-}
-
-function NumberField({
-  label,
-  unit,
-  value,
-  step,
-  placeholder,
-  onChange,
-  hint,
-}: {
-  label: string;
-  unit?: string;
-  value: number | null | undefined;
-  step?: number | string;
-  placeholder?: string;
-  onChange: (v: number | null) => void;
-  hint?: string;
-}) {
-  return (
-    <LabeledField
-      label={unit ? `${label} [${unit}]` : label}
-      hint={hint}
-    >
-      <input
-        type="number"
-        step={step ?? "any"}
-        value={value ?? ""}
-        placeholder={placeholder}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? null : Number(e.target.value))
-        }
-        className={INPUT_CLASS}
-      />
-    </LabeledField>
-  );
-}
-
-function SelectField<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  hint,
-}: {
-  label: string;
-  value: T;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  onChange: (v: T) => void;
-  hint?: string;
-}) {
-  return (
-    <LabeledField label={label} hint={hint}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className={INPUT_CLASS}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </LabeledField>
-  );
-}
 
 /** Card met een aan/uit-schakelaar in de titel voor een optioneel deelsysteem. */
 function ToggleCard({
@@ -313,11 +234,15 @@ export function Beng() {
   const energy = useProjectStore((s) => s.energy);
   const updateEnergy = useProjectStore((s) => s.updateEnergy);
   const setEnergy = useProjectStore((s) => s.setEnergy);
+  const bengGeometry = useProjectStore((s) => s.bengGeometry);
 
   const [result, setResult] = useState<BengResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inputHint, setInputHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<"installaties" | "geometrie">(
+    "installaties",
+  );
 
   const projectV2: ProjectV2 = useMemo(
     () => buildV2Payload(project, sharedExtra),
@@ -380,6 +305,10 @@ export function Beng() {
     const payload: ProjectV2 = {
       ...projectV2,
       energy: hasAnySystem ? (energy ?? undefined) : undefined,
+      // Gevel-georiënteerde geometrie meesturen wanneer ingevuld; de backend
+      // (geometry_bridge) prefereert dit blok boven de room-geometrie. Afwezig
+      // → de bestaande room-keten blijft de bron.
+      beng_geometry: bengGeometry ?? undefined,
     };
     try {
       const r = await bengCalculate({ project: payload });
@@ -399,7 +328,7 @@ export function Beng() {
     } finally {
       setBusy(false);
     }
-  }, [projectV2, energy, hasAnySystem, t]);
+  }, [projectV2, energy, hasAnySystem, bengGeometry, t]);
 
   const handleReset = useCallback(() => {
     setEnergy(null);
@@ -466,6 +395,26 @@ export function Beng() {
           </p>
         </Card>
 
+        {/* -- Subtab-schakelaar: installaties vs gevel-geometrie -- */}
+        <div className="flex gap-1 border-b border-[var(--oaec-border)]">
+          <TabButton
+            active={activeTab === "installaties"}
+            onClick={() => setActiveTab("installaties")}
+          >
+            {t("beng.tab.installaties", "Installaties")}
+          </TabButton>
+          <TabButton
+            active={activeTab === "geometrie"}
+            onClick={() => setActiveTab("geometrie")}
+          >
+            {t("beng.tab.geometrie", "Gevel-geometrie")}
+          </TabButton>
+        </div>
+
+        {activeTab === "geometrie" && <BengGeometryEditor />}
+
+        {activeTab === "installaties" && (
+          <div className="space-y-4">
         {/* -- Verwarming -- */}
         <ToggleCard
           title={t("beng.heating.title", "Verwarming (H.9)")}
@@ -828,6 +777,8 @@ export function Beng() {
             </div>
           )}
         </ToggleCard>
+          </div>
+        )}
 
         {/* -- Resultaat -- */}
         {result && <BengResultView result={result} t={t} />}
@@ -1050,6 +1001,31 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
         {value.toFixed(1)}
       </td>
     </tr>
+  );
+}
+
+/** Subtab-knop in de BENG-pagina (installaties/geometrie). */
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "border-primary text-primary"
+          : "border-transparent text-on-surface-muted hover:text-on-surface"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
