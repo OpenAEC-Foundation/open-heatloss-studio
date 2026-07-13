@@ -452,6 +452,17 @@ pub struct TojuliFullInputs {
     /// Koel-setpoint °C (constant alle maanden).
     #[serde(default = "default_cooling_setpoint")]
     pub cooling_setpoint_c: f64,
+    /// Effectieve interne warmtecapaciteit C_m (NTA 8800 §7.7, tabel 7.10). `None`
+    /// → de default `ThermalMassInput::light_woning()` (D_m = 55). De BENG-brug
+    /// (`compute_beng`) vult dit uit de bouwwijze-codes (C3a); standalone
+    /// TO-juli-callers laten het `None` zodat het gedrag byte-identiek blijft.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thermal_mass: Option<ThermalMassInput>,
+    /// Interne warmtewinst Φ_int (W/m² per maand). `None` → de forfaitaire
+    /// tabel-7.6-default per gebruiksfunctie. De BENG-brug vult dit voor
+    /// woningbouw met formule 7.21 (C3b); standalone callers laten het `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub internal_gains: Option<InternalGains>,
 }
 
 fn default_shading() -> f64 {
@@ -848,10 +859,19 @@ pub fn compute_tojuli_full(
     let h_v = q_v_total * h_v_per_m3h * wtw_factor;
 
     // ---- 5. Demand calc ----
-    let internal_gains = InternalGains::forfaitair(usage_function_for_ventilation);
+    // Interne warmtewinst + thermische massa: een door de BENG-brug meegegeven
+    // waarde (C3, uit bouwwijze-codes resp. formule 7.21) wint; anders de
+    // forfaitaire tabel-7.6-flux resp. `light_woning()` (byte-identieke terugval
+    // voor standalone TO-juli-callers).
+    let internal_gains = inputs
+        .internal_gains
+        .clone()
+        .unwrap_or_else(|| InternalGains::forfaitair(usage_function_for_ventilation));
     let heating_sp = HeatingSetpoint::new(MonthlyProfile::from_constant(inputs.heating_setpoint_c));
     let cooling_sp = CoolingSetpoint::new(MonthlyProfile::from_constant(inputs.cooling_setpoint_c));
-    let thermal_mass = ThermalMassInput::light_woning(); // default; F7.2 user-input
+    let thermal_mass = inputs
+        .thermal_mass
+        .unwrap_or_else(ThermalMassInput::light_woning);
 
     // Warmteoverdracht voor koeling `Q_C;ht;mi` = transmissie + ventilatie tegen de
     // koel-setpoint (§7.2.3). De koudebalans (7.7) rekent hiermee i.p.v. de
@@ -1078,6 +1098,8 @@ mod tests {
             shading_factor: 1.0,
             heating_setpoint_c: 20.0,
             cooling_setpoint_c: 24.0,
+            thermal_mass: None,
+            internal_gains: None,
         }
     }
 

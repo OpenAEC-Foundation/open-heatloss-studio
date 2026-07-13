@@ -35,6 +35,7 @@
 //! - **Verlichting** telt 0 voor de woonfunctie (correct voor de nEP-indicator);
 //!   utiliteitsverlichting vereist een invoerblok dat F5-scope is.
 
+pub mod dynamics;
 pub mod geometry_bridge;
 pub mod mapping;
 pub mod zeb;
@@ -302,12 +303,55 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     // F6-bedoeling. De brug zet alleen de invoer om; de gevalideerde demand-keten
     // draait ongewijzigd. Zonder beng_geometry blijft alles byte-identiek (geen
     // extra note, geen kloon).
+    // C3: thermische massa (C_m) + interne warmtewinst (Φ_int) worden — alleen in
+    // de bridged BENG-tak — uit de eerste rekenzone afgeleid en via de
+    // TO-juli-inputs doorgegeven; `None` laat de defaults staan (additief).
+    let mut beng_thermal_mass = None;
+    let mut beng_internal_gains = None;
+
     let bridged;
     let project = match project.beng_geometry.as_ref() {
         Some(bg) if !bg.zones.is_empty() => {
             let geometry = geometry_bridge::beng_geometry_to_shared(bg, &project.geometry)?;
             let a_g_total: f64 = bg.zones.iter().map(|z| z.a_g_m2).sum();
             let n_gevels: usize = bg.zones.iter().map(|z| z.gevels.len()).sum();
+            // C3a/C3b — afgeleid uit de eerste BENG-rekenzone (de keten rekent
+            // V1 op één rekenzone, zie `view.rekenzones.first()` hieronder).
+            let usage_for_dynamics = map_usage_function(&project.shared.building_type);
+            if let Some(first_zone) = bg.zones.first() {
+                // C3a — bouwwijze-codes → C_m (tabel 7.10). `None` bij onbekende/
+                // ontbrekende code → default `light_woning()`.
+                beng_thermal_mass = dynamics::derive_thermal_mass(first_zone, usage_for_dynamics);
+                match &beng_thermal_mass {
+                    Some(_) => notes.push(format!(
+                        "Thermische massa (C3a): C_m afgeleid uit de bouwwijze-codes \
+                         (vloer {}, wand {}) via NTA 8800 tabel 7.10/7.11/7.12; \
+                         woningbouw-default kolom 'geen of open plafond' (voetnoot b).",
+                        first_zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
+                        first_zone.bouwwijze_wand.as_deref().unwrap_or("—"),
+                    )),
+                    None => notes.push(
+                        "Thermische massa (C3a): bouwwijze-code ontbreekt of is niet \
+                         herkend (bv. 'eigen waarde - bijlage B') — terugval op de \
+                         default lichte woning (D_m = 55)."
+                            .into(),
+                    ),
+                }
+                // C3b — interne warmtewinst woningbouw (formule 7.21). Alleen voor
+                // de woonfunctie; utiliteit (formule 7.25) blijft forfaitair (F5).
+                if usage_for_dynamics == UsageFunction::Woonfunctie {
+                    // N_woon = 1: grondgebonden woning (§6.6.7); meervoudige
+                    // woonfuncties (appartementgebouw) zijn V2.
+                    let gains = dynamics::derive_internal_gains_woningbouw(first_zone.a_g_m2, 1.0);
+                    let flux = gains.heat_flux_per_m2[Month::Juli];
+                    beng_internal_gains = Some(gains);
+                    notes.push(format!(
+                        "Interne warmtewinst (C3b): woningbouw formule 7.21 \
+                         (Φ_int = 180·N_woon·N_P;woon/A_g = {flux:.2} W/m², N_woon = 1) \
+                         i.p.v. het forfait 3 W/m² (tabel 7.6)."
+                    ));
+                }
+            }
             let mut p = project.clone();
             p.geometry = geometry;
             // A_g voor de ventilatie-forfaits (§11.2.2) volgt de BENG-rekenzone.
@@ -367,6 +411,10 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         shading_factor: 1.0,
         heating_setpoint_c: 20.0,
         cooling_setpoint_c: 24.0,
+        // C3 — thermische massa + interne warmtewinst uit de BENG-rekenzone
+        // (afgeleid in de brug hierboven); `None` laat de defaults staan.
+        thermal_mass: beng_thermal_mass,
+        internal_gains: beng_internal_gains,
     };
     let tj = compute_tojuli_full(&effective, &tojuli_inputs)?;
     let demand = demand_shell(&tj);
@@ -580,10 +628,10 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 .into(),
         );
     }
-    if usage == UsageFunction::Woonfunctie {
+    if usage == UsageFunction::Woonfunctie && beng_thermal_mass.is_none() {
         notes.push(
-            "Lichte-bouwwijze-toeslag (Bbl 4.149 lid 4) niet automatisch toegepast — het DTO \
-             codeert de interne warmtecapaciteit nog niet (F3)."
+            "Lichte-bouwwijze-toeslag (Bbl 4.149 lid 4) niet automatisch toegepast — geen \
+             bouwwijze-code in de invoer, C_m valt terug op de default lichte woning (F3)."
                 .into(),
         );
     }
