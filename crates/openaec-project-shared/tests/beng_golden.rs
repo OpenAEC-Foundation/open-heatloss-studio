@@ -629,10 +629,17 @@ fn uniec_measure_bridged() {
 ///   deels compenserend met de Q_H;nd-onderschatting.
 ///
 /// Anti-fudge: de tolerantie is de fixture-bron-tolerantie, `expected.json`
-/// onaangeraakt. Un-ignore zodra de PV-saldering (F3d-8) is geadresseerd; dan
-/// horen alle drie binnen tolerantie te vallen. Meet met `gouda_measure_bridged`.
+/// onaangeraakt. Meet met `gouda_measure_bridged`.
+///
+/// **F3d-8b-update:** de bijlage-AB ZEB-indicator (directgebruik-fractiemodel)
+/// is nu additief berekend en gemeten (`zeb_measure`): EweP;ZEB;Tot = 20,82 vs
+/// certified 27,48 (−24 %). Ook dat partieel-salderende model reproduceert de
+/// certified BENG 2 dus NIET binnen tolerantie — certified 27,48 is een
+/// ouder-norm partieel-salderingsartefact, geen 2025+C1-grootheid (BENG 2 óf
+/// ZEB). De golden blijft daarom `#[ignore]`; er is geen 2025+C1-grootheid die
+/// hem groen maakt zonder fudge.
 #[test]
-#[ignore = "F6 fase 2b: BENG1 binnen ±6% via de brug, maar BENG2/3 buiten door de PV-saldering-normversie (F3d-8, hoog PV-aandeel all-electric). Geometrie is correct; blokkade is EP-crate-saldering. Zie docstring."]
+#[ignore = "F6 fase 2b / F3d-8b: BENG1 binnen ±6% via de brug, maar BENG2/3 buiten door de PV-saldering-normversie. Geen 2025+C1-grootheid (BENG2 8,90 óf ZEB-indicator 20,82) reproduceert certified 27,48 binnen ±8% — certified is ouder-norm partieel salderen. Geometrie is correct; blokkade is normversie, niet de engine. Zie docstring + zeb_measure."]
 fn gouda_beng_geometry_within_certified_tolerance() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_GOUDA_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -715,6 +722,54 @@ fn gouda_measure_bridged() {
         sbb.heating * r_base.a_g_m2, sbr.heating * r_bridge.a_g_m2, e.heating_primary_kwh,
         sbb.cooling * r_base.a_g_m2, sbr.cooling * r_bridge.a_g_m2, e.cooling_primary_kwh
     );
+}
+
+/// Diagnostische meting — bijlage-AB ZEB-indicator vs certified BENG 2/3 voor de
+/// twee gevel-georiënteerde (F6-brug) Uniec-cases. Toont of het
+/// directgebruik-fractiemodel (bijlage AB) de certified ~64 %-PV-credit
+/// reproduceert, en met welke resterende delta.
+/// `cargo test -p openaec-project-shared --test beng_golden zeb_measure -- --ignored --nocapture`.
+#[test]
+#[ignore = "diagnostiek — draai handmatig met --nocapture"]
+fn zeb_measure() {
+    let cases = [
+        (
+            "gouda-2467",
+            UNIEC_GOUDA_EXPECTED,
+            gouda_project_with_beng_geometry as fn() -> ProjectV2,
+        ),
+        (
+            "aalten-2522",
+            UNIEC_AALTEN_EXPECTED,
+            aalten_project_with_beng_geometry as fn() -> ProjectV2,
+        ),
+    ];
+    for (name, exp_raw, build) in cases {
+        let fx: UniecExpected = serde_json::from_str(exp_raw).unwrap();
+        let e = &fx.expected;
+        let r = compute_beng(&build()).expect("compute_beng ok");
+        let z = r
+            .zeb_indicator
+            .expect("ZEB-indicator moet berekend zijn (all-electric)");
+        let pct = |c: f64, x: f64| (c - x) / x * 100.0;
+        println!("\n=== {name} (A_g={:.1}) — bijlage-AB ZEB-indicator ===", r.a_g_m2);
+        println!(
+            "  BENG 2 (norm-conform, volledige saldering) = {:8.2}  certified = {:8.2}  delta = {:+.2} ({:+.1}%)",
+            r.beng2.value, e.beng2_kwh_m2_jr, r.beng2.value - e.beng2_kwh_m2_jr, pct(r.beng2.value, e.beng2_kwh_m2_jr),
+        );
+        println!(
+            "  ZEB-indicator EweP;ZEB;Tot (bijlage AB)     = {:8.2}  certified BENG2 = {:8.2}  delta = {:+.2} ({:+.1}%)",
+            z.ewep_zeb_tot_kwh_m2, e.beng2_kwh_m2_jr, z.ewep_zeb_tot_kwh_m2 - e.beng2_kwh_m2_jr, pct(z.ewep_zeb_tot_kwh_m2, e.beng2_kwh_m2_jr),
+        );
+        println!(
+            "  ZEB zelfgebruik = {:5.1}%  directuse = {:7.0} kWh  export = {:7.0} kWh  EP,ZEB;Tot;an = {:8.0} kWh",
+            z.self_use_fraction * 100.0, z.direct_use_kwh, z.export_kwh, z.ep_zeb_tot_an_kwh,
+        );
+        println!(
+            "  (certified BENG 3 = {:.1}%; tol BENG2 ±{:.0}%, BENG3 ±{:.1}pp)",
+            e.beng3_pct, fx.tolerance.beng2_pct, fx.tolerance.beng3_abs_pp,
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -980,24 +1035,29 @@ fn uniec_golden_body(name: &str, expected_raw: &str, input_raw: &str) {
 }
 
 #[test]
-#[ignore = "F3d-8: BENG2 −8,2 vs certified 27,48 is een NORMVERSIE-verschil, geen bug — NTA 8800:\
-            2025+C1 §5.5.2 salderert PV-export VOLLEDIG tegen fP;exp;el=1,45 (EPTot mag negatief); \
-            certified Uniec 3.3.x crediteert maar ~64% van de PV (ouder-norm/bijlage-AB directgebruik). \
-            Jaarbasis ≡ maandmatching onder 2025+C1 (identiteit). EP-crate blijft ongewijzigd (anti-fudge). \
-            Blijft ook op BENG1 60,1 (−37%, Q_H;nd te laag) en koeling +506% (F_sh=1,0) buiten tolerantie. \
-            Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md + fixture-README §engine-gaps."]
+#[ignore = "F3d-8/8b: BENG2 8,90 (bridged) vs certified 27,48 is een NORMVERSIE-verschil, geen bug — \
+            NTA 8800:2025+C1 §5.5.2 salderert PV-export VOLLEDIG tegen fP;exp;el=1,45 (EPTot mag negatief); \
+            certified Uniec 3.3.x crediteert maar ~64% van de PV (ouder-norm partieel salderen). \
+            F3d-8b MEET de bijlage-AB ZEB-indicator (directgebruik-fractiemodel, tabel AB.1): EweP;ZEB;Tot=20,82 \
+            vs certified 27,48 = −24% (zelfgebruik slechts 26%, niet ~64%: de 0,3·EEPus-cap AB.65 + factoren \
+            1,35/1 i.p.v. 1,45). Ook bijlage AB reproduceert certified dus NIET binnen ±8% → golden blijft \
+            #[ignore]; certified 27,48 is noch de 2025+C1-BENG2 noch de 2025+C1-ZEB-indicator. EP-crate \
+            ongewijzigd (anti-fudge). Blijft ook op BENG1 (−5,7% bridged, binnen tol) irrelevant hier; koeling \
+            +506% (F_sh=1,0). Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md §7 + fixture-README §engine-gaps. \
+            Meet met zeb_measure."]
 fn uniec_gouda_2467() {
     uniec_golden_body("gouda-2467", UNIEC_GOUDA_EXPECTED, UNIEC_GOUDA_INPUT);
 }
 
 #[test]
-#[ignore = "F3d-8: BENG2 8,21 vs certified 24,71 = zelfde NORMVERSIE-verschil als Gouda — certified \
-            crediteert ~64,6% van de PV (partieel salderen, ouder-norm/bijlage-AB), 2025+C1 salderert \
-            volledig → BENG2 negatief. Twee cases beide op ~64% zelfgebruik bevestigen het. EP-crate \
-            ongewijzigd (anti-fudge). Ook PV-noord bron-inconsistentie (orientation \"N\" vs 3811 kWh), \
-            koeling +104% (F_sh=1,0) en Q_H;nd te laag (BENG1 76,7 vs 103,7; qv10=0,40 injectie F3d-9 \
-            verlaagt licht want < forfait). Buiten ±6/10/3pp. \
-            Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md + fixture-README §engine-gaps."]
+#[ignore = "F3d-8/8b: BENG2 22,61 (bridged) vs certified 24,71 = zelfde NORMVERSIE-verschil als Gouda — \
+            certified crediteert ~64% van de PV (partieel salderen, ouder-norm), 2025+C1 salderert volledig. \
+            F3d-8b MEET de bijlage-AB ZEB-indicator: EweP;ZEB;Tot=31,77 vs certified 24,71 = +29% (zelfgebruik \
+            27%). Aalten OVERschiet waar Gouda ONDERschiet → bijlage AB reproduceert certified niet binnen ±10% \
+            en niet consistent van teken; certified 27,48/24,71 is een ouder-norm partieel-salderingsartefact, \
+            geen 2025+C1-grootheid. EP-crate ongewijzigd (anti-fudge). Ook PV-noord bron-inconsistentie \
+            (orientation \"N\" vs 3811 kWh), koeling +104% (F_sh=1,0) en Q_H;nd te laag. \
+            Zie docs/2026-07-12-f3d8-norm-analyse-saldering.md §7 + fixture-README §engine-gaps. Meet met zeb_measure."]
 fn uniec_aalten_2522() {
     uniec_golden_body("aalten-2522", UNIEC_AALTEN_EXPECTED, UNIEC_AALTEN_INPUT);
 }

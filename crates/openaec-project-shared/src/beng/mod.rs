@@ -37,6 +37,7 @@
 
 pub mod geometry_bridge;
 pub mod mapping;
+pub mod zeb;
 
 use std::collections::HashMap;
 
@@ -228,6 +229,16 @@ pub struct BengResult {
     /// verwerkt.
     #[serde(default)]
     pub value_sources: Vec<ValueSourceReport>,
+    /// Bijlage-AB ZEB-indicator `EweP,ZEB;Tot` — **losse, additieve** informatieve
+    /// output naast BENG 1/2/3 (NTA 8800:2025+C1:2026 bijlage AB). Anders dan de
+    /// volledig-salderende BENG 2 crediteert deze indicator PV maar deels
+    /// (directgebruik-fractie, tabel AB.1) tegen `fP,ZEB;del;el = 1,35`; zie
+    /// [`zeb`]. `None` als de indicator niet faithful bepaald kan worden (bv.
+    /// stadswarmte-drager). Additief: oude JSON zonder dit veld deserialiseert
+    /// (`default`), en een `None` serialiseert byte-identiek weg
+    /// (`skip_serializing_if`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zeb_indicator: Option<zeb::ZebIndicator>,
 }
 
 /// Fouten van de BENG-orchestrator.
@@ -366,6 +377,17 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         None => AutomationFactors::unity(),
     };
 
+    // ---- Bijlage-AB ZEB-indicator: maandelijkse dienst-eindenergie verzamelen ----
+    // Losse, additieve informatieve output (zie `zeb`-moduledoc). We vouwen de
+    // maandprofielen van elke dienst (mét BAC-factor, identiek aan de EP-score-
+    // invoer) in twee accumulatoren: de EP-elektriciteitsvraag `EEPus;el` en de
+    // primair-totale energie van de niet-elektrische dragers. `zeb_supported`
+    // gaat op false bij een niet-ondersteunde drager (stadswarmte) → indicator
+    // wordt dan weggelaten i.p.v. een verkeerde factor te fabriceren.
+    let mut zeb_el_mj = [0.0_f64; 12];
+    let mut zeb_nonel_primary_kwh = [0.0_f64; 12];
+    let mut zeb_supported = true;
+
     // ---- Verwarming H.9 ----
     let (heating_use_mj, heating_carrier, heating_ambient_mj) = match &energy.heating {
         Some(h) => {
@@ -382,11 +404,15 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 r.annual_q_h_use,
                 r.breakdown.generation_efficiency,
             );
-            (
-                r.annual_q_h_use * factors.f_bac_heating,
-                Some(heating_carrier_to_ep(r.energy_carrier)),
-                ambient,
-            )
+            let carrier = heating_carrier_to_ep(r.energy_carrier);
+            zeb_supported &= zeb::fold_zeb_service(
+                r.monthly_q_h_use.as_array(),
+                factors.f_bac_heating,
+                carrier,
+                &mut zeb_el_mj,
+                &mut zeb_nonel_primary_kwh,
+            );
+            (r.annual_q_h_use * factors.f_bac_heating, Some(carrier), ambient)
         }
         None => {
             notes.push("Geen verwarmingssysteem opgegeven — verwarming telt 0 mee in BENG 2.".into());
@@ -422,11 +448,15 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 r.annual_q_w_use,
                 r.breakdown.generation_efficiency,
             );
-            (
-                r.annual_q_w_use * factors.f_bac_dhw,
-                Some(dhw_carrier_to_ep(r.energy_carrier)),
-                ambient,
-            )
+            let carrier = dhw_carrier_to_ep(r.energy_carrier);
+            zeb_supported &= zeb::fold_zeb_service(
+                r.monthly_q_w_use.as_array(),
+                factors.f_bac_dhw,
+                carrier,
+                &mut zeb_el_mj,
+                &mut zeb_nonel_primary_kwh,
+            );
+            (r.annual_q_w_use * factors.f_bac_dhw, Some(carrier), ambient)
         }
         None => {
             notes.push("Geen tapwatersysteem opgegeven — tapwater telt 0 mee in BENG 2.".into());
@@ -439,6 +469,13 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
     let (cooling_use_mj, cooling_carrier) = match &energy.cooling {
         Some(c) => {
             let carrier = cooling_carrier_to_ep(map_cooling(c).energy_carrier());
+            zeb_supported &= zeb::fold_zeb_service(
+                tj.monthly_q_c_use_mj.as_array(),
+                factors.f_bac_cooling,
+                carrier,
+                &mut zeb_el_mj,
+                &mut zeb_nonel_primary_kwh,
+            );
             (tj.annual_q_c_use_mj * factors.f_bac_cooling, Some(carrier))
         }
         None => (0.0, None),
@@ -451,19 +488,28 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
             let climate = de_bilt_climate_data();
             let indoor: MonthlyProfile<Temperature> = MonthlyProfile::from_constant(20.0);
             let vr = calculate_ventilation(&zone, &vm.system, &vm.flow, vm.wtw.as_ref(), &indoor, &climate)?;
+            // Ventilator-hulpenergie is per definitie elektrisch (§5.5.3).
+            zeb_supported &= zeb::fold_zeb_service(
+                vr.monthly_w_fan.as_array(),
+                factors.f_bac_ventilation,
+                EpCarrier::Elektriciteit,
+                &mut zeb_el_mj,
+                &mut zeb_nonel_primary_kwh,
+            );
             vr.annual_w_fan * factors.f_bac_ventilation
         }
         None => 0.0,
     };
 
     // ---- PV H.16 ----
-    let pv_yield_mj = if energy.pv.is_empty() {
-        0.0
+    let (pv_yield_mj, pv_monthly_mj) = if energy.pv.is_empty() {
+        (0.0, [0.0_f64; 12])
     } else {
         let systems = map_pv(&energy.pv)?;
         let location = PvLocation::new(52.1, 5.2)?;
         let climate = de_bilt_climate_data();
-        calculate_pv_yield(&systems, &location, &climate)?.annual_yield_mj
+        let pv = calculate_pv_yield(&systems, &location, &climate)?;
+        (pv.annual_yield_mj, *pv.monthly_yield_mj.as_array())
     };
 
     // Omgevingswarmte (renheat) van de warmtepomp-diensten — teller van BENG 3
@@ -559,6 +605,41 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         notes.push(source_note(r));
     }
 
+    // ---- Bijlage-AB ZEB-indicator (informatief, losstaand van BENG 1/2/3) ----
+    // Alleen berekend als alle dienst-dragers ZEB-ondersteund zijn (all-electric,
+    // gas of biomassa); bij stadswarmte laten we hem weg. PV = hernieuwbare
+    // productie op eigen perceel (Epr;el,ren;tot). Zie de `zeb`-moduledoc.
+    let zeb_indicator = if zeb_supported {
+        let to_kwh = |mj: [f64; 12]| mj.map(|x| x / MJ_PER_KWH);
+        let z = zeb::compute_zeb_indicator(&zeb::ZebInputs {
+            monthly_ep_electricity_kwh: to_kwh(zeb_el_mj),
+            monthly_renewable_pv_kwh: to_kwh(pv_monthly_mj),
+            monthly_nonelectric_primary_kwh: zeb_nonel_primary_kwh,
+            usage,
+            a_g_m2: a_g,
+        });
+        notes.push(format!(
+            "ZEB-indicator (NTA 8800 bijlage AB, informatief): EweP;ZEB;Tot = {:.2} \
+             kWh/(m²·jr), naast de norm-conforme BENG 2 = {:.2}. Anders dan BENG 2 \
+             (volledige PV-saldering, fP;exp;el = 1,45) crediteert de ZEB-indicator PV \
+             maar deels via het directgebruik-fractiemodel (tabel AB.1, {:.0}% zelfgebruik) \
+             tegen fP,ZEB;del;el = 1,35 en fP,ZEB;exp;el,ren = 1. Geen batterij/WKK \
+             gemodelleerd (V1).",
+            z.ewep_zeb_tot_kwh_m2,
+            beng2.value,
+            z.self_use_fraction * 100.0,
+        ));
+        Some(z)
+    } else {
+        notes.push(
+            "ZEB-indicator (bijlage AB) niet berekend: een dienst gebruikt stadswarmte/\
+             -koude, waarvan de temperatuurafhankelijke fP,ZEB;weeg-factor (tabel AB.2) \
+             nog niet is gemodelleerd (F5)."
+                .into(),
+        );
+        None
+    };
+
     Ok(BengResult {
         beng1,
         beng2,
@@ -573,6 +654,7 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
         service_breakdown_kwh_m2,
         notes,
         value_sources,
+        zeb_indicator,
     })
 }
 

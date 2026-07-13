@@ -213,3 +213,66 @@ begrensd zelfgebruik (~50–65 % voor een warmtepompwoning) oplevert en dus 27,4
 - **F3d-4-README's** ("EP-tak salderert op jaarbasis i.p.v. norm-maandmatching") —
   herkaderd: onder 2025+C1 zijn jaarbasis en maandmatching **identiek**; het echte verschil
   is volledig (2025+C1) vs. partieel (certified/ouder) salderen.
+
+---
+
+## 7. F3d-8b — bijlage-AB ZEB-indicator geïmplementeerd + gemeten (13-07)
+
+§4/§5.3 stelde voor de bijlage-AB ZEB-indicator (`EweP,ZEB;Tot`) als **losse,
+additieve** informatieve output te bouwen — niet in het BENG-rekenpad, wél om te
+toetsen of het directgebruik-fractiemodel de certified ~64 %-PV-credit reproduceert.
+Dat is nu gedaan (`crates/openaec-project-shared/src/beng/zeb.rs`, additief veld
+`BengResult.zeb_indicator`, wiring in `compute_beng`). Zie `zeb_measure` voor de
+meting.
+
+### 7.1 Implementatie (all-electric + PV, geen batterij/WKK)
+
+Maandmodel AB.9/AB.10 met (dropping index mi):
+
+```
+directuse   = Min[fdu;el,ren × PV ; 0,3 × EEPus;el]   (AB.65, bovengrenzen AB.67/68)
+EEPdel,ZEB  = EEPus;el − directuse                     (AB.15)
+Eexp;el,ren = PV − directuse                            (AB.61)
+EP,ZEB;mi   = EEPdel,ZEB × 1 × 1,35 − Eexp;el,ren × 1 × 1   (AB.11a/AB.13/AB.10)
+EweP,ZEB    = ⌈Σmi EP,ZEB;mi / A_g⌉0,01                 (AB.9/AB.1)
+```
+
+Factoren uit **tabel AB.2** (p. 1156): `fP,ZEB;del;el = 1,35`, `fP,ZEB;weeg;el = 1`,
+`fP,ZEB;exp;el,ren = 1`, direct gebruik = factor 0. Maand-fracties `fdu;el,ren` uit
+**tabel AB.1** (p. 1153): woningbouw jan/feb/nov/dec 0,75 … jul/aug 0,15. Batterij
+(AB.2.3.3) en WKK (`Epr;el,nren`) niet gemodelleerd → termen exact 0.
+
+### 7.2 Meetresultaat (bridged geometrie, F6)
+
+| Case | A_g | BENG 2 (2025+C1, volledig salderen) | ZEB-indicator (bijlage AB) | Certified Uniec | ZEB-delta | ZEB-zelfgebruik |
+|---|---|---|---|---|---|---|
+| Gouda 2467 | 133,1 | 8,90 | **20,82** | 27,48 | **−24,2 %** | 26,4 % |
+| Aalten 2522 | 67,0 | 22,61 | **31,77** | 24,71 | **+28,6 %** | 27,3 % |
+
+### 7.3 Conclusie — bijlage AB reproduceert certified óók niet
+
+De hypothese uit §4 ("het ~64 %-directgebruik-model verklaart de certified 27,48")
+is **empirisch weerlegd** voor de 2025+C1-bijlage-AB-parametrisatie:
+
+1. **Zelfgebruik is ~26–27 %, niet ~64 %.** De `0,3 × EEPus;el`-cap (AB.65) domineert
+   in de zomer (juli: `fdu = 0,15`, lage vraag, hoge PV → directgebruik ≈ 5 % van de
+   PV). Het certified ~64 %-zelfgebruik uit §2 hoort bij een **ander**
+   (ouder-norm-)directgebruik­model, niet bij tabel AB.1 + de 0,3-cap.
+2. **De ZEB-indicator ligt niet consistent t.o.v. certified**: Gouda −24 %,
+   Aalten +29 % (tegengesteld teken). De lagere ZEB-factoren (1,35/1 i.p.v. 1,45)
+   verlagen; het lage zelfgebruik verhoogt t.o.v. volledige saldering — de netto
+   uitkomst hangt af van de PV/vraag-verhouding en valt per case anders uit.
+3. **Certified 27,48 / 24,71 is dus noch de 2025+C1-BENG 2 (8,90 / 22,61) noch de
+   2025+C1-ZEB-indicator (20,82 / 31,77).** Het is een ouder-norm partieel-
+   salderingsartefact met eigen parameters (Uniec 3.3.x), niet reproduceerbaar met
+   één 2025+C1-grootheid.
+
+### 7.4 Gevolg voor de goldens
+
+- **Golden blijft `#[ignore]`** (anti-fudge): geen 2025+C1-grootheid haalt certified
+  binnen tolerantie, dus niets om tegen te activeren zonder de fixture te fudgen. De
+  `#[ignore]`-redenen van `uniec_gouda_2467` / `uniec_aalten_2522` /
+  `gouda_beng_geometry_within_certified_tolerance` dragen nu de gemeten ZEB-gap.
+- **De ZEB-indicator zelf is wél live** als additieve, norm-gereferentieerde output
+  op elk `compute_beng`-resultaat (byte-additief: `#[serde(default,
+  skip_serializing_if)]`), plus een transparantie-note in `BengResult.notes`.
