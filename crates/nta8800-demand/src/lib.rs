@@ -48,7 +48,7 @@ pub mod model;
 pub mod references;
 pub mod result;
 
-pub use calc::{calculate_demand, DEFAULT_SHADING_FACTOR};
+pub use calc::{calculate_demand, calculate_demand_with_cooling_ht, DEFAULT_SHADING_FACTOR};
 pub use errors::{DemandCalcResult, DemandError};
 pub use model::{CoolingSetpoint, HeatingSetpoint, InternalGains, ThermalMassInput};
 pub use result::{DemandBreakdown, DemandResult};

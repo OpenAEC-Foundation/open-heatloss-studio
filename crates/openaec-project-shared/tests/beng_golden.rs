@@ -500,27 +500,37 @@ fn gouda_project_with_beng_geometry() -> ProjectV2 {
     project
 }
 
-/// F6 fase 2 golden — **`#[ignore]` sinds C1 (13-07): uit tolerantie doordat de
-/// transmissie-correcties de compensatie tussen te-lage Q_H;nd en te-hoge Q_C;nd
-/// hebben opgeheven.**
+/// F6 fase 2 golden — **`#[ignore]` sinds C1, deels opgeheven door C2 (13-07):
+/// BENG 2 en BENG 3 vallen nu binnen tolerantie; alleen BENG 1 houdt een
+/// thermische-massa-residu.**
 ///
-/// Tot C1 was deze golden groen omdat *twee* fouten elkaar in BENG 1 wegstreepten:
-/// Q_H;nd was ~40 % te laag (raam-U transmitteerde op de opake U; forfaitair
-/// `h_g;an = 10`) en Q_C;nd was fors te hoog (`F_sh = 1,0`, zomerscreens niet
-/// gemodelleerd — F3d, buiten C1-scope). C1 voert de raam-U door (formule 8.1) en
-/// het P/A-grondmodel (§8.3): de verwarming klopt nu vrijwel exact met certified
-/// (primair 2444 vs 2551 kWh, −4 %, was 1544/−40 %), maar daardoor **overschiet
-/// BENG 1 nu +28 %** (133,2 vs 103,7) en **BENG 2 +37 %** (33,8 vs 24,7): de
-/// koudebehoefte-overschatting is niet langer verborgen. Certified Q_C;nd =
-/// 873 kWh; onze ~2847 kWh is de `F_sh = 1,0`-post, geen transmissie-fout.
+/// De geschiedenis in drie stappen:
 ///
-/// **Anti-fudge:** `expected.json` en de tolerantie zijn onaangeraakt; de
-/// correcte transmissie is niet teruggedraaid. De transmissie-correctheid die nu
-/// wél groen is, staat in [`aalten_beng_geometry_heating_matches_certified`].
-/// Deze golden gaat pas weer groen zodra de zomer-zonwering (`F_sh`) is
-/// gemodelleerd (F3d) — een koeling-/EP-kwestie, niet de geometrie of transmissie.
+/// - **Tot C1** was de golden groen door een *dubbele* compensatie in BENG 1:
+///   Q_H;nd ~40 % te laag (raam-U op de opake U; forfait `h_g;an = 10`) én Q_C;nd
+///   fors te hoog (koudebalans rekende tegen de verwarmings-`Q_H;ht` op 20 °C,
+///   zónder de §7.2.2-poort). De capture toont dat de certified case géén
+///   zonwering heeft (`ZONW_GEEN`) — de "F_sh = 1,0"-hypothese was dus niet de
+///   oorzaak; de koudebalans zelf was fout.
+/// - **C1** corrigeerde de transmissie (raam-U form. 8.1 + P/A-grond §8.3): Q_H;nd
+///   klopt (primair 2444 vs 2551 kWh, −4 %), waardoor de koudebehoefte-
+///   overschatting blootkwam en BENG 1/2 +28 %/+37 % overschoten.
+/// - **C2** corrigeert de koudebalans (koel-setpoint θ_int;set;C = 24 °C, §7.3.2
+///   form. 7.15 + §7.2.2-poort `(1/γ_C) > 2,0 → Q_C;nd = 0`, form. 7.6): **BENG 2
+///   −4,2 %** (23,68 vs 24,71 ✓) en **BENG 3 +1,0 pp** (86,04 ✓). **BENG 1 blijft
+///   +11,2 %** (115,27 vs 103,69): de energiebehoefte-indicator is direct gevoelig
+///   voor de resterende Q_C;nd-overschatting, die thermische massa is — de bridge
+///   draait `light_woning`, terwijl Aalten een massieve betonvloer heeft. Zwaar-
+///   massief zou BENG 1 op −14,5 % zetten én de heating-anchor breken (2119 vs
+///   2551): de echte C_m ligt ertussen (F7.2 massa-invoer, gekoppeld aan
+///   verwarming).
+///
+/// **Anti-fudge:** `expected.json` en de tolerantie zijn onaangeraakt. Groene
+/// C2-anchor: [`aalten_beng_geometry_beng2_matches_certified`]; transmissie-anchor:
+/// [`aalten_beng_geometry_heating_matches_certified`]. Volledig groen zodra F7.2
+/// de werkelijke thermische massa levert.
 #[test]
-#[ignore = "C1 (13-07): raam-U (8.1) + P/A-grond (§8.3) maken Q_H;nd correct (heating primair 2444 vs cert 2551), waardoor BENG1 +28% / BENG2 +37% overschieten — de koeling-F_sh=1,0-overschatting (Q_C;nd ~2847 vs cert 873, F3d/out-of-scope) wordt niet langer door te-lage verwarming gemaskeerd. Anti-fudge: expected.json onaangeraakt, transmissie niet teruggedraaid. Groene transmissie-anchor: aalten_beng_geometry_heating_matches_certified. Weer groen zodra F_sh gemodelleerd is."]
+#[ignore = "C2 (13-07): koel-setpoint (24 °C, §7.3.2 form. 7.15) + §7.2.2-poort (1/γ_C>2 → Q_C;nd=0) brengen BENG2 op −4,2 % (23,68 vs 24,71 ✓) en BENG3 op +1,0 pp (86,04 vs 85,0 ✓). BENG1 (energiebehoefte) blijft +11,2 % (115,27 vs 103,69): residu is thermische massa — de bridge draait light_woning, maar Aalten heeft een massieve betonvloer; zwaar_massief zou BENG1 op −14,5 % zetten én de heating-anchor breken (2119 vs 2551), dus de echte C_m ligt ertussen (F7.2 massa-invoer, koppelt aan verwarming). Groene C2-anchor: aalten_beng_geometry_beng2_matches_certified. Anti-fudge: expected.json onaangeraakt. Weer volledig groen zodra F7.2 de werkelijke thermische massa levert."]
 fn aalten_beng_geometry_within_certified_tolerance() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -603,6 +613,41 @@ fn aalten_beng_geometry_heating_matches_certified() {
     );
 }
 
+/// GROENE koudebalans-anchor (draait mee in `cargo test`) — C2.
+///
+/// Bewijst dat de C2-koudebalans-correcties (warmteoverdracht voor koeling tegen
+/// de koel-setpoint θ_int;set;C = 24 °C, NTA 8800 §7.3.2 formule 7.15; plus de
+/// §7.2.2-poort `(1/γ_C) > 2,0 → Q_C;nd = 0`, formule 7.6) de **BENG 2** (totaal
+/// primair energiegebruik incl. koeling) van de bridged Aalten-case op de
+/// certified Uniec-waarde brengen. Vóór C2 overschatte de koudebalans Q_C;nd fors
+/// (koeling rekende tegen de verwarmings-`Q_H;ht` op 20 °C, zónder de poort):
+/// BENG 2 stond op +36,7 % (33,77 vs 24,71). C2 brengt BENG 2 op −4,2 % (23,68),
+/// ruim binnen de fixture-tolerantie (±10 %).
+///
+/// Waar de samengestelde [`aalten_beng_geometry_within_certified_tolerance`] nog
+/// `#[ignore]` is (BENG 1 = energiebehoefte houdt een thermische-massa-residu,
+/// zie die reden), isoleert deze anchor de grootheid die C2 op certified tilt:
+/// het totale primaire energiegebruik. Anti-fudge: referentiewaarde en tolerantie
+/// komen rechtstreeks uit `expected.json`; niets opgerekt.
+#[test]
+fn aalten_beng_geometry_beng2_matches_certified() {
+    let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
+    let e = &fx.expected;
+
+    let project = aalten_project_with_beng_geometry();
+    let r = compute_beng(&project).expect("compute_beng via de F6-brug mag niet falen");
+
+    let rel_pct = (r.beng2.value - e.beng2_kwh_m2_jr) / e.beng2_kwh_m2_jr * 100.0;
+    assert!(
+        rel_pct.abs() <= fx.tolerance.beng2_pct,
+        "BENG2 {:.2} wijkt {rel_pct:+.1}% af (tol ±{:.0}%) van certified {:.2} — C2 \
+         koel-setpoint (24 °C) + §7.2.2-poort zouden BENG 2 op certified moeten brengen",
+        r.beng2.value,
+        fx.tolerance.beng2_pct,
+        e.beng2_kwh_m2_jr
+    );
+}
+
 /// Diagnostische herkalibratie-meting — print BENG 1/2/3 + sub-totalen VÓÓR
 /// (ruimte-georiënteerd, oes) en NÁ (gevel-georiënteerd, F6-brug) tegen de
 /// certified Uniec-referentie voor Aalten.
@@ -680,16 +725,19 @@ fn uniec_measure_bridged() {
 /// ZEB). De golden blijft daarom `#[ignore]`; er is geen 2025+C1-grootheid die
 /// hem groen maakt zonder fudge.
 ///
-/// **C1-update (13-07):** raam-U (formule 8.1) tilt Q_H;nd fors (heating primair
-/// 2914 → 5131 kWh, cert 6506; het kruipruimte-P/A-grondmodel raakt Gouda niet —
-/// de vloer grenst aan een onverwarmde kruipruimte, niet direct aan grond). BENG 2
-/// schuift van −67,6 % naar −19,0 % (dichterbij, nog buiten ±8 %) en **BENG 1
-/// verschuift van −5,7 % naar +20,0 %**: net als bij Aalten legt de correcte
-/// verwarming de koeling-`F_sh = 1,0`-overschatting bloot (koeling 3334 vs cert
-/// 244 kWh). Blokkade blijft tweeledig (PV-normversie + F_sh), beide buiten
-/// C1-scope; expected.json onaangeraakt.
+/// **C2-update (13-07):** de koudebalans-correctie (koel-setpoint 24 °C §7.3.2 +
+/// §7.2.2-poort) brengt **BENG 1 binnen tolerantie**: +20,0 % → **+1,0 %** (96,83
+/// vs 95,86, tol ±6 %) doordat de koudebehoefte-overschatting grotendeels wegvalt
+/// (koeling primair 3334 → 1969 kWh; de resterende koeling-gap t.o.v. cert 244 kWh
+/// is thermische massa, zie Aalten). **BENG 2/3 blijven buiten** — onveranderd de
+/// PV-saldering-normversie-delta (F3d-8): BENG 2 −56,4 % (11,99 vs 27,48), BENG 3
+/// +7,8 pp. Dat is een EP-crate-kwestie (volledige vs ~64 % PV-credit), niet de
+/// koudebalans of geometrie. De ZEB-indicator (bijlage AB, `zeb_measure`)
+/// reproduceert certified 27,48 evenmin — certified is een ouder-norm partieel-
+/// salderingsartefact. Blokkade = PV-normversie, buiten C2-scope; expected.json
+/// onaangeraakt.
 #[test]
-#[ignore = "F6 fase 2b / F3d-8b / C1: na de C1-raam-U schuift BENG1 naar +20,0% (koeling-F_sh=1,0 blootgelegd) en BENG2 naar -19,0% (nog buiten ±8%, PV-saldering-normversie). Verwarming fors verbeterd (5131 vs cert 6506). Blokkade = PV-normversie + F_sh, beide buiten C1-scope; geometrie/transmissie correct. Anti-fudge: expected.json onaangeraakt. Meet met gouda_measure_bridged/zeb_measure."]
+#[ignore = "F6 2b / F3d-8b / C2 (13-07): de C2-koudebalans (koel-setpoint 24°C §7.3.2 + §7.2.2-poort) tilt BENG1 van +20,0% naar +1,0% (96,83 vs 95,86 ✓, koeling 3334→1969 kWh). BENG2/3 blijven buiten: BENG2 -56,4% (11,99 vs 27,48), BENG3 +7,8pp — PV-saldering-normversie (F3d-8, volledig vs ~64% credit), niet koudebalans/geometrie. Blokkade = PV-normversie, buiten C2-scope. Anti-fudge: expected.json onaangeraakt. Meet met gouda_measure_bridged/zeb_measure."]
 fn gouda_beng_geometry_within_certified_tolerance() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_GOUDA_EXPECTED).unwrap();
     let e = &fx.expected;

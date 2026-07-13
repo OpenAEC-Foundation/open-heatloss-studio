@@ -28,14 +28,14 @@
 use nta8800_cooling::{
     calculate_cooling, CoolingDistribution, CoolingEmission, CoolingResult, CoolingSystem,
 };
-use nta8800_demand::calc::calculate_demand;
+use nta8800_demand::calc::calculate_demand_with_cooling_ht;
 use nta8800_demand::model::{
     InternalGains, ThermalMassInput,
     setpoints::{CoolingSetpoint, HeatingSetpoint},
 };
 use nta8800_demand::result::DemandResult;
 use nta8800_model::geometry::ThermalBridgeCategory;
-use nta8800_model::time::MonthlyProfile;
+use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::{Energy, Temperature};
 use nta8800_model::ThermalBridgeLinear;
 use nta8800_tables::climate::de_bilt_climate_data;
@@ -45,7 +45,7 @@ use nta8800_transmission::{
 };
 use nta8800_ventilation::{
     calculate_ventilation, calculate_ventilation_with_pressure_model, system_total_airflow,
-    AIR_VOLUMETRIC_HEAT_J_PER_M3_K,
+    AIR_VOLUMETRIC_HEAT_J_PER_M3_K, VentilationResult,
     model::{AirFlow, BuildingLeakageType, BuildingPressureContext, VentilationSystem, WtwSpecification},
 };
 use schemars::JsonSchema;
@@ -570,6 +570,11 @@ pub fn compute_tojuli_full(
     let thermal_bridges_point = Vec::new(); // Punt-χ nog niet in het model (§8.2.1 OPM. 4)
 
     let indoor_temperature = MonthlyProfile::from_constant(inputs.heating_setpoint_c);
+    // Koel-rekentemperatuur θ_int;set;C (woonfunctie 24 °C, NTA 8800 tabel 7.13):
+    // de warmteoverdracht voor koeling (§7.3.2 formule 7.15, §7.4) rekent tegen
+    // deze hógere setpoint dan de verwarmingsbalans, zodat de koudebalans (7.7)
+    // de juiste — grotere — verliesterm ziet.
+    let cooling_indoor_temperature = MonthlyProfile::from_constant(inputs.cooling_setpoint_c);
 
     // H_g;an (§8.3): P/A-grondmodel zodra elke grondvloer een perimeter draagt,
     // anders het forfaitaire minimum. Zie [`build_ground_conductance`].
@@ -599,6 +604,21 @@ pub fn compute_tojuli_full(
         &thermal_bridges_linear,
         &thermal_bridges_point,
         &indoor_temperature,
+        &climate,
+        h_g_an,
+        &unheated_space_b_factors,
+        &adjacent_zone_temperatures,
+    ).map_err(TojuliError::Transmission)?;
+
+    // Transmissie voor koeling (§7.3.2, formule 7.15): identieke schil/conductanties,
+    // maar tegen de koel-setpoint θ_int;set;C. Levert samen met de koel-ventilatie
+    // de warmteoverdracht voor koeling `Q_C;ht` voor de koudebalans (7.7).
+    let transmission_cooling = calculate_transmission(
+        zone,
+        &elements,
+        &thermal_bridges_linear,
+        &thermal_bridges_point,
+        &cooling_indoor_temperature,
         &climate,
         h_g_an,
         &unheated_space_b_factors,
@@ -753,61 +773,53 @@ pub fn compute_tojuli_full(
     let use_pressure_model =
         pressure_context.within_c2_scope() && pressure_context.effective_q_v10().is_some();
 
-    let ventilation = if use_pressure_model {
-        // C2-scope + bekend bouwjaar: norm-exacte §11.2.1.6 massabalans per maand.
-        //
-        // --- q_V;ODA;req-keten voor de natuurlijke ventilatie-conductantie ---
-        //
-        // Het §11.2.1 drukmodel modelleert de natuurlijke ventilatie-openingen
-        // (systeem A) via een conductantie `C_vent = q_V;ODA;req`
-        // (`pressure_solver::build_openings`, §11.2.2.2.1). Die functie leest
-        // `q_V;ODA;req` af uit de mechanische-debietvelden van [`AirFlow`] — bij
-        // systeem A heeft die geen mechanisch debiet, dus zonder ingreep blijft
-        // de natuurlijke vent-conductantie 0 en levert de massabalans alleen
-        // infiltratie.
-        //
-        // De échte `q_V;ODA;req` is hierboven al norm-conform bepaald
-        // (werkpakket B, formules 11.22/11.56/11.57/11.63 —
-        // `nta8800_q_v_oda_req_m3_per_h`) en landt in `flow.infiltration`. We
-        // propageren die waarde naar de mechanische velden zodat
-        // `build_openings` voor systeem A de natuurlijke toe- én
-        // afvoer-conductantie krijgt (`C_vent;in = C_vent;out = q_V;ODA;req`,
-        // §11.2.2.2.1) — hergebruik van de werkpakket-B-keten, geen duplicatie.
-        //
-        // De propagatie gebeurt op een **lokale kopie** en uitsluitend op dit
-        // drukmodel-pad: de heuristiek-terugval ([`calculate_ventilation`])
-        // leest die mechanische velden voor systeem A niet en moet de
-        // ongemoeide `flow`-struct krijgen — `flow.infiltration` blijft daar de
-        // lek-/heuristiek-input voor de `system_total_airflow`-terugval.
-        let mut pressure_flow = flow;
-        if matches!(system, VentilationSystem::A) {
-            pressure_flow.mechanical_supply = pressure_flow.infiltration;
-            pressure_flow.mechanical_exhaust = pressure_flow.infiltration;
+    // De ventilatie-warmteoverdracht wordt tweemaal berekend tegen dezelfde
+    // configuratie maar een **andere rekentemperatuur**: één keer op de
+    // verwarmings-setpoint (θ_int;set;H, voedt Q_H;ht) en één keer op de
+    // koel-setpoint (θ_int;set;C, voedt Q_C;ht — §7.4/formule 7.15). Beide takken
+    // van de branch (§11.2.1-drukmodel vs `q_V;tot`-heuristiek) hangen alleen via
+    // de meegegeven `indoor_temperature` van de setpoint af; de closure isoleert
+    // die ene variabele zodat de systeem-/debiet-context identiek blijft.
+    let compute_ventilation = |indoor: &MonthlyProfile<Temperature>| -> Result<VentilationResult, TojuliError> {
+        if use_pressure_model {
+            // C2-scope + bekend bouwjaar: norm-exacte §11.2.1.6 massabalans per maand.
+            //
+            // Het §11.2.1 drukmodel modelleert de natuurlijke ventilatie-openingen
+            // (systeem A) via een conductantie `C_vent = q_V;ODA;req`
+            // (`pressure_solver::build_openings`, §11.2.2.2.1). Die functie leest
+            // `q_V;ODA;req` af uit de mechanische-debietvelden van [`AirFlow`] — bij
+            // systeem A heeft die geen mechanisch debiet, dus zonder ingreep blijft
+            // de natuurlijke vent-conductantie 0 en levert de massabalans alleen
+            // infiltratie. De échte `q_V;ODA;req` is hierboven al norm-conform
+            // bepaald (werkpakket B) en landt in `flow.infiltration`; we propageren
+            // die naar de mechanische velden op een **lokale kopie** zodat
+            // `build_openings` voor systeem A de natuurlijke toe- én
+            // afvoer-conductantie krijgt. De heuristiek-terugval leest die velden
+            // niet en moet de ongemoeide `flow` krijgen.
+            let mut pressure_flow = flow;
+            if matches!(system, VentilationSystem::A) {
+                pressure_flow.mechanical_supply = pressure_flow.infiltration;
+                pressure_flow.mechanical_exhaust = pressure_flow.infiltration;
+            }
+            calculate_ventilation_with_pressure_model(
+                zone,
+                &system,
+                &pressure_flow,
+                wtw.as_ref(),
+                &pressure_context,
+                indoor,
+                &climate,
+            )
+            .map_err(TojuliError::Ventilation)
+        } else {
+            // H ≥ 15 m (multi-luchtstroomzone, V2) of onbekend bouwjaar (geen
+            // forfaitaire C_lea): terugval op de systeem-bewuste
+            // `q_V;tot`-heuristiek.
+            calculate_ventilation(zone, &system, &flow, wtw.as_ref(), indoor, &climate)
+                .map_err(TojuliError::Ventilation)
         }
-        calculate_ventilation_with_pressure_model(
-            zone,
-            &system,
-            &pressure_flow,
-            wtw.as_ref(),
-            &pressure_context,
-            &indoor_temperature,
-            &climate,
-        )
-        .map_err(TojuliError::Ventilation)?
-    } else {
-        // H ≥ 15 m (multi-luchtstroomzone, V2) of onbekend bouwjaar (geen
-        // forfaitaire C_lea): terugval op de systeem-bewuste
-        // `q_V;tot`-heuristiek.
-        calculate_ventilation(
-            zone,
-            &system,
-            &flow,
-            wtw.as_ref(),
-            &indoor_temperature,
-            &climate,
-        )
-        .map_err(TojuliError::Ventilation)?
     };
+    let ventilation = compute_ventilation(&indoor_temperature)?;
 
     // H_V (W/K) voor de demand-calc — voedt uitsluitend de tijdconstante τ
     // (`time_constant_hours`); het ventilatie-warmteverlies Q_ht komt al uit
@@ -841,8 +853,21 @@ pub fn compute_tojuli_full(
     let cooling_sp = CoolingSetpoint::new(MonthlyProfile::from_constant(inputs.cooling_setpoint_c));
     let thermal_mass = ThermalMassInput::light_woning(); // default; F7.2 user-input
 
+    // Warmteoverdracht voor koeling `Q_C;ht;mi` = transmissie + ventilatie tegen de
+    // koel-setpoint (§7.2.3). De koudebalans (7.7) rekent hiermee i.p.v. de
+    // verwarmings-`Q_H;ht`, en de §7.2.2-poort (formule 7.6) gebruikt γ_C =
+    // Q_C;gn / Q_C;ht. De verwarmingsbalans blijft ongewijzigd (`transmission`/
+    // `ventilation` op θ_int;set;H).
+    let ventilation_cooling = compute_ventilation(&cooling_indoor_temperature)?;
+    let cooling_heat_transfer: MonthlyProfile<Energy> = MonthlyProfile::new(std::array::from_fn(
+        |i| {
+            let m = Month::all()[i];
+            transmission_cooling.monthly_q_t[m] + ventilation_cooling.monthly_q_v[m]
+        },
+    ));
+
     let windows_refs: Vec<&nta8800_model::geometry::window::Window> = view.windows.iter().collect();
-    let demand: DemandResult = calculate_demand(
+    let demand: DemandResult = calculate_demand_with_cooling_ht(
         zone,
         &transmission,
         &ventilation,
@@ -854,6 +879,7 @@ pub fn compute_tojuli_full(
         &internal_gains,
         thermal_mass,
         inputs.shading_factor,
+        Some(&cooling_heat_transfer),
     )?;
 
     // ---- 6. Cooling calc ----

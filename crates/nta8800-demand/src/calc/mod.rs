@@ -86,6 +86,54 @@ pub fn calculate_demand(
     thermal_mass: ThermalMassInput,
     shading_factor: f64,
 ) -> DemandCalcResult<DemandResult> {
+    calculate_demand_with_cooling_ht(
+        zone,
+        transmission,
+        ventilation,
+        ventilation_h_ve,
+        windows,
+        climate,
+        heating_setpoint,
+        cooling_setpoint,
+        internal_gains,
+        thermal_mass,
+        shading_factor,
+        None,
+    )
+}
+
+/// Als [`calculate_demand`], maar met een expliciete **warmteoverdracht voor
+/// koeling** `Q_C;ht;mi` (§7.2.3, formule 7.15/7.16 — getransmitteerd + geventileerd
+/// tegen de koel-setpoint θ_int;set;C).
+///
+/// NTA 8800 §7.3.2/§7.4 rekenen de warmteoverdracht voor koeling tegen een **andere
+/// rekentemperatuur** dan die voor verwarming (woonfunctie: θ_int;set;C = 24 °C vs
+/// θ_int;set;H = 20 °C, tabel 7.13). De koudebalans (7.7) hoort dus met de
+/// koel-`Q_C;ht` te rekenen, niet met de verwarmings-`Q_H;ht`. De caller die de
+/// transmissie/ventilatie op de koel-setpoint kan herberekenen levert dat profiel
+/// hier aan; is het `None`, dan valt de koudebalans terug op de verwarmings-`Q_ht`.
+///
+/// Onafhankelijk van `cooling_heat_transfer` past de koudebalans de §7.2.2-poort toe
+/// (formule 7.6: `(1/γ_C) > 2,0 → Q_C;nd = 0`; zie [`monthly_balance::cooling_demand_gated`]).
+/// Het `None`-pad is daarmee identiek aan het gedrag vóór deze uitbreiding **op de
+/// poort na**: die geldt norm-correct óók op de terugval-tak (vóór deze uitbreiding
+/// ontbrak hij). Er zijn geen andere callers dan de TO-juli-/BENG-keten, die altijd
+/// `Some(..)` levert.
+#[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
+pub fn calculate_demand_with_cooling_ht(
+    zone: &Rekenzone,
+    transmission: &TransmissionResult,
+    ventilation: &VentilationResult,
+    ventilation_h_ve: f64,
+    windows: &[&Window],
+    climate: &ClimateData,
+    heating_setpoint: HeatingSetpoint,
+    cooling_setpoint: CoolingSetpoint,
+    internal_gains: &InternalGains,
+    thermal_mass: ThermalMassInput,
+    shading_factor: f64,
+    cooling_heat_transfer: Option<&MonthlyProfile<Energy>>,
+) -> DemandCalcResult<DemandResult> {
     // Setpoints zijn voor traceability/UI; Q_ht uit transmission/ventilation
     // is al berekend tegen deze setpoints upstream.
     let _ = (heating_setpoint, cooling_setpoint);
@@ -125,8 +173,9 @@ pub fn calculate_demand(
         let q_gn_cooling: Energy = monthly_q_int[month] + monthly_q_sol_cooling[month];
 
         out_q_ht[idx] = q_ht;
-        // Breakdown rapporteert de warmtebalans-winst (Q_H;gn); zonder zonwering/
-        // belemmering zijn beide balansen identiek → byte-identiek aan voorheen.
+        // Breakdown rapporteert de warmtebalans-winst (Q_H;gn); dit veld is
+        // ongewijzigd t.o.v. voorheen (de koudebalans-aanpassing raakt alleen
+        // `out_cooling_demand`, niet de gerapporteerde `Q_gn`).
         out_q_gn[idx] = q_gn_heating;
 
         let gamma_h = monthly_balance::gamma(q_gn_heating, q_ht);
@@ -134,15 +183,20 @@ pub fn calculate_demand(
         out_eta_heating[idx] = eta_h;
         out_heating_demand[idx] = monthly_balance::heating_demand(q_ht, q_gn_heating, eta_h);
 
-        // γ_C: volgens NTA 8800 formule (7.11) gebruikt koeling dezelfde
-        // γ = Q_gn / Q_ht definitie als warmte, maar met de koudebalans-zonwinst
-        // (beweegbare zonwering actief, §17.3-koeltabel). De koelmodus gebruikt
-        // `utilization_cooling` met γ^(-a) vorm; in de limiet γ_C >> 1 benadert
-        // η_C,ls → 1.
-        let gamma_c = monthly_balance::gamma(q_gn_cooling, q_ht);
+        // Warmteoverdracht voor koeling (§7.2.3): tegen de koel-setpoint
+        // θ_int;set;C herberekend indien de caller dat profiel levert, anders de
+        // verwarmings-`Q_ht` als terugval. De koudebalans (7.7) hoort met deze
+        // `Q_C;ht` te rekenen, niet met de verwarmings-`Q_H;ht`.
+        let q_c_ht = cooling_heat_transfer.map_or(q_ht, |p| p[month]);
+
+        // γ_C = Q_C;gn / Q_C;ht (§7.8.3, formule 7.55). η_C;ht via `utilization_cooling`
+        // (γ^(-a)-vorm, formule 7.52). De §7.2.2-poort (formule 7.6) kapt
+        // verlies-gedomineerde maanden (1/γ_C > 2,0) af op 0.
+        let gamma_c = monthly_balance::gamma(q_gn_cooling, q_c_ht);
         let eta_c = utilization::utilization_cooling(gamma_c, a_cool);
         out_eta_cooling[idx] = eta_c;
-        out_cooling_demand[idx] = monthly_balance::cooling_demand(q_ht, q_gn_cooling, eta_c);
+        out_cooling_demand[idx] =
+            monthly_balance::cooling_demand_gated(q_c_ht, q_gn_cooling, eta_c);
     }
 
     let monthly_q_ht = MonthlyProfile::new(out_q_ht);

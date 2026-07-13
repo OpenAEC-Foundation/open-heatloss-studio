@@ -47,6 +47,37 @@ pub fn cooling_demand(q_ht: Energy, q_gn: Energy, eta_c_ls: f64) -> Energy {
     clamp_nonneg(q_gn - eta_c_ls * q_ht)
 }
 
+/// Maandelijkse netto koudebehoefte mét de NTA 8800 §7.2.2-poort — formules
+/// (7.6)/(7.7).
+///
+/// Formule (7.7) is `Q_C;nd = Q_C;gn − η_C;ht · Q_C;ht` (idem [`cooling_demand`]),
+/// maar §7.2.2 zet die op **0** zodra de verliezen de winst met meer dan een
+/// factor 2 overheersen (formule 7.6):
+///
+/// ```text
+/// indien (1/γ_C) > 2,0:  Q_C;nd = 0        met γ_C = Q_C;gn / Q_C;ht
+/// ```
+///
+/// Dus `1/γ_C = Q_C;ht / Q_C;gn > 2` → maand telt niet als koelmaand. Zonder deze
+/// poort blijven schouderseizoen-maanden (waar `η_C;ht` de verliezen niet volledig
+/// verrekent) een residuele koudebehoefte houden die de norm expliciet afkapt.
+///
+/// `q_c_ht` is de warmteoverdracht voor **koeling** (§7.2.3, formule 7.15/7.16:
+/// getransmitteerd/geventileerd tegen de koel-setpoint θ_int;set;C), niet de
+/// verwarmings-`Q_H;ht`.
+#[must_use]
+pub fn cooling_demand_gated(q_c_ht: Energy, q_c_gn: Energy, eta_c_ht: f64) -> Energy {
+    // Geen (positieve) winst → geen koudebehoefte (γ_C ≤ 0).
+    if q_c_gn <= 0.0 {
+        return 0.0;
+    }
+    // Formule (7.6): (1/γ_C) > 2,0 met γ_C = Q_C;gn / Q_C;ht ⇒ Q_C;ht / Q_C;gn > 2.
+    if q_c_ht / q_c_gn > 2.0 {
+        return 0.0;
+    }
+    clamp_nonneg(q_c_gn - eta_c_ht * q_c_ht)
+}
+
 /// Som van een maandprofiel over 12 maanden.
 #[must_use]
 pub fn annual_sum(profile: &MonthlyProfile<Energy>) -> Energy {
@@ -83,6 +114,36 @@ mod tests {
         // Meer verlies dan winst → Q_C;nd < 0 → clamp 0
         let q = cooling_demand(2000.0, 500.0, 0.9);
         assert!(q.abs() < 1e-9);
+    }
+
+    #[test]
+    fn gated_poort_kapt_verliesgedomineerde_maand_af() {
+        // 1/γ_C = Q_C;ht/Q_C;gn = 3000/1000 = 3 > 2 → formule (7.6) → 0,
+        // óók al zou (7.7) een positieve rest geven bij lage η.
+        let q = cooling_demand_gated(3000.0, 1000.0, 0.3);
+        assert!(q.abs() < 1e-12, "poort moet 0 geven, kreeg {q}");
+    }
+
+    #[test]
+    fn gated_koelmaand_gelijk_aan_ongepoort() {
+        // 1/γ_C = 500/2000 = 0,25 ≤ 2 → poort inactief → identiek aan (7.10).
+        let g = cooling_demand_gated(500.0, 2000.0, 0.6);
+        let u = cooling_demand(500.0, 2000.0, 0.6);
+        assert!((g - u).abs() < 1e-12);
+        assert!((g - (2000.0 - 0.6 * 500.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gated_grens_precies_twee_telt_nog_mee() {
+        // 1/γ_C = 2000/1000 = 2,0 → niet > 2,0 → poort inactief.
+        let q = cooling_demand_gated(2000.0, 1000.0, 0.4);
+        assert!(q > 0.0, "grens 2,0 mag niet afkappen, kreeg {q}");
+    }
+
+    #[test]
+    fn gated_geen_winst_geeft_nul() {
+        assert!(cooling_demand_gated(1000.0, 0.0, 0.5).abs() < 1e-12);
+        assert!(cooling_demand_gated(1000.0, -10.0, 0.5).abs() < 1e-12);
     }
 
     #[test]
