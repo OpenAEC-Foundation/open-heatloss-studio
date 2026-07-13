@@ -199,10 +199,8 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     defaultCollapsed: false,
     items: [
       { to: "/project", labelKey: "sidebar.project", Icon: IconHome },
-      { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
       { to: "/constructies", labelKey: "sidebar.constructions", Icon: IconClipboardList },
       { to: "/modeller", labelKey: "sidebar.modeller", Icon: IconCube },
-      { to: "/ifc", labelKey: "sidebar.ifc", Icon: IconIfc },
     ],
   },
   {
@@ -210,6 +208,8 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     titleKey: "sidebar.groups.warmteverlies",
     defaultCollapsed: false,
     items: [
+      { to: "/rooms", labelKey: "sidebar.rooms", Icon: IconGrid },
+      { to: "/ifc", labelKey: "sidebar.ifc", Icon: IconIfc },
       { to: "/warmteverlies/instellingen", labelKey: "sidebar.warmteverliesInstellingen", Icon: IconLayers },
       { to: "/results", labelKey: "sidebar.results", Icon: IconBarChart },
     ],
