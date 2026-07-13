@@ -316,21 +316,30 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
             let geometry = geometry_bridge::beng_geometry_to_shared(bg, &project.geometry)?;
             let a_g_total: f64 = bg.zones.iter().map(|z| z.a_g_m2).sum();
             let n_gevels: usize = bg.zones.iter().map(|z| z.gevels.len()).sum();
-            // C3a/C3b — afgeleid uit de eerste BENG-rekenzone (de keten rekent
-            // V1 op één rekenzone, zie `view.rekenzones.first()` hieronder).
+            // C3a/C3b + MZ-V2a — de keten poolt alle rekenzones tot één rekenzone
+            // (zie `view.rekenzones.first()` hieronder). De thermische massa (C3a)
+            // leiden we daarom af uit de **dominante** zone (grootste A_g); de
+            // interne warmtewinst (C3b) schaalt met A_g;tot = Σ zones (§6.6.2). Bij
+            // één zone valt beide samen met die ene zone (byte-identiek gedrag).
             let usage_for_dynamics = map_usage_function(&project.shared.building_type);
-            if let Some(first_zone) = bg.zones.first() {
+            // Tie-break bij exact gelijke A_g: `max_by` retourneert het **laatste**
+            // maximale element in iteratievolgorde (Rust-std-garantie); met `total_cmp`
+            // is de keuze dus volledig deterministisch (geen NaN-afhankelijkheid). Bewust
+            // vastgelegd — relevant voor MZ-V2b, dat per-zone rekent en dezelfde
+            // dominante-zone-keuze reproduceerbaar moet houden.
+            let dominant_zone = bg.zones.iter().max_by(|a, b| a.a_g_m2.total_cmp(&b.a_g_m2));
+            if let Some(zone) = dominant_zone {
                 // C3a — bouwwijze-codes → C_m (tabel 7.10). `None` bij onbekende/
                 // ontbrekende code → default `light_woning()`.
-                beng_thermal_mass = dynamics::derive_thermal_mass(first_zone, usage_for_dynamics);
+                beng_thermal_mass = dynamics::derive_thermal_mass(zone, usage_for_dynamics);
                 match &beng_thermal_mass {
                     Some(tm) => {
                         notes.push(format!(
                             "Thermische massa (C3a): C_m afgeleid uit de bouwwijze-codes \
                              (vloer {}, wand {}) via NTA 8800 tabel 7.10/7.11/7.12; \
                              woningbouw-default kolom 'geen of open plafond' (voetnoot b).",
-                            first_zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
-                            first_zone.bouwwijze_wand.as_deref().unwrap_or("—"),
+                            zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
+                            zone.bouwwijze_wand.as_deref().unwrap_or("—"),
                         ));
                         // C5b — tabel 7.10 voetnoot c (gesloten/verlaagd plafond, lagere
                         // D_m) is bij een zware/zeer-zware vloer NIET automatisch toegepast:
@@ -368,14 +377,37 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 // de woonfunctie; utiliteit (formule 7.25) blijft forfaitair (F5).
                 if usage_for_dynamics == UsageFunction::Woonfunctie {
                     // N_woon = 1: grondgebonden woning (§6.6.7); meervoudige
-                    // woonfuncties (appartementgebouw) zijn V2.
-                    let gains = dynamics::derive_internal_gains_woningbouw(first_zone.a_g_m2, 1.0);
+                    // woonfuncties (appartementgebouw) zijn multi-UNIT (apart).
+                    // MZ-V2a: Φ_int schaalt met A_g;tot = Σ rekenzones (§6.6.2,
+                    // formule 7.21), niet met de eerste zone — bij N > 1 gaf de
+                    // eerste-zone-A_g een te lage interne winst.
+                    let gains = dynamics::derive_internal_gains_woningbouw(a_g_total, 1.0);
                     let flux = gains.heat_flux_per_m2[Month::Juli];
                     beng_internal_gains = Some(gains);
                     notes.push(format!(
                         "Interne warmtewinst (C3b): woningbouw formule 7.21 \
-                         (Φ_int = 180·N_woon·N_P;woon/A_g = {flux:.2} W/m², N_woon = 1) \
-                         i.p.v. het forfait 3 W/m² (tabel 7.6)."
+                         (Φ_int = 180·N_woon·N_P;woon/A_g;tot = {flux:.2} W/m², N_woon = 1, \
+                         A_g;tot = {a_g_total:.2} m²) i.p.v. het forfait 3 W/m² (tabel 7.6)."
+                    ));
+                }
+                // MZ-V2a — indicatief-markering + dominante-zone-documentatie bij
+                // meerdere rekenzones (gepoold tot één; §6.6.2 vereist per-zone).
+                if bg.zones.len() > 1 {
+                    let dom_naam = if zone.naam.is_empty() {
+                        zone.id.as_str()
+                    } else {
+                        zone.naam.as_str()
+                    };
+                    notes.push(format!(
+                        "INDICATIEF (MZ-V2a): {} rekenzones gepoold tot één rekenzone \
+                         (A_g;tot = {a_g_total:.2} m²). De lineaire posten (transmissie \
+                         Σ A·U, ventilatie, A_g) zijn exact; de niet-lineaire winstbenutting η \
+                         en tijdconstante τ zijn over de gepoolde schil bepaald i.p.v. per \
+                         rekenzone. NTA 8800 §6.6.2/§8.2.2 vereist per-rekenzone-rekenen \
+                         (norm-exact = MZ-V2b). Thermische massa (C_m) is uit de dominante \
+                         zone '{dom_naam}' (grootste A_g = {:.2} m²) afgeleid.",
+                        bg.zones.len(),
+                        zone.a_g_m2,
                     ));
                 }
             }

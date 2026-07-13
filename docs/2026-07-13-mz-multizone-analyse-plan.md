@@ -8,7 +8,7 @@
 
 **Analysebronnen:**
 - Korpus `C:\Users\JochemK\Desktop\uniec\` — 5 multi-zone-bestanden geopend (Python, ZIP+JSON-graaf):
-  kralingseweg-2176, woonark-weesp-2248, nieuwdorperweg-1838, groendijck-2703, memeleiland-3003
+  woning-2176, woonark-2248, woning-1838, woning-2703, drijvende-woning-3003
 - Engine: `uniec3-import/src/geometry.rs`, `openaec-project-shared/src/{beng/geometry_bridge.rs, beng/mod.rs, nta8800_view.rs, tojuli.rs}`
 - Norm: NTA 8800:2025+C1:2026 §6.5 (rekenzone-indeling), §6.6 (A_g), §8.2.2 + §10.5 (per-zone demand), p.536 (tapwater 1 systeem)
 - Certified: `summary.json` + `RESULT-*`-entities per korpus-bestand
@@ -99,8 +99,8 @@ De norm rekent expliciet **per rekenzone en sommeert**, hij voegt zones niet sam
   binnen één rekenzone verschilt de verwarmings-setpoint ≤ 4 K (of dominante functie ≥ 90 %).
   De korpus-splitsingen voldoen hieraan (alle woonfunctie, één setpoint).
 - **§6.6.2 A_g;tot** — "de som van de gebruiksoppervlakten van alle rekenzones". → BENG-noemer =
-  Σ A_g;zi. **Bevestigd op het bestand:** certified A_g = 435,10 = 159 + 117,1 + 159 (kralingseweg);
-  202,81 = 82,99 + 119,82 (memeleiland).
+  Σ A_g;zi. **Bevestigd op het bestand:** certified A_g = 435,10 = 159 + 117,1 + 159 (woning 2176);
+  202,81 = 82,99 + 119,82 (drijvende woning 3003).
 - **§8.2.2 + §10.5.2 (formule 10.19, p.377; 10.46/10.47, p.398)** — de netto warmte-/koudebehoefte
   van de thermische zone = Σ over de rekenzones van de **per-zone** bepaalde Q_H;nd;zi / Q_C;nd;zi.
   Elke zone krijgt een eigen maandbalans (§8.2.2) met eigen τ, interne winst en zonwinst.
@@ -123,10 +123,10 @@ het aantal rekenzones — de certificering aggregeert dus over de zones heen tot
 
 | Case | BENG 1 | BENG 2 | BENG 3 | Label | A_g certified | Σ zones | Match |
 |---|---|---|---|---|---|---|---|
-| 2176 kralingseweg | 72,49 | 22,00 | 75,9 | A+++ | 435,10 | 159+117,1+159 | ✅ exact |
-| 3003 memeleiland | 100,13 | 41,30 | 71,9 | A+++ | 202,81 | 82,99+119,82 | ✅ exact |
+| 2176 woning | 72,49 | 22,00 | 75,9 | A+++ | 435,10 | 159+117,1+159 | ✅ exact |
+| 3003 drijvende woning | 100,13 | 41,30 | 71,9 | A+++ | 202,81 | 82,99+119,82 | ✅ exact |
 | 2248 woonark | 103,98 | 11,47 | 91,5 | A+++ | (168,21) | 86,1+82,11 | ✅ |
-| 2703 groendijck | 75,61 | 1,63 | 98,3 | A+++ | (211,0) | 207+4,0 | ✅ |
+| 2703 woning | 75,61 | 1,63 | 98,3 | A+++ | (211,0) | 207+4,0 | ✅ |
 
 De certified `Uniec3CertifiedResults`-extractie (`results.rs`) werkt al voor multi-zone: A_g/A_ls/
 vormfactor komen uit de gevulde `RESULT-ENERGIEGEBRUIK`-instance (gebouw-niveau, al geaggregeerd),
@@ -158,7 +158,7 @@ aan de certified-kant nodig; het vergelijkingsobject klopt zodra de importer de 
 - BENG 1/2/3 binnen een **ruimere, gedocumenteerde** tolerantie vs certified (niet de strakke
   F8-single-zone-tol); afwijking gemeten en vastgelegd per golden.
 
-**Golden-strategie:** kies **kralingseweg-2176** (3 zones, kelder-patroon, recente app 3.3.6) als
+**Golden-strategie:** kies **woning-2176** (3 zones, kelder-patroon, recente app 3.3.6) als
 multi-zone-golden. Zelfde pad-detectie als de F8-tests (`#[ignore]` + skip-if-absent, klantdata
 gitignored). Leg de gepoolde delta t.o.v. certified vast als expliciete baseline; V2b moet die
 delta naar de single-zone-tolerantie terugbrengen.
@@ -180,7 +180,7 @@ q_v10 nodig; het drukmodel verdeelt al over het gebouw. Distributieverliezen naa
 — nu forfaitair, controleren of de per-zone-som dit al benadert.
 
 **Acceptatiecriteria:**
-- Multi-zone-golden (kralingseweg) BENG 1/2/3 binnen de **reguliere F8-tolerantie** (zoals de
+- Multi-zone-golden (woning 2176) BENG 1/2/3 binnen de **reguliere F8-tolerantie** (zoals de
   single-zone Aalten-golden), niet de ruimere V2a-benadering-tol.
 - Single-zone-goldens (Aalten/Gouda) blijven byte-identiek (de lus met N=1 = bestaand pad).
 
@@ -195,3 +195,54 @@ q_v10 nodig; het drukmodel verdeelt al over het gebouw. Distributieverliezen naa
    dominante zone (grootste A_g), documenteren in de note; V2b maakt het per-zone toch exact.
 3. **Ticket-splitsing:** F8-V2 (TODO.md:301) opknippen in *multi-rekenzone (dit doc)* en
    *multi-UNIT/appartementen (apart, groter)*.
+
+---
+
+## 8. MZ-V2a opgeleverd (13-07) — import + indicatief
+
+**Gewijzigd:**
+
+| Bestand:regel | Wijziging |
+|---|---|
+| `crates/uniec3-import/src/geometry.rs` (`map_zones` + nieuwe `map_zone`) | `unit_rzs.len() > 1`-afwijzing weg; loopt over álle UNIT-RZ, één `BengZone` per RZ; multi-UNIT-guard behouden; indicatief-warning bij N > 1 |
+| `crates/openaec-project-shared/src/beng/mod.rs` (bridged-tak, ~r319-400) | Φ_int op `a_g_total` (Σ zones) i.p.v. `first_zone.a_g_m2` (§6.6.2); thermische massa uit **dominante** zone (grootste A_g); `INDICATIEF (MZ-V2a)`-note + dominante-zone-vermelding bij `zones.len() > 1` |
+| `crates/uniec3-import/tests/synthetic.rs` | CI-fixtures: 2-zone-import (pooled-warning) + multi-UNIT-reject |
+| `crates/openaec-project-shared/src/beng/tests.rs` | Φ_int-som-regressie + indicatief-note + single-zone-géén-note |
+| `crates/uniec3-import/tests/multizone_golden.rs` + `tests/verification/.../woning-2176/` | Golden (skip-if-absent) + README |
+
+**Woning-2176-golden (3 zones, A_g 435,10):** import GROEN; gepoolde `compute_beng` vs certified:
+
+| | Gepoold | Certified | Δ |
+|---|---|---|---|
+| BENG 1 | 63,41 | 72,49 | −9,08 |
+| BENG 2 | 9,69 | 22,00 | −12,31 |
+| BENG 3 | 88,15 | 75,90 | +12,25 |
+
+Deltas zijn **indicatief** (geen tol-assert); MZ-V2b moet ze naar de F8-tolerantie terugbrengen.
+De onderschatting is dezelfde familie als de bestaande single-zone gain-utilization-drift
+(zie `beng_golden.rs` ignore-reason), plus de pooling-η/τ-benadering.
+
+**Korpus-realiteit — corrigeert de planpremisse:** de smoke-verdeling is **0 multi-UNIT**,
+**15 multi-RZ (alle binnen 1 UNIT)**, 37 single-zone. De veronderstelde "3 multi-UNIT" bestaan
+niet in het korpus. Aalten/Gouda single-zone zijn byte-identiek (stash-geverifieerd:
+B1 64,31/82,98/84,17, B2 15,38 vóór én ná de Φ_int-fix).
+
+## 9. MZ-V2c (13-07) — drijvende woning: water-adjacency
+
+De hersmoke na V2a bracht **47/52 OK**; de 5 uitval waren **geen** multi-zone-regressie maar
+**drijvende woningen** (woonark-2248 ×4, drijvende-woning-3003 ×1). Diagnose op het bestand: hun
+onderbouw grenst aan **open water**, gecodeerd als `BEGR_VLOER=VL_WATER` (vloer) en
+`BEGR_GEVEL=GVL_WATER` (onderwaterlijn-gevel). Die codes kende `map_adjacency` niet:
+
+- de water-**vloer** viel in de `other`-tak → default `VloerOpMaaiveldBovenGrond`, die via de
+  P/A-methode een omtrek P eist; op water ontbreekt die → `GeometryValidation` faalde (harde
+  weigering);
+- de water-**gevel** viel in de oriëntatie-terugval → stil `Buitenlucht{Noord}` (importeerde
+  wél, maar fysiek fout: een wand tegen water i.p.v. buitenlucht).
+
+Het model draagt al een `BengAdjacency::Water` (bridge → `BoundaryKind::OpenWater`, telt mee in
+A_ls, géén P/A-eis). Fix in `geometry.rs` `map_adjacency`: `VL_WATER` → `Water` (vloer-tak) en
+`GVL_WATER` → `Water` (gevel/kelderwand-tak, vóór de oriëntatie-poging). Dit was dus een
+**mapping-gap, geen ontbrekende brondata**. Resultaat: **smoke 52/52 OK**. Synthetische
+`floating_home_water_floor_and_wall_map_to_water`-test dekt vloer + onderwaterlijn-gevel +
+referentie-bovenwaterlijn-gevel (blijft buitenlucht-N).

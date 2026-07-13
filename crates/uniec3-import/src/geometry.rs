@@ -199,19 +199,42 @@ fn map_zones(
         .next()
         .ok_or_else(|| Uniec3ImportError::MissingGeometry("geen UNIT-entiteit".to_string()))?;
 
+    // MZ-V2a: één UNIT mag N rekenzones (UNIT-RZ) dragen — elke RZ wordt een eigen
+    // `BengZone`. De multi-UNIT-guard hierboven blijft (appartementen/meergezins =
+    // apart pakket). De BENG-keten poolt de zones (nog) tot één rekenzone, dus het
+    // resultaat is bij N > 1 indicatief; de importer markeert dat met een warning.
     let unit_rzs = idx.children_of(unit, "UNIT-RZ");
-    if unit_rzs.len() > 1 {
-        return Err(Uniec3ImportError::MultiUnitUnsupported(format!(
-            "{} rekenzones (UNIT-RZ) — multi-zone is V2",
-            unit_rzs.len()
-        )));
+    if unit_rzs.is_empty() {
+        return Err(Uniec3ImportError::MissingGeometry(
+            "geen UNIT-RZ onder UNIT".to_string(),
+        ));
     }
-    let unit_rz = unit_rzs
-        .into_iter()
-        .next()
-        .ok_or_else(|| Uniec3ImportError::MissingGeometry("geen UNIT-RZ onder UNIT".to_string()))?;
+    if unit_rzs.len() > 1 {
+        warnings.push(format!(
+            "{} rekenzones geïmporteerd; de BENG-resultaten worden gepoold berekend \
+             (indicatief) — norm-exact per-rekenzone-rekenen volgt (MZ-V2b, NTA 8800 §6.6.2)",
+            unit_rzs.len()
+        ));
+    }
 
-    // De rekenzone-metadata (bouwwijze) hangt op de RZ waar UNIT-RZ naar wijst.
+    let mut zones = Vec::with_capacity(unit_rzs.len());
+    for unit_rz in unit_rzs {
+        zones.push(map_zone(idx, unit, unit_rz, ctx, warnings)?);
+    }
+    Ok(zones)
+}
+
+/// Map één `UNIT-RZ` (rekenzone) naar een [`BengZone`]. De rekenzone-metadata
+/// (bouwwijze/omschrijving) hangt op de `RZ` waar `UNIT-RZID` naar wijst; de
+/// begrenzingen hangen als `BEGR`-children onder de `UNIT-RZ` zelf. `woningtype`
+/// is UNIT-breed en dus voor alle zones gelijk.
+fn map_zone(
+    idx: &EntityIndex,
+    unit: &Entity,
+    unit_rz: &Entity,
+    ctx: &mut GeoCtx,
+    warnings: &mut Vec<String>,
+) -> Result<BengZone> {
     let rz = unit_rz.prop("UNIT-RZID").and_then(|id| idx.get(id));
 
     let a_g = unit_rz.num("UNIT-RZAG").ok_or_else(|| {
@@ -241,7 +264,7 @@ fn map_zones(
         None => (None, None),
     };
 
-    let zone = BengZone {
+    Ok(BengZone {
         id: rz.map_or_else(|| unit_rz.data_id.clone(), |r| r.data_id.clone()),
         naam: rz
             .and_then(|r| r.prop("RZ_OMSCHR"))
@@ -252,9 +275,7 @@ fn map_zones(
         bouwwijze_wand,
         woningtype: unit.prop("UNIT_TYPEWON").map(str::to_string),
         gevels: map_boundaries(idx, unit_rz, ctx, warnings),
-    };
-
-    Ok(vec![zone])
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -365,6 +386,9 @@ fn map_adjacency(
                 Some("VL_OMV_KR") => BengAdjacency::VloerOnderMaaiveldBovenKruipruimte,
                 Some("VL_OMV_GRSP") => BengAdjacency::VloerOnderMaaiveldBovenGrond,
                 Some("VL_OMV_KLDR") => BengAdjacency::VloerOnderMaaiveldBovenOnverwarmdeKelder,
+                // Drijvende woning: vloer grenst aan open water (geen grond-P/A,
+                // dus géén omtrek-eis) — Uniec `VL_WATER`.
+                Some("VL_WATER") => BengAdjacency::Water,
                 other => {
                     warnings.push(format!(
                         "BEGR {}: onbekende BEGR_VLOER {:?} → vloer-op-maaiveld-boven-grond aangenomen",
@@ -375,12 +399,15 @@ fn map_adjacency(
                 }
             }
         }
-        VlakType::Gevel | VlakType::Kelderwand => {
-            match orientation_from_code(begr.prop("BEGR_GEVEL"), "GVL_BTNL_") {
+        VlakType::Gevel | VlakType::Kelderwand => match begr.prop("BEGR_GEVEL") {
+            // Onderwaterlijn-gevel van een drijvende woning grenst aan open water
+            // — Uniec `GVL_WATER` (draagt geen kompas-oriëntatie).
+            Some("GVL_WATER") => BengAdjacency::Water,
+            code => match orientation_from_code(code, "GVL_BTNL_") {
                 Some(o) => BengAdjacency::Buitenlucht { orientatie: o },
                 None => adjacency_fallback_or_buitenlucht(begr, "gevel", warnings),
-            }
-        }
+            },
+        },
         VlakType::Dak => match orientation_from_code(begr.prop("BEGR_DAK"), "DAK_BTNL_") {
             Some(o) => BengAdjacency::Buitenlucht { orientatie: o },
             None => adjacency_fallback_or_buitenlucht(begr, "dak", warnings),

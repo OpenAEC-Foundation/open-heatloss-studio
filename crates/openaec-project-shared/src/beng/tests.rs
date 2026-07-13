@@ -10,6 +10,9 @@ use crate::energy::{
     HeatGeneratorType, HeatingInput, PvInput, ValueSource, ValueSourceKind, VentilationInput,
     VentilationSystemType,
 };
+use crate::beng_geometry::{
+    BengAdjacency, BengBoundary, BengGeometry, BengZone, OpaqueConstructionDef, RcOrU, VlakType,
+};
 use crate::geometry::{
     BoundaryKind, Construction, ConstructionKind, Opening, OpeningKind, SharedGeometry, Space,
 };
@@ -277,6 +280,131 @@ fn compute_beng_errors_without_energy_block() {
     let mut p = synthetic_rijtjeshuis(4.0);
     p.energy = None;
     assert!(matches!(compute_beng(&p), Err(BengError::MissingEnergyInput)));
+}
+
+// ---------------------------------------------------------------------------
+// MZ-V2a — multi-rekenzone (gepoold, indicatief)
+// ---------------------------------------------------------------------------
+
+/// Synthetisch multi-rekenzone `beng_geometry` (geen klantdata): twee
+/// rekenzones binnen één woning, elk met een vloer-op-grond + een zuidgevel.
+/// Zwaar/licht/open → herkende bouwwijze-codes (C_m afleidbaar).
+fn multizone_beng_geometry(a_g_zone1: f64, a_g_zone2: f64) -> BengGeometry {
+    let opaque = |id: &str, kind: VlakType, rc: f64| OpaqueConstructionDef {
+        id: id.into(),
+        omschrijving: id.into(),
+        kind,
+        thermal: RcOrU::Rc(rc),
+    };
+    let floor = |id: &str, area: f64| BengBoundary {
+        id: id.into(),
+        omschrijving: "vloer".into(),
+        vlak_type: VlakType::Vloer,
+        grenst_aan: BengAdjacency::VloerOpMaaiveldBovenGrond,
+        bruto_buiten_opp_m2: area,
+        helling_deg: None,
+        omtrek_p_m: Some(4.0 * area.sqrt()),
+        constructie_ref: "vloer-def".into(),
+        ramen: vec![],
+    };
+    let wall = |id: &str| BengBoundary {
+        id: id.into(),
+        omschrijving: "gevel".into(),
+        vlak_type: VlakType::Gevel,
+        grenst_aan: BengAdjacency::Buitenlucht {
+            orientatie: crate::Orientation::Zuid,
+        },
+        bruto_buiten_opp_m2: 30.0,
+        helling_deg: Some(90.0),
+        omtrek_p_m: None,
+        constructie_ref: "gevel-def".into(),
+        ramen: vec![],
+    };
+    let zone = |id: &str, a_g: f64| BengZone {
+        id: id.into(),
+        naam: id.into(),
+        a_g_m2: a_g,
+        bouwwijze_vloer: Some("CONSTRM_FL_26".into()),
+        bouwwijze_wand: Some("CONSTRM_W_11".into()),
+        woningtype: Some("TWON_VRIJ_K".into()),
+        gevels: vec![floor(&format!("{id}-vloer"), a_g), wall(&format!("{id}-gevel-z"))],
+    };
+    BengGeometry {
+        opaque_defs: vec![
+            opaque("vloer-def", VlakType::Vloer, 3.7),
+            opaque("gevel-def", VlakType::Gevel, 4.7),
+        ],
+        window_defs: vec![],
+        zones: vec![zone("zone-groot", a_g_zone1), zone("zone-klein", a_g_zone2)],
+    }
+}
+
+/// Φ_int-regressie (MZ-V2a): twee rekenzones (100 + 50 m²) → interne warmtewinst
+/// op A_g;tot = 150 (§6.6.2, formule 7.21), **niet** op de eerste zone. Pint de
+/// note-flux op de som-berekening en het gepoolde A_g op het BENG-resultaat.
+#[test]
+fn multizone_phi_int_scales_on_total_a_g() {
+    let mut p = synthetic_rijtjeshuis(0.0);
+    p.beng_geometry = Some(multizone_beng_geometry(100.0, 50.0));
+    let r = compute_beng(&p).expect("compute_beng ok");
+
+    // De view poolt beide zones → A_g;tot = 150.
+    assert!((r.a_g_m2 - 150.0).abs() < 1e-6, "pooled A_g = {}", r.a_g_m2);
+
+    let phi_note = r
+        .notes
+        .iter()
+        .find(|n| n.contains("Interne warmtewinst (C3b)"))
+        .expect("Φ_int-note aanwezig");
+    assert!(phi_note.contains("A_g;tot = 150.00 m²"), "note: {phi_note}");
+
+    // Flux op de som (150), niet op de eerste zone (100).
+    let flux_sum = dynamics::derive_internal_gains_woningbouw(150.0, 1.0).heat_flux_per_m2
+        [nta8800_model::time::Month::Juli];
+    assert!(phi_note.contains(&format!("{flux_sum:.2} W/m²")), "note: {phi_note}");
+    let flux_first = dynamics::derive_internal_gains_woningbouw(100.0, 1.0).heat_flux_per_m2
+        [nta8800_model::time::Month::Juli];
+    assert!(
+        !phi_note.contains(&format!("= {flux_first:.2} W/m²")),
+        "note gebruikt (fout) de eerste-zone-flux: {phi_note}"
+    );
+}
+
+/// De indicatief-markering + dominante-zone-documentatie verschijnen bij meerdere
+/// rekenzones; de dominante zone is die met het grootste A_g.
+#[test]
+fn multizone_emits_indicative_note() {
+    let mut p = synthetic_rijtjeshuis(0.0);
+    p.beng_geometry = Some(multizone_beng_geometry(120.0, 40.0));
+    let r = compute_beng(&p).expect("compute_beng ok");
+
+    assert!(
+        r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
+        "indicatief-note ontbreekt: {:?}",
+        r.notes
+    );
+    assert!(
+        r.notes.iter().any(|n| n.contains("dominante zone 'zone-groot'")),
+        "dominante-zone-note ontbreekt: {:?}",
+        r.notes
+    );
+}
+
+/// Één rekenzone via `beng_geometry` → géén indicatief-note (byte-identiek gedrag
+/// t.o.v. vóór MZ-V2a; de dominante zone valt samen met die ene zone).
+#[test]
+fn singlezone_beng_geometry_has_no_indicative_note() {
+    let mut p = synthetic_rijtjeshuis(0.0);
+    let mut geo = multizone_beng_geometry(90.0, 10.0);
+    geo.zones.truncate(1);
+    p.beng_geometry = Some(geo);
+    let r = compute_beng(&p).expect("compute_beng ok");
+
+    assert!(
+        !r.notes.iter().any(|n| n.contains("INDICATIEF (MZ-V2a)")),
+        "single-zone mag geen indicatief-note hebben: {:?}",
+        r.notes
+    );
 }
 
 #[test]

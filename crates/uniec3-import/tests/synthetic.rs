@@ -186,6 +186,200 @@ fn synthetic_archive_imports_end_to_end() {
     assert_eq!(c.app_version.as_deref(), Some("9.9.9.9"));
 }
 
+/// MZ-V2a — een minimale twee-rekenzone-`.uniec3` (één UNIT, twee UNIT-RZ, elk
+/// een eigen RZ + vloer + gevel; gedeelde bibliotheken + installaties). Alle
+/// waarden fictief.
+fn multizone_uniec3() -> Vec<u8> {
+    // Per-zone geometrie: (UNIT-RZ, RZ, A_g, vloer-BEGR, CONSTRD, CONSTRKENMV,
+    // gevel-BEGR, CONSTRD) — twee zones binnen dezelfde UNIT.
+    let entities = json!([
+        ent("UNIT", "u1", 100.0, &[("UNIT_TYPEWON", "TWON_VRIJ_K"), ("UNIT_OMSCHR", "Woning")]),
+        // Zone 1 — begane grond, A_g 80.
+        ent("UNIT-RZ", "ur1", 100.0, &[("UNIT-RZAG", "80,00"), ("UNIT-RZID", "rz1")]),
+        ent("RZ", "rz1", 100.0, &[("RZ_OMSCHR", "begane grond"), ("RZ_BOUWW_VL", "CONSTRM_FL_26"), ("RZ_BOUWW_W", "CONSTRM_W_11")]),
+        ent("BEGR", "b1", 100.0, &[("BEGR_VLAK", "VLAK_VLOER"), ("BEGR_VLOER", "VL_MV_GRSP"), ("BEGR_A", "80,00"), ("BEGR_HEL", "n.v.t."), ("BEGR_OMSCHR", "vloer bg")]),
+        ent("CONSTRD", "cd1", 100.0, &[("CONSTRD_LIB", "ld1"), ("CONSTRD_OPP", "80,00")]),
+        ent("CONSTRKENMV", "kv1", 100.0, &[("KENMV_OMTR_VL", "36,00")]),
+        ent("BEGR", "b2", 200.0, &[("BEGR_VLAK", "VLAK_GEVEL"), ("BEGR_GEVEL", "GVL_BTNL_Z"), ("BEGR_A", "24,00"), ("BEGR_HEL", "90"), ("BEGR_OMSCHR", "gevel bg")]),
+        ent("CONSTRD", "cd2", 100.0, &[("CONSTRD_LIB", "ld2"), ("CONSTRD_OPP", "24,00")]),
+        // Zone 2 — kelder, A_g 40.
+        ent("UNIT-RZ", "ur2", 200.0, &[("UNIT-RZAG", "40,00"), ("UNIT-RZID", "rz2")]),
+        ent("RZ", "rz2", 200.0, &[("RZ_OMSCHR", "kelder"), ("RZ_BOUWW_VL", "CONSTRM_FL_21"), ("RZ_BOUWW_W", "CONSTRM_W_21")]),
+        ent("BEGR", "b3", 100.0, &[("BEGR_VLAK", "VLAK_VLOER"), ("BEGR_VLOER", "VL_OMV_GRSP"), ("BEGR_A", "40,00"), ("BEGR_HEL", "n.v.t."), ("BEGR_OMSCHR", "vloer kelder")]),
+        ent("CONSTRD", "cd3", 100.0, &[("CONSTRD_LIB", "ld1"), ("CONSTRD_OPP", "40,00")]),
+        ent("CONSTRKENMV", "kv2", 100.0, &[("KENMV_OMTR_VL", "26,00")]),
+        ent("BEGR", "b4", 200.0, &[("BEGR_VLAK", "VLAK_KELDERWAND"), ("BEGR_GEVEL", "GVL_BTNL_N"), ("BEGR_A", "18,00"), ("BEGR_HEL", "90"), ("BEGR_OMSCHR", "kelderwand")]),
+        ent("CONSTRD", "cd4", 100.0, &[("CONSTRD_LIB", "ld2"), ("CONSTRD_OPP", "18,00")]),
+        // Gedeelde bibliotheken.
+        ent("LIBCONSTRD", "ld1", 100.0, &[("LIBCONSTRD_TYPE", "LIBVLAK_VLOER"), ("LIBCONSTRD_RC", "3,50"), ("LIBCONSTRD_OMSCHR", "Vloer")]),
+        ent("LIBCONSTRD", "ld2", 200.0, &[("LIBCONSTRD_TYPE", "LIBVLAK_GEVEL"), ("LIBCONSTRD_RC", "4,50"), ("LIBCONSTRD_OMSCHR", "Wand")]),
+        // Infiltratie (UNIT-breed).
+        ent("INFILUNIT", "if1", 100.0, &[("INFILUNIT_QV", "0,45")]),
+        // Installaties (UNIT-breed, gedeeld).
+        ent("INSTALLATIE", "iv", 100.0, &[("INSTALL_TYPE", "INST_VERW")]),
+        ent("VERW", "vw", 100.0, &[]),
+        ent("VERW-OPWEK", "vo", 100.0, &[("VERW-OPWEK_POMP", "VERW-OPWEK_POMP_BUWA"), ("VERW-OPWEK_COP_NON", "4,00")]),
+        ent("VERW-AFG", "va", 100.0, &[("VERW-AFG_TYPE_AFG", "VERW-AFG_TYPE_AFG_VLV")]),
+        ent("INSTALLATIE", "ivt", 300.0, &[("INSTALL_TYPE", "INST_VENT")]),
+        ent("VENT", "vt", 100.0, &[("VENT_VARIANT", "VARIANT_D2")]),
+        ent("WARMTETERUG", "wt", 100.0, &[("WARMTETERUG_WTW", "WARMTETERUG_WTW_WEL"), ("WARMTETERUG_REND", "0,90")]),
+        // Resultaten (certified, gebouw-niveau — al geaggregeerd).
+        ent("RESULT-ENERGIEGEBRUIK", "reg1", 100.0, &[("RESULT-OPP_GEBROPP", "120,00")]),
+    ]);
+
+    let relations = json!([
+        rel("u1", "ur1"), rel("u1", "ur2"), rel("u1", "if1"),
+        rel("ur1", "b1"), rel("ur1", "b2"),
+        rel("b1", "cd1"), rel("b1", "kv1"), rel("b2", "cd2"),
+        rel("ur2", "b3"), rel("ur2", "b4"),
+        rel("b3", "cd3"), rel("b3", "kv2"), rel("b4", "cd4"),
+        rel("iv", "vw"), rel("vw", "vo"), rel("vw", "va"),
+        rel("ivt", "vt"), rel("vt", "wt"),
+    ]);
+
+    let summary = json!({
+        "GEB_OMSCHR": "Synthetisch multi-zone testgebouw",
+        "GEB_TYPEGEB": "TGEB_GRWON",
+        "EP_BENG1": "72,00", "EP_BENG2": "22,00", "EP_BENG3": "76,0",
+        "EP_ENERGIELABEL": "A+++",
+    });
+
+    let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    write_entry(&mut zip, "meta.json", &json!({"Version": 2, "App": "NTA8800, Version=3.3.6.0, Culture=neutral"}));
+    write_entry(&mut zip, "buildings.json", &json!([{"BuildingId": 1}]));
+    write_entry(&mut zip, "buildings/1/entities.json", &entities);
+    write_entry(&mut zip, "buildings/1/relations.json", &relations);
+    write_entry(&mut zip, "buildings/1/summary.json", &summary);
+    zip.finish().unwrap().into_inner()
+}
+
+#[test]
+fn multizone_archive_imports_two_zones_with_pooled_warning() {
+    let bytes = multizone_uniec3();
+    let result = import_uniec3(&bytes).expect("multi-zone import moet slagen");
+
+    // Twee rekenzones geïmporteerd, A_g;tot = 80 + 40 = 120.
+    let geo = result.project.beng_geometry.as_ref().unwrap();
+    geo.validate().expect("multi-zone geometrie moet valideren");
+    assert_eq!(geo.zones.len(), 2, "verwacht 2 rekenzones");
+    assert_eq!(result.project.shared.gross_floor_area_m2, Some(120.0));
+    let a_g_sum: f64 = geo.zones.iter().map(|z| z.a_g_m2).sum();
+    assert!((a_g_sum - 120.0).abs() < 1e-9);
+
+    // Zone-namen + per-zone bouwwijze behouden (niet gepoold in de importer).
+    assert!(geo.zones.iter().any(|z| z.naam == "begane grond"));
+    assert!(geo.zones.iter().any(|z| z.naam == "kelder"));
+
+    // Indicatief-waarschuwing aanwezig.
+    assert!(
+        result.warnings.iter().any(|w| w.contains("rekenzones geïmporteerd") && w.contains("indicatief")),
+        "verwacht gepoold-indicatief-warning, kreeg: {:?}",
+        result.warnings
+    );
+}
+
+#[test]
+fn floating_home_water_floor_and_wall_map_to_water() {
+    // Drijvende woning: vloer (`VL_WATER`) + onderwaterlijn-gevel (`GVL_WATER`)
+    // grenzen aan open water. De vloer mag geen omtrek-P-eis krijgen (anders
+    // faalt de geometrie-validatie zoals bij de woonark/drijvende-woning-corpus).
+    let entities = json!([
+        ent("UNIT", "u1", 100.0, &[("UNIT_TYPEWON", "TWON_VRIJ_K")]),
+        ent("UNIT-RZ", "ur1", 100.0, &[("UNIT-RZAG", "80,00"), ("UNIT-RZID", "rz1")]),
+        ent("RZ", "rz1", 100.0, &[("RZ_OMSCHR", "bak"), ("RZ_BOUWW_VL", "CONSTRM_FL_11"), ("RZ_BOUWW_W", "CONSTRM_W_11")]),
+        // Vloer op water — géén CONSTRKENMV/omtrek.
+        ent("BEGR", "b1", 100.0, &[("BEGR_VLAK", "VLAK_VLOER"), ("BEGR_VLOER", "VL_WATER"), ("BEGR_A", "80,00"), ("BEGR_HEL", "n.v.t."), ("BEGR_OMSCHR", "bak vloer")]),
+        ent("CONSTRD", "cd1", 100.0, &[("CONSTRD_LIB", "ld1"), ("CONSTRD_OPP", "80,00")]),
+        // Onderwaterlijn-gevel op water.
+        ent("BEGR", "b2", 200.0, &[("BEGR_VLAK", "VLAK_GEVEL"), ("BEGR_GEVEL", "GVL_WATER"), ("BEGR_A", "20,00"), ("BEGR_HEL", "90"), ("BEGR_OMSCHR", "bak wand")]),
+        ent("CONSTRD", "cd2", 100.0, &[("CONSTRD_LIB", "ld2"), ("CONSTRD_OPP", "20,00")]),
+        // Bovenwaterlijn-gevel op buitenlucht (referentie: moet gewoon N blijven).
+        ent("BEGR", "b3", 300.0, &[("BEGR_VLAK", "VLAK_GEVEL"), ("BEGR_GEVEL", "GVL_BTNL_N"), ("BEGR_A", "20,00"), ("BEGR_HEL", "90"), ("BEGR_OMSCHR", "gevel n")]),
+        ent("CONSTRD", "cd3", 100.0, &[("CONSTRD_LIB", "ld2"), ("CONSTRD_OPP", "20,00")]),
+        ent("LIBCONSTRD", "ld1", 100.0, &[("LIBCONSTRD_TYPE", "LIBVLAK_VLOER"), ("LIBCONSTRD_RC", "3,50"), ("LIBCONSTRD_OMSCHR", "Vloer")]),
+        ent("LIBCONSTRD", "ld2", 200.0, &[("LIBCONSTRD_TYPE", "LIBVLAK_GEVEL"), ("LIBCONSTRD_RC", "4,50"), ("LIBCONSTRD_OMSCHR", "Wand")]),
+        ent("INFILUNIT", "if1", 100.0, &[("INFILUNIT_QV", "0,45")]),
+        ent("INSTALLATIE", "iv", 100.0, &[("INSTALL_TYPE", "INST_VERW")]),
+        ent("VERW", "vw", 100.0, &[]),
+        ent("VERW-OPWEK", "vo", 100.0, &[("VERW-OPWEK_POMP", "VERW-OPWEK_POMP_BUWA"), ("VERW-OPWEK_COP_NON", "4,00")]),
+        ent("VERW-AFG", "va", 100.0, &[("VERW-AFG_TYPE_AFG", "VERW-AFG_TYPE_AFG_VLV")]),
+    ]);
+    let relations = json!([
+        rel("u1", "ur1"), rel("u1", "if1"),
+        rel("ur1", "b1"), rel("ur1", "b2"), rel("ur1", "b3"),
+        rel("b1", "cd1"), rel("b2", "cd2"), rel("b3", "cd3"),
+        rel("iv", "vw"), rel("vw", "vo"), rel("vw", "va"),
+    ]);
+    let summary = json!({"GEB_OMSCHR": "Drijvende woning", "GEB_TYPEGEB": "TGEB_WOONBB"});
+
+    let bytes = {
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        write_entry(&mut zip, "meta.json", &json!({"Version": 2, "App": "x"}));
+        write_entry(&mut zip, "buildings.json", &json!([{"BuildingId": 1}]));
+        write_entry(&mut zip, "buildings/1/entities.json", &entities);
+        write_entry(&mut zip, "buildings/1/relations.json", &relations);
+        write_entry(&mut zip, "buildings/1/summary.json", &summary);
+        zip.finish().unwrap().into_inner()
+    };
+
+    let result =
+        import_uniec3(&bytes).expect("drijvende-woning-import moet slagen (geen omtrek-fout)");
+    let geo = result.project.beng_geometry.as_ref().unwrap();
+    geo.validate()
+        .expect("water-geometrie moet valideren (vloer op water = geen omtrek-eis)");
+
+    use openaec_project_shared::beng_geometry::BengAdjacency;
+    let zone = &geo.zones[0];
+    let vloer = zone.gevels.iter().find(|g| g.vlak_type == VlakType::Vloer).unwrap();
+    assert!(
+        matches!(vloer.grenst_aan, BengAdjacency::Water),
+        "vloer op water moet BengAdjacency::Water zijn, kreeg {:?}",
+        vloer.grenst_aan
+    );
+    assert_eq!(vloer.omtrek_p_m, None, "vloer op water heeft geen omtrek P");
+
+    let water_wall = zone.gevels.iter().find(|g| g.omschrijving == "bak wand").unwrap();
+    assert!(
+        matches!(water_wall.grenst_aan, BengAdjacency::Water),
+        "onderwaterlijn-gevel moet Water zijn, kreeg {:?}",
+        water_wall.grenst_aan
+    );
+
+    // De bovenwaterlijn-gevel blijft gewoon buitenlucht-noord.
+    let air_wall = zone.gevels.iter().find(|g| g.omschrijving == "gevel n").unwrap();
+    assert_eq!(
+        air_wall.grenst_aan.orientatie(),
+        Some(Orientation::Noord),
+        "bovenwaterlijn-gevel moet buitenlucht-noord blijven"
+    );
+}
+
+#[test]
+fn multi_unit_is_still_rejected() {
+    // Twee UNIT-entiteiten (appartementen) → nette, specifieke fout (apart ticket).
+    let bytes = {
+        let entities = json!([
+            ent("UNIT", "u1", 100.0, &[("UNIT_TYPEWON", "TWON_APP_K")]),
+            ent("UNIT", "u2", 200.0, &[("UNIT_TYPEWON", "TWON_APP_K")]),
+            ent("UNIT-RZ", "ur1", 100.0, &[("UNIT-RZAG", "50,00"), ("UNIT-RZID", "rz1")]),
+            ent("UNIT-RZ", "ur2", 100.0, &[("UNIT-RZAG", "50,00"), ("UNIT-RZID", "rz2")]),
+        ]);
+        let relations = json!([rel("u1", "ur1"), rel("u2", "ur2")]);
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        write_entry(&mut zip, "meta.json", &json!({"Version": 2, "App": "x"}));
+        write_entry(&mut zip, "buildings.json", &json!([{"BuildingId": 1}]));
+        write_entry(&mut zip, "buildings/1/entities.json", &entities);
+        write_entry(&mut zip, "buildings/1/relations.json", &relations);
+        write_entry(&mut zip, "buildings/1/summary.json", &json!({"GEB_TYPEGEB": "TGEB_GRWON"}));
+        zip.finish().unwrap().into_inner()
+    };
+    let err = import_uniec3(&bytes).unwrap_err();
+    assert!(
+        matches!(err, uniec3_import::Uniec3ImportError::MultiUnitUnsupported(_)),
+        "verwacht MultiUnitUnsupported, kreeg {err:?}"
+    );
+}
+
 #[test]
 fn utility_building_is_rejected() {
     // Zelfde archief maar met een utiliteit-gebouwtype → nette, specifieke fout.
