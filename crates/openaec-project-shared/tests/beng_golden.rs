@@ -616,8 +616,22 @@ fn aalten_beng_geometry_within_certified_tolerance() {
 /// norm-correct zijn. De ceiling-keuze (voetnoot c → 110) verschuift ~4pp maar dicht
 /// de gap niet. Aparte demand-keten-analyse nodig (buiten C3-scope). Meet met de
 /// C3-matrix in het eindrapport. Anti-fudge: `expected.json` + tolerantie onaangeraakt.
+///
+/// **C4 (13-07) — demand-keten-analyse: twee norm-omissies in de zonwinst gefixt.**
+/// De formule-audit (§7.8, formules 7.46–7.57) bevestigde dat de benuttingsfactor
+/// η_H;gn, τ en a norm-correct zijn — géén fout in de gain-utilization zelf. De
+/// over-crediting zat in de **zonwinst** (formule 7.32): (1) de invalshoek-correctie
+/// `F_w = 0,90` (formule 7.40) ontbrak, en (2) de hemelstralingsterm `Q_sky`
+/// (formule 7.39, §7.6.5) werd niet afgetrokken. Beide blazen de zonwinst op →
+/// verwarming te laag én koeling te hoog (de gemeten dubbel-signatuur). Fix in
+/// `nta8800-demand::calc::solar_gains`. Effect: heating primair 2053 → **2168 kWh
+/// (−15,0 %)**, koudebehoefte-demand 1329 → 1036 kWh (cert 873). De split beweegt
+/// correct richting certified, maar de restgap blijft > ±10 %. Resterende kandidaten
+/// (buiten C4-scope): opake zonwinst/Q_sky (formule 7.33 — de demand-keten rekent
+/// alleen ramen, geen opake vlakken) en de onbewezen plafondkolom-massa (D_m 110 i.p.v.
+/// 180, voetnoot c → ~+4pp). Zie docs/2026-07-13-c4-demand-keten-analyse.md.
 #[test]
-#[ignore = "C3 (13-07): norm-correcte C_m (tabel 7.10) + interne warmtewinst (formule 7.21, 4,50 W/m²) verlagen Q_H;nd; heating primair 2053 kWh open/D_m180 (−19,5 %) resp. 2153 gesloten/D_m110 (−15,6 %) vs certified 2551 (buiten ±10 %). BEVINDING robuust bij MATCHED mass: certified past form.7.21+tabel 7.10 verplicht toe (D_m ∈ {110,180}, ≫ onze oude 55) en houdt heating op 2551, onze keten zakt bij dezelfde massa 9–12 % lager → light_woning/forfait-defaults maskeerden een demand-keten gain-utilization-overwaardering (η_H;gn te hoog of Q_H;ht te laag). Ceiling-keuze (voetnoot c, 110) verschuift ~4pp maar dicht de gap niet. Aparte demand-analyse nodig. expected.json onaangeraakt."]
+#[ignore = "C4 (13-07): zonwinst-omissies gefixt (F_w=0,90 form.7.40 + Q_sky form.7.39) → heating primair 2168 kWh (−15,0 %) vs certified 2551, koudebehoefte 1329→1036 kWh (cert 873). Formule-audit (§7.8) bevestigt η_H;gn/τ/a norm-correct — geen utilization-fout. Split beweegt richting certified maar restgap > ±10 %. Resterend (buiten C4-scope): opake zonwinst/Q_sky (form.7.33, demand-keten rekent alleen ramen) + onbewezen plafondkolom D_m110 vs 180 (voetnoot c, ~+4pp). Zie docs/2026-07-13-c4-demand-keten-analyse.md. expected.json onaangeraakt."]
 fn aalten_beng_geometry_heating_matches_certified() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -631,8 +645,8 @@ fn aalten_beng_geometry_heating_matches_certified() {
     assert!(
         rel_pct.abs() <= fx.tolerance.beng2_pct,
         "heating primair {heating_primary_kwh:.0} kWh wijkt {rel_pct:+.1}% af \
-         (tol ±{:.0}%) van certified {:.0} kWh — C1 raam-U + P/A-grond zouden de \
-         verwarmingsbehoefte op certified moeten brengen",
+         (tol ±{:.0}%) van certified {:.0} kWh — na C4 (zonwinst-fix F_w + Q_sky) \
+         resteert de gap; kandidaten: opake zonwinst/Q_sky (form. 7.33) + plafondkolom-massa",
         fx.tolerance.beng2_pct,
         e.heating_primary_kwh
     );
@@ -663,8 +677,16 @@ fn aalten_beng_geometry_heating_matches_certified() {
 /// Onze keten produceert met norm-correcte dynamica te weinig verwarmings- én
 /// koelingsprimairverbruik; de C2-groene stand leunde op de compenserende
 /// light_woning/forfait-defaults. Demand-keten gain-utilization = vervolg-scope.
+///
+/// **C4 (13-07).** De zonwinst-fix (F_w=0,90 + Q_sky, formules 7.40/7.39) corrigeert
+/// de verwarming/koeling-**split** (verwarming omhoog, koeling omlaag), maar is
+/// bij benadering BENG-neutraal in het totaal: BENG 2 blijft **14,73 (−40,4 %)** t.o.v.
+/// certified 24,71. De resterende aggregaat-gap wordt gedragen door een te lage
+/// totale energiebehoefte (kandidaten: opake zonwinst/Q_sky formule 7.33 +
+/// plafondkolom-massa), niet door de koudebalans. Zie
+/// docs/2026-07-13-c4-demand-keten-analyse.md.
 #[test]
-#[ignore = "C3 (13-07): norm-correcte C_m (D_m=180) + interne warmtewinst (formule 7.21) verlagen Q_H;nd én Q_C;nd; BENG2 15,48 (−37,4 %) vs certified 24,71 (buiten ±10 %). Zelfde bevinding als de heating-anchor: de light_woning/forfait-defaults maskeerden een demand-keten gain-utilization-overwaardering. expected.json onaangeraakt."]
+#[ignore = "C4 (13-07): zonwinst-fix (F_w + Q_sky) corrigeert de verwarming/koeling-split maar is ~BENG-neutraal; BENG2 14,73 (−40,4 %) vs certified 24,71 (buiten ±10 %). Resterende aggregaat-gap = te lage totale energiebehoefte (opake zonwinst/Q_sky form.7.33 + plafondkolom-massa), niet de koudebalans. Zie docs/2026-07-13-c4-demand-keten-analyse.md. expected.json onaangeraakt."]
 fn aalten_beng_geometry_beng2_matches_certified() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
