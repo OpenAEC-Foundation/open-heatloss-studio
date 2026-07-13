@@ -265,3 +265,55 @@ andere `TGEB_*` + rekenzone-structuur), maar utiliteit-import is **onbeproefd** 
 3. `CONSTRT_BESCH` zijbelemmering (`BELEMTYPE_ZIJ_*`) → V1 `Obstruction` kent alleen None/Minimal; benaderen als minimal (verlies-arm) of `Obstruction` uitbreiden?
 4. Utiliteit-import onbeproefd (geen `.uniec3`-sample) → apart valideren zodra een utiliteit-export beschikbaar is.
 5. Meerdere rekenzones / meerdere units (appartementen): cases hier zijn single-zone woningen; multi-`UNIT`/`UNIT-RZ` traversal verifiëren op een appartement-export.
+
+---
+
+## 8. Implementatie (fase 4a–4e, 13-07)
+
+Backend-crate **`crates/uniec3-import`** gebouwd conform §7. Publieke API:
+
+```rust
+pub fn import_uniec3(bytes: &[u8]) -> Result<Uniec3Import, Uniec3ImportError>;
+pub struct Uniec3Import { pub project: ProjectV2, pub certified: Uniec3CertifiedResults, pub warnings: Vec<String> }
+```
+
+**Modulestructuur:** `parse` (4a ZIP/BOM/serde + 4b `EntityIndex`), `geometry`
+(4c), `installations` (4d), `results` (4e), `error` (typed, tolerant vs hard).
+
+### Besluiten op de open vragen (met bewijs)
+
+| # | Vraag | Besluit | Grondslag |
+|---|---|---|---|
+| 1 | PV-Wp productblad vs veld | **veld-totaal** `aantal_pnl × PV_WPPNL_NON / 1000` kWp | PM-besluit; `PV_WPPRDT`-afwijking (bv. 6736 vs 4100 Wp) als **warning** meegegeven, niet gebruikt. Empirische ijk tegen certified vergt de (nu rode) `compute_beng`-keten en is bewust uitgesteld — de definitiekeuze is gedocumenteerd, niet locked. |
+| 2 | Per-functie primair-som | **Σ `RES_ENER_PRIM` per `_CAT`** (zónder hulpenergie), gesommeerd over alle instances | Empirisch op de golden: VERW 2550,7≈2551 · TAPW 1812,6≈1813 · KOEL 421,8≈422 · VENT 442,9≈443 (hulp-optel zou KOEL naar 436 tillen → fout). Unit-niveau-instances staan op 0 → geen dubbeltelling. |
+| 3 | Zijbelemmering | `BELEMTYPE_ZIJ_*`/onbekend → `Obstruction::Minimal` + note | Analyse §5a; enum-uitbreiding = F8-V2-ticket. |
+| 4 | Utiliteit | `GEB_TYPEGEB` zonder `WON`/`WOON` → `UtilityUnsupported` | `TGEB_GRWON` (grondgebonden) én `TGEB_WOONBB` (woonark/drijvende woning) zijn woningbouw; echte utiliteitscodes falen netjes. |
+| 5 | Multi-zone | >1 `UNIT` of >1 `UNIT-RZ` → `MultiUnitUnsupported` | Nette, specifieke fout (geen stille eerste-keuze); V2-ticket. |
+
+### Extra bevinding — twee kozijn-invoermodi
+
+De corpus bevat twee Uniec-invoermodi voor kozijnen: **oppervlakte-per-merk**
+(`LIBCONSTRT_AC` gevuld → één gedeelde `WindowDef`, het pad van de goldens) en
+**oppervlakte-per-raam** (`AC` leeg → oppervlak op de plaatsing `CONSTRT_OPP`). De
+mapper detecteert de modus per merk en synthetiseert bij de tweede een
+plaatsing-eigen `WindowDef` (`opp / aantal`). Zonder deze split faalden vier
+corpus-bestanden op een dangling `WindowDef`-referentie.
+
+### Validatie-uitkomst
+
+- **Round-trip (kernvalidatie):** geïmporteerd Aalten = **31/31** velden exact
+  tegen de hand-fixture, Gouda = **35/35** (na fix: omtrek P ook op de
+  vloer-op-kruipruimte, die het bestand wél draagt). Vergelijking op waarde
+  (Rc/U/ggl/opp/oriëntatie), id-onafhankelijk. Certified matcht `expected.json`
+  (BENG 1/2/3 + eisen + label + per-functie primair + PV + koudebehoefte).
+- **CI-dekking zonder klantdata:** synthetische in-memory `.uniec3`-fixture
+  (`tests/synthetic.rs`) dekt parsing + geometrie + installaties; round-trip
+  skipt netjes als de gitignored `.uniec3`-bronnen ontbreken.
+- **Variatie-smoke** (`tests/variation_smoke.rs`, `#[ignore]`) over 52
+  corpus-bestanden (app 3.2.6.0 → 3.3.5.3, 2022–2025, incl. woonark/drijvende
+  woning): **37 OK, 15 correct geweigerd** als multi-zone (2–3 `UNIT-RZ`, V2). Nul
+  panics, nul onverwachte hard-errors.
+
+**Resterend (F8-V2):** multi-zone/appartementen + utiliteit-traversal;
+`ZONW_*`→`MovableSunShading`; zijbelemmering-enum. Frontend 4f/4g (importknop +
+vergelijkingsweergave) apart.
