@@ -50,6 +50,7 @@ fn wall(
         layers: vec![],
         adjacent_space_id: None,
         psi_thermal_bridge: None,
+        ground_perimeter_m: None,
     }
 }
 
@@ -68,6 +69,7 @@ fn opaque(id: &str, kind: ConstructionKind, boundary: BoundaryKind, area_m2: f64
         layers: vec![],
         adjacent_space_id: None,
         psi_thermal_bridge: None,
+        ground_perimeter_m: None,
     }
 }
 
@@ -108,6 +110,7 @@ fn face(
         layers: vec![],
         adjacent_space_id: None,
         psi_thermal_bridge: None,
+        ground_perimeter_m: None,
     }
 }
 

@@ -24,7 +24,9 @@
 //! - §8.4.1 formule (8.52)/(8.53) H_U met user-supplied b-factor
 //! - §8.5 (H_A default 0) en opt-in formules (8.60)/(8.61) via
 //!   `adjacent_zone_temperatures` map
-//! - §8.3.1 vereenvoudigd via bijlage I.2.3 (user-supplied `H_g;an`)
+//! - §8.3 grond: forfaitair via bijlage I.2.3 (user-supplied `H_g;an`) óf het
+//!   P/A-grondmodel §8.3.2.2–§8.3.4.1 ([`slab_on_ground_conductance`], vloer op
+//!   staal: `B'_f` → `d_f;equi` → `U_fl` → `H_g`)
 //! - §8.2.3 + §8.2.4 lineaire en punt-bruggen
 //!
 //! **Niet in V1:**
@@ -32,7 +34,10 @@
 //! - Bijlage B — Effectieve interne warmtecapaciteit (hoort bij `nta8800-demand`)
 //! - Volledige bijlage C R-waarde procedure (correcties voor luchtlagen,
 //!   niet-homogene lagen, etc.); `Construction::r_total()` uit model volstaat
-//! - Bijlage D — maandelijkse faseverschuiving voor grondtransmissie
+//! - Bijlage D — maandelijkse faseverschuiving voor grondtransmissie (het
+//!   P/A-model levert de stationaire `H_g`, gebruikt als jaargemiddelde `H_g;an`)
+//! - §8.3.6 `ψ_gr` vloerrand-term (formule 8.36 tweede term); loopt in deze
+//!   keten via de generieke lineaire koudebruggen (`thermal_bridges_linear`)
 //! - Bijlage J — gedeclareerde λ/R waarden (certificeringsmateriaal)
 //! - §7.3.3 — warmteoverdracht via verticale leidingen
 //! - §8.2.2 forfaitaire ΔU_for toeslag (formule (8.2)/(8.3))
@@ -60,6 +65,7 @@ pub mod model;
 pub mod references;
 pub mod result;
 
+pub use calc::h_t_ground::slab_on_ground_conductance;
 pub use calc::{calculate_transmission, GroundParameters, KWH_TO_MJ, MONTH_HOURS};
 pub use errors::{TransmissionError, TransmissionResult as CalcResult};
 pub use model::{BoundaryType, TransmissionElement};

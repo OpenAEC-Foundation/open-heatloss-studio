@@ -73,10 +73,25 @@ pub const NTA_8800_2025_PARAG8_2_3: &str = "nta_8800_2025_parag8_2_3";
 /// §8.2.4 — Puntvormige thermische bruggen (χ-waarden).
 pub const NTA_8800_2025_PARAG8_2_4: &str = "nta_8800_2025_parag8_2_4";
 
-/// §8.3.1 — Inleiding grondtransmissie. V1 gebruikt vereenvoudigd pad via
-/// bijlage I.2.3 (user-supplied H_g;an), de volledige NEN-EN-ISO 13370 bepaling
-/// volgt in V2.
+/// §8.3.1 — Inleiding grondtransmissie. Twee paden: forfaitair via bijlage I.2.3
+/// (user-supplied H_g;an) óf het P/A-grondmodel §8.3.2.2–§8.3.4.1 zodra de
+/// perimeter bekend is. De bijlage-D-periodiek (maandelijkse faseverschuiving)
+/// is nog niet geïmplementeerd.
 pub const NTA_8800_2025_PARAG8_3_1: &str = "nta_8800_2025_parag8_3_1";
+
+/// Formule (8.30) — karakteristieke vloerbreedte `B'_f = A_f / (0,5·P)`.
+pub const NTA_8800_2025_FORMULE8_30: &str = "nta_8800_2025_formule8_30";
+
+/// Formule (8.32) — equivalente dikte `d_f;equi = d_bw + λ_gr·(R_si+R_f+R_se)`.
+pub const NTA_8800_2025_FORMULE8_32: &str = "nta_8800_2025_formule8_32";
+
+/// Formule (8.36) — stationaire grond-warmteverliescoëfficiënt
+/// `H_g = A_fl·U_fl + Σ(ℓ_j·ψ_gr;j)`.
+pub const NTA_8800_2025_FORMULE8_36: &str = "nta_8800_2025_formule8_36";
+
+/// Formules (8.40)/(8.41) — `U_fl` van een vloer direct op de grond (matig
+/// resp. goed geïsoleerd, gerelateerd aan `B'_f` en `d_f;equi`).
+pub const NTA_8800_2025_FORMULE8_40_41: &str = "nta_8800_2025_formule8_40_41";
 
 /// §8.4.1 — Warmteverlies via onverwarmde ruimte H_U.
 pub const NTA_8800_2025_PARAG8_4_1: &str = "nta_8800_2025_parag8_4_1";
@@ -128,6 +143,10 @@ mod tests {
         NTA_8800_2025_PARAG8_2_3,
         NTA_8800_2025_PARAG8_2_4,
         NTA_8800_2025_PARAG8_3_1,
+        NTA_8800_2025_FORMULE8_30,
+        NTA_8800_2025_FORMULE8_32,
+        NTA_8800_2025_FORMULE8_36,
+        NTA_8800_2025_FORMULE8_40_41,
         NTA_8800_2025_PARAG8_4_1,
         NTA_8800_2025_FORMULE8_52,
         NTA_8800_2025_FORMULE8_53,

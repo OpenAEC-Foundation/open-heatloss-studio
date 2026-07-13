@@ -28,12 +28,10 @@
 //!
 //! - **Eén [`Construction`] per gevel** met `area_m2 = bruto_buiten_opp_m2`
 //!   (bruto, **inclusief** ramen/deuren) en de opake U-waarde. De transmissie-tak
-//!   ([`build_transmission_elements`](crate::tojuli)) telt `A_bruto · U_opaak`;
-//!   ramen tellen daar **niet** apart bij (openings voeden alleen de zonwinst).
-//!   Dat is dezelfde vereenvoudiging als de oes-keten (ramen transmitteren op
-//!   opake U in de demand-tak); zo isoleert de meting het effect van de
-//!   buiten-oppervlakte-bron. De certified raam-U leeft wél op de opening
-//!   ([`Opening::u_value`]) en voedt de TOjuli-noemer (`opening_h`, §5.7.2).
+//!   ([`build_transmission_elements`](crate::tojuli)) splitst dit sinds C1 conform
+//!   formule (8.1): opaak `(A_bruto − Σ A_raam) · U_opaak` **plus** elk raam apart
+//!   op zijn eigen [`Opening::u_value`] (`A_raam · U_window`). De certified raam-U
+//!   voedt dus zowel de demand-`H_D` als de TOjuli-noemer (`opening_h`, §5.7.2).
 //! - **Ramen → [`Opening`]** per kozijnmerk-plaatsing: een `Raam` wordt
 //!   [`OpeningKind::Window`] met g-waarde (zonwinst); een `Deur`/`PaneelInKozijn`
 //!   wordt [`OpeningKind::Door`] zonder g-waarde (opaak, geen zontoetreding).
@@ -49,18 +47,24 @@
 //! dit exact de certified U's: wand 4,70 → 0,205, dak 6,30 → 0,155, vloer 3,70 →
 //! 0,258.
 //!
-//! ## Gedocumenteerde ketenbeperkingen (buiten deze fase)
+//! ## C1 (13-07): P/A-grond én raam-U nu benut
 //!
-//! Twee posten uit de BENG-invoer worden door de huidige (gedeelde) keten nog
-//! niet benut; ze worden meegenomen/omgezet maar het rekenpad negeert ze, dus de
-//! brug verandert daar niets aan (geen tweede rekenpad):
+//! De twee posten die tot F6 fase 2 nog niet in de demand-tak doorwerkten, doen
+//! dat sinds C1 wél — de brug zet ze om, de gedeelde keten rekent ze:
 //!
-//! - **Vloer-op-grond P/A-methode** — [`BengBoundary::omtrek_p_m`] is bekend, maar
-//!   [`crate::compute_tojuli_full`] hanteert een forfaitaire grond-conductantie
-//!   `h_g;an = 10 W/K` (§8.3.1-fallback), onafhankelijk van A/U of omtrek P. De
-//!   omtrek reist mee in de BENG-invoer maar stuurt de berekening (nog) niet.
-//! - **Raam-U in de demand-transmissie** — zie de conventie-keuze hierboven: de
-//!   raam-U voedt de TOjuli-noemer maar niet de demand-`H_D` (ramen op opake U).
+//! - **Vloer-op-grond P/A-methode (§8.3)** — [`BengBoundary::omtrek_p_m`] reist nu
+//!   mee op [`Construction::ground_perimeter_m`] en voedt het P/A-grondmodel
+//!   (`B'_f = A/(0,5·P)` → `U_fl` → `H_g`, [`nta8800_transmission::slab_on_ground_conductance`])
+//!   in plaats van het forfaitaire `h_g;an = 10 W/K`. Alleen actief voor een
+//!   vloer met **direct** grondcontact (`Ground`); een vloer boven een
+//!   onverwarmde kruipruimte loopt via de b-factor-tak (§8.4).
+//! - **Raam-U in de demand-transmissie (formule 8.1)** — de kozijn-U voedt nu, via
+//!   [`build_transmission_elements`](crate::tojuli), een apart transmissie-element
+//!   per raam/deur (`A_raam · U_window`); het opake deel is `A_bruto − Σ A_raam`.
+//!   Ramen transmitteren dus niet langer op de opake U over het volledige bruto
+//!   vlak. Dit reproduceert Uniecs opaak-`CONSTRD_OPP` + kozijnmerken-decompositie
+//!   en tilt de Aalten-verwarmingsbehoefte op de certified waarde (zie
+//!   `docs/2026-07-13-c1-norm-analyse-transmissie.md`).
 
 use nta8800_model::ModelError;
 
@@ -189,6 +193,11 @@ fn map_boundary(beng: &BengGeometry, gevel: &BengBoundary) -> Result<Constructio
         layers: Vec::new(),
         adjacent_space_id: None,
         psi_thermal_bridge: None,
+        // Vloer-op-grond P/A-omtrek (§8.3.2.2, formule 8.30) reist mee zodat de
+        // demand-keten het P/A-grondmodel kan draaien i.p.v. het `h_g;an`-forfait.
+        // Alleen betekenisvol bij `boundary = Ground`; voor andere vlakken is
+        // `omtrek_p_m` doorgaans `None` en blijft de tak byte-identiek.
+        ground_perimeter_m: gevel.omtrek_p_m,
     })
 }
 

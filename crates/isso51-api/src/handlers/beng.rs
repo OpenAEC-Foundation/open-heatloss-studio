@@ -108,6 +108,7 @@ mod tests {
             layers: vec![],
             adjacent_space_id: None,
             psi_thermal_bridge: None,
+            ground_perimeter_m: None,
         }
     }
 
@@ -125,6 +126,7 @@ mod tests {
             layers: vec![],
             adjacent_space_id: None,
             psi_thermal_bridge: None,
+            ground_perimeter_m: None,
         }
     }
 

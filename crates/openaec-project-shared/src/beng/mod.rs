@@ -317,9 +317,9 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 "Geometrie-bron: gevel-georiënteerde BENG-geometrie via de F6-brug \
                  ({} rekenzone(s), {n_gevels} begrenzingsvlakken, buiten-oppervlak per \
                  gevel, NTA 8800 §6.2/§8.1); de ruimte-georiënteerde SharedGeometry is \
-                 genegeerd. Let op: de vloer-op-grond P/A-omtrek en de raam-U in de \
-                 demand-transmissie worden door de huidige keten nog niet benut (zie \
-                 geometry_bridge-moduledoc).",
+                 genegeerd. De raam-U (formule 8.1) en — bij direct grondcontact — het \
+                 vloer-op-grond P/A-grondmodel (§8.3) worden sinds C1 in de \
+                 demand-transmissie meegenomen.",
                 bg.zones.len(),
             ));
             &bridged

@@ -114,6 +114,15 @@ pub struct Construction {
     /// Thermal bridge psi-waarde in W/(m·K) (lineaire bridge).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub psi_thermal_bridge: Option<f64>,
+    /// Omtrek P van het vloerveld in m (Uniec `omtrek van het vloerveld (P)`,
+    /// NTA 8800 §8.3.2.2 formule (8.30)). Alleen betekenisvol voor een vloer met
+    /// grondcontact (`boundary = Ground`): activeert het P/A-grondmodel
+    /// (karakteristieke breedte `B'_f = A/(0,5·P)` → `U_fl` → `H_g`) in plaats van
+    /// het forfaitaire `h_g;an`. Additief: `None` (afwezig) serialiseert weg en
+    /// laat de forfait-tak byte-identiek. Zie
+    /// [`crate::tojuli`] (`build_ground_conductance`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ground_perimeter_m: Option<f64>,
 }
 
 /// Type constructie qua oriëntatie / functie.

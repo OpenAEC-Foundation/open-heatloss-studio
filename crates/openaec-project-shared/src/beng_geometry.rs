@@ -85,8 +85,9 @@ impl BengGeometry {
     /// Volgt het `nta8800-model`-patroon: geeft een [`ModelError`] terug in
     /// plaats van te panieken (idem [`nta8800_model::resolve_zone`]). Gecheckt:
     ///
-    /// - **Uniekheid:** `zones[].id` uniek; `gevels[].id` uniek binnen een zone;
-    ///   `opaque_defs[].id` en `window_defs[].id` elk uniek.
+    /// - **Uniekheid:** `zones[].id` uniek; `gevels[].id` **globaal** uniek over
+    ///   alle zones heen (relevant bij multi-zone); `opaque_defs[].id` en
+    ///   `window_defs[].id` elk uniek.
     /// - **Referenties:** elke [`BengBoundary::constructie_ref`] wijst naar een
     ///   bestaande [`OpaqueConstructionDef`]; elke
     ///   [`BengWindowPlacement::kozijn_ref`] naar een bestaande [`WindowDef`]
@@ -111,6 +112,14 @@ impl BengGeometry {
         check_unique(self.opaque_defs.iter().map(|d| d.id.as_str()), "OpaqueConstructionDef")?;
         check_unique(self.window_defs.iter().map(|d| d.id.as_str()), "WindowDef")?;
         check_unique(self.zones.iter().map(|z| z.id.as_str()), "BengZone")?;
+        // Gevel-id's zijn **globaal** uniek over alle zones heen (niet enkel per
+        // zone): bij multi-zone utiliteit refereren rapportage en koudebrug-
+        // koppelingen aan een begrenzingsvlak op id, dus een dubbele id in twee
+        // zones zou ambigu zijn.
+        check_unique(
+            self.zones.iter().flat_map(|z| z.gevels.iter()).map(|g| g.id.as_str()),
+            "BengBoundary",
+        )?;
 
         for def in &self.opaque_defs {
             def.validate()?;
@@ -325,7 +334,8 @@ impl BengZone {
                 reason: "moet > 0 en eindig zijn".into(),
             });
         }
-        check_unique(self.gevels.iter().map(|g| g.id.as_str()), "BengBoundary")?;
+        // Gevel-id-uniekheid wordt globaal (over alle zones) getoetst in
+        // [`BengGeometry::validate`]; hier alleen de per-gevel-validatie.
         for gevel in &self.gevels {
             gevel.validate(geo)?;
         }
@@ -759,6 +769,31 @@ mod tests {
             g.validate().unwrap_err(),
             ModelError::InvalidInput { context, .. } if context == "BengBoundary.id"
         ));
+    }
+
+    #[test]
+    fn duplicate_gevel_id_across_zones_is_invalid_input() {
+        // Twee zones met elk een gevel die dezelfde id draagt → globaal dubbel.
+        let mut g = minimal_geo();
+        let mut zone2 = g.zones[0].clone();
+        zone2.id = "rz-2".into(); // zone-id zelf uniek
+        // gevel-id ("gevel-o") blijft gelijk aan die in zone 1 → conflict.
+        g.zones.push(zone2);
+        assert!(matches!(
+            g.validate().unwrap_err(),
+            ModelError::InvalidInput { context, reason }
+                if context == "BengBoundary.id" && reason.contains("gevel-o")
+        ));
+    }
+
+    #[test]
+    fn distinct_gevel_ids_across_zones_are_ok() {
+        let mut g = minimal_geo();
+        let mut zone2 = g.zones[0].clone();
+        zone2.id = "rz-2".into();
+        zone2.gevels[0].id = "gevel-o2".into(); // globaal uniek
+        g.zones.push(zone2);
+        assert!(g.validate().is_ok());
     }
 
     #[test]

@@ -324,6 +324,9 @@ fn v1_to_v2_construction(c: &ConstructionElement) -> V2Construction {
         layers: Vec::new(), // TODO: Map material layers in future batch
         adjacent_space_id: c.adjacent_room_id.clone(),
         psi_thermal_bridge: c.custom_delta_u_tb,
+        // Vabi levert (nog) geen vloerveld-perimeter; grondtransmissie loopt via
+        // het forfaitaire h_g;an (P/A-model inactief).
+        ground_perimeter_m: None,
     }
 }
 

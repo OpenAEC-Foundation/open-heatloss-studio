@@ -147,9 +147,27 @@ fn map_boundary_kind_to_transmission_type(kind: BoundaryKind, adjacent_space_id:
 
 /// Bouw TransmissionElement lijst uit SharedGeometry voor calculate_transmission.
 ///
-/// Converteert alle Construction's uit alle Space's naar TransmissionElement's
-/// met de juiste BoundaryType mapping.
+/// Converteert elke Construction naar TransmissionElement's conform NTA 8800
+/// §8.2.1 formule (8.1): `H_D = Σ(A_T;i · U_C;i)` over **alle** vlakdelen. Per
+/// constructie ontstaat daarom:
+///
+/// - het **opake deel** — `A_opaak = A_bruto − Σ A_raam` bij de opake U-waarde;
+/// - **elk raam/deur** apart — de kozijn-`area_m2` bij de kozijn-`u_value`.
+///
+/// De ramen transmitteren dus op hun eigen (samengestelde) U (`U_window`), niet
+/// langer op de opake U over het volledige bruto vlak (dat was de F6-fase-2-
+/// vereenvoudiging; zie [`crate::beng::geometry_bridge`]-moduledoc). Het opake
+/// oppervlak wordt met het raamoppervlak verminderd zodat er geen dubbeltelling
+/// ontstaat — precies Uniecs decompositie (opaak `CONSTRD_OPP` + kozijnmerken).
+///
+/// Een opake rest ≤ 0 (volledig beglaasde pui) levert geen opaak element op
+/// (`calculate_transmission` weigert niet-positieve oppervlakten); de ramen
+/// dragen dan de volledige transmissie.
 fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionElement> {
+    /// Onder deze opake rest [m²] wordt geen apart opaak element geëmitteerd
+    /// (numerieke ruis / volledig beglaasd vlak).
+    const MIN_OPAQUE_AREA_M2: f64 = 1e-9;
+
     let mut elements = Vec::new();
 
     for space in &geometry.spaces {
@@ -162,22 +180,89 @@ fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionEle
 
             let boundary_type = map_boundary_kind_to_transmission_type(
                 construction.boundary,
-                construction.adjacent_space_id.as_ref()
+                construction.adjacent_space_id.as_ref(),
             );
 
-            let element = TransmissionElement {
-                id: format!("{}_{}", space.id, construction.id),
-                area: construction.area_m2,
-                u_value: construction.u_value,
-                boundary_type,
-                construction_id: Some(construction.id.clone()),
-            };
+            // Raam-/deuroppervlak dat van het opake deel wordt afgetrokken en als
+            // eigen element(en) op de kozijn-U wordt geteld (formule 8.1).
+            let openings_area: f64 = construction.openings.iter().map(|o| o.area_m2).sum();
+            let opaque_area = construction.area_m2 - openings_area;
 
-            elements.push(element);
+            if opaque_area > MIN_OPAQUE_AREA_M2 {
+                elements.push(TransmissionElement {
+                    id: format!("{}_{}", space.id, construction.id),
+                    area: opaque_area,
+                    u_value: construction.u_value,
+                    boundary_type: boundary_type.clone(),
+                    construction_id: Some(construction.id.clone()),
+                });
+            }
+
+            for opening in &construction.openings {
+                if opening.area_m2 <= MIN_OPAQUE_AREA_M2 {
+                    continue;
+                }
+                elements.push(TransmissionElement {
+                    id: format!("{}_{}_opening_{}", space.id, construction.id, opening.id),
+                    area: opening.area_m2,
+                    u_value: opening.u_value,
+                    boundary_type: boundary_type.clone(),
+                    construction_id: Some(construction.id.clone()),
+                });
+            }
         }
     }
 
     elements
+}
+
+/// Forfaitair minimum voor de jaargemiddelde grond-warmteoverdrachtcoëfficiënt
+/// `H_g;an` [W/K] (NTA 8800 §8.3.1-fallback via bijlage I.2.3) wanneer de
+/// vloerconstructie-opbouw / perimeter onbekend is. Historische default voor
+/// een gemiddelde woning zonder grondcontact-details.
+const H_G_AN_FORFAIT_W_PER_K: f64 = 10.0;
+
+/// Bepaal de jaargemiddelde grond-warmteoverdrachtcoëfficiënt `H_g;an` [W/K].
+///
+/// **P/A-grondmodel (§8.3.2.2–§8.3.4.1)** zodra *elke* grondconstructie
+/// (`boundary = Ground`) een `ground_perimeter_m` draagt: dan levert
+/// [`slab_on_ground_conductance`] per vloer `H_g = A_fl·U_fl` (via de
+/// karakteristieke breedte `B'_f = A/(0,5·P)` en de equivalente dikte), en de
+/// som is het zone-totaal. De aparte `ψ_gr`-vloerrandterm (formule 8.36) loopt
+/// in deze keten via de lineaire koudebruggen (`build_thermal_bridges_linear`).
+///
+/// **Forfait-terugval** ([`H_G_AN_FORFAIT_W_PER_K`]): als er grondcontact is maar
+/// niet elke grondvloer een perimeter draagt (bv. de ruimte-georiënteerde
+/// ISSO 51-invoer zonder P), blijft het forfaitaire minimum gelden — zo wijzigt
+/// het gedrag van bestaande, perimeter-loze geometrie niet. Zonder grondcontact
+/// is de waarde irrelevant: [`h_t_ground::conductance_via_ground`] nuldt de
+/// bijdrage dan alsnog.
+fn build_ground_conductance(geometry: &SharedGeometry) -> f64 {
+    let ground: Vec<&crate::geometry::Construction> = geometry
+        .spaces
+        .iter()
+        .flat_map(|s| s.constructions.iter())
+        .filter(|c| matches!(c.boundary, BoundaryKind::Ground))
+        .collect();
+
+    if ground.is_empty() {
+        // Geen grondcontact — waarde wordt in de transmission-crate genuld.
+        return H_G_AN_FORFAIT_W_PER_K;
+    }
+
+    // P/A-model alleen als élke grondvloer een perimeter heeft; anders forfait
+    // (byte-identiek voor perimeter-loze bestaande geometrie).
+    if ground.iter().all(|c| c.ground_perimeter_m.is_some()) {
+        ground
+            .iter()
+            .map(|c| {
+                let p = c.ground_perimeter_m.unwrap_or(0.0);
+                nta8800_transmission::slab_on_ground_conductance(c.area_m2, p, c.u_value)
+            })
+            .sum()
+    } else {
+        H_G_AN_FORFAIT_W_PER_K
+    }
 }
 
 /// Bouw de lineaire-koudebruggenlijst voor `calculate_transmission` uit de
@@ -486,9 +571,9 @@ pub fn compute_tojuli_full(
 
     let indoor_temperature = MonthlyProfile::from_constant(inputs.heating_setpoint_c);
 
-    // Forfaitaire defaults voor v1 norm-strict:
-    // h_g_an via NTA §8.3.1 minimum voor residentieel: 10 W/K voor gemiddeld huis
-    let h_g_an = 10.0; // NTA §8.3.1 forfaitair minimum voor woningen zonder grondcontact-details
+    // H_g;an (§8.3): P/A-grondmodel zodra elke grondvloer een perimeter draagt,
+    // anders het forfaitaire minimum. Zie [`build_ground_conductance`].
+    let h_g_an = build_ground_conductance(&project.geometry);
 
     // b_factors: alle onverwarmde ruimtes krijgen 0.5 (NTA §8.4.1 default)
     let mut unheated_space_b_factors = std::collections::HashMap::new();
@@ -948,6 +1033,7 @@ mod tests {
                     layers: vec![],
                     adjacent_space_id: None,
                     psi_thermal_bridge: None,
+                    ground_perimeter_m: None,
                 }],
             }],
             ..Default::default()
@@ -992,11 +1078,14 @@ mod tests {
         use crate::geometry::ThermalBridge;
         let i = sample_inputs();
 
-        // Basis (geen koudebruggen): H_T = 150 × 0,3 = 45 W/K.
+        // Basis (geen koudebruggen), NTA 8800 formule (8.1) met aparte raam-U:
+        //   opaak = (150 − 20) × 0,3 = 39,0 W/K
+        //   raam  =        20  × 1,4 = 28,0 W/K
+        //   H_T = 67,0 W/K.
         let base = compute_tojuli_full(&sample_project(), &i).expect("base ok");
-        assert!((base.transmission_h_t_w_per_k - 45.0).abs() < 1e-6);
+        assert!((base.transmission_h_t_w_per_k - 67.0).abs() < 1e-6);
 
-        // Mét koudebruggen: Σ ψ·L = 0,10·20 + 0,05·30 = 3,5 W/K → H_T = 48,5.
+        // Mét koudebruggen: Σ ψ·L = 0,10·20 + 0,05·30 = 3,5 W/K → H_T = 70,5.
         let mut p = sample_project();
         p.geometry.thermal_bridges = vec![
             ThermalBridge {
@@ -1015,7 +1104,7 @@ mod tests {
         let with_tb = compute_tojuli_full(&p, &i).expect("with_tb ok");
 
         assert!(
-            (with_tb.transmission_h_t_w_per_k - (45.0 + 3.5)).abs() < 1e-6,
+            (with_tb.transmission_h_t_w_per_k - (67.0 + 3.5)).abs() < 1e-6,
             "H_T met koudebruggen = {}",
             with_tb.transmission_h_t_w_per_k
         );
@@ -1030,8 +1119,8 @@ mod tests {
         let p = sample_project();
         let i = sample_inputs();
         let r = compute_tojuli_full(&p, &i).expect("compute_tojuli_full ok");
-        // H_T = 150 × 0.3 = 45 W/K
-        assert!((r.transmission_h_t_w_per_k - 45.0).abs() < 1e-6);
+        // NTA 8800 formule (8.1): opaak (150−20)·0,3 + raam 20·1,4 = 39 + 28 = 67 W/K.
+        assert!((r.transmission_h_t_w_per_k - 67.0).abs() < 1e-6);
         // Geen ventilatie-config → systeem C-fallback. De infiltratie komt nu
         // uit het NTA 8800 §11.2.2-forfait `q_V;ODA;req` i.p.v. een handmatige
         // ach. A_g = 120 m² (woonfunctie):
@@ -1170,6 +1259,7 @@ mod tests {
                 layers: vec![],
                 adjacent_space_id: Some("woonkamer".to_string()),
                 psi_thermal_bridge: None,
+                ground_perimeter_m: None,
             },
             SC {
                 id: "C_unheated".into(),
@@ -1184,6 +1274,7 @@ mod tests {
                 layers: vec![],
                 adjacent_space_id: Some("garage".to_string()),
                 psi_thermal_bridge: None,
+                ground_perimeter_m: None,
             },
         ]);
 
@@ -1197,12 +1288,13 @@ mod tests {
         assert!(r.transmission_h_t_w_per_k >= 0.0);
 
         // De transmission H_T zou nu alleen exterior + unheated moeten bevatten
-        // Exterior: 150 × 0.3 = 45 W/K
+        // Exterior (formule 8.1, aparte raam-U): opaak (150−20)·0,3 + raam 20·1,4
+        //   = 39 + 28 = 67 W/K
         // UnheatedSpace: 15 × 0.8 × b_factor(0.5) = 6 W/K
         // AdjacentRoom: wordt geskipt, dus 0 W/K
-        // Verwachte H_T ≈ 45 + 6 = 51 W/K (plus kleine h_g_an)
-        assert!(r.transmission_h_t_w_per_k > 45.0); // Minstens de exterior component
-        assert!(r.transmission_h_t_w_per_k < 65.0); // Realistisch bovengrens
+        // Verwachte H_T ≈ 67 + 6 = 73 W/K (geen grondcontact → h_g_an genuld)
+        assert!(r.transmission_h_t_w_per_k > 67.0); // Minstens de exterior component
+        assert!(r.transmission_h_t_w_per_k < 80.0); // Realistisch bovengrens
 
         // Verifieer dat de rest van het resultaat ook geldig is
         assert!(r.annual_q_c_use_mj >= 0.0);
