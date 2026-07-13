@@ -56,6 +56,7 @@ pub fn run() {
             commands::simplified_cooling,
             commands::tojuli_calculate,
             commands::compute_beng,
+            commands::import_uniec3,
             launched_with_file,
             reports::generate_report_pdf,
             reports::generate_report_pdf_bytes,

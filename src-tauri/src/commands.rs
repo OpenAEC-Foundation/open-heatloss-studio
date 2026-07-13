@@ -232,3 +232,36 @@ pub struct BengCalculateRequest {
 pub fn compute_beng(req: BengCalculateRequest) -> Result<BengResult, String> {
     openaec_project_shared::compute_beng(&req.project).map_err(|e| e.to_string())
 }
+
+/// Response voor `import_uniec3` — spiegelt de API-route
+/// (`crates/isso51-api/src/handlers/uniec_import.rs`) én de crate-struct
+/// `uniec3_import::Uniec3Import`, maar als eigen serialiseerbaar type.
+#[derive(Debug, Clone, Serialize)]
+pub struct Uniec3ImportResponse {
+    /// Het opgebouwde project (met `beng_geometry` + `energy` + `q_v10;spec`).
+    pub project: ProjectV2,
+    /// De gecertificeerde Uniec/BengCert-uitkomsten (vergelijkingsobject).
+    pub certified: uniec3_import::Uniec3CertifiedResults,
+    /// Verzamelde waarschuwingen (overgeslagen/benaderde velden).
+    pub warnings: Vec<String>,
+}
+
+/// Importeer een `.uniec3`-archief (base64) → `ProjectV2` + certified + warnings.
+///
+/// Zelfde contract als de web-route `POST /beng/import-uniec3`: het bestand komt
+/// base64-gecodeerd binnen (client-dispatch-pariteit). `Uniec3ImportError` (incl.
+/// de multi-zone/utiliteit-afwijzing) komt letterlijk via de foutstring terug —
+/// de client classificeert die string voor de UI-melding.
+#[tauri::command]
+pub fn import_uniec3(file_base64: String) -> Result<Uniec3ImportResponse, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(file_base64.as_bytes())
+        .map_err(|e| format!("Bestand-payload is geen geldige base64: {e}"))?;
+    let imported = uniec3_import::import_uniec3(&bytes).map_err(|e| e.to_string())?;
+    Ok(Uniec3ImportResponse {
+        project: imported.project,
+        certified: imported.certified,
+        warnings: imported.warnings,
+    })
+}

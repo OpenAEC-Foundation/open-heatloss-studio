@@ -83,6 +83,13 @@ export interface SharedProject {
   construction_year?: number | null;
   gross_floor_area_m2?: number | null;
   num_storeys?: number | null;
+  /**
+   * Specifieke luchtdoorlatendheid q_v10;spec in dm³/(s·m²) — de norm-exacte
+   * infiltratie-invoer voor de BENG-keten (`compute_beng` leest dit veld). Rust
+   * spiegel is `Option<f64>` met `#[serde(default, skip_serializing_if)]`; door
+   * de `.uniec3`-import gevuld, anders afwezig (backend valt terug op forfait).
+   */
+  q_v10_spec_dm3_s_m2?: number | null;
   ventilation_system?: VentilationSystemKind;
   heat_recovery?: HeatRecovery;
   infiltration_m3_per_h?: number;
@@ -622,6 +629,14 @@ export interface SharedExtra {
   /** Building type met expliciete kind+subtype (V2-uitbreiding). */
   building_type?: BuildingTypeShared | null;
   /**
+   * Specifieke luchtdoorlatendheid q_v10;spec in dm³/(s·m²). V2-only; niet in
+   * V1 `Building` (dat kent alleen de ISSO 51 `qv10` in dm³/(s·m²)-schaal met
+   * andere semantiek). Door de `.uniec3`-import gevuld en bij `buildV2Payload`
+   * overgenomen in `shared.q_v10_spec_dm3_s_m2` zodat de BENG-recompute
+   * dezelfde infiltratie gebruikt als de certified export.
+   */
+  q_v10_spec_dm3_s_m2?: number | null;
+  /**
    * V2-only ventilatieveld: basisinfiltratie in m³/h. Niet in V1
    * `VentilationConfig`. Wordt bij `buildV2Payload` overgenomen in
    * `shared.infiltration_m3_per_h`. Backend valt terug op default_ach in
@@ -651,6 +666,7 @@ export const DEFAULT_SHARED_EXTRA: SharedExtra = {
   construction_year: null,
   num_storeys: null,
   building_type: null,
+  q_v10_spec_dm3_s_m2: null,
   infiltration_m3_per_h: null,
   mechanical_supply_m3_per_h: null,
   mechanical_exhaust_m3_per_h: null,

@@ -2300,6 +2300,7 @@ name = "isso51-api"
 version = "0.2.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "bytes",
  "chrono",
  "dotenvy",
@@ -2323,7 +2324,9 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uniec3-import",
  "uuid",
+ "zip",
 ]
 
 [[package]]
@@ -2361,6 +2364,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-shell",
+ "uniec3-import",
 ]
 
 [[package]]

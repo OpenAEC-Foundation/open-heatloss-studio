@@ -9,9 +9,11 @@ mod ifcx;
 mod projects;
 mod report;
 mod thermal_import;
+mod uniec_import;
 mod user;
 
 pub use beng::beng_calculate;
+pub use uniec_import::import_uniec3_handler;
 pub use calculation::{calculate, calculate_v2, get_schema, health, list_schemas};
 pub use cooling::{simplified_cooling, tojuli_calculate};
 pub use cloud::{

@@ -13,6 +13,7 @@ nta8800-cooling = { path = "../nta8800-cooling" }
 nta8800-model = { path = "../nta8800-model" }
 nta8800-tables = { path = "../nta8800-tables" }
 openaec-project-shared = { path = "../openaec-project-shared" }
+uniec3-import = { path = "../uniec3-import" }
 openaec-cloud = { git = "https://github.com/OpenAEC-Foundation/openaec-cloud.git" }
 axum = { version = "0.8", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
@@ -31,3 +32,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 sha2 = "0.10"
 dotenvy = "0.15"
 tempfile = "3"
+base64 = "0.22"
+
+[dev-dependencies]
+zip = "0.6"

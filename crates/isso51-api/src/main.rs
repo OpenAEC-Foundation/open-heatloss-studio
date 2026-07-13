@@ -43,6 +43,14 @@ use crate::state::AppState;
 /// meebeweegt met framework-defaults.
 const COMPUTE_BODY_LIMIT: usize = 2 * 1024 * 1024;
 
+/// Body-limiet voor `/beng/import-uniec3`. Een `.uniec3`-archief (ZIP+JSON) is
+/// doorgaans klein (tientallen KB tot enkele honderden KB), maar de base64-
+/// envelope voegt ~33% toe en grotere projecten (veel gevels/bibliotheken)
+/// kunnen de 2 MB compute-default overschrijden. 8 MB geeft ruime hoofdruimte
+/// en begrenst tegelijk wat één ongeauthenticeerd verzoek kan claimen. De route
+/// leeft daarom in een eigen router (deze grens, plus dezelfde rate-limit).
+const UNIEC_IMPORT_BODY_LIMIT: usize = 8 * 1024 * 1024;
+
 #[tokio::main]
 async fn main() {
     // Load .env file if present (development convenience).
@@ -138,11 +146,24 @@ async fn main() {
             ratelimit::rate_limit,
         ));
 
+    // Uniec 3-import: publiek (zelfde reken-API-lijn), maar met een ruimere
+    // body-limit dan de compute-routes — een base64-`.uniec3`-envelope kan de
+    // 2 MB compute-default overschrijden. Eigen router zodat alleen deze route
+    // de 8 MB krijgt; de per-IP rate-limit blijft gelijk (buitenste layer).
+    let uniec_import = Router::new()
+        .route("/beng/import-uniec3", post(handlers::import_uniec3_handler))
+        .layer(DefaultBodyLimit::max(UNIEC_IMPORT_BODY_LIMIT))
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limiter.clone(),
+            ratelimit::rate_limit,
+        ));
+
     let public = Router::new()
         .route("/health", get(handlers::health))
         .route("/schemas", get(handlers::list_schemas))
         .route("/schemas/{name}", get(handlers::get_schema))
-        .merge(compute);
+        .merge(compute)
+        .merge(uniec_import);
 
     let protected = Router::new()
         .route("/me", get(handlers::get_profile))

@@ -103,6 +103,24 @@
     "rcCompare": "R-value comparator"
   },
   "beng": {
+    "import": {
+      "button": "Import Uniec 3 file",
+      "busy": "Importing…",
+      "confirmOverwrite": "Overwrite the current project with the imported Uniec 3 file?",
+      "success": "Uniec 3 file imported: {{name}}",
+      "failed": "Import failed: {{detail}}",
+      "warningsTitle": "Import warnings"
+    },
+    "compare": {
+      "title": "Comparison with certified Uniec 3",
+      "certifiedLabel": "Certified label",
+      "noData": "The imported file contains no certified BENG indicators to compare against.",
+      "indicator": "Indicator",
+      "ours": "Our calculation",
+      "certified": "Certified Uniec",
+      "delta": "Difference",
+      "toleranceNote": "Indicative tolerance: BENG 1 ±6%, BENG 2 ±10%, BENG 3 ±3 pp. Green = within the band of the certified export, amber = possible modelling/calculation gap."
+    },
     "source": {
       "label": "Source of the figures",
       "hint": "Documentation requirement — provenance of the performance values",

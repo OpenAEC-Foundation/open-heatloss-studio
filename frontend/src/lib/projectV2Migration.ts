@@ -141,6 +141,9 @@ export function splitV2ForStore(raw: unknown): ProjectSplit {
     construction_year: v2.shared.construction_year ?? null,
     num_storeys: v2.shared.num_storeys ?? null,
     building_type: v2.shared.building_type ?? null,
+    // q_v10;spec meenemen (o.a. door de `.uniec3`-import gezet) zodat de
+    // BENG-recompute dezelfde infiltratie ziet als de certified export.
+    q_v10_spec_dm3_s_m2: v2.shared.q_v10_spec_dm3_s_m2 ?? null,
   };
 
   return { project, sharedExtra };
@@ -322,6 +325,11 @@ export function buildV2Payload(
       construction_year: sharedExtra.construction_year ?? null,
       gross_floor_area_m2: project.building.total_floor_area ?? null,
       num_storeys: sharedExtra.num_storeys ?? project.building.num_floors ?? null,
+      // q_v10;spec (uit de `.uniec3`-import) alleen meesturen wanneer gezet —
+      // afwezig laat de backend op het infiltratie-forfait terugvallen.
+      ...(sharedExtra.q_v10_spec_dm3_s_m2 != null
+        ? { q_v10_spec_dm3_s_m2: sharedExtra.q_v10_spec_dm3_s_m2 }
+        : {}),
       ...mapV1VentilationToV2(project.ventilation),
       // V2-only ventilatieveld overlay vanuit sidecar — overschrijft mapV1*
       // velden wanneer expliciet gezet (anders blijft backend-default actief).

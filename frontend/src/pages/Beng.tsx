@@ -11,15 +11,17 @@
  * zit in `project.energy`. Raam-zonwering/belemmering per raam is
  * modeller-territorium en loopt NIET via dit paneel.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useProjectStore } from "../store/projectStore";
-import { buildV2Payload } from "../lib/projectV2Migration";
+import { buildV2Payload, splitV2ForStore } from "../lib/projectV2Migration";
 import { bengCalculate, BengInputError } from "../lib/bengClient";
+import { importUniec3, Uniec3ImportError } from "../lib/uniecImport";
+import type { Uniec3CertifiedResults } from "../types/uniec";
 import type {
   AutomationInput,
   BacsClassInput,
@@ -235,11 +237,19 @@ export function Beng() {
   const updateEnergy = useProjectStore((s) => s.updateEnergy);
   const setEnergy = useProjectStore((s) => s.setEnergy);
   const bengGeometry = useProjectStore((s) => s.bengGeometry);
+  const setProject = useProjectStore((s) => s.setProject);
+  const setBengGeometry = useProjectStore((s) => s.setBengGeometry);
+  const setUniecReference = useProjectStore((s) => s.setUniecReference);
+  const uniecReference = useProjectStore((s) => s.uniecReference);
 
   const [result, setResult] = useState<BengResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inputHint, setInputHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [importInfo, setImportInfo] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<"installaties" | "geometrie">(
     "installaties",
   );
@@ -337,6 +347,93 @@ export function Beng() {
     setInputHint(null);
   }, [setEnergy]);
 
+  // -- Uniec 3-import (F8) --
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      // Reset de input direct zodat hetzelfde bestand opnieuw gekozen kan worden.
+      e.target.value = "";
+      if (!file) return;
+
+      setImporting(true);
+      setError(null);
+      setImportInfo(null);
+      try {
+        const imported = await importUniec3(file);
+
+        // Overschrijf-bevestiging alleen wanneer er al invoer staat. "Invoer" =
+        // een ingevuld energie-blok, gevel-geometrie, een eerdere import of een
+        // niet-leeg project. Anders direct laden (geen dialoog).
+        const hasExistingInput =
+          hasAnySystem ||
+          !!bengGeometry ||
+          !!uniecReference ||
+          project.rooms.length > 0 ||
+          !!project.info.name;
+        if (hasExistingInput) {
+          const confirmed = window.confirm(
+            t(
+              "beng.import.confirmOverwrite",
+              "Huidig project overschrijven met het geïmporteerde Uniec 3-bestand?",
+            ),
+          );
+          if (!confirmed) {
+            setImporting(false);
+            return;
+          }
+        }
+
+        // Split de wire-ProjectV2 naar V1-store + sidecar en herstel de
+        // BENG-invoerblokken (energy + gevel-geometrie) uit de top-level velden.
+        // setProject reset energy/bengGeometry/uniecReference eerst naar null —
+        // daarom hierna expliciet zetten.
+        const { project: v1, sharedExtra: extra } = splitV2ForStore(
+          imported.project,
+        );
+        setProject(v1, { sharedExtra: extra });
+        setEnergy(imported.project.energy ?? null);
+        setBengGeometry(imported.project.beng_geometry ?? null);
+        setUniecReference(imported.certified);
+        setImportWarnings(imported.warnings);
+        setResult(null);
+        setInputHint(null);
+        setImportInfo(
+          t("beng.import.success", "Uniec 3-bestand geïmporteerd: {{name}}", {
+            name: imported.project.shared.name || file.name,
+          }),
+        );
+      } catch (err) {
+        if (err instanceof Uniec3ImportError) {
+          // De backend-boodschap (o.a. multi-zone-afwijzing) letterlijk tonen.
+          setError(
+            t("beng.import.failed", "Import mislukt: {{detail}}", {
+              detail: err.message,
+            }),
+          );
+        } else {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        setImporting(false);
+      }
+    },
+    [
+      hasAnySystem,
+      bengGeometry,
+      uniecReference,
+      project,
+      t,
+      setProject,
+      setEnergy,
+      setBengGeometry,
+      setUniecReference,
+    ],
+  );
+
   return (
     <div>
       <PageHeader
@@ -347,6 +444,22 @@ export function Beng() {
         )}
         actions={
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".uniec3"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="secondary"
+              onClick={handleImportClick}
+              disabled={importing}
+            >
+              {importing
+                ? t("beng.import.busy", "Importeren…")
+                : t("beng.import.button", "Importeer Uniec 3-bestand")}
+            </Button>
             <Button variant="ghost" onClick={handleReset}>
               {t("beng.reset", "Leegmaken")}
             </Button>
@@ -368,6 +481,23 @@ export function Beng() {
         {inputHint && (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-300">
             {inputHint}
+          </div>
+        )}
+        {importInfo && (
+          <div className="rounded-md border border-green-600/30 bg-green-600/15 px-4 py-3 text-sm text-green-400">
+            {importInfo}
+          </div>
+        )}
+        {importWarnings.length > 0 && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <h3 className="mb-1 text-sm font-semibold text-amber-300">
+              {t("beng.import.warningsTitle", "Import-waarschuwingen")}
+            </h3>
+            <ul className="list-disc space-y-1 pl-5 text-xs text-amber-200/90">
+              {importWarnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -781,7 +911,13 @@ export function Beng() {
         )}
 
         {/* -- Resultaat -- */}
-        {result && <BengResultView result={result} t={t} />}
+        {result && (
+          <BengResultView
+            result={result}
+            uniecReference={uniecReference}
+            t={t}
+          />
+        )}
       </div>
     </div>
   );
@@ -793,9 +929,11 @@ export function Beng() {
 
 function BengResultView({
   result,
+  uniecReference,
   t,
 }: {
   result: BengResult;
+  uniecReference: Uniec3CertifiedResults | null;
   t: (key: string, fallback: string) => string;
 }) {
   return (
@@ -850,6 +988,15 @@ function BengResultView({
             higherIsBetter
           />
         </div>
+
+        {/* Vergelijking met certified Uniec 3 (F8) */}
+        {uniecReference && (
+          <UniecComparePanel
+            result={result}
+            reference={uniecReference}
+            t={t}
+          />
+        )}
 
         {/* TOjuli */}
         <div className="rounded-md border border-[var(--oaec-border-subtle)] bg-[var(--oaec-bg-subtle)] px-4 py-3">
@@ -936,6 +1083,158 @@ function BengResultView({
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * Vergelijkings-paneel: onze `compute_beng`-uitkomst naast de certified
+ * Uniec 3 / BengCert-referentie (uit de `.uniec3`-import), met delta en een
+ * indicatieve tolerantie-kleuring.
+ *
+ * De toleranties (BENG 1 ±6 %, BENG 2 ±10 %, BENG 3 ±3 pp) zijn **indicatief**
+ * — zij duiden of onze motor in het verwachte bereik van de afgemelde export
+ * zit, niet of het project "voldoet". Groen = binnen bandbreedte, oranje =
+ * erbuiten (mogelijke modelleer-/rekengap). Certified-veld afwezig → geen rij.
+ */
+function UniecComparePanel({
+  result,
+  reference,
+  t,
+}: {
+  result: BengResult;
+  reference: Uniec3CertifiedResults;
+  t: (key: string, fallback: string) => string;
+}) {
+  type Row = {
+    label: string;
+    ours: number;
+    certified: number;
+    delta: number;
+    deltaUnit: string;
+    within: boolean;
+  };
+
+  const rows: Row[] = [];
+
+  // BENG 1/2: relatieve delta in %. BENG 3: absolute delta in procentpunt.
+  const pct = (ours: number, cert: number) =>
+    cert !== 0 ? ((ours - cert) / cert) * 100 : Number.NaN;
+
+  if (reference.beng1_kwh_m2_jr != null) {
+    const cert = reference.beng1_kwh_m2_jr;
+    const delta = pct(result.beng1.value, cert);
+    rows.push({
+      label: "BENG 1",
+      ours: result.beng1.value,
+      certified: cert,
+      delta,
+      deltaUnit: "%",
+      within: Number.isFinite(delta) && Math.abs(delta) <= 6,
+    });
+  }
+  if (reference.beng2_kwh_m2_jr != null) {
+    const cert = reference.beng2_kwh_m2_jr;
+    const delta = pct(result.beng2.value, cert);
+    rows.push({
+      label: "BENG 2",
+      ours: result.beng2.value,
+      certified: cert,
+      delta,
+      deltaUnit: "%",
+      within: Number.isFinite(delta) && Math.abs(delta) <= 10,
+    });
+  }
+  if (reference.beng3_pct != null) {
+    const cert = reference.beng3_pct;
+    const delta = result.beng3.value - cert;
+    rows.push({
+      label: "BENG 3",
+      ours: result.beng3.value,
+      certified: cert,
+      delta,
+      deltaUnit: "pp",
+      within: Math.abs(delta) <= 3,
+    });
+  }
+
+  return (
+    <div className="rounded-md border border-primary/40 bg-primary/5 p-4">
+      <div className="mb-1 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-on-surface">
+          {t(
+            "beng.compare.title",
+            "Vergelijking met certified Uniec 3",
+          )}
+        </h3>
+        {reference.energy_label && (
+          <span className="text-xs text-on-surface-muted">
+            {t("beng.compare.certifiedLabel", "Certified label")}:{" "}
+            <span className="font-semibold text-on-surface">
+              {reference.energy_label}
+            </span>
+            {reference.app_version ? ` (Uniec ${reference.app_version})` : ""}
+          </span>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-on-surface-muted">
+          {t(
+            "beng.compare.noData",
+            "Het geïmporteerde bestand bevat geen certified BENG-indicatoren om tegen te vergelijken.",
+          )}
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--oaec-border)] text-on-surface-muted">
+              <th className="px-2 py-1 text-left">
+                {t("beng.compare.indicator", "Indicator")}
+              </th>
+              <th className="px-2 py-1 text-right">
+                {t("beng.compare.ours", "Onze berekening")}
+              </th>
+              <th className="px-2 py-1 text-right">
+                {t("beng.compare.certified", "Certified Uniec")}
+              </th>
+              <th className="px-2 py-1 text-right">
+                {t("beng.compare.delta", "Verschil")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.label}
+                className="border-b border-[var(--oaec-border-subtle)]"
+              >
+                <td className="px-2 py-1 text-on-surface">{r.label}</td>
+                <td className="px-2 py-1 text-right tabular-nums text-on-surface">
+                  {r.ours.toFixed(1)}
+                </td>
+                <td className="px-2 py-1 text-right tabular-nums text-on-surface">
+                  {r.certified.toFixed(1)}
+                </td>
+                <td
+                  className={`px-2 py-1 text-right tabular-nums font-medium ${
+                    r.within ? "text-green-400" : "text-amber-400"
+                  }`}
+                >
+                  {Number.isFinite(r.delta)
+                    ? `${r.delta >= 0 ? "+" : ""}${r.delta.toFixed(1)} ${r.deltaUnit}`
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="mt-2 text-2xs text-on-surface-muted">
+        {t(
+          "beng.compare.toleranceNote",
+          "Tolerantie indicatief: BENG 1 ±6 %, BENG 2 ±10 %, BENG 3 ±3 pp. Groen = binnen bandbreedte van de afgemelde export, oranje = mogelijke modelleer-/rekengap.",
+        )}
+      </p>
+    </div>
   );
 }
 

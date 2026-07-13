@@ -315,5 +315,35 @@ corpus-bestanden op een dangling `WindowDef`-referentie.
   panics, nul onverwachte hard-errors.
 
 **Resterend (F8-V2):** multi-zone/appartementen + utiliteit-traversal;
-`ZONW_*`→`MovableSunShading`; zijbelemmering-enum. Frontend 4f/4g (importknop +
-vergelijkingsweergave) apart.
+`ZONW_*`→`MovableSunShading`; zijbelemmering-enum.
+
+## Fase 4f–4h — UI-ontsluiting (13-07)
+
+De importer is ontsloten in de app; de contract-keten is symmetrisch web/desktop.
+
+- **API-route** — `POST /api/v1/beng/import-uniec3`
+  (`crates/isso51-api/src/handlers/uniec_import.rs`). Body = base64-JSON
+  `{ file_base64 }` (géén multipart — houdt de client-dispatch gelijk aan de rest
+  van de BENG-familie). Eigen router met een **8 MB** body-limit náást de 2 MB
+  compute-router (een base64-`.uniec3` kan de compute-default overschrijden),
+  zelfde per-IP rate-limit. `spawn_blocking`→`import_uniec3`; succes →
+  `{ project, certified, warnings }`. `Uniec3ImportError` → **422** met de
+  letterlijke `Display`-boodschap als `detail` (de multi-zone/utiliteit-afwijzing
+  is directe user-feedback en moet ongewijzigd doorkomen); ongeldige base64 →
+  **400**. Route-tests: geldig synthetisch archief (200), kapotte ZIP (422),
+  multi-zone (422 + boodschap-check), ongeldige base64 (400), en een
+  **Aalten-golden E2E** die skipt als het gitignored bestand ontbreekt.
+- **Tauri-command** — `import_uniec3(file_base64)` in `src-tauri/src/commands.rs`
+  (geregistreerd in `lib.rs`), identiek contract.
+- **Frontend** — importknop + `.uniec3`-bestandskiezer in de BENG-tab, dispatch
+  via `frontend/src/lib/uniecImport.ts`. Na import wordt de wire-`ProjectV2` via
+  `splitV2ForStore` naar de V1-store + sidecar gesplitst en worden de
+  BENG-invoerblokken (`energy` + `beng_geometry`) uit de top-level velden
+  hersteld; een overschrijf-bevestiging verschijnt alléén als er al invoer staat.
+  De certified referentie leeft additief als `projectStore.uniecReference`
+  (persist-migratie + regressietest). Op de resultatenpagina staat een
+  **vergelijkings-paneel**: onze `compute_beng` BENG 1/2/3 naast de certified
+  Uniec-waarden met delta en een **indicatieve** tolerantie-kleuring (BENG 1
+  ±6 %, BENG 2 ±10 %, BENG 3 ±3 pp). NL/EN i18n voor alle nieuwe strings.
+  `q_v10;spec` reist mee door de V1↔V2-round-trip (`SharedExtra`) zodat de
+  recompute dezelfde infiltratie ziet als de afgemelde export.

@@ -103,6 +103,24 @@
     "rcCompare": "Rc-vergelijker"
   },
   "beng": {
+    "import": {
+      "button": "Importeer Uniec 3-bestand",
+      "busy": "Importeren…",
+      "confirmOverwrite": "Huidig project overschrijven met het geïmporteerde Uniec 3-bestand?",
+      "success": "Uniec 3-bestand geïmporteerd: {{name}}",
+      "failed": "Import mislukt: {{detail}}",
+      "warningsTitle": "Import-waarschuwingen"
+    },
+    "compare": {
+      "title": "Vergelijking met certified Uniec 3",
+      "certifiedLabel": "Certified label",
+      "noData": "Het geïmporteerde bestand bevat geen certified BENG-indicatoren om tegen te vergelijken.",
+      "indicator": "Indicator",
+      "ours": "Onze berekening",
+      "certified": "Certified Uniec",
+      "delta": "Verschil",
+      "toleranceNote": "Tolerantie indicatief: BENG 1 ±6 %, BENG 2 ±10 %, BENG 3 ±3 pp. Groen = binnen bandbreedte van de afgemelde export, oranje = mogelijke modelleer-/rekengap."
+    },
     "source": {
       "label": "Bron van de kentallen",
       "hint": "Dossierplicht — herkomst van de prestatiewaarden",

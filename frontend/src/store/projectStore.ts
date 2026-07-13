@@ -16,6 +16,7 @@ import type {
 import type { Isso53ProjectResult } from "../types/isso53Result";
 import type { EnergyInput } from "../types/beng";
 import type { BengGeometry } from "../types/bengGeometry";
+import type { Uniec3CertifiedResults } from "../types/uniec";
 import { isIsso53Heating } from "../lib/normSwitch";
 import {
   DEFAULT_ISSO53_BUILDING,
@@ -167,6 +168,17 @@ interface ProjectStore {
    */
   bengGeometry: BengGeometry | null;
   /**
+   * Gecertificeerde Uniec 3 / BengCert-referentie-uitkomsten (F8-import).
+   * Additief náást `energy`/`bengGeometry`: gevuld door de `.uniec3`-import en
+   * gebruikt op de BENG-resultatenpagina voor het vergelijkings-paneel (onze
+   * `compute_beng` naast de certified Uniec-waarden). `null` = geen import
+   * actief. Zelfde levensloop als {@link ProjectStore.energy}: gepersisteerd
+   * (localStorage), reist nog NIET mee in de server-/`.ifcenergy`-envelope, en
+   * wordt bij projectwissel/-reset teruggezet naar `null` zodat de referentie
+   * niet naar een ander project lekt.
+   */
+  uniecReference: Uniec3CertifiedResults | null;
+  /**
    * Calculation result (null if not yet calculated). Houdt een ISSO 51
    * (`ProjectResult`) of ISSO 53 (`Isso53ProjectResult`) resultaat —
    * consumers discrimineren op `norm`, niet op het result-shape zelf.
@@ -215,6 +227,12 @@ interface ProjectStore {
   updateBengGeometry: (partial: Partial<BengGeometry>) => void;
   /** Vervang (of wis met `null`) het volledige `beng_geometry`-blok. */
   setBengGeometry: (geometry: BengGeometry | null) => void;
+  /**
+   * Zet (of wis met `null`) de gecertificeerde Uniec 3-referentie. Gevuld door
+   * de `.uniec3`-import; gebruikt op de resultatenpagina voor het
+   * vergelijkings-paneel. Zet `isDirty`.
+   */
+  setUniecReference: (reference: Uniec3CertifiedResults | null) => void;
   /**
    * Zet de actieve norm. Wordt aangeroepen door de Backstage NormChoiceModal
    * bij nieuw-project en (in fase 4) door de wissel-flow.
@@ -461,6 +479,7 @@ export const useProjectStore = create<ProjectStore>()(
       },
       energy: null,
       bengGeometry: null,
+      uniecReference: null,
       result: null,
       error: null,
       isCalculating: false,
@@ -512,6 +531,9 @@ export const useProjectStore = create<ProjectStore>()(
         }),
 
       setBengGeometry: (bengGeometry) => set({ bengGeometry, isDirty: true }),
+
+      setUniecReference: (uniecReference) =>
+        set({ uniecReference, isDirty: true }),
 
       setNorm: (norm) => set({ norm, isDirty: true }),
 
@@ -761,6 +783,7 @@ export const useProjectStore = create<ProjectStore>()(
             // een projectwissel; geen lek naar het volgende project.
             energy: null,
             bengGeometry: null,
+            uniecReference: null,
             isDirty: true,
             result: null,
             error: null,
@@ -815,6 +838,7 @@ export const useProjectStore = create<ProjectStore>()(
           // BENG-invoer zit nog niet in de server-envelope → leeg bij load.
           energy: null,
           bengGeometry: null,
+          uniecReference: null,
           activeProjectId: id,
           result,
           isDirty: false,
@@ -866,6 +890,7 @@ export const useProjectStore = create<ProjectStore>()(
           ventilation: { terminals: [], rooms: {} },
           energy: null,
           bengGeometry: null,
+          uniecReference: null,
           result: null,
           error: null,
           isCalculating: false,
@@ -1215,6 +1240,7 @@ export function partializeProjectStore(state: ProjectStore) {
     ventilation: state.ventilation,
     energy: state.energy,
     bengGeometry: state.bengGeometry,
+    uniecReference: state.uniecReference,
     result: state.result,
     isDirty: state.isDirty,
     activeProjectId: state.activeProjectId,
@@ -1264,6 +1290,9 @@ export function mergePersistedProjectStore(
     energy: (persisted as Partial<ProjectStore>)?.energy ?? null,
     // Silent migration voor projecten van vóór het beng_geometry-blok (F6).
     bengGeometry: (persisted as Partial<ProjectStore>)?.bengGeometry ?? null,
+    // Silent migration voor projecten van vóór de Uniec 3-import (F8).
+    uniecReference:
+      (persisted as Partial<ProjectStore>)?.uniecReference ?? null,
     // Silent migration voor projecten van vóór de ventilatiebalans-module.
     ventilation: (() => {
       const v = (persisted as Partial<ProjectStore>)?.ventilation;
