@@ -39,6 +39,7 @@
 //! MJ/m² per maand geserialiseerd — conversie is niet nodig.
 
 use nta8800_model::geometry::Window;
+use nta8800_model::location::{Orientation, Tilt};
 use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::Energy;
 use nta8800_model::ClimateData;
@@ -63,6 +64,11 @@ pub const H_LR_E: f64 = 4.14;
 /// Gemiddeld verschil schijnbare hemeltemperatuur − buitentemperatuur
 /// `Δθ_sky` (NTA 8800 §7.6.5, formule 7.39), in K.
 pub const DELTA_THETA_SKY_K: f64 = 11.0;
+
+/// Absorptiecoëfficiënt voor zonnestraling `α_sol` (NTA 8800 §7.6.6.3): het
+/// buitenoppervlak van elke niet-transparante constructie krijgt de forfaitaire
+/// waarde 0,60. Gebruikt in de opake-zonwinst (formule 7.33). Balans-onafhankelijk.
+pub const ALPHA_SOL: f64 = 0.6;
 
 /// Vormfactor `F_sky` tussen constructie en hemel (NTA 8800 §7.6.6.4) o.b.v. de
 /// hellingshoek met de horizontaal:
@@ -156,6 +162,83 @@ pub fn monthly_solar_gains(
                     let m_factor = movable.as_ref().map_or(1.0, |q| q[month]);
                     effective_area * m_factor * obstruction[month] * p[month]
                 }
+                _ => 0.0,
+            };
+            let q_sky_mj = q_sky_power_w * MONTH_HOURS[month.index()] * WH_TO_MJ;
+            monthly[month.index()] += gross - q_sky_mj;
+        }
+    }
+    MonthlyProfile::new(monthly)
+}
+
+/// Een niet-transparant (opaak) bouwschilelement voor de zonwinst-berekening
+/// (NTA 8800 §7.6.3, formule 7.33).
+///
+/// Alleen aan buitenlucht grenzende opake vlakken dragen bij; de caller levert de
+/// **geprojecteerde** opake oppervlakte aan (bruto vlak minus de raam-/deur-
+/// openingen — die lopen via [`Window`], zodat er geen dubbeltelling ontstaat).
+#[derive(Debug, Clone, Copy)]
+pub struct OpaqueElement {
+    /// Geprojecteerde opake oppervlakte `A_c;op,k` [m²] (§K.1.2).
+    pub area: f64,
+    /// Warmtedoorgangscoëfficiënt `U_c;op,k` [W/(m²·K)] (§8.2.2).
+    pub u_value: f64,
+    /// Oriëntatie voor de maand-zoninstraling `I_sol`.
+    pub orientation: Orientation,
+    /// Helling voor de vormfactor `F_sky` (§7.6.6.4) in de hemelstralingsterm.
+    pub tilt: Tilt,
+}
+
+/// Bereken de maandelijkse netto zonwinst door opake (niet-transparante)
+/// bouwschilelementen in MJ (NTA 8800 §7.6.3, formule 7.33).
+///
+/// Per element, per maand:
+///
+/// ```text
+/// Q_op = α_sol · R_se · U_c · A_c · F_sh;obst · I_sol(or, mi)  −  Q_sky(tilt, mi)
+/// ```
+///
+/// met `α_sol = 0,60` (§7.6.6.3), `R_se = 0,04 m²K/W` (C.2) en — norm-expliciet
+/// voor opake vlakken — `F_sh;obst;op = 1` (§7.6.3: "Voor de dimensieloze
+/// beschaduwingsreductiefactor voor externe belemmeringen van niet-transparant
+/// element op,k, geldt: F_sh;obst = 1"). Er is voor opake vlakken géén g-waarde en
+/// géén beweegbare zonwering.
+///
+/// De term is **balans-onafhankelijk** (identiek op de warmte- en koudebalans):
+/// α, R_se, U en F_sky hangen niet van de balanstak af, en er is geen zonwering
+/// die H/C-asymmetrisch werkt. Daarom is er, anders dan bij de ramen, geen
+/// `SolarBalance`-parameter.
+///
+/// **Eenheden.** De invoer `climate.solar_irradiation` is per maand in MJ/m²
+/// (reeds geïntegreerd, zie [`monthly_solar_gains`]); `α·R_se·U·A` is dimensieloos
+/// × m², dus `effective_area · I_sol` levert direct MJ — dezelfde MJ-conventie als
+/// de raam-zonwinst. `Q_sky` (formule 7.39) is identiek aan de raam-term, met de
+/// opake `U`/`A`, en wordt óók afgetrokken bij een oriëntatie zonder
+/// klimaatprofiel (hij hangt niet van `I_sol` af).
+///
+/// **Fysische richting.** Voor een goed-geïsoleerd, naar de koude hemel gericht
+/// vlak (plat dak, `F_sky = 1,0`) overheerst doorgaans `Q_sky` de zon-absorptie →
+/// netto een **verlies** (verwarming omhoog, koeling omlaag); voor een
+/// zonbeschenen verticale gevel (`F_sky = 0,5`) kan de absorptie overheersen.
+#[must_use]
+pub fn monthly_opaque_solar_gains(
+    elements: &[OpaqueElement],
+    climate: &ClimateData,
+) -> MonthlyProfile<Energy> {
+    let mut monthly = [0.0_f64; 12];
+    for el in elements {
+        // Effectieve "zon-absorberende oppervlakte" α·R_se·U·A [m²]; × I_sol
+        // [MJ/m²] → bruto-absorptie in MJ (formule 7.33, F_sh;obst = 1).
+        let effective_area = ALPHA_SOL * R_SE * el.u_value * el.area;
+        let profile = climate.solar_irradiation.get(&el.orientation);
+        // Hemelstraling Q_sky (formule 7.39): langgolvig verlies naar de hemel met
+        // de opake U + oppervlakte en de vormfactor uit de helling. Onafhankelijk
+        // van I_sol en de balanstak.
+        let f_sky = sky_view_factor(el.tilt.degrees);
+        let q_sky_power_w = f_sky * R_SE * el.u_value * el.area * H_LR_E * DELTA_THETA_SKY_K;
+        for month in Month::all() {
+            let gross = match (effective_area > 0.0, profile) {
+                (true, Some(p)) => effective_area * p[month],
                 _ => 0.0,
             };
             let q_sky_mj = q_sky_power_w * MONTH_HOURS[month.index()] * WH_TO_MJ;
@@ -434,5 +517,82 @@ mod tests {
         let bruto = 5.0 * 0.6 * F_W_GLAZING * 0.8 * 310.0;
         let expected = bruto - q_sky_mj(&w, Month::Juni);
         assert!((q[Month::Juni] - expected).abs() < 1e-6, "kreeg {}", q[Month::Juni]);
+    }
+
+    // --- Opake zonwinst (formule 7.33) -------------------------------------
+
+    #[test]
+    fn opaak_lege_lijst_geeft_nul() {
+        let climate = sample_climate();
+        let q = monthly_opaque_solar_gains(&[], &climate);
+        for month in Month::all() {
+            assert!(q[month].abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn opaak_zuidgevel_juni_handberekening() {
+        // ONAFHANKELIJKE handberekening (formule 7.33), niet via een helper.
+        // Zuidgevel: A=10 m², U=0,2 W/(m²K), verticaal (F_sky=0,5), I_zuid;juni=310 MJ/m².
+        //   bruto = α·R_se·U·A·I = 0,6·0,04·0,2·10·310                       = 14,88 MJ
+        //   Q_sky = F_sky·R_se·U·A·h_lr·Δθ·t·0,0036
+        //         = 0,5·0,04·0,2·10·4,14·11·720·0,0036                       = 4,7215872 MJ
+        //   netto = 14,88 − 4,7215872                                        = 10,1584128 MJ
+        let climate = sample_climate();
+        let el = OpaqueElement {
+            area: 10.0,
+            u_value: 0.2,
+            orientation: Orientation::Zuid,
+            tilt: Tilt::VERTICAL,
+        };
+        let q = monthly_opaque_solar_gains(&[el], &climate);
+        assert!(
+            (q[Month::Juni] - 10.158_412_8).abs() < 1e-6,
+            "kreeg {}",
+            q[Month::Juni]
+        );
+    }
+
+    #[test]
+    fn opaak_zuidelijk_dakvlak_45gr_juni_handberekening() {
+        // Hellend dakvlak 45° (F_sky=0,75), A=40 m², U=0,15, zuid, I=310 MJ/m².
+        //   bruto = 0,6·0,04·0,15·40·310                                     = 44,64 MJ
+        //   Q_sky = 0,75·0,04·0,15·40·4,14·11·720·0,0036                     = 21,2471424 MJ
+        //   netto = 44,64 − 21,2471424                                       = 23,3928576 MJ
+        let climate = sample_climate();
+        let el = OpaqueElement {
+            area: 40.0,
+            u_value: 0.15,
+            orientation: Orientation::Zuid,
+            tilt: Tilt::new(45.0).unwrap(),
+        };
+        let q = monthly_opaque_solar_gains(&[el], &climate);
+        assert!(
+            (q[Month::Juni] - 23.392_857_6).abs() < 1e-6,
+            "kreeg {}",
+            q[Month::Juni]
+        );
+    }
+
+    #[test]
+    fn opaak_ontbrekende_orientatie_geeft_puur_hemelstralingsverlies() {
+        // Oost-gevel: sample_climate heeft geen Oost-profiel → bruto = 0, alleen
+        // Q_sky-verlies (formule 7.39 hangt niet van I_sol af). Verticaal, A=10,
+        // U=0,2, januari (t=744 h):
+        //   Q_sky = 0,5·0,04·0,2·10·4,14·11·744·0,0036                       = 4,87897344 MJ
+        //   netto = −4,87897344 MJ
+        let climate = sample_climate();
+        let el = OpaqueElement {
+            area: 10.0,
+            u_value: 0.2,
+            orientation: Orientation::Oost,
+            tilt: Tilt::VERTICAL,
+        };
+        let q = monthly_opaque_solar_gains(&[el], &climate);
+        assert!(
+            (q[Month::Januari] + 4.878_973_44).abs() < 1e-6,
+            "kreeg {}",
+            q[Month::Januari]
+        );
     }
 }

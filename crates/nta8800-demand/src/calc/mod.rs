@@ -92,6 +92,7 @@ pub fn calculate_demand(
         ventilation,
         ventilation_h_ve,
         windows,
+        &[],
         climate,
         heating_setpoint,
         cooling_setpoint,
@@ -119,6 +120,12 @@ pub fn calculate_demand(
 /// poort na**: die geldt norm-correct óók op de terugval-tak (vóór deze uitbreiding
 /// ontbrak hij). Er zijn geen andere callers dan de TO-juli-/BENG-keten, die altijd
 /// `Some(..)` levert.
+///
+/// `opaque_elements` (C5a) voegt de zonwinst door **niet-transparante** vlakken toe
+/// (NTA 8800 §7.6.3, formule 7.33: `α_sol·R_se·U·A·I_sol − Q_sky`). De term is
+/// balans-onafhankelijk en wordt bij zowel de warmte- als de koudebalans op de winst
+/// `Q_gn` opgeteld. Een **lege** slice (zoals [`calculate_demand`] doorgeeft) laat het
+/// gedrag byte-identiek — additief pad, net als `cooling_heat_transfer = None`.
 #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)]
 pub fn calculate_demand_with_cooling_ht(
     zone: &Rekenzone,
@@ -126,6 +133,7 @@ pub fn calculate_demand_with_cooling_ht(
     ventilation: &VentilationResult,
     ventilation_h_ve: f64,
     windows: &[&Window],
+    opaque_elements: &[solar_gains::OpaqueElement],
     climate: &ClimateData,
     heating_setpoint: HeatingSetpoint,
     cooling_setpoint: CoolingSetpoint,
@@ -156,6 +164,10 @@ pub fn calculate_demand_with_cooling_ht(
         solar_gains::monthly_solar_gains(windows, climate, shading_factor, SolarBalance::Heating);
     let monthly_q_sol_cooling =
         solar_gains::monthly_solar_gains(windows, climate, shading_factor, SolarBalance::Cooling);
+    // Opake zonwinst (C5a, §7.6.3 formule 7.33): balans-onafhankelijk (geen g,
+    // geen zonwering, F_sh;obst = 1), dus één profiel dat op beide balanstakken
+    // wordt opgeteld. Lege slice → nul-profiel (byte-identiek terugvalgedrag).
+    let monthly_q_sol_opaque = solar_gains::monthly_opaque_solar_gains(opaque_elements, climate);
 
     // ---- Maandlus: Q_ht, Q_gn, γ, η, Q_nd ----
     let mut out_q_ht = [0.0_f64; 12];
@@ -169,13 +181,16 @@ pub fn calculate_demand_with_cooling_ht(
         let idx = month.index();
 
         let q_ht: Energy = transmission.monthly_q_t[month] + ventilation.monthly_q_v[month];
-        let q_gn_heating: Energy = monthly_q_int[month] + monthly_q_sol_heating[month];
-        let q_gn_cooling: Energy = monthly_q_int[month] + monthly_q_sol_cooling[month];
+        // Winst = interne winst + raam-zonwinst + opake zonwinst (C5a). De opake
+        // term (formule 7.33) is balans-onafhankelijk en telt op beide balansen mee.
+        let q_gn_heating: Energy =
+            monthly_q_int[month] + monthly_q_sol_heating[month] + monthly_q_sol_opaque[month];
+        let q_gn_cooling: Energy =
+            monthly_q_int[month] + monthly_q_sol_cooling[month] + monthly_q_sol_opaque[month];
 
         out_q_ht[idx] = q_ht;
-        // Breakdown rapporteert de warmtebalans-winst (Q_H;gn); dit veld is
-        // ongewijzigd t.o.v. voorheen (de koudebalans-aanpassing raakt alleen
-        // `out_cooling_demand`, niet de gerapporteerde `Q_gn`).
+        // Breakdown rapporteert de warmtebalans-winst (Q_H;gn); inclusief de opake
+        // zonwinst zodat `Q_gn = Q_int + Q_sol` intern consistent blijft.
         out_q_gn[idx] = q_gn_heating;
 
         let gamma_h = monthly_balance::gamma(q_gn_heating, q_ht);
@@ -201,6 +216,12 @@ pub fn calculate_demand_with_cooling_ht(
 
     let monthly_q_ht = MonthlyProfile::new(out_q_ht);
     let monthly_q_gn = MonthlyProfile::new(out_q_gn);
+    // Totale warmtebalans-zonwinst (ramen + opaak) voor de breakdown, zodat
+    // `monthly_q_sol + monthly_q_int == monthly_q_gn`.
+    let monthly_q_sol_total_heating = MonthlyProfile::new(std::array::from_fn(|i| {
+        let m = Month::all()[i];
+        monthly_q_sol_heating[m] + monthly_q_sol_opaque[m]
+    }));
     let monthly_heating_demand = MonthlyProfile::new(out_heating_demand);
     let monthly_cooling_demand = MonthlyProfile::new(out_cooling_demand);
 
@@ -215,9 +236,10 @@ pub fn calculate_demand_with_cooling_ht(
         breakdown: DemandBreakdown {
             monthly_q_ht,
             monthly_q_gn,
-            // Rapporteer de warmtebalans-zonwinst (Q_sol op Q_H); identiek aan de
-            // koudebalans-zonwinst wanneer geen zonwering/belemmering aanwezig is.
-            monthly_q_sol: monthly_q_sol_heating,
+            // Rapporteer de totale warmtebalans-zonwinst (ramen + opaak, Q_sol op
+            // Q_H); identiek aan de koudebalans-zonwinst wanneer geen zonwering/
+            // belemmering aanwezig is.
+            monthly_q_sol: monthly_q_sol_total_heating,
             monthly_q_int,
             monthly_utilization_heating: MonthlyProfile::new(out_eta_heating),
             monthly_utilization_cooling: MonthlyProfile::new(out_eta_cooling),

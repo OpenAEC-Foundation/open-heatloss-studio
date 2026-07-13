@@ -60,6 +60,7 @@ use nta8800_model::units::Temperature;
 use nta8800_model::zoning::UsageFunction;
 use nta8800_pv::{calculate_pv_yield, PvLocation};
 use nta8800_tables::climate::de_bilt_climate_data;
+use nta8800_tables::thermal_capacity::FloorMassClass;
 use nta8800_ventilation::calculate_ventilation;
 use nta8800_demand::{DemandBreakdown, DemandResult};
 
@@ -323,13 +324,39 @@ pub fn compute_beng(project: &ProjectV2) -> Result<BengResult, BengError> {
                 // ontbrekende code → default `light_woning()`.
                 beng_thermal_mass = dynamics::derive_thermal_mass(first_zone, usage_for_dynamics);
                 match &beng_thermal_mass {
-                    Some(_) => notes.push(format!(
-                        "Thermische massa (C3a): C_m afgeleid uit de bouwwijze-codes \
-                         (vloer {}, wand {}) via NTA 8800 tabel 7.10/7.11/7.12; \
-                         woningbouw-default kolom 'geen of open plafond' (voetnoot b).",
-                        first_zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
-                        first_zone.bouwwijze_wand.as_deref().unwrap_or("—"),
-                    )),
+                    Some(tm) => {
+                        notes.push(format!(
+                            "Thermische massa (C3a): C_m afgeleid uit de bouwwijze-codes \
+                             (vloer {}, wand {}) via NTA 8800 tabel 7.10/7.11/7.12; \
+                             woningbouw-default kolom 'geen of open plafond' (voetnoot b).",
+                            first_zone.bouwwijze_vloer.as_deref().unwrap_or("—"),
+                            first_zone.bouwwijze_wand.as_deref().unwrap_or("—"),
+                        ));
+                        // C5b — tabel 7.10 voetnoot c (gesloten/verlaagd plafond, lagere
+                        // D_m) is bij een zware/zeer-zware vloer NIET automatisch toegepast:
+                        // de conditie vergelijkt de massaklasse van de bóvenzijde van een
+                        // vloer met de ónderzijde van de vloer erboven (§7.7, OPMERKING 2),
+                        // een per-verdieping-gegeven dat de enkelvoudige bouwwijze-vloer-code
+                        // niet draagt. De keuze is dus niet eenduidig uit de invoer af te
+                        // leiden; we houden de open-plafond-default aan en melden de
+                        // gevoeligheid (anti-fudge: geen kolomkeuze op basis van fit).
+                        if usage_for_dynamics == UsageFunction::Woonfunctie
+                            && matches!(tm.floor, FloorMassClass::Heavy | FloorMassClass::VeryHeavy)
+                        {
+                            notes.push(
+                                "Plafondkolom (C5b): tabel 7.10 voetnoot c (gesloten/verlaagd \
+                                 plafond) is NIET toegepast — die conditie ('bovenzijde vloer \
+                                 zwaarder dan onderzijde vloer erboven', §7.7 OPMERKING 2) \
+                                 vereist per-verdieping-vloerconstructie die de enkelvoudige \
+                                 bouwwijze-code niet levert; de open-plafond-default (voetnoot b) \
+                                 blijft staan. Gevoeligheid: de gesloten kolom verlaagt D_m (bv. \
+                                 zeer-zwaar/licht 180 → 110 kJ/(m²·K)) en daarmee de effectieve \
+                                 warmtecapaciteit, wat de winstbenutting drukt en BENG 1 met orde \
+                                 ~7 kWh/(m²·jr) verhoogt."
+                                    .into(),
+                            );
+                        }
+                    }
                     None => notes.push(
                         "Thermische massa (C3a): bouwwijze-code ontbreekt of is niet \
                          herkend (bv. 'eigen waarde - bijlage B') — terugval op de \

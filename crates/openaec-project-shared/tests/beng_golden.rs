@@ -537,7 +537,7 @@ fn gouda_project_with_beng_geometry() -> ProjectV2 {
 /// demand-keten-analyse (`nta8800-demand` utilization/τ tegen §7.2.1.1), buiten
 /// C3-scope; deze golden blijft `#[ignore]` tot die gap gedicht is.
 #[test]
-#[ignore = "C3 (13-07): met norm-correcte C_m (D_m=180, tabel 7.10) + interne warmtewinst woningbouw (formule 7.21, Φ_int 4,50 W/m²) staat BENG1 op −7,0 % (96,47 vs 103,69), BENG2 op −37,4 % (15,48 vs 24,71) en BENG3 op +4,6 pp (89,6 vs 85,0). C3 corrigeert de dynamica norm-conform, maar dat legt een demand-keten-fout bloot: certified rekent zélf met dezelfde D_m=180+7.21 en houdt heating op 2551 kWh, onze keten zakt naar 2053 (−19,5 %) → de light_woning/forfait-defaults maskeerden een gain-utilization-overwaardering (η_H;gn te hoog of Q_H;ht te laag). Zie docs/2026-07-13-c3-norm-analyse-massa-interne-winst.md + het C3-eindrapport. Vervolg = demand-keten-analyse (buiten C3-scope). Anti-fudge: expected.json onaangeraakt."]
+#[ignore = "C3 (13-07): met norm-correcte C_m (D_m=180, tabel 7.10) + interne warmtewinst woningbouw (formule 7.21, Φ_int 4,50 W/m²) staat BENG1 op −7,0 % (96,47 vs 103,69), BENG2 op −37,4 % (15,48 vs 24,71) en BENG3 op +4,6 pp (89,6 vs 85,0). C3 corrigeert de dynamica norm-conform, maar dat legt een demand-keten-fout bloot: certified rekent zélf met dezelfde D_m=180+7.21 en houdt heating op 2551 kWh, onze keten zakt naar 2053 (−19,5 %) → de light_woning/forfait-defaults maskeerden een gain-utilization-overwaardering (η_H;gn te hoog of Q_H;ht te laag). Zie docs/2026-07-13-c3-norm-analyse-massa-interne-winst.md + het C3-eindrapport. Vervolg = demand-keten-analyse (buiten C3-scope). C4+C5a-stand (13-07): BENG1 −5,9 % (97,58), BENG2 −37,8 % (15,38), BENG3 +4,9 pp — BENG1 alleen valt binnen ±6 %, maar BENG2/BENG3 buiten → de gecombineerde toets blijft rood. Anti-fudge: expected.json onaangeraakt."]
 fn aalten_beng_geometry_within_certified_tolerance() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -631,7 +631,7 @@ fn aalten_beng_geometry_within_certified_tolerance() {
 /// alleen ramen, geen opake vlakken) en de onbewezen plafondkolom-massa (D_m 110 i.p.v.
 /// 180, voetnoot c → ~+4pp). Zie docs/2026-07-13-c4-demand-keten-analyse.md.
 #[test]
-#[ignore = "C4 (13-07): zonwinst-omissies gefixt (F_w=0,90 form.7.40 + Q_sky form.7.39) → heating primair 2168 kWh (−15,0 %) vs certified 2551, koudebehoefte 1329→1036 kWh (cert 873). Formule-audit (§7.8) bevestigt η_H;gn/τ/a norm-correct — geen utilization-fout. Split beweegt richting certified maar restgap > ±10 %. Resterend (buiten C4-scope): opake zonwinst/Q_sky (form.7.33, demand-keten rekent alleen ramen) + onbewezen plafondkolom D_m110 vs 180 (voetnoot c, ~+4pp). Zie docs/2026-07-13-c4-demand-keten-analyse.md. expected.json onaangeraakt."]
+#[ignore = "C4 (13-07): zonwinst-omissies gefixt (F_w=0,90 form.7.40 + Q_sky form.7.39) → heating primair 2168 kWh (−15,0 %) vs certified 2551, koudebehoefte 1329→1036 kWh (cert 873). Formule-audit (§7.8) bevestigt η_H;gn/τ/a norm-correct — geen utilization-fout. Split beweegt richting certified maar restgap > ±10 %. Resterend (buiten C4-scope): opake zonwinst/Q_sky (form.7.33, demand-keten rekent alleen ramen) + onbewezen plafondkolom D_m110 vs 180 (voetnoot c, ~+4pp). C5a (13-07, opake zonwinst form. 7.33): heating primair 2168 → 2172 kWh (−14,9 %) — de opake bijdrage is klein (α·R_se·U-gedempt). C5b: voetnoot c is niet norm-afleidbaar uit de enkelvoudige bouwwijze-code (vergt per-verdieping-vloerdata), dus D_m180 blijft; gevoeligheid D_m110 → heating 2264 (−11,2 %), BENG1 +1,0 %. Zie docs/2026-07-13-c5-norm-analyse-opaak-plafondkolom.md + docs/2026-07-13-c4-demand-keten-analyse.md. expected.json onaangeraakt."]
 fn aalten_beng_geometry_heating_matches_certified() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -686,7 +686,7 @@ fn aalten_beng_geometry_heating_matches_certified() {
 /// plafondkolom-massa), niet door de koudebalans. Zie
 /// docs/2026-07-13-c4-demand-keten-analyse.md.
 #[test]
-#[ignore = "C4 (13-07): zonwinst-fix (F_w + Q_sky) corrigeert de verwarming/koeling-split maar is ~BENG-neutraal; BENG2 14,73 (−40,4 %) vs certified 24,71 (buiten ±10 %). Resterende aggregaat-gap = te lage totale energiebehoefte (opake zonwinst/Q_sky form.7.33 + plafondkolom-massa), niet de koudebalans. Zie docs/2026-07-13-c4-demand-keten-analyse.md. expected.json onaangeraakt."]
+#[ignore = "C4 (13-07): zonwinst-fix (F_w + Q_sky) corrigeert de verwarming/koeling-split maar is ~BENG-neutraal; BENG2 14,73 (−40,4 %) vs certified 24,71 (buiten ±10 %). Resterende aggregaat-gap = te lage totale energiebehoefte (opake zonwinst/Q_sky form.7.33 + plafondkolom-massa), niet de koudebalans. C5a (13-07): opake zonwinst (form. 7.33) tilt BENG2 14,73 → 15,38 (−37,8 %), nog ruim buiten ±10 %. Zie docs/2026-07-13-c5-norm-analyse-opaak-plafondkolom.md. expected.json onaangeraakt."]
 fn aalten_beng_geometry_beng2_matches_certified() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_AALTEN_EXPECTED).unwrap();
     let e = &fx.expected;
@@ -800,7 +800,7 @@ fn uniec_measure_bridged() {
 /// als Aalten (gain-utilization-overwaardering) bovenop de al blokkerende
 /// PV-saldering-normversie (F3d-8). Blijft `#[ignore]`.
 #[test]
-#[ignore = "F6 2b / F3d-8b / C2 / C3 (13-07): C3 (norm-correcte C_m=180 + interne warmtewinst formule 7.21) duwt BENG1 van +1,0% naar −13,2% (83,18 vs 95,86), BENG2 naar −83,8% (4,44 vs 27,48), koeling 1969→1591 kWh. Twee stapelende blokkades: (1) PV-saldering-normversie (F3d-8, BENG2/3, volledig vs ~64% credit) en (2) de C3-bevinding — demand-keten crediteert gains te sterk (heating 5131→4505 kWh, −30,8% vs cert 6506). Beide buiten C3-scope. Anti-fudge: expected.json onaangeraakt. Meet met gouda_measure_bridged/zeb_measure."]
+#[ignore = "F6 2b / F3d-8b / C2 / C3 (13-07): C3 (norm-correcte C_m=180 + interne warmtewinst formule 7.21) duwt BENG1 van +1,0% naar −13,2% (83,18 vs 95,86), BENG2 naar −83,8% (4,44 vs 27,48), koeling 1969→1591 kWh. Twee stapelende blokkades: (1) PV-saldering-normversie (F3d-8, BENG2/3, volledig vs ~64% credit) en (2) de C3-bevinding — demand-keten crediteert gains te sterk (heating 5131→4505 kWh, −30,8% vs cert 6506). Beide buiten C3-scope. C4+C5a-stand (13-07): BENG1 −13,4 % (82,98), BENG2 −84,5 % (4,27), heating 4777 / koeling 1295 kWh. Anti-fudge: expected.json onaangeraakt. Meet met gouda_measure_bridged/zeb_measure."]
 fn gouda_beng_geometry_within_certified_tolerance() {
     let fx: UniecExpected = serde_json::from_str(UNIEC_GOUDA_EXPECTED).unwrap();
     let e = &fx.expected;

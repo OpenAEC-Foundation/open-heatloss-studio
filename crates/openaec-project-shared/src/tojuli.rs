@@ -34,7 +34,9 @@ use nta8800_demand::model::{
     setpoints::{CoolingSetpoint, HeatingSetpoint},
 };
 use nta8800_demand::result::DemandResult;
+use nta8800_demand::OpaqueElement;
 use nta8800_model::geometry::ThermalBridgeCategory;
+use nta8800_model::location::{Orientation, Tilt};
 use nta8800_model::time::{Month, MonthlyProfile};
 use nta8800_model::units::{Energy, Temperature};
 use nta8800_model::ThermalBridgeLinear;
@@ -118,7 +120,7 @@ const FORFAIT_GROSS_STOREY_HEIGHT_M: f64 = 3.0;
 const FORFAIT_STOREY_CONSTRUCTION_THICKNESS_M: f64 = 0.3;
 
 use crate::geometry::{BoundaryKind, SharedGeometry};
-use crate::nta8800_view::geometry_to_nta8800;
+use crate::nta8800_view::{geometry_to_nta8800, orientation_from_degrees};
 use crate::project::ProjectV2;
 use crate::shared::{
     BuildingTypeShared, HeatRecovery, ResidentialType, SharedProject, VentilationSystemKind,
@@ -213,6 +215,62 @@ fn build_transmission_elements(geometry: &SharedGeometry) -> Vec<TransmissionEle
         }
     }
 
+    elements
+}
+
+/// Bouw de lijst opake (niet-transparante) bouwschilelementen voor de
+/// zonwinst-berekening (NTA 8800 §7.6.3, formule 7.33 — C5a) uit de gedeelde
+/// geometrie.
+///
+/// **Alleen aan buitenlucht grenzende opake vlakken** (`boundary = Exterior`)
+/// dragen bij: een grondvlak (`R_se = 0`, geen instraling), een onverwarmde-
+/// ruimte-/aangrenzend-gebouw-grens of open water ontvangen geen directe
+/// zoninstraling. De opake oppervlakte is `A_bruto − Σ A_openingen` (identiek aan
+/// [`build_transmission_elements`]): de ramen/deuren dragen hun eigen zonwinst via
+/// de [`nta8800_model::geometry::Window`]-tak, dus aftrekken voorkomt dubbeltelling.
+///
+/// Oriëntatie en helling volgen dezelfde mapping als de ramen
+/// ([`crate::nta8800_view`]): `orientation_deg → Orientation` (afwezig → horizontaal,
+/// bv. een plat dak) en `slope_deg → Tilt` (afwezig → verticaal). De helling stuurt
+/// de vormfactor `F_sky` in de hemelstralingsterm (§7.6.6.4).
+///
+/// **Beperking (gedocumenteerd):** de klimaat-`I_sol` is per oriëntatie forfaitair
+/// (De Bilt, 9 profielen incl. horizontaal), niet per exacte hellingshoek. Een
+/// hellend dakvlak gebruikt dus het verticale-vlak-profiel van zijn oriëntatie —
+/// dezelfde vereenvoudiging die de raam-zonwinst al hanteert. Tweede-orde voor de
+/// (met `R_se·U` gedempte) opake bijdrage.
+fn build_opaque_solar_elements(geometry: &SharedGeometry) -> Vec<OpaqueElement> {
+    /// Onder deze opake rest [m²] levert het vlak geen zonwinst-element.
+    const MIN_OPAQUE_AREA_M2: f64 = 1e-9;
+
+    let mut elements = Vec::new();
+    for space in &geometry.spaces {
+        for construction in &space.constructions {
+            // Alleen exterieur-opake vlakken; overige grenzen zien geen zon.
+            if !matches!(construction.boundary, BoundaryKind::Exterior) {
+                continue;
+            }
+            let openings_area: f64 = construction.openings.iter().map(|o| o.area_m2).sum();
+            let opaque_area = construction.area_m2 - openings_area;
+            if opaque_area <= MIN_OPAQUE_AREA_M2 {
+                continue;
+            }
+            let orientation = construction
+                .orientation_deg
+                .map_or(Orientation::Horizontaal, orientation_from_degrees);
+            // slope_deg is per model 0..=180; clamp defensief en val terug op
+            // verticaal (90°) bij afwezigheid — spiegelt de raam-mapping.
+            let tilt = Tilt {
+                degrees: construction.slope_deg.unwrap_or(90.0).clamp(0.0, 180.0),
+            };
+            elements.push(OpaqueElement {
+                area: opaque_area,
+                u_value: construction.u_value,
+                orientation,
+                tilt,
+            });
+        }
+    }
     elements
 }
 
@@ -887,12 +945,16 @@ pub fn compute_tojuli_full(
     ));
 
     let windows_refs: Vec<&nta8800_model::geometry::window::Window> = view.windows.iter().collect();
+    // Opake zonwinst (C5a, §7.6.3 formule 7.33): exterieur-opake vlakken uit de
+    // gedeelde geometrie. `α_sol·R_se·U·A·I_sol − Q_sky`, balans-onafhankelijk.
+    let opaque_elements = build_opaque_solar_elements(&project.geometry);
     let demand: DemandResult = calculate_demand_with_cooling_ht(
         zone,
         &transmission,
         &ventilation,
         h_v,
         &windows_refs,
+        &opaque_elements,
         &climate,
         heating_sp,
         cooling_sp,
