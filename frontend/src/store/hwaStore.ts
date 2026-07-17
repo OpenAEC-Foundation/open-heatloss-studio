@@ -30,6 +30,7 @@ function makeSurface(index: number): HwaRoofSurface {
     flatRoofFinish: null,
     facadeContributionM2: 0,
     downpipeCount: 1,
+    afschotMmPerM: undefined,
   };
 }
 

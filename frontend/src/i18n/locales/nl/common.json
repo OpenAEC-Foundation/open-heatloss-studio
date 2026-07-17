@@ -629,6 +629,8 @@
     "flatRoofFinishPlat": "Plat (zonder grind)",
     "facadeContribution": "Gevel-/opstandbijdrage",
     "downpipeCount": "Aantal afvoeren",
+    "afschotMmPerM": "Afschot",
+    "afschotNone": "niet ingevuld",
     "effectiveArea": "A_eff",
     "flow": "Debiet Q",
     "flowPerPipe": "Q per afvoer",
@@ -644,6 +646,7 @@
     "sourceRain": "Regenintensiteit",
     "sourcePitch": "Hellingreductie",
     "sourceFlatRoof": "Platdakfactoren",
-    "sourceCapacity": "Capaciteitstabel diameters"
+    "sourceCapacity": "Capaciteitstabel diameters",
+    "sourceSlope": "Ontwerpafschot (controle, geen invloed op de berekening)"
   }
 }

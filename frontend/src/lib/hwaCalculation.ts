@@ -117,6 +117,21 @@ export const DOWNPIPE_CAPACITY_TABLE: SourcedValue<
 export const EMERGENCY_OVERFLOW_WARNING =
   "noodafvoer verplicht dimensioneren (buiten scope van deze toets)";
 
+/**
+ * Ontwerpafschot-drempel voor platte daken (mm/m). Vuistregel uit de
+ * Vakrichtlijn gesloten dakbedekkingsconstructies (1,6% = 16 mm/m), bedoeld
+ * om plasvorming na doorbuiging te voorkomen. GEEN normbron — zie
+ * {@link HwaSource} `"vuistregel"` — en beïnvloedt de reductiefactor NIET.
+ * Dient uitsluitend als controle/documentatie op het afschot dat de
+ * gebruiker per dakvlak invoert (`HwaRoofSurface.afschotMmPerM`).
+ */
+export const DESIGN_SLOPE_MM_PER_M: SourcedValue<number> = {
+  value: 16,
+  source: "vuistregel",
+  reference:
+    "Vakrichtlijn gesloten dakbedekkingsconstructies — ontwerpafschot 1,6% om plasvorming na doorbuiging te voorkomen (vuistregel, niet norm-geverifieerd)",
+};
+
 // ---------------------------------------------------------------------------
 // Clamping helpers — edge-cases netjes afvangen met warning
 // ---------------------------------------------------------------------------
@@ -248,6 +263,22 @@ export function calculateSurface(
   if (pitchDeg === 0 && surface.flatRoofFinish === null) {
     warnings.push("platdak-afwerking niet opgegeven, 0,75 (overig plat dak) aangenomen");
   }
+
+  // Afschot beïnvloedt de afvoercapaciteit NIET (geen normbron voor invloed
+  // op de reductiefactor) — puur controle/documentatie, zie DESIGN_SLOPE_MM_PER_M.
+  if (pitchDeg === 0) {
+    const afschot = surface.afschotMmPerM;
+    if (afschot === undefined || afschot <= 0) {
+      warnings.push(
+        "afschot niet ingevuld of 0 bij plat dak, risico op plasvorming/waterophoping — afschot naar de afvoerpunten aanbevolen, controleer noodafvoer",
+      );
+    } else if (afschot < DESIGN_SLOPE_MM_PER_M.value) {
+      warnings.push(
+        `afschot (${afschot} mm/m) ligt onder het aanbevolen ontwerpafschot van ${DESIGN_SLOPE_MM_PER_M.value} mm/m`,
+      );
+    }
+  }
+
   const reductionFactor = surfaceReductionFactor(pitchDeg, surface.flatRoofFinish);
   const facadeContribution =
     Math.max(0, surface.facadeContributionM2) * FACADE_CONTRIBUTION_FACTOR.value;
@@ -282,6 +313,7 @@ export function calculateSurface(
     flowPerPipeLpMin,
     adviesdiameterMm,
     alternatief,
+    afschotMmPerM: surface.afschotMmPerM ?? null,
     warnings,
   };
 }

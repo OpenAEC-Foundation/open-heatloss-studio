@@ -24,8 +24,15 @@
  * - `"fabrikanten-doc"` — geverifieerd tegen NTR 3216-gebaseerde
  *   fabrikanten-documentatie (NedZink/Dyka); de norm zelf is niet ingezien.
  * - `"norm-geverifieerd"` — gecontroleerd tegen de aangehaalde normtekst.
+ * - `"vuistregel"` — vuistregel/richtlijn uit vakliteratuur (bv. een
+ *   Vakrichtlijn), GEEN normbron en NIET tegen NEN 3215/NTR 3216
+ *   geverifieerd; puur informatief/controle, beïnvloedt de berekening niet.
  */
-export type HwaSource = "rekenblad-eigenaar" | "fabrikanten-doc" | "norm-geverifieerd";
+export type HwaSource =
+  | "rekenblad-eigenaar"
+  | "fabrikanten-doc"
+  | "norm-geverifieerd"
+  | "vuistregel";
 
 /** Eén normwaarde met herkomst en referentie, zodat de bron altijd zichtbaar blijft. */
 export interface SourcedValue<T> {
@@ -61,6 +68,13 @@ export interface HwaRoofSurface {
   facadeContributionM2: number;
   /** Aantal afvoeren op dit vlak (≥ 1). */
   downpipeCount: number;
+  /**
+   * Afschot in mm/m — alleen relevant bij `pitchDeg === 0` (plat dak).
+   * Puur controle/documentatie: beïnvloedt de berekende afvoercapaciteit
+   * NIET (geen normbron voor invloed op de reductiefactor), zie
+   * `DESIGN_SLOPE_MM_PER_M` in `lib/hwaCalculation.ts`.
+   */
+  afschotMmPerM?: number;
 }
 
 /** Systeemtype: zwaartekracht ("traditioneel") of onderdruk-/vacuümsysteem ("uv"). */
@@ -100,6 +114,8 @@ export interface HwaSurfaceResult {
   adviesdiameterMm: number | null;
   /** Alternatief met downpipeCount + 1, indien dat een kleinere diameter oplevert. */
   alternatief: HwaDownpipeAlternative | null;
+  /** Doorgegeven vanuit de invoer (`HwaRoofSurface.afschotMmPerM`), `null` als niet ingevuld — puur documentatie, zie aldaar. */
+  afschotMmPerM: number | null;
   warnings: string[];
 }
 

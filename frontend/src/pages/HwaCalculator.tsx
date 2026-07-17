@@ -22,6 +22,7 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { formatDecimals } from "../lib/formatNumber";
 import {
   DEFAULT_RAIN_INTENSITY_LP_MIN_M2,
+  DESIGN_SLOPE_MM_PER_M,
   DOWNPIPE_CAPACITY_TABLE,
   FLAT_ROOF_FACTORS,
   PITCH_REDUCTION_TABLE,
@@ -242,6 +243,9 @@ export function HwaCalculator() {
             <li>
               {t("hwa.sourceCapacity")}: {DOWNPIPE_CAPACITY_TABLE.reference}
             </li>
+            <li>
+              {t("hwa.sourceSlope")}: {DESIGN_SLOPE_MM_PER_M.reference}
+            </li>
           </ul>
         </div>
       </div>
@@ -405,6 +409,27 @@ function SurfaceRow({
           </label>
         )}
 
+        {surface.pitchDeg === 0 && (
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="font-medium text-on-surface-secondary">
+              {t("hwa.afschotMmPerM")} [mm/m]
+            </span>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={surface.afschotMmPerM ?? ""}
+              onChange={(e) => {
+                const n = parseFloat(e.target.value);
+                onUpdate({
+                  afschotMmPerM: Number.isFinite(n) && n >= 0 ? n : undefined,
+                });
+              }}
+              className={inputClass}
+            />
+          </label>
+        )}
+
         <label className="flex flex-col gap-1 text-xs">
           <span className="font-medium text-on-surface-secondary">
             {t("hwa.facadeContribution")} [m²]
@@ -464,6 +489,16 @@ function SurfaceRow({
               }
               emphasized
             />
+            {surface.pitchDeg === 0 && (
+              <ResultRow
+                label={t("hwa.afschotMmPerM")}
+                value={
+                  result.afschotMmPerM !== null
+                    ? `${formatDecimals(result.afschotMmPerM, 1)} mm/m`
+                    : t("hwa.afschotNone")
+                }
+              />
+            )}
           </div>
           {result.alternatief && (
             <p className="mt-1 text-on-surface-muted">

@@ -629,6 +629,8 @@
     "flatRoofFinishPlat": "Flat (no gravel)",
     "facadeContribution": "Facade / upstand contribution",
     "downpipeCount": "Number of downpipes",
+    "afschotMmPerM": "Slope",
+    "afschotNone": "not entered",
     "effectiveArea": "A_eff",
     "flow": "Flow Q",
     "flowPerPipe": "Q per downpipe",
@@ -644,6 +646,7 @@
     "sourceRain": "Rain intensity",
     "sourcePitch": "Pitch reduction",
     "sourceFlatRoof": "Flat roof factors",
-    "sourceCapacity": "Diameter capacity table"
+    "sourceCapacity": "Diameter capacity table",
+    "sourceSlope": "Design slope (check only, no effect on the calculation)"
   }
 }

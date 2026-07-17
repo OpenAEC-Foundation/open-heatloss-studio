@@ -19,6 +19,7 @@ import {
   calculateHwa,
   calculateSurface,
   DEFAULT_RAIN_INTENSITY_LP_MIN_M2,
+  DESIGN_SLOPE_MM_PER_M,
   DOWNPIPE_CAPACITY_TABLE,
   EMERGENCY_OVERFLOW_WARNING,
   FACADE_CONTRIBUTION_FACTOR,
@@ -56,6 +57,7 @@ describe("referentiecase (norm-conform na bronverificatie)", () => {
       pitchDeg: 0,
       flatRoofFinish: "plat",
       downpipeCount: 1,
+      afschotMmPerM: 20, // boven de ontwerpdrempel — geen afschot-warning, referentiecase blijft warning-vrij
     });
     const result = calculateSurface(surface, DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value);
 
@@ -76,6 +78,7 @@ describe("referentiecase (norm-conform na bronverificatie)", () => {
       pitchDeg: 0,
       flatRoofFinish: "grind",
       downpipeCount: 1,
+      afschotMmPerM: 20, // boven de ontwerpdrempel — geen afschot-warning, referentiecase blijft warning-vrij
     });
     const result = calculateSurface(surface, DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value);
 
@@ -354,6 +357,67 @@ describe("noodafvoer-waarschuwing bij platte daken (traditioneel)", () => {
     };
     const result = calculateHwa(input);
     expect(result.warnings).toContain(EMERGENCY_OVERFLOW_WARNING);
+  });
+});
+
+describe("afschot — controle bij platte daken (beïnvloedt de berekening NIET)", () => {
+  it("plat dak zonder afschot (ontbrekend) → plasvorming-warning, effectiveAreaM2 ongewijzigd", () => {
+    const zonderAfschot = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat" }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(zonderAfschot.warnings).toContain(
+      "afschot niet ingevuld of 0 bij plat dak, risico op plasvorming/waterophoping — afschot naar de afvoerpunten aanbevolen, controleer noodafvoer",
+    );
+    expect(zonderAfschot.afschotMmPerM).toBeNull();
+
+    const metAfschotNul = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat", afschotMmPerM: 0 }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(metAfschotNul.warnings).toContain(
+      "afschot niet ingevuld of 0 bij plat dak, risico op plasvorming/waterophoping — afschot naar de afvoerpunten aanbevolen, controleer noodafvoer",
+    );
+    // Afschot beïnvloedt de reductiefactor niet — zelfde effectief oppervlak als zonder afschot.
+    expect(metAfschotNul.effectiveAreaM2).toBeCloseTo(zonderAfschot.effectiveAreaM2, 6);
+  });
+
+  it("afschot 10 mm/m (> 0 maar < 16 mm/m drempel) → onder-drempel-warning, geen plasvorming-warning", () => {
+    const result = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat", afschotMmPerM: 10 }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(result.warnings).toContain(
+      `afschot (10 mm/m) ligt onder het aanbevolen ontwerpafschot van ${DESIGN_SLOPE_MM_PER_M.value} mm/m`,
+    );
+    expect(
+      result.warnings.some((w) => w.includes("risico op plasvorming")),
+    ).toBe(false);
+    expect(result.afschotMmPerM).toBe(10);
+  });
+
+  it("afschot ≥ 16 mm/m → geen afschot-warning, wel doorgegeven in het resultaat", () => {
+    const opDrempel = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat", afschotMmPerM: 16 }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(opDrempel.warnings.some((w) => w.includes("afschot"))).toBe(false);
+    expect(opDrempel.afschotMmPerM).toBe(16);
+
+    const bovenDrempel = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat", afschotMmPerM: 20 }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(bovenDrempel.warnings.some((w) => w.includes("afschot"))).toBe(false);
+    expect(bovenDrempel.afschotMmPerM).toBe(20);
+  });
+
+  it("hellend dak (pitchDeg > 0) geeft nooit een afschot-warning, ongeacht afschotMmPerM", () => {
+    const result = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 60, flatRoofFinish: null, afschotMmPerM: undefined }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(result.warnings.some((w) => w.includes("afschot"))).toBe(false);
   });
 });
 
