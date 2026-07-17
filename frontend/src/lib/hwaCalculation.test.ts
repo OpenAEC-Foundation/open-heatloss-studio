@@ -1,11 +1,12 @@
 /**
  * Tests voor de HWA-rekenkern (`lib/hwaCalculation.ts`).
  *
- * Dekt: de referentiecase uit het bronrekenblad (incl. de gedocumenteerde
- * platdak-afwerking-interpretatie, zie de module-doc-comment in
- * `hwaCalculation.ts`), het advies-alternatief-pad (n+1 afvoeren), de
- * hellingreductie-interpolatie (exacte tabelpunten + tussenwaarden), de
- * platdakfactoren (grind/plat), meerdere afvoeren, de UV-systeemtoets
+ * Dekt: de (na bronverificatie herziene) norm-conforme referentiecase —
+ * een plat dak is ALTIJD gereduceerd (grind 0,6 / overig plat 0,75), zie de
+ * module-doc-comment in `hwaCalculation.ts` — het advies-alternatief-pad
+ * (n+1 afvoeren), de hellingreductie-banden (trapsgewijs, GEEN interpolatie
+ * meer), de platdakfactoren (grind/plat/ontbrekende afwerking + warning),
+ * de gevelbijdrage (β = 0,3), meerdere afvoeren, de UV-systeemtoets
  * (pass/fail + ontbrekende capaciteit) en alle edge-cases (0 vlakken,
  * oppervlak 0, ongeldig aantal afvoeren, hellingshoek buiten bereik,
  * capaciteitstabel die niet volstaat).
@@ -20,6 +21,7 @@ import {
   DEFAULT_RAIN_INTENSITY_LP_MIN_M2,
   DOWNPIPE_CAPACITY_TABLE,
   EMERGENCY_OVERFLOW_WARNING,
+  FACADE_CONTRIBUTION_FACTOR,
   FLAT_ROOF_FACTORS,
   pitchReductionFactor,
   surfaceReductionFactor,
@@ -40,11 +42,49 @@ function makeSurface(overrides: Partial<HwaRoofSurface> = {}): HwaRoofSurface {
   };
 }
 
-describe("referentiecase uit het bronrekenblad", () => {
-  it("plat dak 5×8 m zonder grind → 72 l/min, Ø75 volstaat NET (72 ≤ 75)", () => {
-    // Interpretatiekeuze (zie hwaCalculation.ts module-doc-comment):
-    // flatRoofFinish: null ≡ ongereduceerde basiswaarde (1,0) uit het
-    // voorbeeldblok van het rekenblad — NIET de "plat"-tabelwaarde 0,75.
+describe("referentiecase (norm-conform na bronverificatie)", () => {
+  it("plat dak 5×8 m zonder grind → 54 l/min (40 × 0,75 × 1,8), Ø75 volstaat", () => {
+    // Norm-conform: een plat dak is ALTIJD gereduceerd, "zonder grind" ≡
+    // flatRoofFinish "plat" (0,75) — het ongereduceerde (1,0) voorbeeldblok
+    // uit het bronrekenblad is vervallen, zie hwaCalculation.ts
+    // module-doc-comment. Zie de aparte cases hieronder voor grind (0,6) en
+    // een niet-opgegeven afwerking (fallback naar 0,75 + warning).
+    const surface = makeSurface({
+      areaInputMode: "lxb",
+      lengthM: 8,
+      widthM: 5,
+      pitchDeg: 0,
+      flatRoofFinish: "plat",
+      downpipeCount: 1,
+    });
+    const result = calculateSurface(surface, DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value);
+
+    expect(result.effectiveAreaM2).toBeCloseTo(30, 6); // 40 × 0,75
+    expect(result.flowLpMin).toBeCloseTo(54, 6);
+    expect(result.flowPerPipeLpMin).toBeCloseTo(54, 6);
+    expect(result.adviesdiameterMm).toBe(75);
+    // 2 afvoeren zou ook op Ø75 uitkomen (27 ≤ 75) → geen kleiner alternatief.
+    expect(result.alternatief).toBeNull();
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("plat dak met grind → 40 × 0,6 × 1,8 = 43,2 l/min", () => {
+    const surface = makeSurface({
+      areaInputMode: "lxb",
+      lengthM: 8,
+      widthM: 5,
+      pitchDeg: 0,
+      flatRoofFinish: "grind",
+      downpipeCount: 1,
+    });
+    const result = calculateSurface(surface, DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value);
+
+    expect(result.effectiveAreaM2).toBeCloseTo(24, 6); // 40 × 0,6
+    expect(result.flowLpMin).toBeCloseTo(43.2, 6);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("plat dak zonder opgegeven afwerking (null) → valt terug op 0,75 mét warning", () => {
     const surface = makeSurface({
       areaInputMode: "lxb",
       lengthM: 8,
@@ -55,21 +95,22 @@ describe("referentiecase uit het bronrekenblad", () => {
     });
     const result = calculateSurface(surface, DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value);
 
-    expect(result.effectiveAreaM2).toBe(40);
-    expect(result.flowLpMin).toBeCloseTo(72, 6);
-    expect(result.flowPerPipeLpMin).toBeCloseTo(72, 6);
-    expect(result.adviesdiameterMm).toBe(75);
-    // 2 afvoeren zou ook op Ø75 uitkomen (36 ≤ 75) → geen kleiner alternatief.
-    expect(result.alternatief).toBeNull();
-    expect(result.warnings).toEqual([]);
+    expect(result.effectiveAreaM2).toBeCloseTo(30, 6); // 40 × 0,75, zelfde als expliciet "plat"
+    expect(result.flowLpMin).toBeCloseTo(54, 6);
+    expect(result.warnings).toContain(
+      "platdak-afwerking niet opgegeven, 0,75 (overig plat dak) aangenomen",
+    );
   });
 
   it("100 l/min met 1 afvoer → advies Ø80; alternatief-pad met 2 afvoeren geeft Ø75", () => {
-    // 50 m² × 2,0 l/(min·m²) = 100 l/min; 1 afvoer → 100 l/min per afvoer,
-    // Ø75 (capaciteit 75) volstaat niet, Ø80 (capaciteit 117) wel.
+    // Hellend dak (30°, binnen de ≤45°-band → β = 1,0, geen reductie) zodat
+    // dit specifiek het advies-alternatief-pad demonstreert, los van de
+    // platdakfactor: 50 m² × 2,0 l/(min·m²) = 100 l/min; 1 afvoer →
+    // 100 l/min per afvoer, Ø75 (capaciteit 75) volstaat niet, Ø80
+    // (capaciteit 117) wel.
     const surface = makeSurface({
       areaM2: 50,
-      pitchDeg: 0,
+      pitchDeg: 30,
       flatRoofFinish: null,
       downpipeCount: 1,
     });
@@ -113,8 +154,8 @@ describe("adviesDiameterMm — capaciteitstabel", () => {
   });
 });
 
-describe("pitchReductionFactor — lineaire interpolatie", () => {
-  it("exacte tabelpunten", () => {
+describe("pitchReductionFactor — trapsgewijze banden (GEEN interpolatie)", () => {
+  it("exacte bandgrenzen", () => {
     expect(pitchReductionFactor(45)).toBe(1.0);
     expect(pitchReductionFactor(60)).toBe(0.8);
     expect(pitchReductionFactor(85)).toBe(0.6);
@@ -126,16 +167,28 @@ describe("pitchReductionFactor — lineaire interpolatie", () => {
     expect(pitchReductionFactor(30)).toBe(1.0);
   });
 
-  it("52,5° (midden 45–60) → 0,9", () => {
-    expect(pitchReductionFactor(52.5)).toBeCloseTo(0.9, 6);
+  it("52,5° (in de >45–60°-band) → 0,8", () => {
+    expect(pitchReductionFactor(52.5)).toBe(0.8);
   });
 
-  it("87,5° (midden 85–90) → 0,45", () => {
-    expect(pitchReductionFactor(87.5)).toBeCloseTo(0.45, 6);
+  it("61° (in de >60–85°-band) → 0,6", () => {
+    expect(pitchReductionFactor(61)).toBe(0.6);
   });
 
-  it("72,5° (midden 60–85) → 0,7", () => {
-    expect(pitchReductionFactor(72.5)).toBeCloseTo(0.7, 6);
+  it("85° (bovengrens van de >60–85°-band) → 0,6", () => {
+    expect(pitchReductionFactor(85)).toBe(0.6);
+  });
+
+  it("86° (in de >85–90°-band) → 0,3", () => {
+    expect(pitchReductionFactor(86)).toBe(0.3);
+  });
+
+  it("geen interpolatie: begin en einde van een band geven exact dezelfde factor", () => {
+    // Bv. 46° en 59° zitten allebei in de >45–60°-band → beide 0,8, geen
+    // lineair verloop ertussen (in tegenstelling tot de oude implementatie).
+    expect(pitchReductionFactor(46)).toBe(0.8);
+    expect(pitchReductionFactor(59)).toBe(0.8);
+    expect(pitchReductionFactor(46)).toBe(pitchReductionFactor(59));
   });
 });
 
@@ -145,12 +198,52 @@ describe("surfaceReductionFactor — platdak vs. helling", () => {
     expect(FLAT_ROOF_FACTORS.value.plat).toBe(0.75);
     expect(surfaceReductionFactor(0, "grind")).toBe(0.6);
     expect(surfaceReductionFactor(0, "plat")).toBe(0.75);
-    expect(surfaceReductionFactor(0, null)).toBe(1.0);
+  });
+
+  it("null (geen afwerking opgegeven) valt terug op 0,75 — een plat dak is ALTIJD gereduceerd, NIET meer 1,0", () => {
+    expect(surfaceReductionFactor(0, null)).toBe(0.75);
+    expect(surfaceReductionFactor(0, null)).toBe(FLAT_ROOF_FACTORS.value.plat);
   });
 
   it("hellend dak (pitchDeg > 0) gebruikt de hellingreductie, niet de platdakfactor", () => {
     expect(surfaceReductionFactor(60, "grind")).toBe(pitchReductionFactor(60));
     expect(surfaceReductionFactor(60, null)).toBe(pitchReductionFactor(60));
+  });
+});
+
+describe("calculateSurface — platdak-afwerking-warning", () => {
+  it("null-afwerking op een plat dak geeft de expliciete warning, expliciete afwerking niet", () => {
+    const zonderAfwerking = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: null }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(zonderAfwerking.warnings).toContain(
+      "platdak-afwerking niet opgegeven, 0,75 (overig plat dak) aangenomen",
+    );
+
+    const metGrind = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "grind" }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(
+      metGrind.warnings.some((w) => w.includes("platdak-afwerking niet opgegeven")),
+    ).toBe(false);
+
+    const metPlat = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 0, flatRoofFinish: "plat" }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(metPlat.warnings.some((w) => w.includes("platdak-afwerking niet opgegeven"))).toBe(
+      false,
+    );
+  });
+
+  it("hellend dak (pitchDeg > 0) geeft nooit de platdak-afwerking-warning, ongeacht flatRoofFinish", () => {
+    const result = calculateSurface(
+      makeSurface({ areaM2: 40, pitchDeg: 60, flatRoofFinish: null }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(result.warnings.some((w) => w.includes("platdak-afwerking"))).toBe(false);
   });
 });
 
@@ -170,13 +263,15 @@ describe("meerdere afvoeren", () => {
 });
 
 describe("gevelbijdrage", () => {
-  it("facadeContributionM2 telt op bij factor 1,0", () => {
+  it("facadeContributionM2 telt op bij factor 0,3 (muren ≡ verticaal vlak, zelfde β als de 85–90°-band)", () => {
+    expect(FACADE_CONTRIBUTION_FACTOR.value).toBe(0.3);
     const result = calculateSurface(
-      makeSurface({ areaM2: 0, facadeContributionM2: 10, pitchDeg: 0, flatRoofFinish: null }),
+      makeSurface({ areaM2: 0, facadeContributionM2: 10, pitchDeg: 0, flatRoofFinish: "plat" }),
       2.0,
     );
-    expect(result.effectiveAreaM2).toBe(10);
-    expect(result.flowLpMin).toBeCloseTo(20, 6);
+    // Basisoppervlak 0 → alleen de gevelbijdrage telt: 10 × 0,3 = 3.
+    expect(result.effectiveAreaM2).toBeCloseTo(3, 6);
+    expect(result.flowLpMin).toBeCloseTo(6, 6);
   });
 });
 
@@ -347,19 +442,25 @@ describe("edge-cases", () => {
   });
 
   it("debiet boven Ø400-capaciteit → adviesdiameter null + warning, geen alternatief", () => {
+    // 10.000 m² zodat zowel het primaire debiet als het 2-afvoeren-
+    // alternatief boven de Ø400-capaciteit (3420 l/min) blijven, ook na de
+    // platdakreductie (0,75 bij flatRoofFinish: null).
     const result = calculateSurface(
-      makeSurface({ areaM2: 5000, flatRoofFinish: null, downpipeCount: 1 }),
+      makeSurface({ areaM2: 10000, flatRoofFinish: null, downpipeCount: 1 }),
       DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
     );
     expect(result.flowPerPipeLpMin).toBeGreaterThan(3420);
+    expect(result.flowPerPipeLpMin / 2).toBeGreaterThan(3420);
     expect(result.adviesdiameterMm).toBeNull();
     expect(result.alternatief).toBeNull();
     expect(result.warnings.some((w) => w.includes("volstaat niet"))).toBe(true);
   });
 
   it("ongeldige regenintensiteit (≤ 0) valt terug op de default + warning", () => {
+    // Hellend dak (30°, ≤45°-band → β = 1,0) zodat de platdakfactor niet
+    // meetelt en de test zuiver de regenintensiteit-fallback controleert.
     const input: HwaInput = {
-      surfaces: [makeSurface({ areaM2: 40, flatRoofFinish: null })],
+      surfaces: [makeSurface({ areaM2: 40, pitchDeg: 30, flatRoofFinish: null })],
       rainIntensityLpMinM2: 0,
       systemMode: "traditioneel",
     };

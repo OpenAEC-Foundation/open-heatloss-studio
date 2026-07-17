@@ -2,19 +2,23 @@
  * Hemelwaterafvoer (HWA) — rekenkern voor dakafvoer-dimensionering.
  *
  * Frontend-only rekenmodel (zelfde patroon als `doorGap.ts`): puur-TS,
- * state-loos, geen Rust/API. Alle normconstanten zijn {@link SourcedValue}
- * met `source: "rekenblad-eigenaar"` — dit model is nog NIET geverifieerd
- * tegen NEN 3215 / NTR 3216, zie `reference` op elke constante.
+ * state-loos, geen Rust/API. Elke normconstante draagt een
+ * {@link SourcedValue} met bronlabel — zie `types/hwa.ts` voor de
+ * betekenis van `"rekenblad-eigenaar"` vs. `"fabrikanten-doc"`.
  *
- * **Platdak-afwerking-interpretatie (belangrijke keuze, zie test):** het
- * bronrekenblad bevat twee verschillende reductiewaarden voor een plat dak:
- * het uitgewerkte voorbeeldblok rekent met reductiefactor 1,0 (géén
- * reductie), terwijl de losse reductietabel ernaast 0,6 (grind) / 0,75
- * (plat, zonder grind) geeft. Dit model implementeert de reductietabel als
- * de algemene rekenregel ({@link FLAT_ROOF_FACTORS}) en behandelt
- * `flatRoofFinish: null` (geen afwerking opgegeven) als de ongereduceerde
- * basiswaarde (1,0) uit het voorbeeldblok — zo blijven beide bronnen van het
- * rekenblad expliciet en zonder onderlinge tegenspraak in de API bruikbaar.
+ * **Formule-structuur (bevestigd tegen fabrikanten-doc):**
+ * `Qh = α · i · β · F` — α = platdakfactor ({@link FLAT_ROOF_FACTORS}),
+ * i = regenintensiteit ({@link DEFAULT_RAIN_INTENSITY_LP_MIN_M2}),
+ * β = hellingreductie- of gevelfactor ({@link PITCH_REDUCTION_TABLE},
+ * {@link FACADE_CONTRIBUTION_FACTOR}), F = oppervlak.
+ *
+ * **Platdak-afwerking-interpretatie (herzien na bronverificatie):** het
+ * bronrekenblad bevatte een ongereduceerde (1,0) reductiefactor voor een
+ * plat dak in het uitgewerkte voorbeeldblok — dat bleek NIET norm-conform.
+ * Volgens de fabrikanten-documentatie is een plat dak (pitchDeg 0) ALTIJD
+ * gereduceerd: grind 0,6 / overig plat 0,75. `flatRoofFinish: null` (geen
+ * afwerking opgegeven) geeft daarom géén 1,0 meer, maar valt terug op 0,75
+ * (overig plat dak) — met een expliciete warning, zie `calculateSurface`.
  */
 
 import type {
@@ -27,60 +31,69 @@ import type {
 } from "../types/hwa";
 
 // ---------------------------------------------------------------------------
-// Normconstanten — alle nog "rekenblad-eigenaar", te verifiëren
+// Normconstanten
 // ---------------------------------------------------------------------------
 
-/** Default regenintensiteit in l/(min·m²). */
+/** Default regenintensiteit in l/(min·m²) — bevestigd tegen fabrikanten-doc. */
 export const DEFAULT_RAIN_INTENSITY_LP_MIN_M2: SourcedValue<number> = {
   value: 1.8,
-  source: "rekenblad-eigenaar",
-  reference: "te verifiëren tegen NEN 3215/NTR 3216",
+  source: "fabrikanten-doc",
+  reference:
+    "bevestigd tegen NTR 3216-gebaseerde fabrikanten-documentatie (NedZink/Dyka)",
 };
 
 /**
- * Hellingreductie-tabelpunten (graden → factor), lineair te interpoleren
- * tussen opeenvolgende punten (45–60, 60–85, 85–90). Voor `pitchDeg ≤ 45°`
- * geldt een vlakke factor 1,0 (geen reductie). De interpolatiemethode zelf
- * (lineair tussen tabelpunten) is een aanname van dit model en dus zelf ook
- * te verifiëren, niet alleen de tabelwaarden.
+ * Hellingreductie-banden (β): trapsgewijs, GEEN interpolatie — de eerste
+ * band waarvan `pitchDeg` binnen de bovengrens valt, bepaalt de factor.
+ * `≤ 45° → 1,0`, `> 45–60° → 0,8`, `> 60–85° → 0,6`, `> 85–90° → 0,3`.
  */
 export const PITCH_REDUCTION_TABLE: SourcedValue<
-  ReadonlyArray<{ deg: number; factor: number }>
+  ReadonlyArray<{ maxDeg: number; factor: number }>
 > = {
   value: [
-    { deg: 45, factor: 1.0 },
-    { deg: 60, factor: 0.8 },
-    { deg: 85, factor: 0.6 },
-    { deg: 90, factor: 0.3 },
+    { maxDeg: 45, factor: 1.0 },
+    { maxDeg: 60, factor: 0.8 },
+    { maxDeg: 85, factor: 0.6 },
+    { maxDeg: 90, factor: 0.3 },
   ],
-  source: "rekenblad-eigenaar",
-  reference:
-    "te verifiëren tegen NEN 3215/NTR 3216 — inclusief de lineaire interpolatiemethode tussen tabelpunten",
+  source: "fabrikanten-doc",
+  reference: "NTR 3216-gebaseerde fabrikanten-documentatie (NedZink/Dyka)",
 };
 
 /**
- * Platdakfactoren uit de reductietabel (`pitchDeg === 0`). `null`
- * (geen afwerking opgegeven) is bewust ongereduceerd (1,0) — zie de
- * module-doc-comment voor de interpretatiekeuze t.o.v. het voorbeeldblok.
+ * Platdakfactoren (α, `pitchDeg === 0`): een plat dak is norm-conform
+ * ALTIJD gereduceerd. `null` (geen afwerking opgegeven) geeft daarom géén
+ * 1,0 meer, maar valt terug op `plat` (0,75) — met een expliciete warning
+ * in `calculateSurface`, zie de module-doc-comment.
  */
 export const FLAT_ROOF_FACTORS: SourcedValue<
   Record<Exclude<HwaFlatRoofFinish, null>, number>
 > = {
   value: { grind: 0.6, plat: 0.75 },
-  source: "rekenblad-eigenaar",
-  reference: "te verifiëren tegen NEN 3215/NTR 3216",
+  source: "fabrikanten-doc",
+  reference: "NTR 3216-gebaseerde fabrikanten-documentatie (NedZink/Dyka)",
 };
 
-/** Factor 1,0 voor bijdragend gevel-/opstandoppervlak. */
+/**
+ * Factor voor bijdragend gevel-/opstandoppervlak: muren tellen mee met
+ * dezelfde reductie als een (nagenoeg) verticaal vlak — β = 0,3, gelijk aan
+ * de 85–90°-band van {@link PITCH_REDUCTION_TABLE}.
+ */
 export const FACADE_CONTRIBUTION_FACTOR: SourcedValue<number> = {
-  value: 1.0,
-  source: "rekenblad-eigenaar",
-  reference: "bijdragefactor gevel te verifiëren tegen NEN 3215/NTR 3216",
+  value: 0.3,
+  source: "fabrikanten-doc",
+  reference: "NTR 3216-gebaseerde fabrikanten-documentatie (NedZink/Dyka)",
 };
 
 /**
  * Capaciteitstabel diameter (mm) → afvoercapaciteit (l/min). Bewust geen
  * 125/160 mm — zo staat het in het bronrekenblad.
+ *
+ * **Bronnen spreken elkaar tegen:** fabrikanten-doc (NedZink, zink) geeft
+ * voor Ø80 een capaciteit van 150 l/min, andere bronnen ~99 l/min — dit
+ * rekenblad (117 l/min) zit daar tussenin. De tabel blijft daarom
+ * `"rekenblad-eigenaar"` (conservatiever dan de zink-fabrikantwaarden, dus
+ * aan de veilige kant) totdat een eenduidige normbron is vastgesteld.
  */
 export const DOWNPIPE_CAPACITY_TABLE: SourcedValue<
   ReadonlyArray<{ diameterMm: number; capacityLpMin: number }>
@@ -96,7 +109,8 @@ export const DOWNPIPE_CAPACITY_TABLE: SourcedValue<
     { diameterMm: 400, capacityLpMin: 3420 },
   ],
   source: "rekenblad-eigenaar",
-  reference: "te verifiëren tegen NEN 3215/NTR 3216",
+  reference:
+    "te verifiëren tegen NEN 3215/NTR 3216 — rekenblad is conservatiever dan zink-fabrikantwaarden (bv. NedZink Ø80 → 150 l/min vs. hier 117 l/min)",
 };
 
 /** Vaste waarschuwing bij UV-systemen en platte daken (traditioneel): noodafvoer valt buiten deze toets. */
@@ -139,37 +153,31 @@ function clampDownpipeCount(count: number): { value: number; warning: string | n
 // ---------------------------------------------------------------------------
 
 /**
- * Hellingreductiefactor via lineaire interpolatie tussen de tabelpunten van
- * {@link PITCH_REDUCTION_TABLE}. `pitchDeg` moet al geclampt zijn naar 0–90.
+ * Hellingreductiefactor (β): trapsgewijs via {@link PITCH_REDUCTION_TABLE},
+ * GEEN interpolatie — de eerste band waarvan `pitchDeg` binnen de
+ * bovengrens (`maxDeg`) valt, bepaalt de factor. `pitchDeg` moet al
+ * geclampt zijn naar 0–90.
  */
 export function pitchReductionFactor(pitchDeg: number): number {
   const table = PITCH_REDUCTION_TABLE.value;
-  const first = table[0]!;
-  if (pitchDeg <= first.deg) return first.factor;
-
-  for (let i = 0; i < table.length - 1; i++) {
-    const lower = table[i]!;
-    const upper = table[i + 1]!;
-    if (pitchDeg <= upper.deg) {
-      const fraction = (pitchDeg - lower.deg) / (upper.deg - lower.deg);
-      return lower.factor + fraction * (upper.factor - lower.factor);
-    }
+  for (const band of table) {
+    if (pitchDeg <= band.maxDeg) return band.factor;
   }
   return table[table.length - 1]!.factor;
 }
 
 /**
- * Reductiefactor voor een dakvlak: platdakfactor bij `pitchDeg === 0`
- * (incl. de `null`-interpretatie, zie module-doc-comment), anders de
- * hellingreductie via {@link pitchReductionFactor}.
+ * Reductiefactor voor een dakvlak: platdakfactor (α) bij `pitchDeg === 0`
+ * — `null` (geen afwerking opgegeven) valt terug op `plat` (0,75), zie de
+ * module-doc-comment — anders de hellingreductie (β) via
+ * {@link pitchReductionFactor}.
  */
 export function surfaceReductionFactor(
   pitchDeg: number,
   flatRoofFinish: HwaFlatRoofFinish,
 ): number {
   if (pitchDeg === 0) {
-    if (flatRoofFinish === null) return 1.0;
-    return FLAT_ROOF_FACTORS.value[flatRoofFinish];
+    return FLAT_ROOF_FACTORS.value[flatRoofFinish ?? "plat"];
   }
   return pitchReductionFactor(pitchDeg);
 }
@@ -237,6 +245,9 @@ export function calculateSurface(
     warnings.push("dakvlak heeft een effectief oppervlak van 0 m²");
   }
 
+  if (pitchDeg === 0 && surface.flatRoofFinish === null) {
+    warnings.push("platdak-afwerking niet opgegeven, 0,75 (overig plat dak) aangenomen");
+  }
   const reductionFactor = surfaceReductionFactor(pitchDeg, surface.flatRoofFinish);
   const facadeContribution =
     Math.max(0, surface.facadeContributionM2) * FACADE_CONTRIBUTION_FACTOR.value;

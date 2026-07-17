@@ -7,18 +7,25 @@
  * gebruik, testbestand ernaast. Fase 1 = alleen rekenkern + types, geen UI.
  *
  * **Bronstatus van de constantes:** dit rekenmodel is opgebouwd vanuit een
- * intern rekenblad ("rekenblad-eigenaar"), nog NIET geverifieerd tegen
- * NEN 3215 / NTR 3216. Elke normconstante draagt daarom een
- * {@link SourcedValue} met expliciet bronlabel — zie `lib/hwaCalculation.ts`.
+ * intern rekenblad ("rekenblad-eigenaar"), deels inmiddels geverifieerd
+ * tegen NTR 3216-gebaseerde fabrikanten-documentatie (NedZink/Dyka) —
+ * `"fabrikanten-doc"`. De formule-structuur is daarbij bevestigd:
+ * `Qh = α · i · β · F` (α = platdakfactor, i = regenintensiteit,
+ * β = hellingreductie-/gevelfactor, F = oppervlak). De norm zelf
+ * (NEN 3215 / NTR 3216) is niet ingezien. Elke normconstante draagt daarom
+ * een {@link SourcedValue} met expliciet bronlabel — zie
+ * `lib/hwaCalculation.ts`.
  */
 
 /**
  * Herkomst van een normwaarde:
  * - `"rekenblad-eigenaar"` — overgenomen uit het interne bronrekenblad,
- *   nog niet geverifieerd tegen de norm.
+ *   nog niet geverifieerd tegen de norm of fabrikanten-documentatie.
+ * - `"fabrikanten-doc"` — geverifieerd tegen NTR 3216-gebaseerde
+ *   fabrikanten-documentatie (NedZink/Dyka); de norm zelf is niet ingezien.
  * - `"norm-geverifieerd"` — gecontroleerd tegen de aangehaalde normtekst.
  */
-export type HwaSource = "rekenblad-eigenaar" | "norm-geverifieerd";
+export type HwaSource = "rekenblad-eigenaar" | "fabrikanten-doc" | "norm-geverifieerd";
 
 /** Eén normwaarde met herkomst en referentie, zodat de bron altijd zichtbaar blijft. */
 export interface SourcedValue<T> {
