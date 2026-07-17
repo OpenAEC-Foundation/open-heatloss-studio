@@ -11,8 +11,222 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: radial-gradient(120% 120% at 30% 20%, #0fa08d 0%, #0d6862 45%, #0f302c 100%);
+        transition: opacity 350ms ease;
+      }
+
+      #splash.splash-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #splash .splash-mark {
+        width: 140px;
+        height: auto;
+        overflow: visible;
+      }
+
+      #splash .splash-mark path {
+        opacity: 0;
+        transform: translate(0, 0);
+        animation-duration: 550ms;
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-fill-mode: forwards;
+      }
+
+      #splash .splash-mark .p1 {
+        animation-name: splash-in-1;
+        animation-delay: 80ms;
+      }
+      #splash .splash-mark .p2 {
+        animation-name: splash-in-2;
+        animation-delay: 180ms;
+      }
+      #splash .splash-mark .p3 {
+        animation-name: splash-in-3;
+        animation-delay: 280ms;
+      }
+      #splash .splash-mark .p4 {
+        animation-name: splash-in-4;
+        animation-delay: 380ms;
+      }
+
+      @keyframes splash-in-1 {
+        from {
+          opacity: 0;
+          transform: translate(20px, -20px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+      }
+      @keyframes splash-in-2 {
+        from {
+          opacity: 0;
+          transform: translate(20px, 14px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+      }
+      @keyframes splash-in-3 {
+        from {
+          opacity: 0;
+          transform: translate(8px, 20px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+      }
+      @keyframes splash-in-4 {
+        from {
+          opacity: 0;
+          transform: translate(-22px, -10px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+      }
+
+      #splash .splash-word {
+        opacity: 0;
+        transform: translateY(10px);
+        animation: splash-word-in 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 620ms;
+        text-align: center;
+      }
+
+      #splash .splash-title {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-weight: 600;
+        font-size: 26px;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+      }
+
+      #splash .splash-subtitle {
+        margin: 4px 0 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-weight: 400;
+        font-size: 13px;
+        letter-spacing: -0.01em;
+        color: #b0eae2;
+        opacity: 0.7;
+      }
+
+      #splash .splash-bar {
+        position: relative;
+        width: 160px;
+        height: 3px;
+        border-radius: 2px;
+        overflow: hidden;
+        background: rgba(176, 234, 226, 0.18);
+        opacity: 0;
+        animation: splash-word-in 400ms ease forwards;
+        animation-delay: 700ms;
+      }
+
+      #splash .splash-bar::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        width: 40%;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #0fa08d, #b0eae2);
+        animation: splash-shimmer 1.3s ease-in-out infinite;
+      }
+
+      @keyframes splash-word-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes splash-shimmer {
+        0% {
+          transform: translateX(-110%);
+        }
+        100% {
+          transform: translateX(280%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #splash .splash-mark path,
+        #splash .splash-word,
+        #splash .splash-bar {
+          animation-name: splash-word-in;
+          animation-duration: 200ms;
+          transform: none !important;
+        }
+        #splash .splash-mark path {
+          animation-delay: 0ms;
+        }
+        #splash .splash-bar::after {
+          animation: none;
+        }
+      }
+    </style>
+    <script>
+      window.__splashStart = performance.now();
+    </script>
   </head>
   <body class="bg-surface text-on-surface antialiased">
+    <div id="splash" aria-hidden="true">
+      <svg
+        class="splash-mark"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="591.88 78.88 480.25 368.76"
+        role="img"
+        aria-label="Kolthof Bouwadvies"
+      >
+        <path
+          class="p1"
+          d="M 833.39,319.69 L 960.67,192.41 L 960.67,102.31 Q 960.67,62.31 932.38,90.59 L 833.39,189.59 Z"
+          fill="rgba(255,255,255,0.92)"
+        />
+        <path
+          class="p2"
+          d="M 831.31,320.36 L 958.59,447.64 L 1048.69,447.64 Q 1088.69,447.64 1060.41,419.36 L 961.41,320.36 Z"
+          fill="#0FA08D"
+        />
+        <path
+          class="p3"
+          d="M 703.31,320.36 L 830.59,447.64 L 920.69,447.64 Q 960.69,447.64 932.41,419.36 L 833.41,320.36 Z"
+          fill="rgba(255,255,255,0.92)"
+        />
+        <path
+          class="p4"
+          d="M 832.69,319.64 L 705.41,192.36 L 615.31,192.36 Q 575.31,192.36 603.59,220.64 L 702.59,319.64 Z"
+          fill="#B0EAE2"
+        />
+      </svg>
+      <div class="splash-word">
+        <p class="splash-title">Open Bouwlab</p>
+        <p class="splash-subtitle">Kolthof Bouwadvies</p>
+      </div>
+      <div class="splash-bar"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
