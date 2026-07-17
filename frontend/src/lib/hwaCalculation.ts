@@ -108,6 +108,12 @@ export const EMERGENCY_OVERFLOW_WARNING =
 // ---------------------------------------------------------------------------
 
 function clampPitchDeg(pitchDeg: number): { value: number; warning: string | null } {
+  if (!Number.isFinite(pitchDeg)) {
+    return {
+      value: 0,
+      warning: `hellingshoek (${pitchDeg}) is ongeldig, gecorrigeerd naar 0°`,
+    };
+  }
   if (pitchDeg < 0 || pitchDeg > 90) {
     const clamped = Math.min(90, Math.max(0, pitchDeg));
     return {
@@ -187,8 +193,13 @@ export function adviesDiameterMm(flowPerPipeLpMin: number): number | null {
 
 function baseAreaM2(surface: HwaRoofSurface): { value: number; warning: string | null } {
   if (surface.areaInputMode === "vrij") {
-    const area = surface.areaM2 ?? 0;
-    return { value: Math.max(0, area), warning: null };
+    if (surface.areaM2 === undefined) {
+      return {
+        value: 0,
+        warning: "oppervlak ontbreekt bij invoermodus 'vrij', oppervlak op 0 gezet",
+      };
+    }
+    return { value: Math.max(0, surface.areaM2), warning: null };
   }
   const length = surface.lengthM ?? 0;
   const width = surface.widthM ?? 0;
@@ -293,7 +304,10 @@ export function calculateHwa(input: HwaInput): HwaResult {
   const totaalEffectiveAreaM2 = surfaceResults.reduce((sum, r) => sum + r.effectiveAreaM2, 0);
   const totaalFlowLpMin = surfaceResults.reduce((sum, r) => sum + r.flowLpMin, 0);
 
-  const hasFlatRoof = input.surfaces.some((s) => s.pitchDeg === 0);
+  // Geclampte pitch, niet de ruwe invoer — anders mist bv. pitchDeg: -5 (dat
+  // in calculateSurface naar 0 geclampt wordt en als plat dak doorrekent)
+  // de noodafvoer-warning.
+  const hasFlatRoof = input.surfaces.some((s) => clampPitchDeg(s.pitchDeg).value === 0);
 
   let uvToets: HwaResult["uvToets"] = null;
   if (input.systemMode === "uv") {

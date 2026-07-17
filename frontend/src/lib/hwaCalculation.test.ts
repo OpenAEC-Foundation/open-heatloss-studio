@@ -247,6 +247,19 @@ describe("noodafvoer-waarschuwing bij platte daken (traditioneel)", () => {
     const result = calculateHwa(input);
     expect(result.warnings).not.toContain(EMERGENCY_OVERFLOW_WARNING);
   });
+
+  it("negatieve hellingshoek (clampt naar 0° = plat dak) → toch de noodafvoer-warning", () => {
+    // pitchDeg: -5 wordt in calculateSurface naar 0° geclampt en als plat
+    // dak doorgerekend; calculateHwa moet dezelfde geclampte waarde gebruiken
+    // om hasFlatRoof te bepalen, niet de ruwe (ongeclampte) invoer.
+    const input: HwaInput = {
+      surfaces: [makeSurface({ pitchDeg: -5, areaM2: 20, flatRoofFinish: "plat" })],
+      rainIntensityLpMinM2: DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+      systemMode: "traditioneel",
+    };
+    const result = calculateHwa(input);
+    expect(result.warnings).toContain(EMERGENCY_OVERFLOW_WARNING);
+  });
 });
 
 describe("edge-cases", () => {
@@ -310,6 +323,27 @@ describe("edge-cases", () => {
     expect(teHoog.warnings.some((w) => w.includes("hellingshoek"))).toBe(true);
     // Geclampt naar 90° → factor 0,3.
     expect(teHoog.effectiveAreaM2).toBeCloseTo(40 * 0.3, 6);
+  });
+
+  it("pitchDeg niet-finite (NaN) → clamp naar 0° + warning (zelfde patroon als downpipeCount)", () => {
+    const result = calculateSurface(
+      makeSurface({ pitchDeg: Number.NaN, areaM2: 40, flatRoofFinish: "grind" }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(result.warnings.some((w) => w.includes("hellingshoek"))).toBe(true);
+    // Geclampt naar 0° → platdakfactor (grind = 0,6) van toepassing, geen NaN-doorsijpeling.
+    expect(result.effectiveAreaM2).toBeCloseTo(40 * 0.6, 6);
+  });
+
+  it("'vrij'-modus met ontbrekende areaM2 → warning, oppervlak op 0 (analoog aan 'lxb')", () => {
+    const result = calculateSurface(
+      makeSurface({ areaInputMode: "vrij", areaM2: undefined }),
+      DEFAULT_RAIN_INTENSITY_LP_MIN_M2.value,
+    );
+    expect(result.effectiveAreaM2).toBe(0);
+    expect(
+      result.warnings.some((w) => w.includes("oppervlak ontbreekt bij invoermodus 'vrij'")),
+    ).toBe(true);
   });
 
   it("debiet boven Ø400-capaciteit → adviesdiameter null + warning, geen alternatief", () => {
