@@ -16,6 +16,7 @@ import { TojuliFull } from "./pages/TojuliFull";
 import { Beng } from "./pages/Beng";
 import { VentilationBalance } from "./pages/VentilationBalance";
 import { DoorGapCalculator } from "./pages/DoorGapCalculator";
+import { HwaCalculator } from "./pages/HwaCalculator";
 import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { Rapport } from "./pages/Rapport";
@@ -52,6 +53,7 @@ export function App() {
             <Route path="/beng" element={<Beng />} />
             <Route path="/ventilation" element={<VentilationBalance />} />
             <Route path="/tools/deurspleet" element={<DoorGapCalculator />} />
+            <Route path="/tools/hwa" element={<HwaCalculator />} />
             <Route path="/library" element={<Library />} />
             <Route path="/materialen" element={<Library initialSection="materialen" />} />
             <Route path="/warmteverlies/instellingen" element={<WarmteverliesInstellingen />} />

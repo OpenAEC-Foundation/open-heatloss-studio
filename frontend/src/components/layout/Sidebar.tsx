@@ -119,6 +119,14 @@ function IconDoor({ className }: { className?: string }) {
   );
 }
 
+function IconDroplet({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2.5s7 7.6 7 12.5a7 7 0 01-14 0c0-4.9 7-12.5 7-12.5z" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -170,6 +178,7 @@ type GroupKey =
   | "tojuli"
   | "beng"
   | "rcwaarde"
+  | "rekentools"
   | "library"
   | "help";
 
@@ -260,6 +269,14 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
         labelKey: "sidebar.rcCompare",
         Icon: IconLayers,
       },
+    ],
+  },
+  {
+    key: "rekentools",
+    titleKey: "sidebar.groups.rekentools",
+    defaultCollapsed: false,
+    items: [
+      { to: "/tools/hwa", labelKey: "sidebar.hwa", Icon: IconDroplet },
     ],
   },
   {
