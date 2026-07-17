@@ -153,7 +153,7 @@ function TitleBar({ onSettingsClick, onFeedbackClick, onSave }: TitleBarProps) {
       </div>
 
       <span className="titlebar-title" data-tauri-drag-region>
-        Open Heatloss Studio
+        Open Bouwlab
         {appVersion && <span className="titlebar-version">v{appVersion}</span>}
       </span>
 

@@ -129,7 +129,7 @@
   "conflictError": "Project was changed elsewhere — reload the project.",
   "aboutPanel": {
     "title": "About",
-    "appName": "Open Heatloss Studio",
+    "appName": "Open Bouwlab",
     "version": "Version",
     "tagline": "Heat loss calculation according to ISSO 51:2023",
     "description": "Complete tool for heat loss calculations according to the ISSO 51 standard. Available as web application, desktop app (Tauri) and calculation library.",

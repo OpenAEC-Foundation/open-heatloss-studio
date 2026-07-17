@@ -89,10 +89,10 @@ export function AppShell({ children }: AppShellProps) {
    * blijft niet ondersteund.
    */
   const [normSwitchOpen, setNormSwitchOpen] = useState(false);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState("kolthof");
 
   useEffect(() => {
-    getSetting("theme", "light").then((saved) => {
+    getSetting("theme", "kolthof").then((saved) => {
       setTheme(saved);
       applyTheme(saved);
     });

@@ -8,6 +8,7 @@ import "../ThemedSelect.css";
 import "./SettingsDialog.css";
 
 const THEME_OPTIONS = [
+  { value: "kolthof",       labelKey: "appearance.kolthof", swatches: ["#0D6862", "#0FA08D", "#B0EAE2", "#F4F8F7"] },
   { value: "light",         labelKey: "appearance.light", swatches: ["#FAFAF9", "#D97706", "#36363E", "#EA580C"] },
   { value: "openaec-forge", labelKey: "appearance.forge", swatches: ["#36363E", "#D97706", "#FAFAF9", "#EA580C"] },
   { value: "openaec",       labelKey: "appearance.dark",  swatches: ["#27272A", "#D97706", "#FAFAF9", "#EA580C"] },
@@ -16,7 +17,7 @@ const THEME_OPTIONS = [
 const TAB_IDS = ["general", "appearance", "editor", "files", "shortcuts", "plugins", "about"] as const;
 
 export function applyTheme(theme?: string) {
-  document.documentElement.setAttribute("data-theme", theme || "light");
+  document.documentElement.setAttribute("data-theme", theme || "kolthof");
 }
 
 interface SettingsDialogProps {
@@ -82,7 +83,7 @@ export default function SettingsDialog({
   };
 
   const handleConfirmReset = () => {
-    setDraftTheme("light");
+    setDraftTheme("kolthof");
     setDraftLang("auto");
     setConfirmResetOpen(false);
   };
@@ -421,7 +422,7 @@ function AboutTabContent() {
   const { t } = useTranslation("settings");
   return (
     <div className="settings-section">
-      <h3>Open Heatloss Studio</h3>
+      <h3>Open Bouwlab</h3>
       <div style={{ fontSize: 11, lineHeight: 1.8 }}>
         <p><strong>{t("about.version")}:</strong> {__APP_VERSION__}</p>
         <p><strong>{t("about.framework")}:</strong> Tauri + React + TypeScript + Rust</p>

@@ -21,6 +21,7 @@
   "appearance": {
     "theme": "Thema",
     "themeDescription": "Kies een kleurthema voor de applicatie.",
+    "kolthof": "Kolthof",
     "dark": "Donker",
     "light": "Licht",
     "forge": "Donker (Deep Forge)",
@@ -56,7 +57,7 @@
     "placeholder": "Beheer van invoegtoepassingen verschijnt hier."
   },
   "about": {
-    "appName": "Open Heatloss Studio",
+    "appName": "Open Bouwlab",
     "version": "Versie",
     "framework": "Framework",
     "license": "Licentie",

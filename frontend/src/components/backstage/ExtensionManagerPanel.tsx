@@ -110,7 +110,7 @@ const SAMPLE_CATALOG: CatalogEntry[] = [
     name: "Vabi Elements converter",
     version: "0.1.0",
     description:
-      "Lees Vabi Elements projecten in en converteer naar Open Heatloss Studio formaat (.ifcenergy).",
+      "Lees Vabi Elements projecten in en converteer naar Open Bouwlab formaat (.ifcenergy).",
     author: "Community (roadmap)",
     category: "Import/Export",
   },

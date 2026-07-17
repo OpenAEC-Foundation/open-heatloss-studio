@@ -23,6 +23,7 @@
   "appearance": {
     "theme": "Theme",
     "themeDescription": "Choose a color theme for the application.",
+    "kolthof": "Kolthof",
     "dark": "Dark",
     "light": "Light",
     "forge": "Dark (Deep Forge)",
@@ -58,7 +59,7 @@
     "placeholder": "Plugin management will appear here."
   },
   "about": {
-    "appName": "Open Heatloss Studio",
+    "appName": "Open Bouwlab",
     "version": "Version",
     "framework": "Framework",
     "license": "License",

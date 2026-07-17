@@ -92,7 +92,7 @@ function buildIssueBody(args: {
     `**App-versie:** ${args.appVersion || "onbekend"}`,
     `**User-Agent:** ${args.userAgent || "onbekend"}`,
     "",
-    "<sub>Aangemaakt via Feedback-dialog in Open Heatloss Studio.</sub>",
+    "<sub>Aangemaakt via Feedback-dialog in Open Bouwlab.</sub>",
   ].join("\n");
 }
 

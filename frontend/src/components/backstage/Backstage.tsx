@@ -251,7 +251,7 @@ export default function Backstage({
           multiple: false,
           filters: [
             {
-              name: "Open Heatloss Studio Project",
+              name: "Open Bouwlab Project",
               extensions: ["ifcenergy", "json", "isso51.json"],
             },
           ],
@@ -826,7 +826,7 @@ function AboutPanel() {
           </svg>
         </div>
         <div className="bs-about-app-info">
-          <h1 className="bs-about-app-name">Open Heatloss Studio</h1>
+          <h1 className="bs-about-app-name">Open Bouwlab</h1>
           <p className="bs-about-version">{t("aboutPanel.version")} {__APP_VERSION__}</p>
         </div>
       </div>
