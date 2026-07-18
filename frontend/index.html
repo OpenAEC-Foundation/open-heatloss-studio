@@ -171,6 +171,30 @@
         }
       }
 
+      /* Huisstijl-signatuur: dunne segmentbalk onderaan het viewport, zelfde
+         opbouw (lijn → mint → teal → petrol) als de StatusBar-balk in de
+         app en de kop-/voetbalk op de PDF-rapportdragers. Subtiel — geen
+         animatie, laag contrast tegen de donkere splash-achtergrond. */
+      #splash .splash-footer-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        opacity: 0.55;
+        background: linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0.35) 0%,
+          rgba(255, 255, 255, 0.35) 55%,
+          #b0eae2 55%,
+          #b0eae2 70%,
+          #0fa08d 70%,
+          #0fa08d 85%,
+          #0d6862 85%,
+          #0d6862 100%
+        );
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #splash .splash-mark path,
         #splash .splash-word,
@@ -226,6 +250,7 @@
         <p class="splash-subtitle">Kolthof Bouwadvies</p>
       </div>
       <div class="splash-bar"></div>
+      <div class="splash-footer-bar" aria-hidden="true"></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

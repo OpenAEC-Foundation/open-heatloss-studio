@@ -35,7 +35,7 @@ interface IfcWallTypeReviewProps {
 const CONFIDENCE_COLORS: Record<string, string> = {
   exact: "bg-green-500",
   keyword: "bg-green-400",
-  heuristic: "bg-amber-400",
+  heuristic: "bg-[var(--theme-warning)]",
   none: "bg-red-400",
 };
 
@@ -73,7 +73,7 @@ function MaterialOverrideSelect({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-[10px] text-amber-400 hover:border-amber-500/30 hover:bg-amber-600/15"
+        className="rounded border border-[var(--oaec-border)] px-1.5 py-0.5 text-[10px] text-[var(--theme-accent)] hover:border-[var(--theme-accent)] hover:bg-[var(--theme-hover-strong)]"
       >
         Wijzig
       </button>
@@ -103,7 +103,7 @@ function MaterialOverrideSelect({
           placeholder="Zoek materiaal..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-[11px] outline-none focus:border-amber-400"
+          className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-[11px] outline-none focus:border-[var(--theme-accent)]"
         />
       </div>
       <div className="max-h-48 overflow-y-auto p-1">
@@ -129,9 +129,9 @@ function MaterialOverrideSelect({
                     onChange(m.id);
                     setOpen(false);
                   }}
-                  className={`block w-full rounded px-2 py-1 text-left text-[10px] hover:bg-amber-600/15 ${
+                  className={`block w-full rounded px-2 py-1 text-left text-[10px] hover:bg-[var(--theme-hover-strong)] ${
                     m.id === currentId
-                      ? "bg-amber-600/15 font-medium text-amber-400"
+                      ? "oa-accent-chip font-medium"
                       : "text-on-surface-secondary"
                   }`}
                 >

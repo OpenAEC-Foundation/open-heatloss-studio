@@ -679,7 +679,7 @@ function MaterialRow({
           </span>
         )}
         {modified && (
-          <span className="ml-2 rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
+          <span className="ml-2 rounded oa-accent-chip px-1.5 py-0.5 text-[10px] font-semibold uppercase">
             Gewijzigd
           </span>
         )}
@@ -713,7 +713,7 @@ function MaterialRow({
             <button
               type="button"
               onClick={onReset}
-              className="rounded px-2 py-0.5 text-xs text-amber-400 hover:bg-amber-600/15 hover:text-amber-400"
+              className="rounded px-2 py-0.5 text-xs oa-accent-link hover:bg-[var(--theme-hover-strong)]"
               title="Herstel naar standaardwaarden"
             >
               Herstel
@@ -1007,7 +1007,7 @@ function ConstructionRow({
             </span>
           )}
           {modified && (
-            <span className="rounded bg-amber-600/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
+            <span className="rounded oa-accent-chip px-1.5 py-0.5 text-[10px] font-semibold uppercase">
               Gewijzigd
             </span>
           )}
@@ -1045,7 +1045,7 @@ function ConstructionRow({
             <button
               type="button"
               onClick={onReset}
-              className="rounded px-2 py-0.5 text-xs text-amber-400 hover:bg-amber-600/15 hover:text-amber-400"
+              className="rounded px-2 py-0.5 text-xs oa-accent-link hover:bg-[var(--theme-hover-strong)]"
               title="Herstel naar standaardwaarden"
             >
               Herstel

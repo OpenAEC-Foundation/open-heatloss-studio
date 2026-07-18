@@ -577,3 +577,8 @@ Zie `docs/ifc-herontwerp-verslag.md` sectie 10-11 voor het volledige implementat
 - [ ] Referentie-fixture (gepubliceerde MPG-berekening nabouwen)
 - [ ] A2-grenswaarden per gebouwfunctie verifiëren (Bbl 1-7-2026) — als datatabel, niet hardcoded
 - [ ] Cat. 3 seed-db (±40 profielen handmatig uit NMD Viewer) → later vervangen door API-sync
+
+---
+
+## 🎨 Theming (18-07, kolthof-reskin nazorg)
+- [ ] **Tailwind `[var(--x)]/NN`-opacity-bug: 6 pre-existente plekken** — Tailwind 3.4 genereert `bg-[var(--x)]/NN` (opacity-modifier op arbitrary CSS-var) stilletjes NIET → utility valt weg (onzichtbare hover-tint/achtergrond). Gevonden bij de amber-sweep en daar 3× gefixt; deze 6 bestonden al eerder: `LayerEditor.tsx`, `HelpAfwijkingen.tsx`, `HelpVerificatie.tsx` (2×), `Library.tsx` (2×), `RcCalculator.tsx:691`. Fix: `/NN` droppen of rgb-triplet-var + `<alpha-value>`-patroon (zie `--theme-primary-rgb` in tailwind.config.ts).

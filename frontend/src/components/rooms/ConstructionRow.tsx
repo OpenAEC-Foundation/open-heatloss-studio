@@ -313,7 +313,7 @@ export const ConstructionCells = memo(function ConstructionCells({
           </div>
           {frameOverrideActive && (
             <span
-              className="text-[10px] italic text-amber-400"
+              className="text-[10px] italic oa-warning-text"
               title={`Project-override actief: ${frameUValueOverride} W/(m²·K) wordt in de berekening gebruikt in plaats van deze waarde.`}
             >
               override actief

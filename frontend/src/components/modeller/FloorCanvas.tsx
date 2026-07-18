@@ -1213,7 +1213,7 @@ export function FloorCanvas({
                 if (e.key === "Escape") setEditingDim(null);
               }}
               onBlur={() => setEditingDim(null)}
-              className="w-20 rounded border border-amber-500/40 bg-amber-600/15 px-1.5 py-0.5 text-center text-xs font-mono font-bold text-amber-400 outline-none shadow-lg"
+              className="w-20 rounded border border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] px-1.5 py-0.5 text-center text-xs font-mono font-bold text-[var(--theme-accent)] outline-none shadow-lg"
             />
           </div>
         );
@@ -1505,7 +1505,35 @@ function DoorMarker({ room, door, strokeWidth, zoom }: {
 
 const VENT_SUPPLY_COLOR = "#22c55e"; // toevoer (groen)
 const VENT_EXHAUST_COLOR = "#3b82f6"; // afvoer (blauw)
-const VENT_OVERFLOW_COLOR = "#D97706"; // overstroom + spleet (oranje)
+const VENT_OVERFLOW_FALLBACK = "#D97706"; // overstroom + spleet — fallback vóór eerste CSS-var read
+
+/**
+ * Leest een thema-CSS-var live in en her-resolved bij thema-wissel.
+ * Konva/canvas kent geen `var(...)` in fill/stroke — SettingsDialog zet
+ * `data-theme` op `<html>`, dus een MutationObserver op dat attribuut is
+ * de enige manier om de overstroom-kleur (--domain-overflow) actueel te
+ * houden zonder page-reload.
+ */
+function useThemeCssVar(varName: string, fallback: string): string {
+  const [value, setValue] = useState<string>(() => {
+    if (typeof window === "undefined") return fallback;
+    const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return v || fallback;
+  });
+
+  useEffect(() => {
+    const read = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+      setValue(v || fallback);
+    };
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, [varName, fallback]);
+
+  return value;
+}
 
 /** Punt op een wand-edge: `a + t·(b-a)` met `t = offsetMm / len`. */
 function pointOnWall(
@@ -1568,6 +1596,7 @@ function VentilationLayer({
   const r = 12 * invZoom; // ventiel-straal (~12 px op scherm)
   const arrowLen = 32 * invZoom; // gevelrooster-pijllengte
   const stroke = 2 * invZoom; // ~2 px lijn, consistent met de overige glyphs
+  const overflowColor = useThemeCssVar("--domain-overflow", VENT_OVERFLOW_FALLBACK);
 
   return (
     <Group listening={false}>
@@ -1669,9 +1698,9 @@ function VentilationLayer({
                 rel.mid.x + rel.nx * half,
                 rel.mid.y + rel.ny * half,
               ]}
-              stroke={VENT_OVERFLOW_COLOR}
+              stroke={overflowColor}
               strokeWidth={Math.max(50, 2.5 * invZoom)}
-              fill={VENT_OVERFLOW_COLOR}
+              fill={overflowColor}
               dash={[120, 90]}
               pointerLength={r * 0.7}
               pointerWidth={r * 0.7}
@@ -1697,7 +1726,7 @@ function VentilationLayer({
                   rel.ux * barHalf,
                   rel.uy * barHalf,
                 ]}
-                stroke={VENT_OVERFLOW_COLOR}
+                stroke={overflowColor}
                 strokeWidth={Math.max(120, 6 * invZoom)}
                 lineCap="butt"
                 opacity={0.85}

@@ -240,7 +240,7 @@ export function UnitsCard({
       {/* Disclaimer */}
       <p className="text-xs text-on-surface-muted">
         {t("ventilation.units.intro", { system: sys.key })}{" "}
-        <span className="font-medium text-amber-700">
+        <span className="font-medium oa-warning-text">
           {t("ventilation.units.disclaimer")}
         </span>
       </p>

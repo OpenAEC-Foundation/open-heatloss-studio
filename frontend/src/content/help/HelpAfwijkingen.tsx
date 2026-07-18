@@ -117,7 +117,7 @@ export const AFWIJKINGEN: ReadonlyArray<Afwijking> = [
 
 const ERNST_STYLE: Record<Ernst, string> = {
   hoog: "bg-red-600/15 text-red-400",
-  middel: "bg-amber-600/15 text-amber-400",
+  middel: "oa-badge-warning",
   laag: "bg-blue-600/15 text-blue-400",
 };
 

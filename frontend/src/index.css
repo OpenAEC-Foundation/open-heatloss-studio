@@ -22,6 +22,10 @@
   [data-theme="openaec"] {
     --gradient-amber: linear-gradient(90deg, #F59E0B 0%, #D97706 40%, #EA580C 100%);
   }
+
+  [data-theme="kolthof"] {
+    --gradient-amber: linear-gradient(90deg, #0D6862 0%, #0FA08D 40%, #B0EAE2 100%);
+  }
 }
 
 @layer components {
@@ -45,5 +49,50 @@
   .metric-card-label {
     @apply text-xs mt-1;
     color: var(--oaec-text-muted);
+  }
+
+  /* ─── Semantic warning (advies-/waarschuwingsboxen, badges) ───────────
+     Vervangt losse amber-Tailwind-klassen door de --theme-warning-* vars
+     (zie themes.css) zodat elk thema — incl. kolthof zonder amber/oranje —
+     zijn eigen waarschuwingskleur krijgt. */
+  .oa-warning-box {
+    border-color: var(--theme-warning-border);
+    background-color: var(--theme-warning-bg);
+    color: var(--theme-warning-text);
+  }
+
+  .oa-warning-text {
+    color: var(--theme-warning-text);
+  }
+
+  .oa-badge-warning {
+    background-color: var(--theme-warning-bg);
+    color: var(--theme-warning-text);
+  }
+
+  /* ─── Semantic accent (interactie-accenten: tabs, links, chips) ───────
+     Voor plekken die eerder amber als accentkleur misbruikten terwijl ze
+     géén waarschuwing zijn. Volgt --theme-accent (huisstijl-accent per
+     thema: petrol/teal in kolthof, amber in de oude thema's). */
+  .oa-accent-tab-active {
+    border-color: var(--theme-accent);
+    color: var(--theme-accent);
+  }
+
+  .oa-accent-link {
+    color: var(--theme-accent);
+  }
+
+  .oa-accent-link:hover {
+    color: var(--theme-accent-hover);
+  }
+
+  .oa-accent-chip {
+    background-color: var(--theme-accent-soft);
+    color: var(--theme-accent);
+  }
+
+  .oa-accent-chip:hover {
+    background-color: var(--theme-hover-strong);
   }
 }

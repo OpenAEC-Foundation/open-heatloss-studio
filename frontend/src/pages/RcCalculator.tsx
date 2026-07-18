@@ -689,7 +689,7 @@ export function RcCalculator() {
                       <tr
                         key={index}
                         className={`border-b border-[var(--oaec-border-subtle)] hover:bg-[var(--oaec-hover)]/50 ${
-                          isInhomogeneous ? "bg-amber-500/5" : ""
+                          isInhomogeneous ? "bg-[var(--theme-accent-soft)]" : ""
                         }`}
                       >
                         {/* Volgorde knoppen */}
@@ -750,7 +750,7 @@ export function RcCalculator() {
                                 <span className="text-on-surface-secondary">
                                   {material.name}
                                   {isInhomogeneous && studMaterial && (
-                                    <span className="ml-1 text-xs text-amber-400">
+                                    <span className="ml-1 text-xs text-[var(--theme-accent)]">
                                       + {studMaterial.name} {layer.stud!.width}x{layer.thickness} h.o.h.{layer.stud!.spacing}
                                     </span>
                                   )}
@@ -766,7 +766,7 @@ export function RcCalculator() {
                               onClick={() => handleToggleStud(index)}
                               className={`rounded p-1 text-xs ${
                                 isInhomogeneous
-                                  ? "bg-amber-500/20 text-amber-400"
+                                  ? "bg-[var(--theme-hover-strong)] text-[var(--theme-accent)]"
                                   : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
                               }`}
                               title={isInhomogeneous ? "Stijlen verwijderen" : "Stijlen toevoegen"}
@@ -778,14 +778,14 @@ export function RcCalculator() {
                           </div>
                           {/* Expandable stud editor */}
                           {isInhomogeneous && layer.stud && (
-                            <div className="mt-1.5 flex items-center gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-xs">
+                            <div className="mt-1.5 flex items-center gap-2 rounded bg-[var(--theme-accent-soft)] px-2 py-1.5 text-xs">
                               <button
                                 ref={(el) => {
                                   if (el) studMaterialBtnRefs.current.set(index, el);
                                   else studMaterialBtnRefs.current.delete(index);
                                 }}
                                 onClick={() => handleOpenStudPicker(index)}
-                                className="rounded border border-amber-500/30 px-1.5 py-0.5 text-amber-300 hover:bg-amber-500/20"
+                                className="rounded border border-[var(--theme-accent)] px-1.5 py-0.5 text-[var(--theme-accent)] hover:bg-[var(--theme-hover-strong)]"
                               >
                                 {studMaterial?.name ?? "Kies stijlmateriaal"}
                               </button>
@@ -849,7 +849,7 @@ export function RcCalculator() {
                         <td className="py-1 text-right tabular-nums text-on-surface-secondary">
                           {layerResult ? layerResult.r.toFixed(3) : "\u2014"}
                           {layerResult?.rEffective !== undefined && (
-                            <span className="block text-[10px] text-amber-400" title="Effectieve R (incl. stijlcorrectie)">
+                            <span className="block text-[10px] text-[var(--theme-accent)]" title="Effectieve R (incl. stijlcorrectie)">
                               eff.
                             </span>
                           )}
@@ -988,7 +988,7 @@ export function RcCalculator() {
               <h3 className="text-sm font-semibold text-on-surface-secondary">
                 Dampspanning (Glaser-methode)
                 {glaserResult.sectionLabel && (
-                  <span className="ml-2 text-xs font-normal text-amber-400">
+                  <span className="ml-2 text-xs font-normal text-[var(--theme-accent)]">
                     — {glaserResult.sectionLabel}
                   </span>
                 )}
@@ -1087,8 +1087,8 @@ export function RcCalculator() {
                     Schimmelrisico
                   </span>
                 ) : moistureResult.maxMa > 0.1 ? (
-                  <span className="flex items-center gap-1.5 rounded-full bg-amber-600/15 px-2.5 py-0.5 text-xs font-medium text-amber-400">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-600/150" />
+                  <span className="flex items-center gap-1.5 rounded-full oa-badge-warning px-2.5 py-0.5 text-xs font-medium">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--theme-warning)]" />
                     Tijdelijk vocht
                   </span>
                 ) : (
@@ -1126,7 +1126,7 @@ export function RcCalculator() {
                   </label>
                 </div>
                 {climateUnavailable && (
-                  <div className="mb-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  <div className="mb-3 rounded oa-warning-box px-3 py-2 text-xs">
                     Voor deze selectie is nog geen klimaatdata beschikbaar;
                     forfaitaire norm-reeks gebruikt.
                   </div>

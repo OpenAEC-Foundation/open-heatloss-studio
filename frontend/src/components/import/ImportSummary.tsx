@@ -91,7 +91,7 @@ export function ImportSummary({
       {/* Warnings */}
       {warnings.length > 0 && (
         <div className="mb-6">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-400">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium oa-warning-text">
             <AlertTriangle className="h-4 w-4" />
             Waarschuwingen ({warnings.length})
           </h3>
@@ -99,9 +99,9 @@ export function ImportSummary({
             {warnings.map((w, i) => (
               <li
                 key={i}
-                className="flex items-start gap-2 rounded border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300"
+                className="flex items-start gap-2 rounded oa-warning-box px-3 py-2 text-xs"
               >
-                <span className="mt-0.5 text-amber-500">&bull;</span>
+                <span className="mt-0.5 oa-warning-text">&bull;</span>
                 {w}
               </li>
             ))}

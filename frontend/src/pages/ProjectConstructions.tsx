@@ -115,7 +115,7 @@ export function ProjectConstructions() {
   const tabClass = (t: ViewTab) =>
     `px-4 py-2 text-sm font-medium transition-colors ${
       tab === t
-        ? "border-b-2 border-amber-500 text-amber-900"
+        ? "border-b-2 oa-accent-tab-active"
         : "text-on-surface-muted hover:text-on-surface-secondary"
     }`;
 
@@ -158,7 +158,7 @@ export function ProjectConstructions() {
               <p className="mt-1 text-xs text-on-surface-muted">
                 Ga naar het tabblad "Standaard bibliotheek" om constructies toe
                 te voegen, of maak een nieuwe aan via de{" "}
-                <a href="/rc" className="text-amber-400 hover:underline">
+                <a href="/rc" className="oa-accent-link hover:underline">
                   Rc-waarde tool
                 </a>
                 .
@@ -722,7 +722,7 @@ function CatalogueEntryCard({
         ) : (
           <button
             onClick={onCopy}
-            className="rounded bg-amber-600/15 px-3 py-1 text-xs font-medium text-amber-400 hover:bg-amber-600/15"
+            className="rounded oa-accent-chip px-3 py-1 text-xs font-medium"
           >
             Toevoegen aan project
           </button>

@@ -294,7 +294,7 @@ export function DoorGapCalculator({ initial }: { initial?: DoorGapInitial } = {}
 
             {/* Advies: spleet uitvoerbaar of deurrooster toepassen */}
             {advice === "grille" ? (
-              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              <div className="mt-2 rounded-md border oa-warning-box px-3 py-2 text-xs font-medium">
                 {acoustic
                   ? t("doorGap.adviceAcoustic")
                   : t("doorGap.adviceGrille", {

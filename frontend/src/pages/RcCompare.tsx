@@ -150,7 +150,7 @@ function StatusBadge({
     tone === "bad"
       ? "bg-red-600/20 text-red-400"
       : tone === "warn"
-        ? "bg-amber-600/15 text-amber-400"
+        ? "oa-badge-warning"
         : "bg-green-600/15 text-green-400";
   return (
     <span
@@ -521,7 +521,7 @@ export function RcCompare() {
               </label>
             </div>
             {climateUnavailable && (
-              <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              <div className="mt-3 rounded oa-warning-box px-3 py-2 text-xs">
                 Voor deze selectie is nog geen klimaatdata beschikbaar;
                 forfaitaire norm-reeks gebruikt.
               </div>

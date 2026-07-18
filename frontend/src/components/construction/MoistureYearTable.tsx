@@ -83,9 +83,9 @@ export function MoistureYearTable({ result }: MoistureYearTableProps) {
       )}
 
       {!driesOut && hasAnyMoisture && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-600/30 bg-amber-600/15 px-3 py-2">
-          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-600/150" />
-          <div className="text-xs text-amber-400">
+        <div className="flex items-start gap-2 rounded-md oa-warning-box px-3 py-2">
+          <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--theme-warning)]" />
+          <div className="text-xs oa-warning-text">
             <strong>Onvoldoende droging:</strong> de constructie droogt niet
             volledig uit binnen een jaar. Vochtophoping neemt jaarlijks toe.
           </div>

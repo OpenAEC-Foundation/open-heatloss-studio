@@ -49,7 +49,7 @@ export function CatalogueBrowserPanel() {
           placeholder="Zoeken..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-2 py-1 text-[11px] outline-none focus:border-amber-400"
+          className="w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-2 py-1 text-[11px] outline-none focus:border-[var(--theme-accent)]"
         />
       </div>
 
@@ -97,7 +97,7 @@ export function CatalogueBrowserPanel() {
                           ) : hasLayers ? (
                             <button
                               onClick={() => copyFromCatalogue(entry)}
-                              className="rounded bg-amber-600/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400 hover:bg-amber-600/15"
+                              className="rounded oa-accent-chip px-1.5 py-0.5 text-[9px] font-medium"
                             >
                               Toevoegen
                             </button>

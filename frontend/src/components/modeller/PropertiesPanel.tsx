@@ -398,7 +398,7 @@ function EditableField({ label, value, onChange }: { label: string; value: strin
             if (e.key === "Enter") { if (draft.trim()) onChange(draft.trim()); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
-          className="w-28 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
+          className="w-28 rounded border border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
         />
       </div>
     );
@@ -406,7 +406,7 @@ function EditableField({ label, value, onChange }: { label: string; value: strin
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-on-surface-muted">{label}</span>
-      <button onClick={() => { setDraft(value); setEditing(true); }} className="font-mono text-on-surface hover:text-amber-400 hover:underline">{value}</button>
+      <button onClick={() => { setDraft(value); setEditing(true); }} className="font-mono text-on-surface hover:text-[var(--theme-accent)] hover:underline">{value}</button>
     </div>
   );
 }
@@ -426,7 +426,7 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
             if (e.key === "Enter") { const n = parseInt(draft, 10); if (!isNaN(n) && n > 0) onChange(n); setEditing(false); }
             if (e.key === "Escape") setEditing(false);
           }}
-          className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
+          className="w-20 rounded border border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
         />
       </div>
     );
@@ -434,7 +434,7 @@ function EditableNumberField({ label, value, onChange }: { label: string; value:
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-on-surface-muted">{label}</span>
-      <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-on-surface hover:text-amber-400 hover:underline">{value}</button>
+      <button onClick={() => { setDraft(String(value)); setEditing(true); }} className="font-mono text-on-surface hover:text-[var(--theme-accent)] hover:underline">{value}</button>
     </div>
   );
 }
@@ -478,7 +478,7 @@ function ElevationField({ value, fallback, onChange }: {
               }
               if (e.key === "Escape") setEditing(false);
             }}
-            className="w-20 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
+            className="w-20 rounded border border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] px-1.5 py-0.5 text-right text-xs text-on-surface outline-none"
           />
           {value !== undefined && (
             <button
@@ -499,7 +499,7 @@ function ElevationField({ value, fallback, onChange }: {
       <span className="text-on-surface-muted">Peil (mm)</span>
       <button
         onClick={() => { setDraft(value !== undefined ? String(value) : ""); setEditing(true); }}
-        className={`font-mono hover:text-amber-400 hover:underline ${value !== undefined ? "text-on-surface" : "text-on-surface-muted"}`}
+        className={`font-mono hover:text-[var(--theme-accent)] hover:underline ${value !== undefined ? "text-on-surface" : "text-on-surface-muted"}`}
       >
         {display}
       </button>
@@ -550,7 +550,7 @@ function boundaryBadge(wall: WallInfo): { label: string; colors: string } {
   }
   if (bt === "interior") return { label: wall.adjacentName ?? "Intern", colors: "bg-blue-600/15 text-blue-400" };
   if (bt === "curtain_wall") return { label: "Vliesgevel", colors: "bg-cyan-50 text-cyan-700" };
-  if (bt === "neighbor") return { label: "Buren", colors: "bg-orange-50 text-orange-700" };
+  if (bt === "neighbor") return { label: "Buren", colors: "bg-[var(--theme-hover-strong)] text-[var(--theme-accent-hover)]" };
   if (bt === "unheated") return { label: "Onverwarmd", colors: "bg-purple-50 text-purple-700" };
   if (bt === "ground") return { label: "Grond", colors: "bg-green-50 text-green-400" };
   return { label: "Gevel", colors: "bg-red-50 text-red-400" };
@@ -591,7 +591,7 @@ function WallCard({ wall, assignedEntryId, catalogueEntries, onAssign, onChangeB
       ) : picking ? (
         <ConstructionPicker entries={catalogueEntries} filterCategory="wanden" onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-[var(--theme-accent-hover)] hover:text-[var(--theme-accent)]">Constructie toewijzen...</button>
       )}
     </div>
   );
@@ -623,7 +623,7 @@ function ConstructionCard({ label, badge, badgeColor, assignedEntryId, catalogue
       ) : picking ? (
         <ConstructionPicker entries={catalogueEntries} filterCategory={filterCategory} onSelect={(id) => { onAssign?.(id); setPicking(false); }} onCancel={() => setPicking(false)} />
       ) : (
-        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>
+        <button onClick={() => setPicking(true)} className="mt-1 text-[10px] text-[var(--theme-accent-hover)] hover:text-[var(--theme-accent)]">Constructie toewijzen...</button>
       )}
     </div>
   );
@@ -635,7 +635,7 @@ function PickerEntryButton({ entry, onSelect }: {
   return (
     <button
       onClick={() => onSelect(entry.id)}
-      className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-on-surface-secondary hover:bg-amber-600/15"
+      className="block w-full rounded px-1.5 py-1 text-left text-[10px] text-on-surface-secondary hover:bg-[var(--theme-hover-strong)]"
     >
       {entry.isProjectEntry && (
         <span className="mr-1 rounded bg-teal-50 px-1 py-0.5 text-[8px] font-medium text-teal-700">
@@ -710,15 +710,15 @@ function ConstructionPickerInline({ entries, filterCategory, onSelect }: {
   const [open, setOpen] = useState(false);
 
   if (!open) {
-    return <button onClick={() => setOpen(true)} className="text-[10px] text-amber-600 hover:text-amber-400">Constructie toewijzen...</button>;
+    return <button onClick={() => setOpen(true)} className="text-[10px] text-[var(--theme-accent-hover)] hover:text-[var(--theme-accent)]">Constructie toewijzen...</button>;
   }
 
   return (
-    <div className="rounded border border-amber-200 bg-amber-50/50 p-1.5">
+    <div className="rounded border border-[var(--theme-accent-soft)] bg-[var(--theme-accent-soft)] p-1.5">
       <input
         autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
         value={search} onChange={(e) => setSearch(e.target.value)}
-        className="mb-1 w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
+        className="mb-1 w-full rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-[var(--theme-accent)]"
       />
       <div className="max-h-40 overflow-y-auto">
         <PickerList entries={entries} filterCategory={filterCategory} search={search} onSelect={onSelect} />
@@ -733,12 +733,12 @@ function ConstructionPicker({ entries, filterCategory, onSelect, onCancel }: {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="mt-1 rounded border border-amber-200 bg-amber-50/50 p-1.5">
+    <div className="mt-1 rounded border border-[var(--theme-accent-soft)] bg-[var(--theme-accent-soft)] p-1.5">
       <div className="mb-1 flex items-center gap-1">
         <input
           autoFocus placeholder={`Zoek in ${CATALOGUE_CATEGORY_LABELS[filterCategory]}...`}
           value={search} onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-amber-400"
+          className="flex-1 rounded border border-[var(--oaec-border)] bg-surface-alt px-1.5 py-0.5 text-[10px] outline-none focus:border-[var(--theme-accent)]"
         />
         <button onClick={onCancel} className="text-[10px] text-on-surface-muted hover:text-on-surface-secondary">Annuleer</button>
       </div>

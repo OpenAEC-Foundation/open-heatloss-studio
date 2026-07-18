@@ -147,6 +147,25 @@
   --domain-diagram-grid-strong: rgba(54, 54, 62, 0.20);
   --domain-diagram-grid-subtle: rgba(54, 54, 62, 0.15);
 
+  /* ─── Semantic: Warning (advies-/waarschuwingsboxen, StatusBar-tekst) ───
+     Behoudt hier het bestaande amber-uiterlijk, afgeleid uit de eerder
+     gebruikte Tailwind-klassen (amber-700/amber-50/amber-300). */
+  --theme-warning: #B45309;
+  --theme-warning-text: #B45309;
+  --theme-warning-bg: #FFFBEB;
+  --theme-warning-border: #FCD34D;
+
+  /* ─── Domain: Ventilatie-overstroom (FloorCanvas-laag + legenda) ─── */
+  --domain-overflow: #D97706;
+
+  /* ─── Tailwind `primary`-brug (tailwind.config.ts) ───────────────────
+     RGB-triplet (géén hex) — Tailwind's `rgb(var(...) / <alpha-value>)`-
+     patroon heeft dit formaat nodig om opacity-modifiers (bg-primary/10
+     e.d.) te laten werken op een CSS-var-gebaseerde kleur. Pixel-gelijk
+     aan de oude hardcoded #D97706/#EA580C. */
+  --theme-primary-rgb: 217 119 6;
+  --theme-primary-hover-rgb: 234 88 12;
+
   /* Tell native form controls (select dropdowns, scrollbars, input
      spinners, datepickers) to use the light variant. */
   color-scheme: light;
@@ -329,6 +348,19 @@ html[data-theme="light"] {
   --domain-diagram-grid-strong: rgba(250, 250, 249, 0.2);
   --domain-diagram-grid-subtle: rgba(250, 250, 249, 0.15);
 
+  /* ─── Semantic: Warning — donker-variant (amber-300 tekst op amber-500 tint) ─── */
+  --theme-warning: #FCD34D;
+  --theme-warning-text: #FCD34D;
+  --theme-warning-bg: rgba(245, 158, 11, 0.15);
+  --theme-warning-border: rgba(245, 158, 11, 0.30);
+
+  /* ─── Domain: Ventilatie-overstroom (FloorCanvas-laag + legenda) ─── */
+  --domain-overflow: #D97706;
+
+  /* ─── Tailwind `primary`-brug (tailwind.config.ts) — pixel-gelijk ─── */
+  --theme-primary-rgb: 217 119 6;
+  --theme-primary-hover-rgb: 234 88 12;
+
   /* Tell native form controls (select dropdowns, scrollbars, input
      spinners, datepickers) to use the dark variant. */
   color-scheme: dark;
@@ -445,6 +477,19 @@ html[data-theme="light"] {
   --theme-btn-secondary-hover-border: rgba(217, 119, 6, 0.3);
 
   /* ─── Domain tokens (zelfde als forge — content area is altijd wit) ─── */
+
+  /* ─── Semantic: Warning — donker-variant (amber-300 tekst op amber-500 tint) ─── */
+  --theme-warning: #FCD34D;
+  --theme-warning-text: #FCD34D;
+  --theme-warning-bg: rgba(245, 158, 11, 0.15);
+  --theme-warning-border: rgba(245, 158, 11, 0.30);
+
+  /* ─── Domain: Ventilatie-overstroom (FloorCanvas-laag + legenda) ─── */
+  --domain-overflow: #D97706;
+
+  /* ─── Tailwind `primary`-brug (tailwind.config.ts) — pixel-gelijk ─── */
+  --theme-primary-rgb: 217 119 6;
+  --theme-primary-hover-rgb: 234 88 12;
 }
 
 /* ============================================================
@@ -602,6 +647,23 @@ html[data-theme="light"] {
   --domain-diagram-grid: rgba(15, 48, 44, 0.10);
   --domain-diagram-grid-strong: rgba(15, 48, 44, 0.20);
   --domain-diagram-grid-subtle: rgba(15, 48, 44, 0.15);
+
+  /* ─── Semantic: Warning — gedempt oker, huisstijl-conform (GEEN amber/oranje) ─── */
+  --theme-warning: #8F6A1F;
+  --theme-warning-text: #8F6A1F;
+  --theme-warning-bg: #FBF4E4;
+  --theme-warning-border: #E8D9B5;
+
+  /* ─── Domain: Ventilatie-overstroom (FloorCanvas-laag + legenda) — teal, geen oranje ─── */
+  --domain-overflow: #0FA08D;
+
+  /* ─── Tailwind `primary`-brug (tailwind.config.ts) ───────────────────
+     DEFAULT = petrol (#0D6862), niet teal: wit-op-teal haalt maar ~3,3:1
+     contrast (WCAG AA-fail), wit-op-petrol ~6,6:1 — zelfde afweging als
+     --theme-btn-primary-bg hierboven. primary-hover = teal, als lichtere
+     hover-highlight (zelfde richting als --theme-btn-primary-hover-bg). */
+  --theme-primary-rgb: 13 104 98;
+  --theme-primary-hover-rgb: 15 160 141;
 
   /* ─── Typografie (Segoe UI, huisstijl) ─── */
   font-family: 'Segoe UI', Arial, sans-serif;

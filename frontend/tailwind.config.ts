@@ -21,13 +21,18 @@ const config: Config = {
         "on-accent":    "var(--theme-accent-text)",
 
         /* ═══════════════════════════════════════════════════════
-           DESIGN SYSTEM — Vaste brand kleuren
+           DESIGN SYSTEM — Theme-aware brand kleur (was hardcoded amber)
+           `<alpha-value>` + rgb-triplet-vars laat Tailwind's opacity-
+           modifiers (bg-primary/10, border-primary/20, ...) werken op
+           een CSS-var-gebaseerde kleur; --theme-primary-rgb is per
+           thema gedefinieerd in themes.css (kolthof = petrol/teal,
+           overige thema's pixel-gelijk aan de oude #D97706/#EA580C).
            ═══════════════════════════════════════════════════════ */
         primary: {
-          DEFAULT: "#D97706",
-          hover: "#EA580C",
-          light: "#FFFBEB",
-          border: "#F59E0B",
+          DEFAULT: "rgb(var(--theme-primary-rgb) / <alpha-value>)",
+          hover: "rgb(var(--theme-primary-hover-rgb) / <alpha-value>)",
+          light: "var(--theme-accent-soft)",
+          border: "var(--theme-accent-tint)",
         },
         concrete: "#F5F5F4",
         "deep-forge": "#36363E",

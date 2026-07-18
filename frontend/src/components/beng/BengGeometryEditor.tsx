@@ -142,7 +142,7 @@ const uid = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 /** Compacte inline-waarschuwing (plausibiliteit; server blijft de validator). */
 function Warn({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs text-amber-500 dark:text-amber-400">⚠ {children}</p>
+    <p className="text-xs oa-warning-text">⚠ {children}</p>
   );
 }
 

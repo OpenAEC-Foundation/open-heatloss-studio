@@ -138,7 +138,7 @@ export function IndicativeOccupancyBadge({
   if (!isBblDemandIndicative(fn, occupancy)) return null;
   return (
     <span
-      className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700"
+      className="ml-1 rounded-full oa-badge-warning px-1.5 py-0.5 text-[9px] font-semibold"
       title={t("ventilation.indicativeHint")}
     >
       {t("ventilation.indicativeBadge")}
@@ -337,7 +337,7 @@ export function BuildingBalanceSummary({
         {balance.balanced ? (
           <span className="font-semibold text-green-600">✓ In balans</span>
         ) : (
-          <span className="font-semibold text-amber-600">
+          <span className="font-semibold oa-warning-text">
             {balance.imbalanceDm3s > 0 ? "Overdruk +" : "Onderdruk "}
             {flowDisplayLabel(balance.imbalanceDm3s, unit)}
           </span>

@@ -458,7 +458,7 @@ function SaveStatus() {
   return (
     <div className="flex items-center gap-2 px-3 py-2 text-xs text-scaffold-gray">
       <span
-        className={`inline-block h-2 w-2 rounded-full ${isDirty ? "bg-amber-500" : "bg-green-500"}`}
+        className={`inline-block h-2 w-2 rounded-full ${isDirty ? "bg-[var(--theme-warning)]" : "bg-green-500"}`}
       />
       <span>{isDirty ? t("sidebar.unsaved") : t("sidebar.saved")}</span>
     </div>

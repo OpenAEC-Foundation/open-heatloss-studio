@@ -5,7 +5,7 @@ const COLOR_CLASSES: Record<string, string> = {
   blue: "bg-blue-500",
   purple: "bg-purple-500",
   green: "bg-green-500",
-  amber: "bg-amber-500",
+  amber: "bg-[var(--domain-boundary-adjacent-building)]",
   stone: "bg-stone-400",
   teal: "bg-teal-500",
 };

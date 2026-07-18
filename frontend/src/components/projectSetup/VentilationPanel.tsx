@@ -300,7 +300,7 @@ export function VentilationPanel() {
               nominale capaciteit onder de gebouw-q_v worden uitgegrijsd.
             </p>
             {selectedUnitTooSmall && (
-              <p className="mt-1 text-[10px] leading-tight text-amber-600">
+              <p className="mt-1 text-[10px] leading-tight oa-warning-text">
                 ⚠ Capaciteit te laag voor dit gebouw (
                 {formatDecimals(selectedWtwUnit?.q_nominal_m3h)} m³/h &lt;{" "}
                 {(requiredM3h ?? 0).toFixed(0)} m³/h).

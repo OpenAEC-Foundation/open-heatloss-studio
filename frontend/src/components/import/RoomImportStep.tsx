@@ -72,7 +72,7 @@ export function RoomImportStep({ rooms, onRoomsChange }: RoomImportStepProps) {
                     className={`rounded border border-gray-600 bg-gray-800 px-2 py-1 text-sm focus:border-[#45B6A8] focus:outline-none ${
                       room.type === "heated"
                         ? "text-[#45B6A8]"
-                        : "text-amber-400"
+                        : "oa-warning-text"
                     }`}
                   >
                     <option value="heated">Verwarmd</option>
@@ -111,7 +111,7 @@ export function RoomImportStep({ rooms, onRoomsChange }: RoomImportStepProps) {
                     room.type === "outside"
                       ? "bg-blue-500/50"
                       : room.type === "ground"
-                        ? "bg-amber-600/50"
+                        ? "bg-[var(--domain-boundary-ground)] opacity-50"
                         : "bg-cyan-500/50"
                   }`}
                 />
@@ -137,9 +137,9 @@ export function RoomImportStep({ rooms, onRoomsChange }: RoomImportStepProps) {
 
       {/* Warning if no heated rooms */}
       {realRooms.filter((r) => r.type === "heated").length === 0 && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
-          <p className="text-sm text-amber-300">
+        <div className="mt-4 flex items-start gap-2 rounded-lg oa-warning-box px-4 py-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 oa-warning-text" />
+          <p className="text-sm oa-warning-text">
             Er zijn geen verwarmde ruimtes. Wijzig het type van minimaal
             een ruimte naar "Verwarmd" om een warmteverliesberekening te
             kunnen maken.

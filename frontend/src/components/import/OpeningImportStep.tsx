@@ -177,7 +177,7 @@ function OpeningRow({ opening, hostRoom, onUValueChange }: OpeningRowProps) {
             opening.type === "window"
               ? "bg-blue-500/10 text-blue-400"
               : opening.type === "door"
-                ? "bg-amber-500/10 text-amber-400"
+                ? "bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]"
                 : "bg-purple-500/10 text-purple-400"
           }`}
         >

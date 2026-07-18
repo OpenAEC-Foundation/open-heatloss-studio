@@ -218,7 +218,7 @@ export function HwaCalculator() {
             )}
 
             {result.warnings.length > 0 && (
-              <ul className="mt-2 space-y-1 text-xs text-amber-700">
+              <ul className="mt-2 space-y-1 text-xs oa-warning-text">
                 {result.warnings.map((w, i) => (
                   <li key={i}>⚠ {w}</li>
                 ))}
@@ -510,7 +510,7 @@ function SurfaceRow({
             </p>
           )}
           {result.warnings.length > 0 && (
-            <ul className="mt-1 space-y-0.5 text-amber-700">
+            <ul className="mt-1 space-y-0.5 oa-warning-text">
               {result.warnings.map((w, i) => (
                 <li key={i}>⚠ {w}</li>
               ))}

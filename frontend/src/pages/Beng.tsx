@@ -479,7 +479,7 @@ export function Beng() {
           </div>
         )}
         {inputHint && (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-300">
+          <div className="rounded-md border oa-warning-box px-4 py-3 text-sm">
             {inputHint}
           </div>
         )}
@@ -489,11 +489,11 @@ export function Beng() {
           </div>
         )}
         {importWarnings.length > 0 && (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <h3 className="mb-1 text-sm font-semibold text-amber-300">
+          <div className="rounded-md border oa-warning-box px-4 py-3">
+            <h3 className="mb-1 text-sm font-semibold oa-warning-text">
               {t("beng.import.warningsTitle", "Import-waarschuwingen")}
             </h3>
-            <ul className="list-disc space-y-1 pl-5 text-xs text-amber-200/90">
+            <ul className="list-disc space-y-1 pl-5 text-xs oa-warning-text">
               {importWarnings.map((w, i) => (
                 <li key={i}>{w}</li>
               ))}
@@ -1216,7 +1216,7 @@ function UniecComparePanel({
                 </td>
                 <td
                   className={`px-2 py-1 text-right tabular-nums font-medium ${
-                    r.within ? "text-green-400" : "text-amber-400"
+                    r.within ? "text-green-400" : "oa-warning-text"
                   }`}
                 >
                   {Number.isFinite(r.delta)

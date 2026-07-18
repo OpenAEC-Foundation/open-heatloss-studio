@@ -66,3 +66,32 @@
   font-weight: 500;
   font-size: 12px;
 }
+
+/* ─── Huisstijl-signatuur: kolthof-only segmentbalk onderaan ───────────
+   Dunne balk met harde kleursegmenten (lijn-grijs → mint → teal → petrol),
+   zelfde opbouw als de kop-/voettbalk op de PDF-rapportdragers. Alleen
+   zichtbaar in het kolthof-thema; overige thema's blijven ongewijzigd. */
+[data-theme="kolthof"] .status-bar {
+  position: relative;
+}
+
+[data-theme="kolthof"] .status-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    var(--theme-border) 0%,
+    var(--theme-border) 55%,
+    #B0EAE2 55%,
+    #B0EAE2 70%,
+    #0FA08D 70%,
+    #0FA08D 85%,
+    #0D6862 85%,
+    #0D6862 100%
+  );
+  pointer-events: none;
+}

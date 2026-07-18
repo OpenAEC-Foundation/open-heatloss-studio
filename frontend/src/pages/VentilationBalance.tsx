@@ -546,7 +546,7 @@ function RoomTableRow({
               </span>
               {row.missingFlowCount > 0 && (
                 <div
-                  className="text-[10px] font-medium text-amber-600"
+                  className="text-[10px] font-medium oa-warning-text"
                   title={`Ventielen zonder debiet tellen als 0 ${FLOW_UNIT_LABELS[unit]}`}
                 >
                   ⚠ {row.missingFlowCount} ventiel

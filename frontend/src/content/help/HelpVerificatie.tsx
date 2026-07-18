@@ -99,7 +99,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 /** Disclaimer-banner voor informatieve (niet-referentie) projecten. */
 function InformativeBanner({ disclaimer }: { disclaimer: string }) {
   return (
-    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-300">
+    <div className="rounded-md border oa-warning-box px-4 py-3 text-sm leading-relaxed">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider">
         Informatief — geen referentie
       </p>

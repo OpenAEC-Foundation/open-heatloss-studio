@@ -328,7 +328,7 @@ function RoomRow({
 
       {/* Ventielen zonder debiet */}
       {row.missingFlowCount > 0 && (
-        <div className="mt-1 text-[10px] font-medium text-amber-600">
+        <div className="mt-1 text-[10px] font-medium oa-warning-text">
           ⚠ {row.missingFlowCount} ventiel
           {row.missingFlowCount > 1 ? "en" : ""} zonder debiet (telt als 0)
         </div>

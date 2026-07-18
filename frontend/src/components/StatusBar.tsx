@@ -63,7 +63,7 @@ function SaveStatusIndicator() {
       <div className="status-item" title={errorDetail ?? undefined}>
         <span
           className="status-item-label"
-          style={warning ? { color: "var(--theme-warning, #d97706)" } : undefined}
+          style={warning ? { color: "var(--theme-warning, currentColor)" } : undefined}
         >
           {label}
         </span>

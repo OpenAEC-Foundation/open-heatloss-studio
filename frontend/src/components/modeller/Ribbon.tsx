@@ -246,7 +246,7 @@ function BeeldTab({
           <button
             onClick={() => onSnapChange({ ...snap, enabled: !snap.enabled })}
             className={`rounded px-2 py-1 text-xs font-bold ${
-              snap.enabled ? "bg-amber-100 text-amber-800" : "bg-surface-alt text-on-surface-muted"
+              snap.enabled ? "bg-primary text-on-accent" : "bg-surface-alt text-on-surface-muted"
             }`}
           >
             {snap.enabled ? "AAN" : "UIT"}
@@ -262,7 +262,7 @@ function BeeldTab({
                   checked={snap.modes.includes(opt.mode)}
                   onChange={() => toggleSnapMode(opt.mode)}
                   disabled={!snap.enabled}
-                  className="h-2.5 w-2.5 rounded border-[var(--oaec-border)] text-amber-600"
+                  className="h-2.5 w-2.5 rounded border-[var(--oaec-border)] accent-primary"
                 />
                 {opt.label}
               </label>
@@ -368,7 +368,7 @@ function ToolRow({
             title={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
             className={`flex h-[52px] w-11 flex-col items-center justify-center gap-0.5 rounded px-1 transition-colors ${
               active === t.id
-                ? "bg-amber-100 text-amber-800"
+                ? "bg-primary text-on-accent"
                 : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
             }`}
           >
@@ -388,7 +388,7 @@ function ToolRow({
                 title={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
                 className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left transition-colors ${
                   active === t.id
-                    ? "bg-amber-100 text-amber-800"
+                    ? "bg-primary text-on-accent"
                     : "text-on-surface-muted hover:bg-[var(--oaec-hover)] hover:text-on-surface-secondary"
                 }`}
               >

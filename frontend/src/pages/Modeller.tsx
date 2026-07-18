@@ -1333,7 +1333,7 @@ interface VentilationToolbarProps {
 const VENT_LAYER_CHIPS: { key: keyof VentilationLayerVisibility; label: string; color: string }[] = [
   { key: "supply", label: "Toevoer", color: "#22c55e" },
   { key: "exhaust", label: "Afvoer", color: "#3b82f6" },
-  { key: "overflow", label: "Overstroom", color: "#D97706" },
+  { key: "overflow", label: "Overstroom", color: "var(--domain-overflow, #D97706)" },
   { key: "gaps", label: "Spleten", color: "#6b7280" },
 ];
 

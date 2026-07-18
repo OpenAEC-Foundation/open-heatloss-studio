@@ -251,13 +251,13 @@ export function ConstructionImportStep({
 
       {/* Warning for entries without layers */}
       {withoutLayers.length > 0 && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+        <div className="mb-4 flex items-start gap-2 rounded-lg oa-warning-box px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 oa-warning-text" />
           <div>
-            <p className="text-sm text-amber-300">
+            <p className="text-sm oa-warning-text">
               {withoutLayers.length} catalogus-entrie(s) zonder laag-opbouw
             </p>
-            <p className="mt-0.5 text-xs text-amber-400/70">
+            <p className="mt-0.5 text-xs oa-warning-text">
               Deze constructies hebben geen materiaallagen uit Revit. De
               U-waarde moet handmatig worden ingevoerd na import.
             </p>
@@ -296,7 +296,7 @@ export function ConstructionImportStep({
                       {entry.description}
                     </span>
                     {!hasLayers && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                      <AlertTriangle className="h-3.5 w-3.5 oa-warning-text" />
                     )}
                     {hasCalculatedU && (
                       <Check className="h-3.5 w-3.5 text-green-400" />
