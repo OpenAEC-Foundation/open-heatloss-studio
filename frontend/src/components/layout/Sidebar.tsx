@@ -127,6 +127,16 @@ function IconDroplet({ className }: { className?: string }) {
   );
 }
 
+function IconRamp({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 20h18" />
+      <path d="M3 20L15 5" />
+      <path d="M15 5h6v15" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -277,6 +287,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
     defaultCollapsed: false,
     items: [
       { to: "/tools/hwa", labelKey: "sidebar.hwa", Icon: IconDroplet },
+      { to: "/tools/hellingbaan", labelKey: "sidebar.hellingbaan", Icon: IconRamp },
     ],
   },
   {
