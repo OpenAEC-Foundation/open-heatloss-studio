@@ -147,6 +147,15 @@ function IconAngle({ className }: { className?: string }) {
   );
 }
 
+function IconThermometer({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 14.76V3.5a2 2 0 00-4 0v11.26a4 4 0 104 0z" />
+      <line x1="12" y1="8" x2="14" y2="8" />
+    </svg>
+  );
+}
+
 function IconClipboardList({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -299,6 +308,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroupSpec> = [
       { to: "/tools/hwa", labelKey: "sidebar.hwa", Icon: IconDroplet },
       { to: "/tools/hellingbaan", labelKey: "sidebar.hellingbaan", Icon: IconRamp },
       { to: "/tools/hoeken", labelKey: "sidebar.hoeken", Icon: IconAngle },
+      { to: "/tools/uitzetting", labelKey: "sidebar.uitzetting", Icon: IconThermometer },
     ],
   },
   {

@@ -78,6 +78,8 @@ interface MaterialDraft {
   lambdaWet: string;
   mu: string;
   rho: string;
+  /** Lineaire uitzettingscoëfficiënt α [10⁻⁶/K]. Leeg = null (niet relevant/onbekend). */
+  alpha: string;
   keywords: string;
 }
 
@@ -89,6 +91,7 @@ const EMPTY_MAT_DRAFT: MaterialDraft = {
   lambdaWet: "",
   mu: "",
   rho: "",
+  alpha: "",
   keywords: "",
 };
 
@@ -358,6 +361,7 @@ function MaterialsView() {
       rho: draft.rho ? Number(draft.rho) : null,
       rdFixed: null,
       sdFixed: null,
+      alpha: draft.alpha ? Number(draft.alpha) : null,
       keywords: parseKeywords(draft.keywords),
     });
     setDraft({ ...EMPTY_MAT_DRAFT });
@@ -422,6 +426,7 @@ function MaterialsView() {
               <th className="w-[100px] px-3 py-2.5 text-right">{"\u03BB"} [W/mK]</th>
               <th className="w-[100px] px-3 py-2.5 text-right">{"\u03BB"} nat</th>
               <th className="w-[80px] px-3 py-2.5 text-right">{"\u03BC"} [-]</th>
+              <th className="w-[90px] px-3 py-2.5 text-right">{"\u03B1"} [10{"\u207B\u2076"}/K]</th>
               <th className="w-[60px] px-3 py-2.5" />
             </tr>
           </thead>
@@ -442,7 +447,7 @@ function MaterialsView() {
             ))}
             {grouped.size === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-sm text-on-surface-muted">
+                <td colSpan={8} className="px-3 py-8 text-center text-sm text-on-surface-muted">
                   Geen materialen gevonden.
                 </td>
               </tr>
@@ -488,7 +493,7 @@ function MaterialCategoryGroup({
         onClick={() => setCollapsed((v) => !v)}
       >
         <td
-          colSpan={7}
+          colSpan={8}
           className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-on-surface-muted"
         >
           <span className="mr-1.5 inline-block w-3 text-center text-[10px]">
@@ -546,6 +551,7 @@ function MaterialRow({
     lambdaWet: "",
     mu: "",
     rho: "",
+    alpha: "",
     keywords: "",
   });
 
@@ -561,6 +567,7 @@ function MaterialRow({
       lambdaWet: material.lambdaWet !== null ? String(material.lambdaWet) : "",
       mu: String(material.mu),
       rho: material.rho !== null ? String(material.rho) : "",
+      alpha: material.alpha != null ? String(material.alpha) : "",
       keywords: material.keywords.join(", "),
     });
     onEdit();
@@ -575,6 +582,7 @@ function MaterialRow({
       lambdaWet: draft.lambdaWet ? Number(draft.lambdaWet) : null,
       mu: Number(draft.mu) || 1,
       rho: draft.rho ? Number(draft.rho) : null,
+      alpha: draft.alpha ? Number(draft.alpha) : null,
       keywords: parseKeywords(draft.keywords),
     });
   }, [draft, onUpdate]);
@@ -648,6 +656,17 @@ function MaterialRow({
           />
         </td>
         <td className="px-2 py-1.5">
+          <input
+            type="number"
+            value={draft.alpha}
+            onChange={(e) => setDraft((p) => ({ ...p, alpha: e.target.value }))}
+            placeholder="-"
+            step="any"
+            title="Lineaire uitzettingscoëfficiënt α [10⁻⁶/K] — leeg = niet relevant/onbekend"
+            className="w-full rounded border border-[var(--oaec-border)] px-2 py-1 text-right text-sm tabular-nums focus:border-primary focus:outline-none"
+          />
+        </td>
+        <td className="px-2 py-1.5">
           <div className="flex justify-end gap-1">
             <button
               type="button"
@@ -698,6 +717,9 @@ function MaterialRow({
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
         {material.mu}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums text-on-surface-secondary">
+        {material.alpha != null ? material.alpha : <span className="text-on-surface-muted">-</span>}
       </td>
       <td className="px-3 py-2">
         <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -818,6 +840,18 @@ function MaterialAddForm({
           value={draft.mu}
           onChange={(e) => onChange({ mu: e.target.value })}
           step="any"
+          className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
+        />
+      </label>
+      <label className="flex w-24 flex-col gap-1 text-xs font-medium text-on-surface-secondary">
+        {"\u03B1"} [10{"\u207B\u2076"}/K]
+        <input
+          type="number"
+          value={draft.alpha}
+          onChange={(e) => onChange({ alpha: e.target.value })}
+          placeholder="onbekend"
+          step="any"
+          title="Lineaire uitzettingsco\u00EBffici\u00EBnt \u2014 leeg = niet relevant/onbekend"
           className="rounded border border-[var(--oaec-border)] px-2 py-1.5 text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none"
         />
       </label>

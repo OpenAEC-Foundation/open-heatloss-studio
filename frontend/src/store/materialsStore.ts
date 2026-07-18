@@ -66,6 +66,7 @@ function materialDiffersFromDefault(material: Material): boolean {
     material.lambdaWet !== def.lambdaWet ||
     material.mu !== def.mu ||
     material.rho !== def.rho ||
+    (material.alpha ?? null) !== (def.alpha ?? null) ||
     material.category !== def.category ||
     JSON.stringify(material.keywords) !== JSON.stringify(def.keywords)
   );

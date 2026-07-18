@@ -99,6 +99,7 @@
     "hwa": "HWA / hemelwaterafvoer",
     "hellingbaan": "Hellingbaan (parkeergarage)",
     "hoeken": "Hoeken (graden/%/verhouding)",
+    "uitzetting": "Uitzetting (thermisch/vocht)",
     "tojuli": {
       "comingSoon": "Binnenkort",
       "quick": "Snelle check (woningen)",
@@ -722,5 +723,34 @@
       "platdak": "Ontwerpafschot plat dak — zie HWA-tool",
       "dak": "Dakhelling"
     }
+  },
+  "uitzetting": {
+    "title": "Uitzetting-calculator",
+    "subtitle": "Thermische lengte-uitzetting en vochtzwelling plaatmateriaal",
+    "thermalTitle": "A. Thermische uitzetting",
+    "material": "Materiaal",
+    "materialPick": "Kies materiaal…",
+    "alpha": "Uitzettingscoëfficiënt α",
+    "alphaUnknown": "onbekend",
+    "length": "Lengte l₀",
+    "refTemp": "Referentietemperatuur",
+    "minTemp": "Minimumtemperatuur",
+    "maxTemp": "Maximumtemperatuur",
+    "krimp": "Krimp",
+    "vergroting": "Vergroting",
+    "krimpPerM": "Krimp per m¹",
+    "vergrotingPerM": "Vergroting per m¹",
+    "thermalDisclaimer": "Δl = α·ΔT·l₀ — pure materiaalkundige berekening, geen normclaim. Boven ≈{{threshold}} mm op de ingevoerde lengte: dilatatie/schuifbevestiging overwegen (informatief).",
+    "moistureTitle": "B. Vochtzwelling plaatmateriaal (EN 318)",
+    "swelling": "Lineaire zwelling",
+    "swellingPreset": "Default: OSB klasse O2 (EN 318), handmatig overschrijfbaar",
+    "rvInstall": "RV bij installatie",
+    "rvMax": "RV max",
+    "rvMin": "RV min",
+    "toename": "Toename",
+    "sourceIntro": "Bronstatus van de normwaarden in dit rekenmodel:",
+    "sourceTemps": "Referentie-/min-/maxtemperatuur",
+    "sourceRv": "RV-defaults (installatie/max/min)",
+    "sourceSwelling": "Lineaire zwellingscoëfficiënt"
   }
 }

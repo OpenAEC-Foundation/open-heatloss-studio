@@ -99,6 +99,7 @@
     "hwa": "Rainwater drainage",
     "hellingbaan": "Ramp (parking garage)",
     "hoeken": "Angles (degrees/%/ratio)",
+    "uitzetting": "Expansion (thermal/moisture)",
     "tojuli": {
       "comingSoon": "Coming soon",
       "quick": "Quick check (dwellings)",
@@ -722,5 +723,34 @@
       "platdak": "Design fall flat roof — see rainwater drainage tool",
       "dak": "Roof pitch"
     }
+  },
+  "uitzetting": {
+    "title": "Expansion calculator",
+    "subtitle": "Thermal length expansion and moisture swelling of sheet material",
+    "thermalTitle": "A. Thermal expansion",
+    "material": "Material",
+    "materialPick": "Choose material…",
+    "alpha": "Expansion coefficient α",
+    "alphaUnknown": "unknown",
+    "length": "Length l₀",
+    "refTemp": "Reference temperature",
+    "minTemp": "Minimum temperature",
+    "maxTemp": "Maximum temperature",
+    "krimp": "Shrinkage",
+    "vergroting": "Expansion",
+    "krimpPerM": "Shrinkage per m",
+    "vergrotingPerM": "Expansion per m",
+    "thermalDisclaimer": "Δl = α·ΔT·l₀ — purely a materials-science calculation, no code claim. Above ≈{{threshold}} mm on the entered length: consider an expansion/sliding fixation (informational).",
+    "moistureTitle": "B. Moisture swelling of sheet material (EN 318)",
+    "swelling": "Linear swelling",
+    "swellingPreset": "Default: OSB grade O2 (EN 318), manually overridable",
+    "rvInstall": "RH at installation",
+    "rvMax": "RH max",
+    "rvMin": "RH min",
+    "toename": "Increase",
+    "sourceIntro": "Source status of the norm values in this calculation model:",
+    "sourceTemps": "Reference/min/max temperature",
+    "sourceRv": "RH defaults (installation/max/min)",
+    "sourceSwelling": "Linear swelling coefficient"
   }
 }
