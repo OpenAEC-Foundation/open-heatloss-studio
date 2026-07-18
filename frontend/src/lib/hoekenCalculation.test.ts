@@ -8,12 +8,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  gradenNaarMmPerM,
   gradenNaarProcent,
   gradenNaarVerhouding,
   hoekWaardenVanGraden,
+  hoekWaardenVanMmPerM,
   hoekWaardenVanProcent,
   hoekWaardenVanVerhouding,
+  mmPerMNaarGraden,
+  mmPerMNaarProcent,
   procentNaarGraden,
+  procentNaarMmPerM,
   procentNaarVerhouding,
   verhoudingNaarGraden,
   verhoudingNaarProcent,
@@ -36,6 +41,11 @@ describe("rekenblad-ankers", () => {
     expect(gradenNaarProcent(45)).toBeCloseTo(100, 3);
     expect(gradenNaarVerhouding(45)).toBeCloseTo(1, 3);
   });
+
+  it("16 mm/m = 1,6% ≈ 0,9167°", () => {
+    expect(mmPerMNaarProcent(16)).toBeCloseTo(1.6, 3);
+    expect(mmPerMNaarGraden(16)).toBeCloseTo(0.9167, 3);
+  });
 });
 
 describe("round-trips", () => {
@@ -53,15 +63,29 @@ describe("round-trips", () => {
     }
   });
 
-  it("hoekWaardenVanGraden/-Procent/-Verhouding leveren onderling consistente sets op", () => {
+  it("hoekWaardenVanGraden/-Procent/-Verhouding/-MmPerM leveren onderling consistente sets op", () => {
     const viaGraden = hoekWaardenVanGraden(30);
     const viaProcent = hoekWaardenVanProcent(viaGraden.procent);
     const viaVerhouding = hoekWaardenVanVerhouding(viaGraden.verhoudingN);
+    const viaMmPerM = hoekWaardenVanMmPerM(viaGraden.mmPerM);
 
     expect(viaProcent.graden).toBeCloseTo(30, 6);
     expect(viaVerhouding.graden).toBeCloseTo(30, 6);
+    expect(viaMmPerM.graden).toBeCloseTo(30, 6);
     expect(viaProcent.verhoudingN).toBeCloseTo(viaGraden.verhoudingN, 6);
     expect(viaVerhouding.procent).toBeCloseTo(viaGraden.procent, 6);
+    expect(viaMmPerM.mmPerM).toBeCloseTo(viaGraden.mmPerM, 6);
+  });
+
+  it("procent -> mm/m -> procent en graden -> mm/m -> graden reconstrueren de oorspronkelijke waarde", () => {
+    for (const procent of [0, 1.6, 8.333, 24, 173.2051]) {
+      const mmPerM = procentNaarMmPerM(procent);
+      expect(mmPerMNaarProcent(mmPerM)).toBeCloseTo(procent, 6);
+    }
+    for (const graden of [0, 4.5739, 15, 45, 89.9]) {
+      const mmPerM = gradenNaarMmPerM(graden);
+      expect(mmPerMNaarGraden(mmPerM)).toBeCloseTo(graden, 6);
+    }
   });
 });
 

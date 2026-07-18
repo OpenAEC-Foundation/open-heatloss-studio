@@ -8,11 +8,12 @@
  *
  * State is bewust lokaal (`useState`, geen store): de invoer is vluchtig,
  * er is niets om tussen sessies te bewaren — zelfde overweging als
- * `DoorGapCalculator.tsx`. Drie tekst-inputs houden hun eigen "ruwe"
- * getypte string vast zodat tussentijdse invoer (bv. `"4,"`) niet wordt
- * teruggezet; bij een geldig getal worden de andere twee velden herrekend
- * vanuit dát veld (geen circulaire updates, want de bron-waarde wordt zelf
- * nooit herschreven vanuit de afgeleiden).
+ * `DoorGapCalculator.tsx`. Vier tekst-inputs (graden, procent, verhouding,
+ * afschot mm/m) houden hun eigen "ruwe" getypte string vast zodat
+ * tussentijdse invoer (bv. `"4,"`) niet wordt teruggezet; bij een geldig
+ * getal worden de andere drie velden herrekend vanuit dát veld (geen
+ * circulaire updates, want de bron-waarde wordt zelf nooit herschreven
+ * vanuit de afgeleiden).
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,9 +22,14 @@ import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/layout/PageHeader";
 import { formatDecimals } from "../lib/formatNumber";
 import {
+  gradenNaarMmPerM,
   gradenNaarProcent,
   gradenNaarVerhouding,
+  mmPerMNaarGraden,
+  mmPerMNaarProcent,
+  mmPerMNaarVerhouding,
   procentNaarGraden,
+  procentNaarMmPerM,
   procentNaarVerhouding,
   verhoudingNaarProcent,
 } from "../lib/hoekenCalculation";
@@ -38,14 +44,29 @@ interface OverzichtRij {
   graden: number;
   procent: number;
   verhoudingN: number;
+  mmPerM: number;
 }
 
 function rijVanProcent(key: string, contextKey: string, procent: number): OverzichtRij {
-  return { key, contextKey, procent, graden: procentNaarGraden(procent), verhoudingN: procentNaarVerhouding(procent) };
+  return {
+    key,
+    contextKey,
+    procent,
+    graden: procentNaarGraden(procent),
+    verhoudingN: procentNaarVerhouding(procent),
+    mmPerM: procentNaarMmPerM(procent),
+  };
 }
 
 function rijVanGraden(key: string, contextKey: string, graden: number): OverzichtRij {
-  return { key, contextKey, graden, procent: gradenNaarProcent(graden), verhoudingN: gradenNaarVerhouding(graden) };
+  return {
+    key,
+    contextKey,
+    graden,
+    procent: gradenNaarProcent(graden),
+    verhoudingN: gradenNaarVerhouding(graden),
+    mmPerM: gradenNaarMmPerM(graden),
+  };
 }
 
 const OVERZICHT_RIJEN: ReadonlyArray<OverzichtRij> = [
@@ -70,7 +91,13 @@ function formatVerhouding(n: number): string {
   return formatDecimals(n, n < 10 ? 2 : 1);
 }
 
-type Bron = "graden" | "procent" | "verhouding";
+/** Formatteer een afschot in mm/m — boven 100 mm/m (steile dakhellingen) zonder decimalen. */
+function formatMmPerM(mmPerM: number): string {
+  if (!Number.isFinite(mmPerM)) return "∞";
+  return formatDecimals(mmPerM, mmPerM >= 100 ? 0 : 1);
+}
+
+type Bron = "graden" | "procent" | "verhouding" | "mmPerM";
 
 export function HoekenCalculator() {
   const { t } = useTranslation();
@@ -83,14 +110,22 @@ export function HoekenCalculator() {
   const [verhoudingInput, setVerhoudingInput] = useState(
     formatVerhouding(gradenNaarVerhouding(30)),
   );
+  const [mmPerMInput, setMmPerMInput] = useState(formatMmPerM(gradenNaarMmPerM(30)));
   const [gradenGetekend, setGradenGetekend] = useState(30);
   const [foutmelding, setFoutmelding] = useState<string | null>(null);
 
-  /** Vul alle drie de velden vanuit een consistente hoek in graden (klik op tabelrij, of geldige invoer). */
-  function zetAlleVeldenVanuit(bron: Bron, graden: number, procent: number, verhoudingN: number) {
+  /** Vul alle vier de velden vanuit een consistente hoek in graden (klik op tabelrij, of geldige invoer). */
+  function zetAlleVeldenVanuit(
+    bron: Bron,
+    graden: number,
+    procent: number,
+    verhoudingN: number,
+    mmPerM: number,
+  ) {
     if (bron !== "graden") setGradenInput(formatDecimals(graden, 4));
     if (bron !== "procent") setProcentInput(formatDecimals(procent, 3));
     if (bron !== "verhouding") setVerhoudingInput(formatVerhouding(verhoudingN));
+    if (bron !== "mmPerM") setMmPerMInput(formatMmPerM(mmPerM));
     setGradenGetekend(graden);
     setFoutmelding(null);
   }
@@ -102,7 +137,8 @@ export function HoekenCalculator() {
     try {
       const procent = gradenNaarProcent(n);
       const verhoudingN = procentNaarVerhouding(procent);
-      zetAlleVeldenVanuit("graden", n, procent, verhoudingN);
+      const mmPerM = procentNaarMmPerM(procent);
+      zetAlleVeldenVanuit("graden", n, procent, verhoudingN, mmPerM);
     } catch {
       setFoutmelding(t("hoeken.errorRange"));
     }
@@ -115,7 +151,8 @@ export function HoekenCalculator() {
     try {
       const graden = procentNaarGraden(n);
       const verhoudingN = procentNaarVerhouding(n);
-      zetAlleVeldenVanuit("procent", graden, n, verhoudingN);
+      const mmPerM = procentNaarMmPerM(n);
+      zetAlleVeldenVanuit("procent", graden, n, verhoudingN, mmPerM);
     } catch {
       setFoutmelding(t("hoeken.errorRange"));
     }
@@ -128,7 +165,22 @@ export function HoekenCalculator() {
     try {
       const procent = verhoudingNaarProcent(n);
       const graden = procentNaarGraden(procent);
-      zetAlleVeldenVanuit("verhouding", graden, procent, n);
+      const mmPerM = procentNaarMmPerM(procent);
+      zetAlleVeldenVanuit("verhouding", graden, procent, n, mmPerM);
+    } catch {
+      setFoutmelding(t("hoeken.errorRange"));
+    }
+  }
+
+  function handleMmPerMChange(raw: string) {
+    setMmPerMInput(raw);
+    const n = parseFloat(raw.replace(",", "."));
+    if (!Number.isFinite(n)) return;
+    try {
+      const procent = mmPerMNaarProcent(n);
+      const graden = mmPerMNaarGraden(n);
+      const verhoudingN = mmPerMNaarVerhouding(n);
+      zetAlleVeldenVanuit("mmPerM", graden, procent, verhoudingN, n);
     } catch {
       setFoutmelding(t("hoeken.errorRange"));
     }
@@ -138,6 +190,7 @@ export function HoekenCalculator() {
     setGradenInput(formatDecimals(rij.graden, 4));
     setProcentInput(formatDecimals(rij.procent, 3));
     setVerhoudingInput(formatVerhouding(rij.verhoudingN));
+    setMmPerMInput(formatMmPerM(rij.mmPerM));
     setGradenGetekend(rij.graden);
     setFoutmelding(null);
   }
@@ -191,6 +244,19 @@ export function HoekenCalculator() {
                 </div>
               </label>
 
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-on-surface">
+                  {t("hoeken.mmPerM")} <span className="font-normal text-on-surface-muted">[mm/m]</span>
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={mmPerMInput}
+                  onChange={(e) => handleMmPerMChange(e.target.value)}
+                  className={inputClass}
+                />
+              </label>
+
               {foutmelding && <p className="text-xs oa-warning-text">⚠ {foutmelding}</p>}
             </div>
 
@@ -209,6 +275,7 @@ export function HoekenCalculator() {
                   <th className="w-24 pb-2">{t("hoeken.colGraden")}</th>
                   <th className="w-24 pb-2 text-right">{t("hoeken.colProcent")}</th>
                   <th className="w-24 pb-2 pl-6 text-right">{t("hoeken.colVerhouding")}</th>
+                  <th className="w-24 pb-2 pl-6 text-right">{t("hoeken.colMmPerM")}</th>
                   <th className="pb-2 pl-6">{t("hoeken.colContext")}</th>
                 </tr>
               </thead>
@@ -228,6 +295,9 @@ export function HoekenCalculator() {
                     </td>
                     <td className="w-24 py-1.5 pl-6 text-right tabular-nums text-on-surface-secondary">
                       1:{formatVerhouding(rij.verhoudingN)}
+                    </td>
+                    <td className="w-24 py-1.5 pl-6 text-right tabular-nums text-on-surface-secondary">
+                      {formatMmPerM(rij.mmPerM)}
                     </td>
                     <td className="py-1.5 pl-6 text-xs text-on-surface-muted">
                       {t(`hoeken.context.${rij.contextKey}`)}

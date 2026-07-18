@@ -11,10 +11,16 @@
  * 1:20) en dakhelling-notatie. Daarmee geldt `procent = 100 / n` en
  * `n = 100 / procent`.
  *
+ * **Vierde eenheid — afschot in mm/m:** gangbare notatie voor platte-dak-
+ * afschot (zie ook `hwaCalculation.ts` / de HWA-tool). `mm/m` is een pure
+ * schaling van het percentage (1% = 10 mm/m, want 1 m = 1000 mm en 1% van
+ * 1000 mm = 10 mm) — geen aparte tan-relatie nodig.
+ *
  * **Rekenblad-ankers (ter documentatie/verificatie in de tests):**
  * - 1:12 = 8,333% ≈ 4,7636°
  * - 8% ≈ 4,5739°
  * - 45° = 100% = 1:1
+ * - 16 mm/m = 1,6% ≈ 0,9167°
  *
  * **Randgevallen:**
  * - 0% / 0° → vlak, verhouding 1:∞ (`Infinity`, geen fout).
@@ -95,28 +101,77 @@ export function verhoudingNaarGraden(n: number): number {
   return procentNaarGraden(verhoudingNaarProcent(n));
 }
 
-/** Eén rij van drie onderling consistente waarden (graden, procent, verhouding). */
+/**
+ * Hellingspercentage → afschot in mm/m (`procent × 10`).
+ *
+ * Pure schaling (1% = 10 mm/m) — geen tan-relatie. Gooit bij een negatief
+ * percentage.
+ */
+export function procentNaarMmPerM(procent: number): number {
+  assertFiniteNietNegatief(procent, "percentage");
+  return procent * 10;
+}
+
+/**
+ * Afschot in mm/m → hellingspercentage (`mmPerM / 10`).
+ *
+ * Gooit bij een negatief afschot.
+ */
+export function mmPerMNaarProcent(mmPerM: number): number {
+  assertFiniteNietNegatief(mmPerM, "afschot");
+  return mmPerM / 10;
+}
+
+/** Hoek in graden → afschot in mm/m (samengestelde afgeleide). */
+export function gradenNaarMmPerM(graden: number): number {
+  return procentNaarMmPerM(gradenNaarProcent(graden));
+}
+
+/** Afschot in mm/m → hoek in graden (samengestelde afgeleide). */
+export function mmPerMNaarGraden(mmPerM: number): number {
+  return procentNaarGraden(mmPerMNaarProcent(mmPerM));
+}
+
+/** Verhouding `1:n` → afschot in mm/m (samengestelde afgeleide). */
+export function verhoudingNaarMmPerM(n: number): number {
+  return procentNaarMmPerM(verhoudingNaarProcent(n));
+}
+
+/** Afschot in mm/m → verhouding `1:n` (samengestelde afgeleide). */
+export function mmPerMNaarVerhouding(mmPerM: number): number {
+  return procentNaarVerhouding(mmPerMNaarProcent(mmPerM));
+}
+
+/** Eén rij van vier onderling consistente waarden (graden, procent, verhouding, afschot mm/m). */
 export interface HoekWaarden {
   graden: number;
   procent: number;
   /** `n` in de verhouding `1:n`. */
   verhoudingN: number;
+  /** Afschot-notatie (platte daken), pure schaling van `procent × 10`. */
+  mmPerM: number;
 }
 
 /** Bouw een consistente {@link HoekWaarden}-set op vanuit een hoek in graden. */
 export function hoekWaardenVanGraden(graden: number): HoekWaarden {
   const procent = gradenNaarProcent(graden);
-  return { graden, procent, verhoudingN: procentNaarVerhouding(procent) };
+  return { graden, procent, verhoudingN: procentNaarVerhouding(procent), mmPerM: procentNaarMmPerM(procent) };
 }
 
 /** Bouw een consistente {@link HoekWaarden}-set op vanuit een hellingspercentage. */
 export function hoekWaardenVanProcent(procent: number): HoekWaarden {
   const graden = procentNaarGraden(procent);
-  return { graden, procent, verhoudingN: procentNaarVerhouding(procent) };
+  return { graden, procent, verhoudingN: procentNaarVerhouding(procent), mmPerM: procentNaarMmPerM(procent) };
 }
 
 /** Bouw een consistente {@link HoekWaarden}-set op vanuit een verhouding `1:n`. */
 export function hoekWaardenVanVerhouding(n: number): HoekWaarden {
   const procent = verhoudingNaarProcent(n);
-  return { graden: procentNaarGraden(procent), procent, verhoudingN: n };
+  return { graden: procentNaarGraden(procent), procent, verhoudingN: n, mmPerM: procentNaarMmPerM(procent) };
+}
+
+/** Bouw een consistente {@link HoekWaarden}-set op vanuit een afschot in mm/m. */
+export function hoekWaardenVanMmPerM(mmPerM: number): HoekWaarden {
+  const procent = mmPerMNaarProcent(mmPerM);
+  return { graden: procentNaarGraden(procent), procent, verhoudingN: procentNaarVerhouding(procent), mmPerM };
 }
