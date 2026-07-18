@@ -36,6 +36,7 @@ import {
   THICKNESS_SWELLING_NOTE_OSB_O2,
   calculateMoistureSwelling,
   calculateThermalExpansion,
+  shouldShowWoodGrainNote,
 } from "../lib/uitzettingCalculation";
 
 const inputClass =
@@ -94,6 +95,9 @@ export function UitzettingCalculator() {
 
   const parsedAlpha = alphaInput.trim() === "" ? null : parseFloat(alphaInput.replace(",", "."));
   const alphaValid = parsedAlpha === null || Number.isFinite(parsedAlpha);
+  // Alleen gekoppeld aan het geselecteerde materiaal (niet aan een
+  // handmatig ingetypte α) — de nuance gaat over de bibliotheekwaarde zelf.
+  const showWoodGrainNote = shouldShowWoodGrainNote(selectedMaterial?.category ?? null);
 
   const parsedLength = parseFloat(lengthInput.replace(",", ".")) || 0;
   const parsedRefTemp = parseFloat(refTempInput.replace(",", ".")) || 0;
@@ -170,6 +174,9 @@ export function UitzettingCalculator() {
                 placeholder={t("uitzetting.alphaUnknown")}
                 className={inputClass}
               />
+              {showWoodGrainNote && (
+                <p className="text-xs oa-warning-text">{t("uitzetting.woodGrainNote")}</p>
+              )}
             </label>
 
             <label className="flex flex-col gap-1 text-sm">

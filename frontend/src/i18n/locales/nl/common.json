@@ -741,6 +741,7 @@
     "krimpPerM": "Krimp per m¹",
     "vergrotingPerM": "Vergroting per m¹",
     "thermalDisclaimer": "Δl = α·ΔT·l₀ — pure materiaalkundige berekening, geen normclaim. Boven ≈{{threshold}} mm op de ingevoerde lengte: dilatatie/schuifbevestiging overwegen (informatief).",
+    "woodGrainNote": "α geldt in lengterichting (vezelrichting); dwars op de vezel is de uitzetting 5-10× groter en is vochtwerking meestal maatgevend — gebruik daarvoor sectie B.",
     "moistureTitle": "B. Vochtzwelling plaatmateriaal (EN 318)",
     "swelling": "Lineaire zwelling",
     "swellingPreset": "Default: OSB klasse O2 (EN 318), handmatig overschrijfbaar",

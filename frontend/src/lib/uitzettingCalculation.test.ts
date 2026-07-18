@@ -13,6 +13,7 @@ import {
   DEFAULT_SWELLING_MM_PER_M_PER_PERCENT,
   calculateMoistureSwelling,
   calculateThermalExpansion,
+  shouldShowWoodGrainNote,
 } from "./uitzettingCalculation";
 
 describe("thermische uitzetting — rekenblad-ankers", () => {
@@ -229,5 +230,14 @@ describe("materialenbibliotheek — alpha-veld", () => {
     expect(staal).toBeDefined();
     const found = getMaterialById(staal!.id);
     expect(found?.alpha).toBe(12);
+  });
+});
+
+describe("shouldShowWoodGrainNote", () => {
+  it("hout en plaatmateriaal -> true, staal (metaal) -> false, geen categorie -> false", () => {
+    expect(shouldShowWoodGrainNote("hout")).toBe(true);
+    expect(shouldShowWoodGrainNote("plaatmateriaal")).toBe(true);
+    expect(shouldShowWoodGrainNote("metaal")).toBe(false);
+    expect(shouldShowWoodGrainNote(null)).toBe(false);
   });
 });

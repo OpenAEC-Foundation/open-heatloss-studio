@@ -741,6 +741,7 @@
     "krimpPerM": "Shrinkage per m",
     "vergrotingPerM": "Expansion per m",
     "thermalDisclaimer": "Δl = α·ΔT·l₀ — purely a materials-science calculation, no code claim. Above ≈{{threshold}} mm on the entered length: consider an expansion/sliding fixation (informational).",
+    "woodGrainNote": "α applies along the grain (longitudinal); across the grain the expansion is 5-10× larger and moisture movement is usually governing — use section B for that.",
     "moistureTitle": "B. Moisture swelling of sheet material (EN 318)",
     "swelling": "Linear swelling",
     "swellingPreset": "Default: OSB grade O2 (EN 318), manually overridable",

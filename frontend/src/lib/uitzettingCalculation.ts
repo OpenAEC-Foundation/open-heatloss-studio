@@ -20,6 +20,7 @@
  * Referentie-anker: 0,8 m, 50→65% RV → 0,654 mm toename; 50→35% → 0,654 mm
  * krimp (symmetrische ΔRV van 15 procentpunt in dit voorbeeld).
  */
+import type { MaterialCategory } from "./materialsDatabase";
 import type {
   MoistureSwellingInput,
   MoistureSwellingResult,
@@ -104,6 +105,31 @@ export const THICKNESS_SWELLING_NOTE_OSB_O2 =
 // ---------------------------------------------------------------------------
 // A. Thermische uitzetting
 // ---------------------------------------------------------------------------
+
+/**
+ * Categorieën waarvoor de α-waarde in sectie A een richtingsnuance verdient:
+ * hout en houtachtig plaatmateriaal (OSB/MDF/spaanplaat/CLT/etc., zie
+ * `materialsDatabase.ts`) hebben een sterk richtingsafhankelijke lineaire
+ * uitzetting — de bibliotheekwaarde is de lengterichting (vezelrichting).
+ * Dwars op de vezel is die uitzetting 5-10× groter, én wordt in de praktijk
+ * gedomineerd door vochtwerking (sectie B) in plaats van door de zuiver
+ * thermische `Δl = α·ΔT·l₀` van deze sectie.
+ */
+const WOOD_GRAIN_NOTE_CATEGORIES: ReadonlySet<MaterialCategory> = new Set([
+  "hout",
+  "plaatmateriaal",
+]);
+
+/**
+ * `true` wanneer voor deze materiaalcategorie de "α geldt in lengterichting"
+ * info-noot getoond moet worden onder het α-veld in sectie A — zie
+ * `pages/UitzettingCalculator.tsx`. `null` (geen materiaal geselecteerd,
+ * handmatige α-invoer) → `false`, geen categorie bekend om op te toetsen.
+ */
+export function shouldShowWoodGrainNote(category: MaterialCategory | null): boolean {
+  if (category === null) return false;
+  return WOOD_GRAIN_NOTE_CATEGORIES.has(category);
+}
 
 /**
  * Bereken de thermische lengte-uitzetting (krimp + vergroting) voor één
