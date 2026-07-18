@@ -98,6 +98,7 @@
     "doorGap": "Door gap calculator",
     "hwa": "Rainwater drainage",
     "hellingbaan": "Ramp (parking garage)",
+    "hoeken": "Angles (degrees/%/ratio)",
     "tojuli": {
       "comingSoon": "Coming soon",
       "quick": "Quick check (dwellings)",
@@ -695,5 +696,29 @@
     "sourceGarageTypes": "Garage type limits",
     "sourceLenMinMax": "Mid-zone length limits",
     "sourceDiscrepancyNote": "Known discrepancy: this calculation model follows the pyRevit values 2770/1385 mm for the transition lengths; the owner's spreadsheet uses 2720/1360 mm — for identical input the total length can differ by a few centimetres (see the test file for the reference case)."
+  },
+  "hoeken": {
+    "title": "Angle converter",
+    "subtitle": "Degrees ↔ slope percentage ↔ ratio (1:n)",
+    "converterTitle": "Convert",
+    "graden": "Angle",
+    "procent": "Slope percentage",
+    "verhouding": "Ratio",
+    "errorRange": "Invalid input: the angle must be between 0° and 90° (negative or ≥90° is not possible).",
+    "diagramTitle": "Angle diagram",
+    "overzichtTitle": "Overview — common construction values",
+    "colGraden": "Degrees",
+    "colProcent": "Percentage",
+    "colVerhouding": "Ratio",
+    "colContext": "Context",
+    "rowClickHint": "Click to load this value into the converter",
+    "disclaimer": "Purely mathematical conversion (tan relation) — no code claim. The context column is informational; consult the Ramp tool resp. rainwater drainage tool for code values.",
+    "context": {
+      "toegankelijkheid": "Ramp accessibility — rule of thumb",
+      "drempel": "Threshold/ramp rule of thumb",
+      "garage": "NEN 2443 garage slope — see Ramp tool",
+      "platdak": "Design fall flat roof — see rainwater drainage tool",
+      "dak": "Roof pitch"
+    }
   }
 }

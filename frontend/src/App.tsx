@@ -18,6 +18,7 @@ import { VentilationBalance } from "./pages/VentilationBalance";
 import { DoorGapCalculator } from "./pages/DoorGapCalculator";
 import { HwaCalculator } from "./pages/HwaCalculator";
 import { HellingbaanCalculator } from "./pages/HellingbaanCalculator";
+import { HoekenCalculator } from "./pages/HoekenCalculator";
 import { Modeller } from "./pages/Modeller";
 import { ProjectConstructions } from "./pages/ProjectConstructions";
 import { Rapport } from "./pages/Rapport";
@@ -56,6 +57,7 @@ export function App() {
             <Route path="/tools/deurspleet" element={<DoorGapCalculator />} />
             <Route path="/tools/hwa" element={<HwaCalculator />} />
             <Route path="/tools/hellingbaan" element={<HellingbaanCalculator />} />
+            <Route path="/tools/hoeken" element={<HoekenCalculator />} />
             <Route path="/library" element={<Library />} />
             <Route path="/materialen" element={<Library initialSection="materialen" />} />
             <Route path="/warmteverlies/instellingen" element={<WarmteverliesInstellingen />} />

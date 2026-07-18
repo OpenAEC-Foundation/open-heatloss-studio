@@ -98,6 +98,7 @@
     "doorGap": "Deurspleet-calculator",
     "hwa": "HWA / hemelwaterafvoer",
     "hellingbaan": "Hellingbaan (parkeergarage)",
+    "hoeken": "Hoeken (graden/%/verhouding)",
     "tojuli": {
       "comingSoon": "Binnenkort",
       "quick": "Snelle check (woningen)",
@@ -695,5 +696,29 @@
     "sourceGarageTypes": "Garagetype-grenzen",
     "sourceLenMinMax": "Lengte-grenzen midden-zone",
     "sourceDiscrepancyNote": "Bekende afwijking: dit rekenmodel volgt de pyRevit-waarden 2770/1385 mm voor de overgangslengtes; het rekenblad van de eigenaar gebruikt 2720/1360 mm — bij gelijke invoer kan de totale lengte enkele centimeters verschillen (zie test-bestand voor de referentiecase)."
+  },
+  "hoeken": {
+    "title": "Hoeken-omrekentool",
+    "subtitle": "Graden ↔ hellingspercentage ↔ verhouding (1:n)",
+    "converterTitle": "Omrekenen",
+    "graden": "Hoek",
+    "procent": "Hellingspercentage",
+    "verhouding": "Verhouding",
+    "errorRange": "Ongeldige invoer: de hoek moet tussen 0° en 90° liggen (negatief of ≥90° kan niet).",
+    "diagramTitle": "Hoek-diagram",
+    "overzichtTitle": "Overzicht — gangbare bouwkundige waarden",
+    "colGraden": "Graden",
+    "colProcent": "Percentage",
+    "colVerhouding": "Verhouding",
+    "colContext": "Context",
+    "rowClickHint": "Klik om deze waarde in de converter te zetten",
+    "disclaimer": "Zuiver wiskundige omrekening (tan-relatie) — geen normclaim. De contextkolom is informatief; raadpleeg voor normwaarden de Hellingbaan-tool resp. HWA-tool.",
+    "context": {
+      "toegankelijkheid": "Hellingbaan toegankelijkheid — vuistregel",
+      "drempel": "Drempel/hellingbaan-vuistregel",
+      "garage": "NEN 2443 garagehelling — zie Hellingbaan-tool",
+      "platdak": "Ontwerpafschot plat dak — zie HWA-tool",
+      "dak": "Dakhelling"
+    }
   }
 }
