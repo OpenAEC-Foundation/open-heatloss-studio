@@ -72,6 +72,7 @@
     "constructions": "Constructies",
     "modeller": "Modeller",
     "ifc": "IFC",
+    "ifcReconstruction": "IFC-reconstructie (bèta)",
     "results": "Resultaten",
     "library": "Bibliotheek",
     "rcValue": "Rc-waarde",
@@ -753,5 +754,65 @@
     "sourceTemps": "Referentie-/min-/maxtemperatuur",
     "sourceRv": "RV-defaults (installatie/max/min)",
     "sourceSwelling": "Lineaire zwellingscoëfficiënt"
+  },
+  "ifcReconstruction": {
+    "title": "IFC-reconstructie",
+    "betaSubtitle": "Bèta — experimentele space-boundary/raycast-reconstructie",
+    "betaBadge": "Bèta",
+    "betaNote": "Deze pagina draait een experimentele reconstructie-pipeline naast de bestaande warmteverlies-flows. Niets hier wordt naar het project opgeslagen.",
+    "inputTitle": "IFC-bestand",
+    "ifcFile": "IFC-bestand (.ifc)",
+    "maaiveldOverride": "Maaiveld-override (mm)",
+    "start": "Start reconstructie",
+    "running": "Bezig…",
+    "view3dTitle": "3D-weergave",
+    "listTitle": "Oppervlaktenlijst",
+    "qcOnlyFilter": "Alleen QC-vlaggen",
+    "copyClipboard": "Kopieer naar klembord",
+    "exportCsv": "Exporteer CSV",
+    "no3dData": "Nog geen reconstructie-resultaat.",
+    "storeyFilter": "Verdiepingen",
+    "toast": {
+      "done": "Reconstructie klaar",
+      "failed": "Reconstructie mislukt",
+      "copied": "Lijst gekopieerd naar klembord",
+      "copyFailed": "Kopiëren naar klembord mislukt",
+      "compareFailed": "Vergelijking mislukt — controleer het JSON-bestand"
+    },
+    "legend": {
+      "title": "Legenda",
+      "exterieur": "Exterieur",
+      "grond": "Grond",
+      "buurruimte": "Buurruimte",
+      "onbepaald": "Onbepaald",
+      "raam": "Raam",
+      "deur": "Deur",
+      "qc": "QC-vlag"
+    },
+    "table": {
+      "orientation": "Oriëntatie",
+      "classification": "Classificatie",
+      "category": "Categorie",
+      "gross": "Bruto m²",
+      "net": "Netto m²",
+      "host": "Host-element",
+      "source": "Bron",
+      "qc": "QC",
+      "floorArea": "vloeropp.",
+      "categoryBreakdown": "Totalen per hostcategorie (opaak/raam/deur)",
+      "classificationBreakdown": "Totalen per classificatie"
+    },
+    "compare": {
+      "title": "Vergelijking met de bestaande methode",
+      "description": "Upload een pyrevit-warmteverlies-project-JSON van hetzelfde gebouw om de reconstructie tegen de bestaande import-route te leggen. Matching op ruimtenaam of leidend ruimtenummer; vergelijking per (oriëntatie × grenscondition), afwijking >10% gemarkeerd.",
+      "pyrevitFile": "Warmteverlies-project-JSON (.json)",
+      "run": "Vergelijk",
+      "recon": "Reconstructie m²",
+      "pyrevit": "Bestaande methode m²",
+      "noCells": "Geen vergelijkbare vlakken voor deze ruimte.",
+      "excluded": "uitgesloten (onbepaald)",
+      "unmatchedRecon": "Reconstructie-ruimtes zonder match",
+      "unmatchedPyrevit": "Ruimtes uit de bestaande methode zonder match"
+    }
   }
 }

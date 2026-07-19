@@ -72,6 +72,7 @@
     "constructions": "Constructions",
     "modeller": "Modeller",
     "ifc": "IFC",
+    "ifcReconstruction": "IFC reconstruction (beta)",
     "results": "Results",
     "library": "Library",
     "rcValue": "R-value",
@@ -753,5 +754,65 @@
     "sourceTemps": "Reference/min/max temperature",
     "sourceRv": "RH defaults (installation/max/min)",
     "sourceSwelling": "Linear swelling coefficient"
+  },
+  "ifcReconstruction": {
+    "title": "IFC reconstruction",
+    "betaSubtitle": "Beta — experimental space-boundary/raycast reconstruction",
+    "betaBadge": "Beta",
+    "betaNote": "This page runs an experimental reconstruction pipeline alongside the existing heat-loss flows. Nothing here is saved to the project.",
+    "inputTitle": "IFC file",
+    "ifcFile": "IFC file (.ifc)",
+    "maaiveldOverride": "Ground-level override (mm)",
+    "start": "Start reconstruction",
+    "running": "Running…",
+    "view3dTitle": "3D view",
+    "listTitle": "Surface list",
+    "qcOnlyFilter": "QC flags only",
+    "copyClipboard": "Copy to clipboard",
+    "exportCsv": "Export CSV",
+    "no3dData": "No reconstruction result yet.",
+    "storeyFilter": "Storeys",
+    "toast": {
+      "done": "Reconstruction done",
+      "failed": "Reconstruction failed",
+      "copied": "List copied to clipboard",
+      "copyFailed": "Copy to clipboard failed",
+      "compareFailed": "Comparison failed — check the JSON file"
+    },
+    "legend": {
+      "title": "Legend",
+      "exterieur": "Exterior",
+      "grond": "Ground",
+      "buurruimte": "Adjacent room",
+      "onbepaald": "Undetermined",
+      "raam": "Window",
+      "deur": "Door",
+      "qc": "QC flag"
+    },
+    "table": {
+      "orientation": "Orientation",
+      "classification": "Classification",
+      "category": "Category",
+      "gross": "Gross m²",
+      "net": "Net m²",
+      "host": "Host element",
+      "source": "Source",
+      "qc": "QC",
+      "floorArea": "floor area",
+      "categoryBreakdown": "Totals per host category (opaque/window/door)",
+      "classificationBreakdown": "Totals per classification"
+    },
+    "compare": {
+      "title": "Comparison with the existing method",
+      "description": "Upload a pyrevit heat-loss project JSON of the same building to compare the reconstruction against the existing import route. Matched by room name or leading room number; compared per (orientation × boundary condition), deviations over 10% flagged.",
+      "pyrevitFile": "Heat-loss project JSON (.json)",
+      "run": "Compare",
+      "recon": "Reconstruction m²",
+      "pyrevit": "Existing method m²",
+      "noCells": "No comparable surfaces for this room.",
+      "excluded": "excluded (undetermined)",
+      "unmatchedRecon": "Reconstruction rooms without a match",
+      "unmatchedPyrevit": "Rooms from the existing method without a match"
+    }
   }
 }
