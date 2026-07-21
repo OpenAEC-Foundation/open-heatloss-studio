@@ -10,7 +10,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: jochem25/open-bouwlab
+  IMAGE_NAME: openaec-foundation/warmteverliesberekening
 
 jobs:
   build-and-push:
