@@ -1,19 +1,14 @@
 name: Auto-assign issues to product owner
+
 on:
   issues:
     types: [opened]
+
+permissions:
+  issues: write
+
 jobs:
   assign:
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    steps:
-      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
-        with:
-          script: |
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              assignees: ['jochem25']
-            });
+    uses: OpenAEC-Foundation/conventions/.github/workflows/auto-assign-issues.yml@main
+    with:
+      assignees: '["jochem25"]'
